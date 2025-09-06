@@ -43,6 +43,12 @@ entity mega65r5_board_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    -- I2C bus logger
+    scl_log : out unsigned(7 downto 0) := x"00";
+    sda_log : out unsigned(7 downto 0) := x"00";
+    log_strobe : out std_logic := '0';
+    log_reset_strobe : out std_logic := '0';
+    
     dipsw_read : out std_logic_vector(7 downto 0);
     board_major : out unsigned(3 downto 0);
     board_minor : out unsigned(3 downto 0)    
@@ -111,7 +117,11 @@ begin
       scl => scl,
       swap => i2c1_swap,
       debug_sda => i2c1_debug_sda,
-      debug_scl => i2c1_debug_scl
+      debug_scl => i2c1_debug_scl,
+
+      scl_log => scl_log,
+      sda_log => sda_log,
+      log_strobe => log_strobe
       );
 
   process (clock) is
@@ -129,6 +139,8 @@ begin
       if (wait_for_not_busy='1' and i2c1_busy='0') or (i2c1_latch_toggle /= last_latch) then
         last_latch <= i2c1_latch_toggle;
         wait_for_not_busy <= '0';
+
+        log_reset_strobe <= wait_for_not_busy;
         
         -- Takes effect after, unless overrriden by others case.
         latch_count <= latch_count + 1;
