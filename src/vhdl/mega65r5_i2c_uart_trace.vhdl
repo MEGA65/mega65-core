@@ -218,99 +218,92 @@ begin
   -----------------------------------------------------------------------------
   -- TX_P  (sole writer of st/tx_idx/tx_char/tx_send/tx_data/tx_done_toggle)
   -----------------------------------------------------------------------------
-  TX_P : process(clk)
-    variable have_work : boolean;
-    variable log_chars : integer;  -- 2 * send_len
-  begin
-    if rising_edge(clk) then
-      if reset_n = '0' then
-        st             <= TX_IDLE;
-        tx_send        <= '0';
-        tx_data        <= (others => '0');
-        tx_char        <= x"00";
-        tx_idx         <= 0;
-        new_log_prev   <= new_log_toggle;
-        tx_done_toggle <= '0';
-      else
-        tx_send   <= '0';  -- default
-        have_work := (new_log_toggle /= new_log_prev);
+-- TX_P  (sole writer of st/tx_idx/tx_char/tx_send/tx_data/tx_done_toggle)
+TX_P : process(clk)
+  variable have_work : boolean;
+  variable log_chars : integer;  -- 2 * send_len
+  variable nst       : tx_state_t;
+  variable ch        : unsigned(7 downto 0);
+begin
+  if rising_edge(clk) then
+    if reset_n = '0' then
+      st             <= TX_IDLE;
+      tx_send        <= '0';
+      tx_data        <= (others => '0');
+      tx_char        <= x"00";
+      tx_idx         <= 0;
+      new_log_prev   <= new_log_toggle;
+      tx_done_toggle <= '0';
+    else
+      -- defaults
+      tx_send   <= '0';
+      have_work := (new_log_toggle /= new_log_prev);
+      log_chars := 2 * send_len;
+      nst       := st;
+      ch        := tx_char;  -- keep previous char unless we load a new one
 
-        case st is
-          when TX_IDLE =>
-            if have_work then
-              new_log_prev <= new_log_toggle;   -- consume event
-              tx_idx       <= 0;
-              st           <= TX_LOAD;
+      case st is
+        when TX_IDLE =>
+          if have_work then
+            new_log_prev <= new_log_toggle;  -- consume event
+            tx_idx       <= 0;
+            nst          := TX_LOAD;
+          end if;
+
+        when TX_LOAD =>
+          -- choose next char, and (only if we really loaded) go to WAIT_RDY
+          if      tx_idx = 0 then ch := hex_nib(snap0(7 downto 4));           nst := TX_WAIT_RDY;
+          elsif   tx_idx = 1 then ch := hex_nib(snap0(3 downto 0));           nst := TX_WAIT_RDY;
+          elsif   tx_idx = 2 then ch := x"20";                                 nst := TX_WAIT_RDY;
+          elsif   tx_idx = 3 then ch := hex_nib(snap1(7 downto 4));            nst := TX_WAIT_RDY;
+          elsif   tx_idx = 4 then ch := hex_nib(snap1(3 downto 0));            nst := TX_WAIT_RDY;
+          elsif   tx_idx = 5 then ch := x"20";                                 nst := TX_WAIT_RDY;
+          elsif  (tx_idx >= 6) and (tx_idx < 6 + log_chars) then
+            if ((tx_idx - 6) mod 2) = 0 then ch := cap_scl( (tx_idx - 6)/2 );
+            else                              ch := cap_sda( (tx_idx - 6)/2 );
             end if;
+            nst := TX_WAIT_RDY;
+          elsif   tx_idx = 6 + log_chars then ch := x"0D";                     nst := TX_WAIT_RDY; -- CR
+          elsif   tx_idx = 7 + log_chars then ch := x"0A";                     nst := TX_WAIT_RDY; -- LF
+          else
+            -- finished: tell capture block and truly go idle (no fallthrough)
+            tx_done_toggle <= not tx_done_toggle;
+            tx_char        <= x"00";   -- clear last char so nothing stale can be re-sent
+            nst            := TX_IDLE;
+          end if;
 
-          when TX_LOAD =>
-            -- Sequence:
-            -- 0: snap0 hi, 1: snap0 lo, 2: ' ',
-            -- 3: snap1 hi, 4: snap1 lo, 5: ' ',
-            -- 6.. : interleaved SCL,SDA pairs for send_len entries
-            -- last two: CR, LF
-            log_chars := 2 * send_len;
+        when TX_WAIT_RDY =>
+          if tx_ready = '1' then
+            tx_data <= ch;
+            tx_send <= '1';              -- 1-cycle pulse
+            nst     := TX_WAIT_BUSY;
+          end if;
 
-            if tx_idx = 0 then
-              tx_char <= hex_nib(snap0(7 downto 4));
-            elsif tx_idx = 1 then
-              tx_char <= hex_nib(snap0(3 downto 0));
-            elsif tx_idx = 2 then
-              tx_char <= x"20";
-            elsif tx_idx = 3 then
-              tx_char <= hex_nib(snap1(7 downto 4));
-            elsif tx_idx = 4 then
-              tx_char <= hex_nib(snap1(3 downto 0));
-            elsif tx_idx = 5 then
-              tx_char <= x"20";
-            elsif (tx_idx >= 6) and (tx_idx < 6 + log_chars) then
-              -- Interleave: even->SCL, odd->SDA
-              if ((tx_idx - 6) mod 2) = 0 then
-                tx_char <= cap_scl( (tx_idx - 6)/2 );
-              else
-                tx_char <= cap_sda( (tx_idx - 6)/2 );
-              end if;
-            elsif tx_idx = 6 + log_chars then
-              tx_char <= x"0D";   -- CR
-            elsif tx_idx = 7 + log_chars then
-              tx_char <= x"0A";   -- LF
-            else
-              -- all sent; tell capture to arm for next reset strobe
-              tx_done_toggle <= not tx_done_toggle;
-              st <= TX_IDLE;
-            end if;
+        when TX_WAIT_BUSY =>
+          if tx_ready = '0' then
+            nst := TX_WAIT_DONE;
+          end if;
 
-            if st = TX_LOAD then
-              st <= TX_WAIT_RDY;
-            end if;
+        when TX_WAIT_DONE =>
+          if tx_ready = '1' then
+            tx_idx <= tx_idx + 1;
+            nst    := TX_LOAD;
+          end if;
 
-          -- 4-phase UART handshake for each byte
-          when TX_WAIT_RDY =>
-            if tx_ready = '1' then
-              st <= TX_PULSE;
-            end if;
+        when others =>
+          nst := TX_IDLE;
+      end case;
 
-          when TX_PULSE =>
-            tx_data <= tx_char;
-            tx_send <= '1';
-            st <= TX_WAIT_BUSY;
-
-          when TX_WAIT_BUSY =>
-            if tx_ready = '0' then
-              st <= TX_WAIT_DONE;
-            end if;
-
-          when TX_WAIT_DONE =>
-            if tx_ready = '1' then
-              tx_idx <= tx_idx + 1;
-              st <= TX_LOAD;
-            end if;
-
-          when others =>
-            st <= TX_IDLE;
-        end case;
-      end if;
+      -- commit updates
+      tx_char <= ch;
+      st      <= nst;
     end if;
-  end process;
+  end if;
+end process;
+
+
+
+
+
 
 end architecture;
