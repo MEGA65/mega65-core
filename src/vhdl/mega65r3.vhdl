@@ -142,7 +142,10 @@ entity container is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
-
+         -- Used to detect 15KHz monitor cable (eg modified MiSTer SCART cables)
+         vga_sda : inout std_logic := 'Z';
+         vga_scl : inout std_logic := 'Z';
+         
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_clk_p : out STD_LOGIC;
@@ -264,6 +267,12 @@ end container;
 
 architecture Behavioral of container is
 
+  signal scart_mode : std_logic;
+  signal composite_sync : std_logic;
+  signal composite_red : std_logic_vector(7 downto 0);
+  signal composite_green : std_logic_vector(7 downto 0);
+  signal composite_blue : std_logic_vector(7 downto 0);
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -827,6 +836,14 @@ begin
       j21ddr => j21ddr
       );
 
+  sd0: entity work.scart_cable_detect port map (
+    clock_in => cpuclock,
+    scart_cable_detected => scart_mode,
+    reset_n => '1',
+    vga12 => vga_sda,
+    vga15 => vga_scl
+    );
+
   m0:
     if true generate
       machine0: entity work.machine
@@ -1228,13 +1245,23 @@ begin
     end if;
     -- LED on main board 
     led <= portp_drive(4);
-
+   
     if rising_edge(pixelclock) then
-      hsync <= v_vga_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
+      
+      if scart_mode = '0' then
+        hsync <= up_vga_hsync;
+        vsync <= up_vsync;
+        vgared <= up_red;
+        vgagreen <= up_green;
+        vgablue <= up_blue;
+      else
+        hsync <= composite_sync;
+        vsync <= composite_sync;
+        vgared <= unsigned(composite_red);
+        vgagreen <= unsigned(composite_green);
+        vgablue <= unsigned(composite_blue);
+      end if;
+
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
