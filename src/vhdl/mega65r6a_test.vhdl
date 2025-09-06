@@ -840,7 +840,7 @@ begin
   end generate;
 
 
-i2c_report0 : entity work.megar5_i2c_uart_report
+i2c_report0 : entity work.megar5_i2c_uart_trace
   generic map (
     CLK_HZ    => 40_500_000,
     UART_BAUD => 2_000_000
