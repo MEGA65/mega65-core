@@ -179,7 +179,10 @@ entity container is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
-
+         -- Used to detect 15KHz monitor cable (eg modified MiSTer SCART cables)
+         vga_sda : inout std_logic := 'Z';
+         vga_scl : inout std_logic := 'Z';
+         
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_clk_p : out STD_LOGIC;
@@ -1025,6 +1028,14 @@ begin
       cart_a => cart_a
       );
   end generate;
+
+  sd0: entity work.scart_cable_detect port map (
+    clock_in => cpuclock,
+    scart_cable_detected => scart_mode,
+    reset_n => '1',
+    vga12 => vga_sda,
+    vga15 => vga_scl
+    );
   
   m0:
     if true generate
@@ -1053,8 +1064,6 @@ begin
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 
-          scart_mode => scart_mode,
-          
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
