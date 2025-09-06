@@ -1547,8 +1547,9 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board
-    led <= portp_drive(4);
+--    led <= portp_drive(4);
 
+    led <= scart_mode;
     if scart_mode = '0' then
       hsync <= up_vga_hsync;
       vsync <= up_vsync;
@@ -1557,6 +1558,7 @@ begin
       vgablue <= up_blue;
     else
       hsync <= composite_sync;
+      vsync <= composite_sync;
       vgared <= composite_red;
       vgagreen <= composite_green;
       vgablue <= composite_blue;
