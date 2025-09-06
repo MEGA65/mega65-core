@@ -61,7 +61,6 @@ architecture behavioural of mega65r5_board_i2c is
   signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_latch_toggle : std_logic;
   signal i2c1_busy : std_logic := '0';
-  signal i2c1_busy_last : std_logic := '0';
   signal i2c1_rw : std_logic := '0';
   signal i2c1_rw_internal : std_logic := '0';
   signal i2c1_error : std_logic := '0';
@@ -73,9 +72,7 @@ architecture behavioural of mega65r5_board_i2c is
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal latch_count : integer range 0 to 255 := 150;
-  signal last_latch_count : integer range 0 to 255 := 150;
   signal last_latch : std_logic := '1';
-  signal last_busy : std_logic := '0';
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 255) of uint8;
@@ -126,11 +123,14 @@ begin
       -- Activate command
       i2c1_command_en <= command_en;
 
+      last_latch <= not i2c1_latch_toggle;
+      
       -- State machine for reading registers from the various
       -- devices.
-      last_busy <= i2c1_busy;
-      last_latch <= i2c1_latch_toggle;
-      if i2c1_latch_toggle /= last_latch then
+      if (wait_for_not_busy='1' and i2c_busy='0') or (i2c1_latch_toggle /= last_latch) then
+        last_latch <= i2c1_latch_toggle;
+
+        -- Takes effect after, unless overrriden by others case.
         latch_count <= latch_count + 1;
 
         case latch_count is
@@ -191,12 +191,13 @@ begin
           when others =>
             command_en <= '0';
             latch_count <= 0;
-            last_latch <= i2c1_latch_toggle;
             write_job_pending <= '0';
+
+            wait_for_not_busy <= '1';
+            latch_count <= 0;
         end case;
 
       end if;
-      last_latch_count <= latch_count;
 
       
     end if;
