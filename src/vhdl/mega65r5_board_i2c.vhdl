@@ -132,75 +132,73 @@ begin
       last_latch <= i2c1_latch_toggle;
       if i2c1_latch_toggle /= last_latch then
         latch_count <= latch_count + 1;
+
+        case latch_count is
+          -- Enable force PWM mode for DCDC converter #1
+          when 0 =>
+            command_continue <= '0';
+            command_en <= '1';
+            i2c1_address <= "1100001"; -- 0x61 = I2C address of device;
+            i2c1_wdata <= x"01";
+            i2c1_rw <= '0';
+          when 1 =>
+            -- Continue previous transaction
+            command_continue <= '1';
+            command_en <= '1';
+            i2c1_rw <= '0';
+            -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
+            -- to make your ears water from the annoying high frequency sounds
+            i2c1_wdata <= x"A6";
+            i2c1_wdata(0) <= not ear_watering_mode;
+
+          -- Enable force PWM mode for DCDC converter #2
+          when 2 =>
+            command_continue <= '0';
+            command_en <= '1';
+            i2c1_address <= "1100111"; -- 0x67 = I2C address of device;
+            i2c1_wdata <= x"01";
+            i2c1_rw <= '0';
+          when 3 =>
+            command_en <= '1';
+            i2c1_rw <= '0';
+            -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
+            -- to make your ears water from the annoying high frequency sounds
+            i2c1_wdata <= x"A6";
+            i2c1_wdata(0) <= not ear_watering_mode;
+
+          -- Read DIP switches and board revision straps
+          when 4 =>
+            command_en <= '1';
+            i2c1_address <= "0100000"; -- 0x20 = I2C address of device;
+            i2c1_wdata <= x"00";
+            i2c1_rw <= '0';
+          when 5 =>
+            command_en <= '1';
+            i2c1_rw <= '1';
+          when 6 =>
+            command_en <= '1';
+            i2c1_rw <= '1';
+          when 7 =>
+            command_en <= '1';
+            i2c1_rw <= '1';
+            board_minor <= i2c1_rdata(7 downto 4);
+            board_major <= i2c1_rdata(3 downto 0);
+          when 8 =>
+            command_en <= '1';
+            i2c1_rw <= '1';
+            dipsw_int <= std_logic_vector(i2c1_rdata);
+            
+          when others =>
+            command_en <= '0';
+            latch_count <= 0;
+            last_latch <= i2c1_latch_toggle;
+            write_job_pending <= '0';
+        end case;
+
       end if;
       last_latch_count <= latch_count;
 
-      case latch_count is
-        -- Enable force PWM mode for DCDC converter #1
-        when 0 =>
-          command_continue <= '0';
-          command_en <= '1';
-          i2c1_address <= "1100001"; -- 0x61 = I2C address of device;
-          i2c1_wdata <= x"01";
-          i2c1_rw <= '0';
-        when 1 =>
-          -- Continue previous transaction
-          command_continue <= '1';
-          command_en <= '1';
-          i2c1_rw <= '0';
-          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
-          -- to make your ears water from the annoying high frequency sounds
-          i2c1_wdata <= x"A6";
-          i2c1_wdata(0) <= not ear_watering_mode;
-
-        -- Enable force PWM mode for DCDC converter #2
-        when 2 =>
-          command_continue <= '0';
-          command_en <= '1';
-          i2c1_address <= "1100111"; -- 0x67 = I2C address of device;
-          i2c1_wdata <= x"01";
-          i2c1_rw <= '0';
-        when 3 =>
-          command_en <= '1';
-          i2c1_rw <= '0';
-          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
-          -- to make your ears water from the annoying high frequency sounds
-          i2c1_wdata <= x"A6";
-          i2c1_wdata(0) <= not ear_watering_mode;
-
-        -- Read DIP switches and board revision straps
-        when 4 =>
-          command_en <= '1';
-          i2c1_address <= "0100000"; -- 0x20 = I2C address of device;
-          i2c1_wdata <= x"00";
-          i2c1_rw <= '0';
-        when 5 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-        when 6 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-        when 7 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-          if i2c1_busy = '1' and last_busy = '0' then
-            board_minor <= i2c1_rdata(7 downto 4);
-            board_major <= i2c1_rdata(3 downto 0);
-          end if;
-        when 8 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-          if i2c1_busy = '1' and last_busy = '0' then
-            dipsw_int <= std_logic_vector(i2c1_rdata);
-          end if;
-          
-        when others =>
-          command_en <= '0';
-          latch_count <= 0;
-          last_latch <= i2c1_latch_toggle;
-          write_job_pending <= '0';
-      end case;
-
+      
     end if;
   end process;
 end behavioural;
