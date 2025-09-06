@@ -1249,11 +1249,11 @@ begin
     if rising_edge(pixelclock) then
       
       if scart_mode = '0' then
-        hsync <= up_vga_hsync;
-        vsync <= up_vsync;
-        vgared <= up_red;
-        vgagreen <= up_green;
-        vgablue <= up_blue;
+        hsync <= v_vga_hsync;
+        vsync <= v_vsync;
+        vgared <= v_red;
+        vgagreen <= v_green;
+        vgablue <= v_blue;
       else
         hsync <= composite_sync;
         vsync <= composite_sync;
