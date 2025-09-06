@@ -183,8 +183,8 @@ SDCARD_FILES= \
 FLASHER_FILES= \
 	$(UTILDIR)/megaflash/mflash.prg
 
-CURRENT_TARGETS=mega65r6 mega65r4 mega65r3 mega65r2 nexys4ddr-widget
-CHECK_CURRENT_TARGETS=check-mega65r6 check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
+CURRENT_TARGETS=mega65r6 mega65r4 mega65r3 mega65r2 nexys4ddr-widget mega65r6atest
+CHECK_CURRENT_TARGETS=check-mega65r6 check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget mega65r6atest
 
 all:	freezer_files $(SDCARD_DIR)/MEGA65.D81
 	$(info ...)
