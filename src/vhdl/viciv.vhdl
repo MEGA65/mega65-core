@@ -969,7 +969,7 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
   signal raster_buffer_write : std_logic := '0';
 
-`  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
   signal raster_buffer_max_write_address_hold : unsigned(9 downto 0) := to_unsigned(0,9+1);
   signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
