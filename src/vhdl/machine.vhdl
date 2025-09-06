@@ -885,7 +885,7 @@ begin
       end if;
 
       -- DIP SW 4 forces 15KHz scart mode
-      scart_mode <= dipsw_int(4);
+      scart_mode <= '1'; -- dipsw_int(4);
       
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
