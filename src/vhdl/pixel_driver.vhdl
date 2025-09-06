@@ -440,7 +440,8 @@ architecture greco_roman of pixel_driver is
   constant ntsc_colour_phase_add : unsigned(7 downto 0) := x"0b";
 
   -- NTSC colour angles are ~33 degress out: 33/360 * 256 = 23.46.
-  constant ntsc_colour_phase_offset : integer := 23;
+--  constant ntsc_colour_phase_offset : integer := 23;
+  constant ntsc_colour_phase_offset : integer := 0;
   
   signal pal_colour_phase : unsigned(7 downto 0) := x"00";
   signal pal_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
@@ -1347,7 +1348,7 @@ begin
         colour_phase_sine := (to_integer(pal_colour_phase) + debug_offset_u) mod 256;
         colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_v_invert + debug_offset_v) mod 256;
       else
-        colour_phase_sine := to_integer(ntsc_colour_phase + ntsc_colour_phase_offset) mod 256;
+        colour_phase_sine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset) mod 256;
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset + 64) mod 256;
       end if;
 
