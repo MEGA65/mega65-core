@@ -435,9 +435,13 @@ architecture greco_roman of pixel_driver is
 
   constant pal_colour_phase_add_sub : unsigned(31 downto 0) := x"032E43BA";
   constant pal_colour_phase_add : unsigned(7 downto 0) := x"0e";
-  constant ntsc_colour_phase_add_sub : unsigned(31 downto 0) := x"4D62D0F8";
+  -- constant ntsc_colour_phase_add_sub : unsigned(31 downto 0) := x"4D62D0F8";
+  constant ntsc_colour_phase_add_sub : unsigned(31 downto 0) := x"50294793";  
   constant ntsc_colour_phase_add : unsigned(7 downto 0) := x"0b";
 
+  -- NTSC colour angles are ~33 degress out: 33/360 * 256 = 23.46.
+  constant ntsc_colour_phase_offset : integer := 23;
+  
   signal pal_colour_phase : unsigned(7 downto 0) := x"00";
   signal pal_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
   signal ntsc_colour_phase : unsigned(7 downto 0) := x"00";
@@ -1325,7 +1329,7 @@ begin
           else
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
                                    + sine_table(to_integer(ntsc_colour_phase)) /2
-                                   + sine_table(to_integer(pal_colour_phase)) / 4
+                                   + sine_table(to_integer(ntsc_colour_phase)) / 4
                                    );
           end if;
         else
@@ -1343,8 +1347,8 @@ begin
         colour_phase_sine := (to_integer(pal_colour_phase) + debug_offset_u) mod 256;
         colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_v_invert + debug_offset_v) mod 256;
       else
-        colour_phase_sine := to_integer(ntsc_colour_phase);
-        colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
+        colour_phase_sine := to_integer(ntsc_colour_phase + ntsc_colour_phase_offset) mod 256;
+        colour_phase_cosine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset + 64) mod 256;
       end if;
 
       debug_angle <= (colour_phase_sine - colour_phase_cosine) mod 256;
@@ -1373,6 +1377,8 @@ begin
       chroma <= unsigned(chroma_drive(15 downto 8));
 
     end if;    
+
+    composite_sync <= not cv_sync;
     
     if rising_edge(clock27) then
 
@@ -1381,7 +1387,8 @@ begin
       composite_red <= cv_red;
       composite_green <= cv_green;
       composite_blue <= cv_blue;
-      composite_sync <= not cv_sync;
+      -- (composite_sync is assigned continuously unclocked just above, since it is
+      -- generated in 81MHz clock domain).
       
       -- Calculate luma value.
       -- Y = 0.3UR + 0.59UG + 0.11UB
