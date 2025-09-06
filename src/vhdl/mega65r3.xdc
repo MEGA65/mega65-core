@@ -264,6 +264,10 @@ set_property -dict {PACKAGE_PIN AA10 IOSTANDARD LVCMOS33} [get_ports {vgablue[7]
 set_property -dict {PACKAGE_PIN W12  IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN V14  IOSTANDARD LVCMOS33} [get_ports vsync]
 
+# VGA I2C bus
+set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports vga_sda]
+set_property -dict {PACKAGE_PIN W15 IOSTANDARD LVCMOS33} [get_ports vga_scl]
+
 # HDMI output
 ############## HDMIOUT define ##################
 set_property -dict {PACKAGE_PIN Y1   IOSTANDARD TMDS_33}  [get_ports TMDS_clk_n]
