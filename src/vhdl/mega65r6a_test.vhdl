@@ -839,21 +839,20 @@ begin
       );
   end generate;
 
--- inside architecture of container
-i2c_dump0 : entity work.i2c_dump16_uart
+
+i2c_report0 : entity work.megar5_i2c_uart_report
   generic map (
-    CLK_HZ      => 40_500_000,
-    UART_BAUD   => 2_000_000,
-    I2C_BUS_HZ  => 400_000,
-    SLAVE_ADDR7 => "0100000"  -- 0x20
+    CLK_HZ    => 40_500_000,
+    UART_BAUD => 2_000_000
   )
   port map (
-    clk      => cpuclock,
-    reset_n  => '1',          -- or tie to your real reset
-    sda      => board_sda,
-    scl      => board_scl,
-    uart_txd => UART_TXD
-  );   
+    clk       => cpuclock,
+    reset_n   => '1',          -- or your real reset
+    sda       => board_sda,
+    scl       => board_scl,
+    uart_txd  => UART_TXD
+  );
+
   
   process (cpuclock) is
 
