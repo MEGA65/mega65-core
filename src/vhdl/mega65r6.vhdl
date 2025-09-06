@@ -298,7 +298,7 @@ end container;
 
 architecture Behavioral of container is
 
-  signal scart_mode : std_logic;
+  signal scart_mode : std_logic := '1';
   signal composite_sync : std_logic;
   signal composite_red : std_logic_vector(7 downto 0);
   signal composite_green : std_logic_vector(7 downto 0);
@@ -1058,7 +1058,7 @@ begin
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 
-          scart_mode => scart_mode,
+--          scart_mode => scart_mode,
           
           eth_load_enabled => eth_load_enable,
 

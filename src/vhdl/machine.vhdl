@@ -162,7 +162,7 @@ entity machine is
          pal50_select_out : out std_logic := '0';
          vga_blank : out std_logic := '0';
 
-         scart_mode : out std_logic := '0';
+         scart_mode : out std_logic;
          composite_sync : out std_logic := '0';
          composite_red : out std_logic_vector(7 downto 0) := x"00";
          composite_green : out std_logic_vector(7 downto 0) := x"00";
@@ -885,7 +885,7 @@ begin
       end if;
 
       -- DIP SW 4 forces 15KHz scart mode
-      scart_mode <= '1'; -- dipsw_int(4);
+      scart_mode <= dipsw_int(4);
       
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
