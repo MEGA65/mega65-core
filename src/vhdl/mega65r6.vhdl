@@ -709,11 +709,6 @@ begin
         vga_r => std_logic_vector(v_red),
         vga_g => std_logic_vector(v_green),
         vga_b => std_logic_vector(v_blue),
-
-        composite_sync => composite_sync,
-        composite_red => composite_red,
-        composite_green => composite_green,
-        composite_blue => composite_blue,
         
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
@@ -1065,6 +1060,11 @@ begin
           pal50_select_out => pal50,
           upscale_enable => upscale_enable,
 
+          composite_sync => composite_sync,
+          composite_red => composite_red,
+          composite_green => composite_green,
+          composite_blue => composite_blue,
+          
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,
           hyper_data => viciv_attic_data,
@@ -1559,9 +1559,9 @@ begin
     else
       hsync <= composite_sync;
       vsync <= composite_sync;
-      vgared <= composite_red;
-      vgagreen <= composite_green;
-      vgablue <= composite_blue;
+      vgared <= unsigned(composite_red);
+      vgagreen <= unsigned(composite_green);
+      vgablue <= unsigned(composite_blue);
     end if;
     
     hdmired <= v_red;
