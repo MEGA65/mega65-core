@@ -124,8 +124,6 @@ begin
       -- Activate command
       i2c1_command_en <= command_en;
 
-      last_latch <= not i2c1_latch_toggle;
-      
       -- State machine for reading registers from the various
       -- devices.
       if (wait_for_not_busy='1' and i2c1_busy='0') or (i2c1_latch_toggle /= last_latch) then
