@@ -1348,8 +1348,8 @@ begin
         colour_phase_sine := (to_integer(pal_colour_phase) + debug_offset_u) mod 256;
         colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_v_invert + debug_offset_v) mod 256;
       else
-        colour_phase_sine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset) mod 256;
-        colour_phase_cosine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset + 64) mod 256;
+        colour_phase_cosine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset) mod 256;
+        colour_phase_sine := (to_integer(ntsc_colour_phase) + ntsc_colour_phase_offset + 64) mod 256;
       end if;
 
       debug_angle <= (colour_phase_sine - colour_phase_cosine) mod 256;
@@ -1385,9 +1385,9 @@ begin
 
       -- SCART 15KHz video is embarrassingly easy, given that we generate all
       -- the composite signals already.
-      composite_red <= cv_red;
-      composite_green <= cv_green;
-      composite_blue <= cv_blue;
+      composite_red <= std_logic_vector(cv_red);
+      composite_green <= std_logic_vector(cv_green);
+      composite_blue <= std_logic_vector(cv_blue);
       -- (composite_sync is assigned continuously unclocked just above, since it is
       -- generated in 81MHz clock domain).
       
