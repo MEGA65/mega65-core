@@ -298,6 +298,12 @@ end container;
 
 architecture Behavioral of container is
 
+  signal scart_mode : std_logic;
+  signal composite_sync : std_logic;
+  signal composite_red : std_logic_vector(7 downto 0);
+  signal composite_green : std_logic_vector(7 downto 0);
+  signal composite_blue : std_logic_vector(7 downto 0);
+  
   -- Use to select SDRAM or hyperram
   signal sdram_t_or_hyperram_f : boolean;
 
@@ -704,6 +710,11 @@ begin
         vga_g => std_logic_vector(v_green),
         vga_b => std_logic_vector(v_blue),
 
+        composite_sync => composite_sync,
+        composite_red => composite_red,
+        composite_green => composite_green,
+        composite_blue => composite_blue,
+        
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
         pcm_clk => pcm_clk, -- audio clock at fs
@@ -1047,6 +1058,8 @@ begin
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 
+          scart_mode => scart_mode,
+          
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
@@ -1536,11 +1549,19 @@ begin
     -- LED on main board
     led <= portp_drive(4);
 
-    hsync <= up_vga_hsync;
-    vsync <= up_vsync;
-    vgared <= up_red;
-    vgagreen <= up_green;
-    vgablue <= up_blue;
+    if scart_mode = '0' then
+      hsync <= up_vga_hsync;
+      vsync <= up_vsync;
+      vgared <= up_red;
+      vgagreen <= up_green;
+      vgablue <= up_blue;
+    else
+      hsync <= composite_sync;
+      vgared <= composite_red;
+      vgagreen <= composite_green;
+      vgablue <= composite_blue;
+    end if;
+    
     hdmired <= v_red;
     hdmigreen <= v_green;
     hdmiblue <= v_blue;

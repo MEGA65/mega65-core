@@ -88,6 +88,11 @@ entity pixel_driver is
     luma : out unsigned(7 downto 0) := (others => '0');
     chroma : out unsigned(7 downto 0) := (others => '0');
     composite : out unsigned(7 downto 0) := (others => '0');
+
+    composite_sync : out std_logic := '0';
+    composite_red : out std_logic_vector(7 downto 0) := x"00";
+    composite_green : out std_logic_vector(7 downto 0) := x"00";
+    composite_blue : out std_logic_vector(7 downto 0) := x"00";                                                        
     
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
@@ -1308,6 +1313,7 @@ begin
       if cv_sync = '1' then
         luma_drive <= to_unsigned(0,10);
       else
+        
         if colour_burst_en='1' and colour_burst_mask='1' and mono_mode='0' then
           -- PAL colour burst should have amplitude 1/2 that of the sync level.
           -- Sync = 80, so burst amplitude should be about +/- 40.
@@ -1370,6 +1376,13 @@ begin
     
     if rising_edge(clock27) then
 
+      -- SCART 15KHz video is embarrassingly easy, given that we generate all
+      -- the composite signals already.
+      composite_red <= cv_red;
+      composite_green <= cv_green;
+      composite_blue <= cv_blue;
+      composite_sync <= not cv_sync;
+      
       -- Calculate luma value.
       -- Y = 0.3UR + 0.59UG + 0.11UB
       -- Dynamic range for luma is 0.7 x 256 = 179.2. But as we must support

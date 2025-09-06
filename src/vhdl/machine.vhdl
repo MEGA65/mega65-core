@@ -162,6 +162,12 @@ entity machine is
          pal50_select_out : out std_logic := '0';
          vga_blank : out std_logic := '0';
 
+         scart_mode : out std_logic := '0';
+         composite_sync : out std_logic := '0';
+         composite_red : out std_logic_vector(7 downto 0) := x"00";
+         composite_green : out std_logic_vector(7 downto 0) := x"00";
+         composite_blue : out std_logic_vector(7 downto 0) := x"00";
+         
          vgared : out  UNSIGNED (7 downto 0) := x"00";
          vgagreen : out  UNSIGNED (7 downto 0) := x"00";
          vgablue : out  UNSIGNED (7 downto 0) := x"00";
@@ -877,6 +883,9 @@ begin
         dipsw_int(7 downto 4) <= (others => '0');
         dipsw_int(3 downto 0) <= dipsw(3 downto 0);
       end if;
+
+      -- DIP SW 4 forces 15KHz scart mode
+      scart_mode <= dipsw_int(4);
       
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
@@ -1325,6 +1334,11 @@ begin
       chroma => chroma,
       composite => composite,
 
+      composite_sync => composite_sync,
+      composite_red => composite_red,
+      composite_green => composite_green,
+      composite_blue => composite_blue,
+               
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
