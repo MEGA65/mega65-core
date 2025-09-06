@@ -268,11 +268,11 @@ begin
             if tx_ready = '1' then
               -- advance indices
               if tx_idx = 0 then
-                if tx_phase = 0 then tx_phase <= 1 else tx_phase <= 0; tx_idx <= 1; end if;
+                if tx_phase = 0 then tx_phase <= 1; else tx_phase <= 0; tx_idx <= 1; end if;
               elsif tx_idx = 1 then
-                if tx_phase = 0 then tx_phase <= 1 else tx_phase <= 0; tx_idx <= 2; end if;
+                if tx_phase = 0 then tx_phase <= 1; else tx_phase <= 0; tx_idx <= 2; end if;
               elsif tx_idx = 2 then
-                if tx_phase = 0 then tx_phase <= 1 else tx_phase <= 0; tx_idx <= 3; end if;
+                if tx_phase = 0 then tx_phase <= 1; else tx_phase <= 0; tx_idx <= 3; end if;
               else
                 tx_idx <= tx_idx + 1;
               end if;
