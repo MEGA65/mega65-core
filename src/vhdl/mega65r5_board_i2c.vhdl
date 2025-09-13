@@ -201,13 +201,13 @@ begin
             when 9 =>
               command_en   <= '1';
               i2c1_rw      <= '1';
-              dipsw_int    <= std_logic_vector(i2c1_rdata);
+              board_minor  <= i2c1_rdata(7 downto 4);
+              board_major  <= i2c1_rdata(3 downto 0);
 
             when 10 =>
               command_en   <= '1';
               i2c1_rw      <= '1';
-              board_minor  <= i2c1_rdata(7 downto 4);
-              board_major  <= i2c1_rdata(3 downto 0);
+              dipsw_int    <= std_logic_vector(i2c1_rdata);
 
             when others =>
               command_en       <= '0';
