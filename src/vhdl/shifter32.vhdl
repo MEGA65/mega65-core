@@ -28,16 +28,18 @@ use Std.TextIO.all;
 use work.debugtools.all;
   
 entity shifter32 is
+  generic (
+    unit : integer range 0 to 15
+    );
   port (
     clock : in std_logic;
-    unit : in integer range 0 to 15;
     do_add : in std_logic;
     input_a : in integer range 0 to 15;
     input_b : in integer range 0 to 15;
     input_value_number : in integer range 0 to 15;
     input_value : unsigned(31 downto 0);
-    output_select : in integer range 0 to 15;
-    output_value : out unsigned(63 downto 0)
+    -- output_select : in integer range 0 to 15;
+    output_value : out unsigned(63 downto 0) := (others => '0')
     );
 end entity;
 
@@ -65,9 +67,9 @@ begin
       -- Calculate the result
       -- Even units do addition, odd ones do subtraction
       if (unit mod 2) = 0 then
-        s <= to_unsigned(to_integer(a)+to_integer(b),33);
+        s <= unsigned((a(31) & a)+(b(31) & b));
       else
-        s <= to_unsigned(to_integer(a)-to_integer(b),33);
+        s <= unsigned((a(31) & a)-(b(31) & b));
       end if;
 
       if b(7 downto 0) = x"00" then
@@ -87,7 +89,7 @@ begin
       end if;
 
       -- Display output value when requested, and tri-state outputs otherwise
-      if output_select = unit then
+      -- if output_select = unit then
         if do_add='1' then
           -- Output sign-extended 33 bit addition result
           output_value(63 downto 33) <= (others => s(32));
@@ -95,9 +97,9 @@ begin
         else
           output_value <= p;
         end if;
-      else
-        output_value <= (others => 'Z');
-      end if;
+      -- else
+      --   output_value <= (others => 'Z');
+      -- end if;
     end if;
   end process;
 end neo_gregorian;
