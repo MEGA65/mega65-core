@@ -1819,7 +1819,7 @@ begin
         end if;
         -- And update math cycle counter, if math unit is active
         -- include a case for the reset, to avoid a possible edge case resulting in a double-drive
-        if math_unit_flags(1) = '1' and reg_math_cycle_counter_reset = '0' and math_unit_halted = last_math_unit_halted then
+        if math_unit_flags(1) = '1' and reg_math_cycle_counter_reset_toggle = last_reg_math_cycle_counter_reset_toggle and math_unit_halted = last_math_unit_halted then
           if reg_math_cycle_counter_plus_one = reg_math_cycle_compare then
             math_unit_halted <= not last_math_unit_halted;  -- disable calculation, enable writing to regs from CPU (disables counters)
           end if;
