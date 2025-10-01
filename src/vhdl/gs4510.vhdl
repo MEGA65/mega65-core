@@ -732,6 +732,17 @@ architecture Behavioural of gs4510 is
   signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
+  signal irq_force_brk : std_logic := '0';
+
+  -- Memory write-protection registers
+  signal wp_region0_start : unsigned(15 downto 0) := x"FFFF";
+  signal wp_region0_end : unsigned(15 downto 0)   := x"0000";
+  signal wp_region0_action : std_logic := '0';
+  signal wp_region0_enable : std_logic := '0';
+  signal wp_region1_start : unsigned(15 downto 0) := x"FFFF";
+  signal wp_region1_end : unsigned(15 downto 0)   := x"0000";
+  signal wp_region1_action : std_logic := '0';
+  signal wp_region1_enable : std_logic := '0';
 
 --dengland
 --  signal irq_internal : std_logic := '0';
@@ -1439,7 +1450,7 @@ architecture Behavioural of gs4510 is
   -- Also, each math unit has the ability to be a 32 bit
   -- adder instead of its special function.
   -- Finally, each unit can be made to latch, and only output
-  -- its value periodically, so that iterative functions can
+  -- its value periodically, so that iterative function can
   -- be executed.
   -- XXX Eventually we will add ability to trigger interrupts
   -- and suspend calculation based on the contents of at least
@@ -2018,6 +2029,15 @@ begin
       flag_v <= '0';
       flag_e <= '1';
 
+      wp_region0_start <=  x"FFFF";
+      wp_region0_end <=    x"0000";
+      wp_region0_action <= '0';
+      wp_region0_enable <= '0';
+      wp_region1_start <=  x"FFFF";
+      wp_region1_end <=    x"0000";
+      wp_region1_action <= '0';
+      wp_region1_enable <= '0';
+      
       cpuport_ddr <= x"FF";
       cpuport_value <= x"3F";
       force_fast <= '0';
@@ -3362,6 +3382,35 @@ begin
           when others =>
             null;
         end case;
+      elsif long_address = x"FFD5000" then
+        wp_region0_start <= value(7 downto 0);
+        wp_region0_enable <= '0';
+      elsif long_address = x"FFD5001" then
+        wp_region0_start <= value(15 downto 8);
+        wp_region0_enable <= '0';
+      elsif long_address = x"FFD5002" then
+        wp_region0_end <= value(7 downto 0);
+        wp_region0_enable <= '0';
+      elsif long_address = x"FFD5003" then
+        wp_region0_end <= value(15 downto 8);
+        wp_region0_enable <= '0';
+      elsif long_address = x"FFD5004" then
+        wp_region1_start <= value(7 downto 0);
+        wp_region1_enable <= '0';
+      elsif long_address = x"FFD5005" then
+        wp_region1_start <= value(15 downto 8);
+        wp_region1_enable <= '0';
+      elsif long_address = x"FFD5006" then
+        wp_region1_end <= value(7 downto 0);
+        wp_region1_enable <= '0';
+      elsif long_address = x"FFD5007" then
+        wp_region1_end <= value(15 downto 8);
+        wp_region1_enable <= '0';
+      elsif long_address = x"FFD5008" then
+        wp_region0_enable <= value(0);
+        wp_region0_action <= value(1);
+        wp_region1_enable <= value(4);
+        wp_region1_action <= value(5);
       elsif (long_address(27 downto 8) = x"FFD37") or
          (long_address(27 downto 8) = x"FFD27") or
          (long_address(27 downto 8) = x"FFD17") then
@@ -5482,9 +5531,10 @@ begin
               end if;
               flag_i <= '1';
               reg_t <= unsigned(virtual_reg_p);
-              if reg_instruction = I_BRK then
+              if reg_instruction = I_BRK or irq_force_brk='1' then
                                         -- set B flag when pushing P
                 reg_t(4) <= '1';
+                irq_force_brk <= '0';
               else
                                         -- clear B flag when pushing P
                 reg_t(4) <= '0';
@@ -9052,8 +9102,32 @@ begin
       variable lhc : std_logic_vector(4 downto 0);
       variable char_access_addr : unsigned(15 downto 0);
 
+      variable write_protection_violation : boolean;
+      variable write_protection_action : std_logic := '0';
+      
     begin  -- resolve_long_address
 
+      -- Implement write protection
+      write_protection_violation := false;
+      if short_address >= wp_region0_start and short_address <= wp_region0_end and w_region0_enable='1' then
+        write_protection_violation := true;
+        write_protection_action := wp_region0_action;
+      end if;
+      if short_address >= wp_region1_start and short_address <= wp_region1_end and w_region1_enable='1' then
+        write_protection_violation := true;
+        write_protection_action := wp_region1_action;
+      end if;
+      if write_protection_violation then
+        -- Redirect write-protection violations to somewhere safe
+        if write_prtection_action='0' then
+          irq_pending <= '1';
+          irq_force_brk <= '1';
+        else
+          nmi_pending <= '1';
+        end if;
+        return x"7ffffff";
+      end if;
+      
       -- default is address in = address out
       temp_address(27 downto 16) := (others => '0');
       temp_address(15 downto 0) := short_address;
