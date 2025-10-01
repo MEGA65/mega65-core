@@ -744,6 +744,10 @@ architecture Behavioural of gs4510 is
   signal wp_region1_action : std_logic := '0';
   signal wp_region1_enable : std_logic := '0';
 
+  signal write_protect_event_toggle : std_logic := '0';
+  signal last_write_protect_event_toggle : std_logic := '0';
+  signal write_protect_event_action : std_logic := '0';
+  
 --dengland
 --  signal irq_internal : std_logic := '0';
     shared variable irq_internal : std_logic := '0';
@@ -2072,6 +2076,18 @@ begin
           nmi_pending <= '1';
         end if;
         nmi_state <= nmi;
+
+        -- Trigger write-protection violoation interrupt
+        if last_write_protect_event_toggle /= write_protect_event_toggle then
+          last_write_protect_event_toggle <= write_protect_event_toggle;
+          if write_protect_event_action='0' then
+            irq_pending <= '1';
+            irq_force_brk <= '1';
+          else
+            nmi_pending <= '1';
+          end if;
+        end if;
+        
         -- IRQ is level triggered.
         if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
           irq_pending <= '1';
@@ -3383,28 +3399,28 @@ begin
             null;
         end case;
       elsif long_address = x"FFD5000" then
-        wp_region0_start <= value(7 downto 0);
+        wp_region0_start(7 downto 0) <= value;
         wp_region0_enable <= '0';
       elsif long_address = x"FFD5001" then
-        wp_region0_start <= value(15 downto 8);
+        wp_region0_start(15 downto 8) <= value;
         wp_region0_enable <= '0';
       elsif long_address = x"FFD5002" then
-        wp_region0_end <= value(7 downto 0);
+        wp_region0_end(7 downto 0) <= value;
         wp_region0_enable <= '0';
       elsif long_address = x"FFD5003" then
-        wp_region0_end <= value(15 downto 8);
+        wp_region0_end(15 downto 8) <= value;
         wp_region0_enable <= '0';
       elsif long_address = x"FFD5004" then
-        wp_region1_start <= value(7 downto 0);
+        wp_region1_start(7 downto 0) <= value;
         wp_region1_enable <= '0';
       elsif long_address = x"FFD5005" then
-        wp_region1_start <= value(15 downto 8);
+        wp_region1_start(15 downto 8) <= value;
         wp_region1_enable <= '0';
       elsif long_address = x"FFD5006" then
-        wp_region1_end <= value(7 downto 0);
+        wp_region1_end(7 downto 0) <= value;
         wp_region1_enable <= '0';
       elsif long_address = x"FFD5007" then
-        wp_region1_end <= value(15 downto 8);
+        wp_region1_end(15 downto 8) <= value;
         wp_region1_enable <= '0';
       elsif long_address = x"FFD5008" then
         wp_region0_enable <= value(0);
@@ -9109,22 +9125,18 @@ begin
 
       -- Implement write protection
       write_protection_violation := false;
-      if short_address >= wp_region0_start and short_address <= wp_region0_end and w_region0_enable='1' then
+      if (short_address >= wp_region0_start) and (short_address <= wp_region0_end) and wp_region0_enable='1' then
         write_protection_violation := true;
         write_protection_action := wp_region0_action;
       end if;
-      if short_address >= wp_region1_start and short_address <= wp_region1_end and w_region1_enable='1' then
+      if (short_address >= wp_region1_start) and (short_address <= wp_region1_end) and wp_region1_enable='1' then
         write_protection_violation := true;
         write_protection_action := wp_region1_action;
       end if;
       if write_protection_violation then
         -- Redirect write-protection violations to somewhere safe
-        if write_prtection_action='0' then
-          irq_pending <= '1';
-          irq_force_brk <= '1';
-        else
-          nmi_pending <= '1';
-        end if;
+        write_protect_event_toggle <= not write_protect_event_toggle;
+        write_protect_event_action <= write_protection_action;
         return x"7ffffff";
       end if;
       
