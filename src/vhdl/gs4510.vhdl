@@ -1463,11 +1463,16 @@ architecture Behavioural of gs4510 is
   type math_reg_array is array(0 to 15) of unsigned(31 downto 0);
   type math_config_array is array(0 to math_unit_count - 1) of math_unit_config;
   type math_output_array is array(0 to math_unit_count - 1) of unsigned(63 downto 0);
+  type math_latch_array is array(0 to math_unit_count - 1) of unsigned(3 downto 0);
   signal reg_math_regs : math_reg_array := (others => to_unsigned(0,32));
   signal reg_math_config : math_config_array := (others => math_unit_config_v);
   signal reg_math_config_drive : math_config_array := (others => math_unit_config_v);
   signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
   signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
+  -- signal math_latch_value : unsigned(3 downto 0);  -- Latch value to write
+  -- signal math_latch_address : unsigned(3 downto 0);  -- Which unit to write latch value to
+  signal reg_math_latch_counters : math_latch_array := (others => (others => '0'));
+  signal reg_math_latch_intervals : math_latch_array := (others => (others => '0'));
 
   -- We have the output counter out of phase with the input counter, so that we
   -- have time to catch an output, and store it, ready for presenting as an input
@@ -1482,11 +1487,13 @@ architecture Behavioural of gs4510 is
   signal math_input_number : integer range 0 to 15 := 0;
   signal math_input_value : unsigned(31 downto 0) := (others => '0');
   signal math_output_values : math_output_array := (others => (others => '0'));
+  -- signal math_output_values_alt : math_alt_output_array := (others => (others => '0'));
   -- signal math_output_value_low : unsigned(31 downto 0) := (others => 'Z');
   -- signal math_output_value_high : unsigned(31 downto 0) := (others => 'Z');
 
   -- Start with input and outputting enabled
   signal math_unit_flags : unsigned(7 downto 0) := x"01";
+  signal math_unit_invert_b : std_logic_vector(15 downto 0) := (others => '0');
   -- halt math unit when math_unit_halted /= last_math_unit_halted
   signal math_unit_halted : std_logic := '0';
   signal last_math_unit_halted : std_logic := '0';
@@ -1613,12 +1620,13 @@ begin
       );
 
 
-  multipliers: for unit in 0 to 7 generate
+  multipliers_a: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 generic map (
       unit => unit
       ) port map (
       clock => mathclock,
       do_add => reg_math_config_drive(unit).do_add,
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
@@ -1629,6 +1637,21 @@ begin
       -- output_value(63 downto 32) => math_output_value_high
       );
   end generate;
+  
+  -- multipliers_b: for unit in 8 to 15 generate
+  --   mult_unit_alt: entity work.multiply32 generic map (
+  --     unit => unit
+  --     ) port map (
+  --     clock => mathclock,
+  --     do_add => reg_math_config_drive(unit).do_add,
+  --     invert_b => math_unit_invert_b(unit),
+  --     input_a => reg_math_config_drive(unit).source_a,
+  --     input_b => reg_math_config_drive(unit).source_b,
+  --     input_value_number => math_input_number,
+  --     input_value => math_input_value,
+  --     output_value => math_output_values_alt(unit mod 8)
+  --     );
+  -- end generate;       
 
   shifters: for unit in 8 to 11 generate
     shift_unit : entity work.shifter32 generic map (
@@ -1636,6 +1659,7 @@ begin
       ) port map (
       clock => mathclock,
       do_add => reg_math_config_drive(unit).do_add,
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
@@ -1653,6 +1677,7 @@ begin
       ) port map (
       clock => mathclock,
       do_add => reg_math_config_drive(unit).do_add,
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
@@ -1759,23 +1784,43 @@ begin
               report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
                 & ") from output of math unit #" & integer'image(math_output_counter)
                 & " ( = $" & to_hstring(math_output_values(math_output_counter)(31 downto 0)) & ")";
-              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
+              -- if math_output_counter >= 8 and math_unit_flags(2) = '1' then
+              --   reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values_alt(math_output_counter mod 8)(31 downto 0);
+              -- else
+                reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
+              -- end if;
             end if;
           else
             if reg_math_config_drive(math_output_counter).output_low = '0' then
               -- Only high half of output is being kept, so stash it
               report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
                 & ") from output of math unit #" & integer'image(math_output_counter);
-              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(63 downto 32);
+              -- if math_output_counter >= 8 and math_unit_flags(2) = '1' then
+              --   reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values_alt(math_output_counter mod 8)(63 downto 32);
+              -- else
+                reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(63 downto 32);
+              -- end if;
             else
               -- Both are being stashed, so store in consecutive slots
               report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
                 & ") (and next) from output of math unit #" & integer'image(math_output_counter);
-              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
+              -- if math_output_counter >= 8 and math_unit_flags(2) = '1' then
+              --   reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values_alt(math_output_counter mod 8)(31 downto 0);
+              -- else
+                reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
+              -- end if;
               if reg_math_config_drive(math_output_counter).output /= 15 then
-                reg_math_regs(reg_math_config_drive(math_output_counter).output + 1) <= math_output_values(math_output_counter)(63 downto 32);
+                -- if math_output_counter >= 8 and math_unit_flags(2) = '1' then
+                --   reg_math_regs(reg_math_config(math_output_counter).output + 1) <= math_output_values_alt(math_output_counter mod 8)(63 downto 32);
+                -- else
+                  reg_math_regs(reg_math_config(math_output_counter).output + 1) <= math_output_values(math_output_counter)(63 downto 32);
+                -- end if;
               else
-                reg_math_regs(0) <= math_output_values(math_output_counter)(63 downto 32);
+                -- if math_output_counter >= 8 and math_unit_flags(2) = '1' then
+                --   reg_math_regs(0) <= math_output_values_alt(math_output_counter mod 8)(63 downto 32);
+                -- else
+                  reg_math_regs(0) <= math_output_values(math_output_counter)(63 downto 32);
+                -- end if;
               end if;
             end if;
           end if;
@@ -3044,6 +3089,8 @@ begin
               end if;
             -- @IO:GS $D7E2 MATH:RESERVED Reserved
             -- @IO:GS $D7E3 MATH:RESERVED Reserved
+            when x"E2" => return unsigned(math_unit_invert_b(7 downto 0));
+            when x"E3" => return unsigned(math_unit_invert_b(15 downto 8));
             --@IO:GS $D7E4 MATH:ITERCNT Iteration Counter (32 bit)
             --@IO:GS $D7E5 MATH:ITERCNT Iteration Counter (32 bit)
             --@IO:GS $D7E6 MATH:ITERCNT Iteration Counter (32 bit)
@@ -3636,6 +3683,10 @@ begin
           -- reg_math_cycle_counter <= to_unsigned(0,32); -- TODO: Should generate a reg_math_cycle_counter_reset signal
           reg_math_cycle_counter_reset_toggle <= not reg_math_cycle_counter_reset_toggle;
           last_math_unit_halted <= math_unit_halted;
+        elsif long_address(7 downto 0) = x"E2" then
+          math_unit_invert_b(7 downto 0) <= std_logic_vector(value);
+        elsif long_address(7 downto 0) = x"E3" then
+          math_unit_invert_b(15 downto 8) <= std_logic_vector(value);
         elsif long_address(7 downto 0) = x"E8" then
           reg_math_cycle_compare(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"E9" then
@@ -4303,31 +4354,27 @@ begin
         -- on the equality of math registers 14 and 15
         if reg_math_regs(14) = reg_math_regs(15) then
           math_unit_flags(6) <= '1';
-          if math_unit_flags(3 downto 2) = "00" then
-            math_unit_flags(7) <= '1' ;
-          end if;
         else
           math_unit_flags(6) <= '0';
-          if math_unit_flags(3 downto 2) = "11" then
-            math_unit_flags(7) <= '1' ;
-          end if;
         end if;
         if reg_math_regs(14) < reg_math_regs(15) then
           math_unit_flags(5) <= '1';
-          if math_unit_flags(3 downto 2) = "10" then
-            math_unit_flags(7) <= '1' ;
-          end if;
+          -- if math_unit_flags(3 downto 2) = "10" then
+          --   math_unit_flags(7) <= '1' ;
+          -- end if;
         else
           math_unit_flags(5) <= '0';
         end if;
         if reg_math_regs(14) > reg_math_regs(15) then
           math_unit_flags(4) <= '1';
-          if math_unit_flags(3 downto 2) = "01" then
-            math_unit_flags(7) <= '1' ;
-          end if;
+          -- if math_unit_flags(3 downto 2) = "01" then
+          --   math_unit_flags(7) <= '1' ;
+          -- end if;
         else
           math_unit_flags(4) <= '0';
         end if;
+        -- temp, maybe use $D7E1.7 as an interrupt indicate later?
+        math_unit_flags(7) <= '0';
       end if;
 
     end if;

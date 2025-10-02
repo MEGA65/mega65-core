@@ -34,6 +34,7 @@ entity shifter32 is
   port (
     clock : in std_logic;
     do_add : in std_logic;
+    invert_b : in std_logic;
     input_a : in integer range 0 to 15;
     input_b : in integer range 0 to 15;
     input_value_number : in integer range 0 to 15;
@@ -61,16 +62,20 @@ begin
         a <= input_value;
       end if;
       if input_value_number = input_b then
-        b <= input_value;
+        if invert_b = '1' then
+          b <= unsigned(-signed(input_value));
+        else
+          b <= input_value;
+        end if;
       end if;
 
       -- Calculate the result
       -- Even units do addition, odd ones do subtraction
-      if (unit mod 2) = 0 then
+      -- if (unit mod 2) = 0 then
         s <= unsigned((a(31) & a)+(b(31) & b));
-      else
-        s <= unsigned((a(31) & a)-(b(31) & b));
-      end if;
+      -- else
+      --   s <= unsigned((a(31) & a)-(b(31) & b));
+      -- end if;
 
       if b(7 downto 0) = x"00" then
         p(63 downto 32) <= (others => '0');

@@ -34,6 +34,7 @@ entity multiply32 is
   port (
     clock : in std_logic;
     do_add : in std_logic;
+    invert_b : in std_logic;
     input_a : in integer range 0 to 15;
     input_b : in integer range 0 to 15;
     input_value_number : in integer range 0 to 15;
@@ -75,7 +76,11 @@ begin
       if input_value_number = input_b then
 --        report "MATH: Unit #" & integer'image(unit)
 --          & ": Setting b=$" & to_hstring(input_value);
-        b <= signed(input_value);
+        if invert_b = '1' then
+          b <= -signed(input_value);
+        else
+          b <= signed(input_value);
+        end if;
       end if;
 
       -- Calculate the result
@@ -85,11 +90,11 @@ begin
       p4 <= p3;
       p <= p4;
       -- Even units do addition, odd ones do subtraction
-      if (unit mod 2) = 0 then
+      -- if (unit mod 2) = 0 then
         s <= unsigned((a(31) & a)+(b(31) & b));
-      else
-        s <= unsigned((a(31) & a)-(b(31) & b));
-      end if;
+      -- else
+      --   s <= unsigned((a(31) & a)-(b(31) & b));
+      -- end if;
 
       -- Display output value when requested, and tri-state outputs otherwise
       -- if output_select = unit then
