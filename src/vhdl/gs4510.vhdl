@@ -737,16 +737,17 @@ architecture Behavioural of gs4510 is
   -- Memory write-protection registers
   signal wp_region0_start : unsigned(15 downto 0) := x"FFFF";
   signal wp_region0_end : unsigned(15 downto 0)   := x"0000";
-  signal wp_region0_action : std_logic := '0';
+  signal wp_region0_action : unsigned(2 downto 0) := to_unsigned(0,3);
   signal wp_region0_enable : std_logic := '0';
   signal wp_region1_start : unsigned(15 downto 0) := x"FFFF";
   signal wp_region1_end : unsigned(15 downto 0)   := x"0000";
-  signal wp_region1_action : std_logic := '0';
+  signal wp_region1_action : unsigned(2 downto 0) := to_unsigned(0,3);
   signal wp_region1_enable : std_logic := '0';
-
+  signal wp_violation_trap_pending : std_logic := '0';
+  
   signal write_protect_event_toggle : std_logic := '0';
   signal last_write_protect_event_toggle : std_logic := '0';
-  signal write_protect_event_action : std_logic := '0';
+  signal write_protect_event_action : unsigned(2 downto 0) := to_unsigned(0,3);
   
 --dengland
 --  signal irq_internal : std_logic := '0';
@@ -2035,11 +2036,11 @@ begin
 
       wp_region0_start <=  x"FFFF";
       wp_region0_end <=    x"0000";
-      wp_region0_action <= '0';
+      wp_region0_action <= "000";
       wp_region0_enable <= '0';
       wp_region1_start <=  x"FFFF";
       wp_region1_end <=    x"0000";
-      wp_region1_action <= '0';
+      wp_region1_action <= "000";
       wp_region1_enable <= '0';
       
       cpuport_ddr <= x"FF";
@@ -2080,12 +2081,20 @@ begin
         -- Trigger write-protection violoation interrupt
         if last_write_protect_event_toggle /= write_protect_event_toggle then
           last_write_protect_event_toggle <= write_protect_event_toggle;
-          if write_protect_event_action='0' then
-            irq_pending <= '1';
-            irq_force_brk <= '1';
-          else
-            nmi_pending <= '1';
-          end if;
+          case write_protect_event_action is
+            when "000" =>
+              irq_pending <= '1';
+              irq_force_brk <= '1';
+            when "001" => 
+              nmi_pending <= '1';
+            when "010" =>
+              hyper_trap_pending <= '1';
+              wp_violation_trap_pending <= '1';
+              wp_region0_enable <= '0';
+              wp_region1_enable <= '0';
+            when others =>
+              null;
+          end case;
         end if;
         
         -- IRQ is level triggered.
@@ -3249,7 +3258,7 @@ begin
       variable long_address : unsigned(27 downto 0);
     begin
       -- Schedule the memory write to the appropriate destination.
-
+      
       last_action <= 'W'; last_value <= value; last_address <= real_long_address;
 
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
@@ -3424,9 +3433,9 @@ begin
         wp_region1_enable <= '0';
       elsif long_address = x"FFD5008" then
         wp_region0_enable <= value(0);
-        wp_region0_action <= value(1);
+        wp_region0_action <= value(3 downto 1);
         wp_region1_enable <= value(4);
-        wp_region1_action <= value(5);
+        wp_region1_action <= value(7 downto 5);
       elsif (long_address(27 downto 8) = x"FFD37") or
          (long_address(27 downto 8) = x"FFD27") or
          (long_address(27 downto 8) = x"FFD17") then
@@ -6787,6 +6796,10 @@ begin
                                         -- Trap #70 ($48) = Ethernet Hyperrupt
                   hypervisor_trap_port <= "1001000";
                   eth_trap_pending <= '0';
+                elsif wp_violation_trap_pending = '1' then
+                  -- Trigger freezer
+                  hypervisor_trap_port <= "1000010";
+                  wp_violation_trap_pending <= '0';
                 else
                                         -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";
@@ -9118,27 +9131,7 @@ begin
       variable lhc : std_logic_vector(4 downto 0);
       variable char_access_addr : unsigned(15 downto 0);
 
-      variable write_protection_violation : boolean;
-      variable write_protection_action : std_logic := '0';
-      
     begin  -- resolve_long_address
-
-      -- Implement write protection
-      write_protection_violation := false;
-      if (short_address >= wp_region0_start) and (short_address <= wp_region0_end) and wp_region0_enable='1' then
-        write_protection_violation := true;
-        write_protection_action := wp_region0_action;
-      end if;
-      if (short_address >= wp_region1_start) and (short_address <= wp_region1_end) and wp_region1_enable='1' then
-        write_protection_violation := true;
-        write_protection_action := wp_region1_action;
-      end if;
-      if write_protection_violation then
-        -- Redirect write-protection violations to somewhere safe
-        write_protect_event_toggle <= not write_protect_event_toggle;
-        write_protect_event_action <= write_protection_action;
-        return x"7ffffff";
-      end if;
       
       -- default is address in = address out
       temp_address(27 downto 16) := (others => '0');
@@ -10182,8 +10175,27 @@ begin
         is_pending_dma_access_lower := '0';
 
         if memory_access_resolve_address = '1' then
+
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           report "MEMORY address post write resolution is $" & to_hstring(memory_access_address);
+
+          -- Implement write protection
+          if (hypervisor_mode = '0') then
+            if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and wp_region0_enable='1' then
+              write_protect_event_toggle <= not write_protect_event_toggle;
+              write_protect_event_action <= wp_region0_action;
+              -- Redirect write-protection violations to somewhere safe
+              memory_access_address := x"3000000";
+            end if;
+            if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and wp_region1_enable='1' then
+              write_protect_event_toggle <= not write_protect_event_toggle;
+              write_protect_event_action <= wp_region1_action;
+              -- Redirect write-protection violations to somewhere safe
+              memory_access_address := x"3000000";
+            end if;
+          end if;          
+
+          
         end if;
 
         real_long_address := memory_access_address;
