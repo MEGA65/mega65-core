@@ -35,6 +35,7 @@ entity divider32 is
     clock : in std_logic;
     do_add : in std_logic;
     invert_b : in std_logic;
+    do_mult : in std_logic;
     input_a : in integer range 0 to 15;
     input_b : in integer range 0 to 15;
     input_value_number : in integer range 0 to 15;
@@ -102,98 +103,102 @@ begin
       -- only for vunit test
       -- report "q$" & to_hstring(q) & " = n$" & to_hstring(n) & " / d$" & to_hstring(d);
       mult_out <= mult_a * mult_b;
-      case state is
-        when idle =>
-          null;
-        -- special startup case to allow for multiplier outputs to settle
-        when start_1 =>
-          -- f = 2 - dd
-          f := to_unsigned(0,70);
-          f(69) := '1';
-          f := f - dd;
-          -- Now multiply both nn and dd by f
-          -- temp138 := nn * f;
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-          mult_a <= nn;
-          mult_b <= f;
-          state <= start_2;
-        when start_2 =>
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-          mult_a <= dd; 
-          mult_b <= f;
-          state <= start_3;
-        when start_3 =>
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-          mult_a <= nn;
-          mult_b <= f;
-          state <= step_2;
-        when step_1 =>
-          report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
-            & " / dd=$" & to_hstring(dd(67 downto 36)) & "." & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-        -- f = 2 - dd
-          -- f := to_unsigned(0,70);
-          -- f(69) := '1';
-          -- f := f - dd;
-          report "f = $" & to_hstring(f);
+      if start_over = '0' then
+        case state is
+          when idle =>
+            null;
+            -- special startup case to allow for multiplier outputs to settle
+          when start_1 =>
+            -- f = 2 - dd
+            f := to_unsigned(0,70);
+            f(69) := '1';
+            f := f - dd;
+            -- Now multiply both nn and dd by f
+            -- temp138 := nn * f;
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            mult_a <= nn;
+            mult_b <= f;
+            state <= start_2;
+          when start_2 =>
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            mult_a <= dd; 
+            mult_b <= f;
+            -- multiplier gets set to a * b when start_over is asserted, so store the product.
+            p <= mult_out(135 downto 72);
+            state <= start_3;
+          when start_3 =>
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            mult_a <= nn;
+            mult_b <= f;
+            state <= step_2;
+          when step_1 =>
+            report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
+              & " / dd=$" & to_hstring(dd(67 downto 36)) & "." & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            -- f = 2 - dd
+            -- f := to_unsigned(0,70);
+            -- f(69) := '1';
+            -- f := f - dd;
+            report "f = $" & to_hstring(f);
 
-          -- Check whether to round up
-          if mult_out(67) = '1' then
-             nn <= mult_out(135 downto 68) + 1;
-             mult_a <= mult_out(135 downto 68) + 1;
-          else
-             nn <= mult_out(135 downto 68);
-             mult_a <= mult_out(135 downto 68);
-          end if;
-          -- Now multiply both nn and dd by f
-          -- temp138 := nn * f;
-          mult_b <= f;
-          state <= step_2;
-          -- report "temp138=$" & to_hstring(temp138);
-        when step_2 =>
-          report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
-            & " / dd=$" & to_hstring(dd(67 downto 36)) & "." & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-          -- temp138 := dd * f;
-          -- Check whether to round up, but avoid overflow
-          f := to_unsigned(0,70);
-          f(69) := '1';
-          -- f := f - dd;
-          if mult_out(67) = '1' and mult_out(135 downto 68) /= X"FFFFFFFFFFFFFFFFF" then
-             dd <= mult_out(135 downto 68) + 1;
-             mult_a <= mult_out(135 downto 68) + 1;
-             f := f - (mult_out(135 downto 68) + 1);
-          else
-             dd <= mult_out(135 downto 68);
-             mult_a <= mult_out(135 downto 68);
-             f := f - mult_out(135 downto 68);
-          end if;
-          -- report "temp138=$" & to_hstring(temp138);          
-          mult_b <= f;
-          -- Perform number of required steps, or abort early if we can
-          if steps_remaining /= 0 and dd /= x"FFFFFFFFFFFFFFFFF" then
-            steps_remaining <= steps_remaining - 1;
-            state <= step_1;
-          else
-            state <= output;
-          end if;
-        when output =>
-          report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
-          -- No idea why we need to add one, but we do to stop things like 4/2
-          -- giving a result of 1.999999999
-          if mult_out(67) = '1' then
-            temp64(67 downto 0) := mult_out(135 downto 68) + 1;
-          else
-            temp64(67 downto 0) := mult_out(135 downto 68);
-          end if;
-          -- temp64(67 downto 0) := nn;
-          temp64(73 downto 68) := (others => '0');
-          temp64 := temp64 + 8;
-          report "temp64=$" & to_hstring(temp64);
-          busy <= '0';
-          q <= temp64(67 downto 4);
-          state <= idle;
-      end case;
+            -- Check whether to round up
+            if mult_out(67) = '1' then
+              nn <= mult_out(135 downto 68) + 1;
+              mult_a <= mult_out(135 downto 68) + 1;
+            else
+              nn <= mult_out(135 downto 68);
+              mult_a <= mult_out(135 downto 68);
+            end if;
+            -- Now multiply both nn and dd by f
+            -- temp138 := nn * f;
+            mult_b <= f;
+            state <= step_2;
+            -- report "temp138=$" & to_hstring(temp138);
+          when step_2 =>
+            report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
+              & " / dd=$" & to_hstring(dd(67 downto 36)) & "." & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            -- temp138 := dd * f;
+            -- Check whether to round up, but avoid overflow
+            f := to_unsigned(0,70);
+            f(69) := '1';
+            -- f := f - dd;
+            if mult_out(67) = '1' and mult_out(135 downto 68) /= X"FFFFFFFFFFFFFFFFF" then
+              dd <= mult_out(135 downto 68) + 1;
+              mult_a <= mult_out(135 downto 68) + 1;
+              f := f - (mult_out(135 downto 68) + 1);
+            else
+              dd <= mult_out(135 downto 68);
+              mult_a <= mult_out(135 downto 68);
+              f := f - mult_out(135 downto 68);
+            end if;
+            -- report "temp138=$" & to_hstring(temp138);          
+            mult_b <= f;
+            -- Perform number of required steps, or abort early if we can
+            if steps_remaining /= 0 and dd /= x"FFFFFFFFFFFFFFFFF" then
+              steps_remaining <= steps_remaining - 1;
+              state <= step_1;
+            else
+              state <= output;
+            end if;
+          when output =>
+            report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
+            -- No idea why we need to add one, but we do to stop things like 4/2
+            -- giving a result of 1.999999999
+            if mult_out(67) = '1' then
+              temp64(67 downto 0) := mult_out(135 downto 68) + 1;
+            else
+              temp64(67 downto 0) := mult_out(135 downto 68);
+            end if;
+            -- temp64(67 downto 0) := nn;
+            temp64(73 downto 68) := (others => '0');
+            temp64 := temp64 + 8;
+            report "temp64=$" & to_hstring(temp64);
+            busy <= '0';
+            q <= temp64(67 downto 4);
+            state <= idle;
+        end case;
+      end if;
 
       if start_over='1' and b /= to_unsigned(0,32) then
         report "Calculating $" & to_hstring(a) & " / $" & to_hstring(b);
@@ -211,10 +216,21 @@ begin
         state <= start_1;
         steps_remaining <= 5;
         busy <= '1';
+        -- calculate multiplication
+        mult_a(35 downto 0) <= (others => '0');
+        mult_a(67 downto 36) <= a;
+        mult_b(35 downto 0) <= (others => '0');
+        mult_b(67 downto 36) <= b;
+        mult_b(69 downto 68) <= (others => '0');
       elsif start_over='1' then
+        -- define divide by zero as zero
         report "Ignoring divide by zero";
+        state <= idle;
+        busy <= '0';
+        q <= (others => '0');
+        -- zero product of a * b, since we know b = 0
+        p <= (others => '0');
       end if;
-
     end if;
   end process;
   
@@ -232,7 +248,7 @@ begin
 --        report "MATH: Unit #" & integer'image(unit)
 --          & ": Setting a=$" & to_hstring(input_value);
         a <= input_value;
-        if a /= input_value then
+        if a /= input_value or busy = '0' then
           start_over <= '1';
         end if;
       end if;
@@ -241,12 +257,12 @@ begin
  --         & ": Setting b=$" & to_hstring(input_value);
         if invert_b = '1' then
           b <= unsigned(-signed(input_value));
-          if b /= unsigned(-signed(input_value)) then
+          if b /= unsigned(-signed(input_value)) or busy = '0' then
             start_over <= '1';
           end if;
         else
           b <= input_value;
-          if b /= input_value then
+          if b /= input_value or busy = '0' then
             start_over <= '1';
           end if;
         end if;
@@ -271,6 +287,10 @@ begin
           output_value(32 downto 0) <= s;
           report "MATH: Unit #" & integer'image(unit)
             & " outputting addition sum $" & to_hstring(s);
+        elsif do_mult = '1' then
+          output_value <= p;
+          report "MATH: Unit #" & integer'image(unit)
+            & " outputting multiplication product $" & to_hstring(p);
         else
           output_value <= q;
           report "MATH: Unit #" & integer'image(unit)

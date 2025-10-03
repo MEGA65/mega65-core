@@ -1686,6 +1686,7 @@ begin
       ) port map (
       clock => mathclock,
       do_add => reg_math_config_drive(unit).do_add,
+      do_mult => math_unit_flags(2),
       invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
@@ -4407,26 +4408,21 @@ begin
       if math_unit_enable then
         -- We also provide some flags (which will later trigger interrupts) based
         -- on the equality of math registers 14 and 15
+        math_unit_flags(6 downto 4) <= (others => '0');
         if reg_math_regs(14) = reg_math_regs(15) then
           math_unit_flags(6) <= '1';
-        else
-          math_unit_flags(6) <= '0';
         end if;
         if reg_math_regs(14) < reg_math_regs(15) then
           math_unit_flags(5) <= '1';
           -- if math_unit_flags(3 downto 2) = "10" then
           --   math_unit_flags(7) <= '1' ;
           -- end if;
-        else
-          math_unit_flags(5) <= '0';
         end if;
         if reg_math_regs(14) > reg_math_regs(15) then
           math_unit_flags(4) <= '1';
           -- if math_unit_flags(3 downto 2) = "01" then
           --   math_unit_flags(7) <= '1' ;
           -- end if;
-        else
-          math_unit_flags(4) <= '0';
         end if;
         -- temp, maybe use $D7E1.7 as an interrupt indicate later?
         math_unit_flags(7) <= '0';
