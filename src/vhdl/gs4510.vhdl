@@ -8844,7 +8844,9 @@ begin
             reg_pages_dirty(3) <= '1';
           end if;
 
-          -- Implement write protection
+          -- Implement write protection (main CPU process for detecting it, and
+          -- blocking fastio access. Chip RAM is handled in a matching block in
+          -- the other weird memory access process.)
           if (hypervisor_mode = '0') then
             if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
               write_protect_event_toggle <= not write_protect_event_toggle;
@@ -8853,6 +8855,7 @@ begin
               -- Redirect write-protection violations to somewhere safe
               -- memory_access_address := x"3000000";
               memory_access_write := '0';
+              fastio_write <= '0';
             end if;
             if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and (wp_region1_enable='1') then
               write_protect_event_toggle <= not write_protect_event_toggle;
@@ -8861,6 +8864,7 @@ begin
               -- Redirect write-protection violations to somewhere safe
               -- memory_access_address := x"3000000";
               memory_access_write := '0';
+              fastio_write <= '0';
             end if;
           end if;          
 
@@ -9150,6 +9154,8 @@ begin
     variable real_long_address : unsigned(27 downto 0) := (others => '0');
     variable long_address : unsigned(27 downto 0) := (others => '0');
 
+    variable write_inhibit : std_logic := '0';
+    
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
                                             writeP : boolean)
@@ -10198,6 +10204,19 @@ begin
 
       report "MEMORY address prior to resolution is $" & to_hstring(memory_access_address);
 
+      -- Implement write protection
+      -- XXX Protection occurs on 28-bit address, and actually only works on
+      -- chip RAM, colour RAM and Attic RAM writes -- not IO.
+      write_inhibit := '0';
+      if (hypervisor_mode = '0') then
+        if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
+          write_inhibit := '1';
+        end if;
+        if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and (wp_region1_enable='1') then
+          write_inhibit := '1';
+        end if;
+      end if;          
+      
       if memory_access_write='1' then
 
         is_pending_dma_access_lower := '0';
@@ -10240,14 +10259,14 @@ begin
           report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
           -- allow hypervisor to always be able to write to ROM area.
           -- (unfreezing requires it)
-          shadow_write_var := (not rom_writeprotect) or hypervisor_mode;
+          shadow_write_var := ((not rom_writeprotect or write_inhibit) or hypervisor_mode);
           shadow_address_var := to_integer(long_address(19 downto 0));
         elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
           if (long_address(19 downto 1)&'0'=x"00000") and (reg_map_low(0)='0') then
             shadow_write_var := '0';
           else
-            shadow_write_var := '1';
+            shadow_write_var := (not write_inhibit);
           end if;
           shadow_address_var := to_integer(long_address(19 downto 0));
 
