@@ -748,6 +748,7 @@ architecture Behavioural of gs4510 is
   signal write_protect_event_toggle : std_logic := '0';
   signal last_write_protect_event_toggle : std_logic := '0';
   signal write_protect_event_action : unsigned(2 downto 0) := to_unsigned(0,3);
+  signal write_protect_event_triggered : std_logic := '0';
   
 --dengland
 --  signal irq_internal : std_logic := '0';
@@ -8765,7 +8766,12 @@ begin
             & ", memory_access_address=$" & to_hstring(memory_access_address);
           memory_access_address :=  memory_access_address_next;
           memory_access_read := memory_access_read_next;
-          memory_access_write := memory_access_write_next;
+          if write_protect_event_triggered = '0' then
+            memory_access_write := memory_access_write_next;
+          else
+            memory_access_write := '0';
+            write_protect_event_triggered <= '0';
+          end if;
           memory_access_resolve_address := memory_access_resolve_address_next;
           memory_access_wdata := memory_access_wdata_next;
 
@@ -8843,6 +8849,7 @@ begin
             if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
               write_protect_event_toggle <= not write_protect_event_toggle;
               write_protect_event_action <= wp_region0_action;
+              write_protect_event_triggered <= '1';
               -- Redirect write-protection violations to somewhere safe
               -- memory_access_address := x"3000000";
               memory_access_write := '0';
@@ -8850,6 +8857,7 @@ begin
             if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and (wp_region1_enable='1') then
               write_protect_event_toggle <= not write_protect_event_toggle;
               write_protect_event_action <= wp_region1_action;
+              write_protect_event_triggered <= '1';
               -- Redirect write-protection violations to somewhere safe
               -- memory_access_address := x"3000000";
               memory_access_write := '0';
