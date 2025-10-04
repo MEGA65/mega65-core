@@ -8838,6 +8838,26 @@ begin
             reg_pages_dirty(3) <= '1';
           end if;
 
+          -- Implement write protection
+          if (hypervisor_mode = '0') then
+            if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
+              write_protect_event_toggle <= not write_protect_event_toggle;
+              write_protect_event_action <= wp_region0_action;
+              -- Redirect write-protection violations to somewhere safe
+              -- memory_access_address := x"3000000";
+              memory_access_write := '0';
+            end if;
+            if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and (wp_region1_enable='1') then
+              write_protect_event_toggle <= not write_protect_event_toggle;
+              write_protect_event_action <= wp_region1_action;
+              -- Redirect write-protection violations to somewhere safe
+              -- memory_access_address := x"3000000";
+              memory_access_write := '0';
+            end if;
+          end if;          
+
+
+          
                                         -- Get the shadow RAM or ROM address on the bus fast to improve timing.
           shadow_write <= '0';
           shadow_write_flags(1) <= '1';
@@ -10178,23 +10198,6 @@ begin
 
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           report "MEMORY address post write resolution is $" & to_hstring(memory_access_address);
-
-          -- Implement write protection
-          if (hypervisor_mode = '0') then
-            if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and wp_region0_enable='1' then
-              write_protect_event_toggle <= not write_protect_event_toggle;
-              write_protect_event_action <= wp_region0_action;
-              -- Redirect write-protection violations to somewhere safe
-              memory_access_address := x"3000000";
-            end if;
-            if (memory_access_address(15 downto 0) >= wp_region1_start) and (memory_access_address(15 downto 0) <= wp_region1_end) and wp_region1_enable='1' then
-              write_protect_event_toggle <= not write_protect_event_toggle;
-              write_protect_event_action <= wp_region1_action;
-              -- Redirect write-protection violations to somewhere safe
-              memory_access_address := x"3000000";
-            end if;
-          end if;          
-
           
         end if;
 
