@@ -10207,8 +10207,10 @@ begin
       -- Implement write protection
       -- XXX Protection occurs on 28-bit address, and actually only works on
       -- chip RAM, colour RAM and Attic RAM writes -- not IO.
+      -- The following formulation protects only writes to bank 0, regardless
+      -- of mapping.
       write_inhibit := '0';
-      if (hypervisor_mode = '0') then
+      if (hypervisor_mode = '0') and memory_access_address(27 downto 16) = to_unsigned(0,12) then
         if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
           write_inhibit := '1';
         end if;
