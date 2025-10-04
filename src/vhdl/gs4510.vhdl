@@ -8847,7 +8847,8 @@ begin
           -- Implement write protection (main CPU process for detecting it, and
           -- blocking fastio access. Chip RAM is handled in a matching block in
           -- the other weird memory access process.)
-          if (hypervisor_mode = '0') then
+          -- Only applies to bank 0!
+          if (hypervisor_mode = '0') and memory_access_address(27 downto 16) = to_unsigned(0,12) then
             if (memory_access_address(15 downto 0) >= wp_region0_start) and (memory_access_address(15 downto 0) <= wp_region0_end) and (wp_region0_enable='1') then
               write_protect_event_toggle <= not write_protect_event_toggle;
               write_protect_event_action <= wp_region0_action;
