@@ -1502,6 +1502,10 @@ architecture Behavioural of gs4510 is
 
   -- Start with input and outputting enabled
   signal math_unit_flags : unsigned(7 downto 0) := x"01";
+  signal math_unit_mult_out_shift : unsigned(2 downto 0) := "000";
+  signal math_unit_less_than : std_logic := '0';
+  signal math_unit_greater_than : std_logic := '0';
+  signal math_unit_equal_to : std_logic := '0';
   signal math_unit_invert_b : std_logic_vector(15 downto 0) := (others => '0');
   -- halt math unit when math_unit_halted /= last_math_unit_halted
   signal math_unit_halted : std_logic := '0';
@@ -1629,7 +1633,7 @@ begin
       );
 
 
-  multipliers_a: for unit in 0 to 7 generate
+  multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 generic map (
       unit => unit
       ) port map (
@@ -1640,27 +1644,13 @@ begin
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
+      output_shift => math_unit_mult_out_shift,
       output_value => math_output_values(unit)
       -- output_select => math_output_counter,
       -- output_value(31 downto 0) => math_output_value_low,
       -- output_value(63 downto 32) => math_output_value_high
       );
   end generate;
-  
-  -- multipliers_b: for unit in 8 to 15 generate
-  --   mult_unit_alt: entity work.multiply32 generic map (
-  --     unit => unit
-  --     ) port map (
-  --     clock => mathclock,
-  --     do_add => reg_math_config_drive(unit).do_add,
-  --     invert_b => math_unit_invert_b(unit),
-  --     input_a => reg_math_config_drive(unit).source_a,
-  --     input_b => reg_math_config_drive(unit).source_b,
-  --     input_value_number => math_input_number,
-  --     input_value => math_input_value,
-  --     output_value => math_output_values_alt(unit mod 8)
-  --     );
-  -- end generate;       
 
   shifters: for unit in 8 to 11 generate
     shift_unit : entity work.shifter32 generic map (
@@ -1692,6 +1682,7 @@ begin
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
+      mult_shift => math_unit_mult_out_shift,
       output_value => math_output_values(unit)
       -- output_select => math_output_counter,
       -- output_value(31 downto 0) => math_output_value_low,
@@ -1931,6 +1922,29 @@ begin
         -- reg_math_cycle_counter_plus_one <= x"00000001";
       end if;
       reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
+
+      -- We also provide some flags (which will later trigger interrupts) based
+      -- on the equality of math registers 14 and 15
+      math_unit_flags(6) <= math_unit_equal_to;
+      math_unit_flags(5) <= math_unit_less_than;
+      math_unit_flags(4) <= math_unit_greater_than;
+      if reg_math_regs(14) = reg_math_regs(15) then
+        math_unit_equal_to <= '1';
+      else
+        math_unit_equal_to <= '0';
+      end if;
+      if reg_math_regs(14) < reg_math_regs(15) then
+        math_unit_less_than <= '1';
+      else
+        math_unit_less_than <= '0';
+      end if;
+      if reg_math_regs(14) > reg_math_regs(15) then
+        math_unit_greater_than <= '1';
+      else
+        math_unit_greater_than <= '0';
+      end if;
+      -- temp, maybe use $D7E1.7 as an interrupt indicate later?
+      math_unit_flags(7) <= '0';
     end if;
   end process;
 
@@ -3135,10 +3149,14 @@ begin
               -- $D7E1 is documented higher up
             when x"E0" => return to_unsigned(math_latch_address,4) & to_unsigned(reg_math_latch_intervals(math_latch_address),4);
             when x"E1" =>
-              if math_unit_halted = last_math_unit_halted then
-                return math_unit_flags;
+              if math_unit_flags(3) = '0' then
+                if math_unit_halted = last_math_unit_halted then
+                  return math_unit_flags;
+                else
+                  return math_unit_flags(7 downto 2) & "01";
+                end if;
               else
-                return math_unit_flags(7 downto 2) & "01";
+                return math_unit_flags(7 downto 3) & math_unit_mult_out_shift(2 downto 0);
               end if;
             -- @IO:GS $D7E2 MATH:RESERVED Reserved
             -- @IO:GS $D7E3 MATH:RESERVED Reserved
@@ -3734,7 +3752,17 @@ begin
           -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
           -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
           -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
-          math_unit_flags(3 downto 0) <= value(3 downto 0);
+          math_unit_flags(3) <= value(3);
+          if value(3) = '1' then
+            if math_unit_flags(0) = '1' then
+              math_unit_mult_out_shift <= value(2 downto 0);
+            elsif math_unit_halted /= last_math_unit_halted then
+              math_unit_mult_out_shift <= value(2 downto 0);
+              math_unit_flags(1 downto 0) <= "01";  -- reset flags to halted state, since halted state is cleared.
+            end if;
+          else
+            math_unit_flags(2 downto 0) <= value(2 downto 0);
+          end if;
           -- reg_math_cycle_counter <= to_unsigned(0,32); -- TODO: Should generate a reg_math_cycle_counter_reset signal
           reg_math_cycle_counter_reset_toggle <= not reg_math_cycle_counter_reset_toggle;
           math_latch_reset_toggle <= not last_math_latch_reset_toggle;
@@ -4404,30 +4432,6 @@ begin
       else
         chipselect_enables <= x"EF";
       end if;
-
-      if math_unit_enable then
-        -- We also provide some flags (which will later trigger interrupts) based
-        -- on the equality of math registers 14 and 15
-        math_unit_flags(6 downto 4) <= (others => '0');
-        if reg_math_regs(14) = reg_math_regs(15) then
-          math_unit_flags(6) <= '1';
-        end if;
-        if reg_math_regs(14) < reg_math_regs(15) then
-          math_unit_flags(5) <= '1';
-          -- if math_unit_flags(3 downto 2) = "10" then
-          --   math_unit_flags(7) <= '1' ;
-          -- end if;
-        end if;
-        if reg_math_regs(14) > reg_math_regs(15) then
-          math_unit_flags(4) <= '1';
-          -- if math_unit_flags(3 downto 2) = "01" then
-          --   math_unit_flags(7) <= '1' ;
-          -- end if;
-        end if;
-        -- temp, maybe use $D7E1.7 as an interrupt indicate later?
-        math_unit_flags(7) <= '0';
-      end if;
-
     end if;
 
     -- BEGINNING OF MAIN PROCESS FOR CPU

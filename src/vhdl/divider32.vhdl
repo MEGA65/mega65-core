@@ -41,6 +41,7 @@ entity divider32 is
     input_value_number : in integer range 0 to 15;
     input_value : unsigned(31 downto 0);
     -- output_select : in integer range 0 to 15;
+    mult_shift : in unsigned(2 downto 0);
     output_value : out unsigned(63 downto 0) := (others => '0')
     );
 end entity;
@@ -62,6 +63,7 @@ architecture neo_gregorian of divider32 is
 
   signal mult_a : unsigned(67 downto 0) := (others => '0');
   signal mult_b : unsigned(69 downto 0) := (others => '0');
+  signal mult_signed : std_logic := '0';
   signal mult_out : unsigned(137 downto 0) := (others => '0');
 
   signal dd : unsigned(67 downto 0) := to_unsigned(0,68);
@@ -102,7 +104,11 @@ begin
       report "state is " & state_t'image(state);
       -- only for vunit test
       -- report "q$" & to_hstring(q) & " = n$" & to_hstring(n) & " / d$" & to_hstring(d);
-      mult_out <= mult_a * mult_b;
+      if mult_signed = '0' then
+        mult_out <= mult_a * mult_b;
+      else
+        mult_out <= unsigned(signed(mult_a) * signed(mult_b));
+      end if;
       if start_over = '0' then
         case state is
           when idle =>
@@ -118,13 +124,14 @@ begin
             report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
             mult_a <= nn;
             mult_b <= f;
+            mult_signed <= '0';
             state <= start_2;
           when start_2 =>
             report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
             mult_a <= dd; 
             mult_b <= f;
             -- multiplier gets set to a * b when start_over is asserted, so store the product.
-            p <= mult_out(135 downto 72);
+            p <= mult_out(137 downto 74);
             state <= start_3;
           when start_3 =>
             report "mult_a=$" & to_hstring(mult_a) & ", mult_b=$" & to_hstring(mult_b) & ", mult_out=$" & to_hstring(mult_out);
@@ -219,9 +226,9 @@ begin
         -- calculate multiplication
         mult_a(35 downto 0) <= (others => '0');
         mult_a(67 downto 36) <= a;
-        mult_b(35 downto 0) <= (others => '0');
-        mult_b(67 downto 36) <= b;
-        mult_b(69 downto 68) <= (others => '0');
+        mult_b(37 downto 0) <= (others => '0');
+        mult_b(69 downto 38) <= b;
+        mult_signed <= '1';
       elsif start_over='1' then
         -- define divide by zero as zero
         report "Ignoring divide by zero";
@@ -288,7 +295,7 @@ begin
           report "MATH: Unit #" & integer'image(unit)
             & " outputting addition sum $" & to_hstring(s);
         elsif do_mult = '1' then
-          output_value <= p;
+          output_value <= shift_right(p, to_integer(mult_shift & "000"));
           report "MATH: Unit #" & integer'image(unit)
             & " outputting multiplication product $" & to_hstring(p);
         else
