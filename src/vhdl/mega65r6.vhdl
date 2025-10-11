@@ -302,7 +302,7 @@ end container;
 
 architecture Behavioral of container is
 
-  signal cea_vic : std_logic_vector := std_logic_vector(to_unsigned(17,8)); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+  signal cea_vic : std_logic_vector(7 downto 0) := (others => '0');
   
   signal scart_mode : std_logic;
   signal composite_sync : std_logic;
