@@ -314,18 +314,34 @@ architecture synth of vga_to_hdmi is
       others => x"00" -- zero
         );
 
-    function sum( data : u8 ) return unsigned is
-        variable r : unsigned(7 downto 0);
+    -- Null functions for now, because we are not doing colour space adjustment yet
+    function intensity_lookup_r(i : std_logic_vector(7 downto 0)) return std_logic_vector is
     begin
-        r := x"00";
-        for i in 0 to data'length-1 loop
-            r := r + data(i);
-        end loop;
-        return r;
-    end function sum;
+      return i;
+    end function;
+    
+    function intensity_lookup_g(i : std_logic_vector(7 downto 0)) return std_logic_vector is
+    begin
+      return i;
+    end function;
+    
+    function intensity_lookup_b(i : std_logic_vector(7 downto 0)) return std_logic_vector is
+    begin
+      return i;
+    end function;
 
-    constant sum_3 : unsigned(7 downto 0) := sum( hb_3 & pb_3 );
-
+    -- Compute InfoFrame checksum over header + first "length" payload bytes.
+    -- For AVI (length = 0x0D): HB[0..2] + PB[1..13].
+    function infoframe_checksum(hb_i : u8(0 to 2); pb_i : u8(0 to 27)) return unsigned is
+      variable s : integer := 0;
+    begin
+      s := to_integer(hb_i(0)) + to_integer(hb_i(1)) + to_integer(hb_i(2));
+      for i in 1 to 13 loop
+        s := s + to_integer(pb_i(i));
+      end loop;
+      return to_unsigned( (256 - (s mod 256)) mod 256, 8 );
+    end function;
+    
     ----------------------------------------------------------------------
 
 begin
@@ -637,7 +653,12 @@ begin
             -- video input buffer for blank counting
 
             buf_rdata := buf(buf_addr); -- read before write
-            buf(buf_addr) <= vga_vs_p & vga_hs_p & vga_de & vga_b & vga_g & vga_r;
+
+            
+            buf(buf_addr) <= vga_vs_p & vga_hs_p & vga_de & intensity_lookup_b(vga_b) & intensity_lookup_g(vga_g) & intensity_lookup_r(vga_r);
+
+
+            
             if buf_addr = buf_size-1 then
                 buf_addr <= 0;
                 buf_valid <= true;
@@ -728,19 +749,22 @@ begin
               spd_toggle <= spd_toggle + 1;
             end if;
             hb(3) <= hb_3;
-            pb(3)(0 to 5) <= pb_3(0 to 5);
-            pb(3)(0) <= -- checksum
-                1 + not (
-                    sum_3 +
-                    pb(3)(2) +
-                    pb(3)(4) +
-                    pb(3)(5)(3 downto 0)
-                );
-            pb(3)(2)(5 downto 4) <= unsigned(aspect_s);
-            pb(3)(2)(3) <= '1';
-            pb(3)(2)(1 downto 0) <= unsigned(aspect_s);
+
+            -- Start from clean template, then fill fields, then checksum:
+            pb(3) <= pb_3;
+            -- PB2: M only (see B below)
+            pb(3)(2) <= (others => '0');                       -- clear C/M/R
+            pb(3)(2)(5 downto 4) <= unsigned(aspect_s);        -- M = 01 (4:3) or 10 (16:9)
+            -- PB4: VIC from input
             pb(3)(4) <= unsigned(vic_s);
-            pb(3)(5)(0) <= pix_rep_s;
+            -- PB5 remains 0x00 from template (RGB: YQ=00, CN=0, PR=000)
+            -- PB6..PB13 remain 0x00
+
+            -- Now compute PB0 correctly:
+            pb(3)(0) <= infoframe_checksum(hb_3, pb(3));
+
+            pb(3)(2)(5 downto 4) <= unsigned(aspect_s);
+            pb(3)(4) <= unsigned(vic_s);
             pb(3)(6 to 27) <= pb_3(6 to 27);
 
             hb(4) <= hb_4;
