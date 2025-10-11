@@ -269,6 +269,15 @@ end container;
 
 architecture Behavioral of container is
 
+  signal cea_vic : std_logic_vector(7 downto 0) := (others => '0');
+  signal dvi_tv_range : std_logic;
+  
+  signal scart_mode : std_logic;
+  signal composite_sync : std_logic;
+  signal composite_red : std_logic_vector(7 downto 0);
+  signal composite_green : std_logic_vector(7 downto 0);
+  signal composite_blue : std_logic_vector(7 downto 0);
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -580,8 +589,10 @@ begin
       port map (
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
-        dvi => dvi_select,
-        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+        dvi => dvi_select, 
+        dvi_tv_range => dvi_tv_range,
+        vic => cea_vic, 
+
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
         vs_pol => '1',  -- 1=active high
@@ -1161,6 +1172,13 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC      
+      if pal50 = '1' then
+        cea_vic <= std_logic_vector(to_unsigned(17,8));
+      else
+        cea_vic <= std_logic_vector(to_unsigned(2,8));
+      end if;       
+      
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
