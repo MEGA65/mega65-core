@@ -63,7 +63,43 @@ entity vga_to_hdmi is
 end entity vga_to_hdmi;
 
 architecture synth of vga_to_hdmi is
-
+  
+  type lut256_t is array (0 to 255) of std_logic_vector(7 downto 0);
+  
+  function gen_full_to_limited return lut256_t is
+    variable t : lut256_t;
+    variable x, y, mul : integer;
+  begin
+    for i in 0 to 255 loop
+      x   := i;
+      -- y = 16 + round(x * 219 / 255)
+      mul := x * 219;
+      y   := 16 + ((mul + 127) / 255);  -- round-to-nearest
+      if y < 0 then y := 0; elsif y > 255 then y := 255; end if;
+      t(i) := std_logic_vector(to_unsigned(y, 8));
+    end loop;
+    return t;
+  end;
+  
+  function gen_limited_to_full return lut256_t is
+    variable t : lut256_t;
+    variable x, y : integer;
+  begin
+    for i in 0 to 255 loop
+      x := i;
+      -- clamp Limited domain to [16..235] before expanding
+      if x < 16 then x := 16; elsif x > 235 then x := 235; end if;
+      -- y = round((x - 16) * 255 / 219)
+      y := (( (x - 16) * 255 ) + 109) / 219; -- 109≈219/2 for rounding
+      if y < 0 then y := 0; elsif y > 255 then y := 255; end if;
+      t(i) := std_logic_vector(to_unsigned(y, 8));
+    end loop;
+    return t;
+  end;
+  
+  constant LUT_FULL_TO_LIMITED : lut256_t := gen_full_to_limited;
+  constant LUT_LIMITED_TO_FULL : lut256_t := gen_limited_to_full;
+  
     constant SUBPACKETS     : integer := 4; -- per packet
     constant PACKET_TYPES   : integer := 6; -- types of data packet supported in this design
 
@@ -314,22 +350,31 @@ architecture synth of vga_to_hdmi is
       others => x"00" -- zero
         );
 
-    -- Null functions for now, because we are not doing colour space adjustment yet
-    function intensity_lookup_r(i : std_logic_vector(7 downto 0)) return std_logic_vector is
-    begin
-      return i;
-    end function;
-    
-    function intensity_lookup_g(i : std_logic_vector(7 downto 0)) return std_logic_vector is
-    begin
-      return i;
-    end function;
-    
-    function intensity_lookup_b(i : std_logic_vector(7 downto 0)) return std_logic_vector is
-    begin
-      return i;
-    end function;
+  function lut_map(x : std_logic_vector(7 downto 0))
+    return std_logic_vector is
+  begin
+    if true then
+      return LUT_FULL_TO_LIMITED(to_integer(unsigned(x)));
+    else
+      return x; -- passthrough when off
+    end if;
+  end;
 
+  function intensity_lookup_r(x : std_logic_vector(7 downto 0)) return std_logic_vector is
+  begin
+    return lut_map(x);
+  end;
+  
+  function intensity_lookup_g(x : std_logic_vector(7 downto 0)) return std_logic_vector is
+  begin
+    return lut_map(x);
+  end;
+  
+  function intensity_lookup_b(x : std_logic_vector(7 downto 0)) return std_logic_vector is
+  begin
+    return lut_map(x);
+  end;
+  
     -- Compute InfoFrame checksum over header + first "length" payload bytes.
     -- For AVI (length = 0x0D): HB[0..2] + PB[1..13].
     function infoframe_checksum(hb_i : u8(0 to 2); pb_i : u8(0 to 27)) return unsigned is
