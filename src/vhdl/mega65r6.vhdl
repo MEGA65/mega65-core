@@ -302,7 +302,7 @@ end container;
 
 architecture Behavioral of container is
 
-  signal cea_vic : std_logic_vector := to_unsigned(17,8); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+  signal cea_vic : std_logic_vector := std_logic_vector(to_unsigned(17,8)); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
   
   signal scart_mode : std_logic;
   signal composite_sync : std_logic;
@@ -1402,9 +1402,9 @@ begin
 
       -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC      
       if pal50 = '1' then
-        cea_vic <= to_unsigned(17,8);
+        cea_vic <= std_logic_vector(to_unsigned(17,8));
       else
-        cea_vic <= to_unsigned(2,8);
+        cea_vic <= std_logic_vector(to_unsigned(2,8));
       end if;
         
       if cart_roml_int='0' then
