@@ -302,6 +302,14 @@ end container;
 
 architecture Behavioral of container is
 
+  signal cea_vic : std_logic_vector := to_unsigned(17,8); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+  
+  signal scart_mode : std_logic;
+  signal composite_sync : std_logic;
+  signal composite_red : std_logic_vector(7 downto 0);
+  signal composite_green : std_logic_vector(7 downto 0);
+  signal composite_blue : std_logic_vector(7 downto 0);
+  
   -- Use to select SDRAM or hyperram
   signal sdram_t_or_hyperram_f : boolean;
 
@@ -707,7 +715,7 @@ begin
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
         dvi => dvi_select,
-        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+        vic => cea_vic, 
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
         vs_pol => '1',  -- 1=active high
@@ -1392,6 +1400,13 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC      
+      if pal50 = '1' then
+        cea_vic <= to_unsigned(17,8);
+      else
+        cea_vic <= to_unsigned(2,8);
+      end if;
+        
       if cart_roml_int='0' then
         cart_roml <= '0';
         cart_roml_en_n <= '0';
@@ -1599,7 +1614,7 @@ begin
     hdmired <= v_red;
     hdmigreen <= v_green;
     hdmiblue <= v_blue;
-
+    
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
 --    if portp_drive(2)='1' then
