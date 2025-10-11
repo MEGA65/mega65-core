@@ -184,6 +184,8 @@ entity machine is
          hdmi_sda : inout std_logic := '1';
          hpd_a : inout std_logic := '1';
 
+         dvi_tv_range : out std_logic;
+         
          porto_out : out unsigned(7 downto 0) := x"00";
          portp_out : out unsigned(7 downto 0) := x"00";
 
@@ -1640,6 +1642,8 @@ begin
       ethernet_cpu_arrest => ethernet_cpu_arrest,
       eth_hyperrupt => eth_hyperrupt,
 
+      dvi_tv_range => dvi_tv_range,
+      
       hw_errata_level => hw_errata_level,
       hw_errata_enable_toggle => hw_errata_enable_toggle,
       hw_errata_disable_toggle => hw_errata_disable_toggle,
