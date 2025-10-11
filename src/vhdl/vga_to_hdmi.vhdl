@@ -32,8 +32,6 @@ entity vga_to_hdmi is
       -- Select which of the two audio clocks above to use
       select_44100 : in std_logic;
 
-      pal_select : in std_logic;
-      
         dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
