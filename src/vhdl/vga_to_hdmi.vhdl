@@ -32,6 +32,8 @@ entity vga_to_hdmi is
       -- Select which of the two audio clocks above to use
       select_44100 : in std_logic;
 
+        dvi_tv_range : in std_logic;
+      
         dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
@@ -350,10 +352,10 @@ architecture synth of vga_to_hdmi is
       others => x"00" -- zero
         );
 
-  function lut_map(x : std_logic_vector(7 downto 0))
+  impure function lut_map(x : std_logic_vector(7 downto 0))
     return std_logic_vector is
   begin
-    if true then
+    if dvi_tv_range='1' then
       return LUT_FULL_TO_LIMITED(to_integer(unsigned(x)));
     else
       return x; -- passthrough when off
