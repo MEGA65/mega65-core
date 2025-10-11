@@ -302,6 +302,7 @@ end container;
 architecture Behavioral of container is
 
   signal cea_vic : std_logic_vector(7 downto 0) := (others => '0');
+  signal dvi_tv_range : std_logic;
   
   signal scart_mode : std_logic;
   signal composite_sync : std_logic;
@@ -700,6 +701,7 @@ begin
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
         dvi => dvi_select,
+        dvi_tv_range => dvi_tv_range,
         vic => cea_vic, 
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -1121,16 +1123,17 @@ begin
 
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
-          hdmi_hsync       => v_hdmi_hsync,
+          hdmi_hsync      => v_hdmi_hsync,
           vgared          => v_red,
           vgagreen        => v_green,
           vgablue         => v_blue,
           hdmi_sda        => hdmi_sda,
           hdmi_scl        => hdmi_scl,
           hpd_a           => hpd_a,
-          lcd_dataenable => lcd_dataenable,
-          hdmi_dataenable =>  hdmi_dataenable,
-
+          lcd_dataenable  => lcd_dataenable,
+          hdmi_dataenable => hdmi_dataenable,
+          dvi_tv_range    => dvi_tv_range,
+          
           ----------------------------------------------------------------------
           -- CBM floppy  serial port
           ----------------------------------------------------------------------

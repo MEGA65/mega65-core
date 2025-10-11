@@ -21,6 +21,8 @@ entity iomapper is
         dipsw_read : out std_logic_vector(7 downto 0);
         board_major : out unsigned(3 downto 0);
         board_minor : out unsigned(3 downto 0);
+
+        dvi_tv_range : out std_logic;
         
         floppy_last_gap : out unsigned(7 downto 0) := x"00";
         floppy_gap_strobe : out std_logic := '0';
@@ -922,6 +924,7 @@ begin
       dc_track_enable => sid_mode(4),
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
+      dvi_tv_range => dvi_tv_range,
       reset => reset,
 --      irq => nmi,
       fastio_address => unsigned(address(19 downto 0)),

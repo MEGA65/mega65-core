@@ -21,6 +21,8 @@ entity c65uart is
     dc_track_rate : out unsigned(7 downto 0) := x"ff";
     dc_track_enable : out std_logic := '0';
 
+    dvi_tv_range : out std_logic := '0';
+    
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
@@ -156,6 +158,8 @@ architecture behavioural of c65uart is
 
   signal target_id : unsigned(7 downto 0) := x"FF";
 
+  signal dvi_tv_range_int : std_logic := '0';
+  
   -- Transmit buffer for current byte
   -- (Note the UART can also have a byte buffered in reg_data_tx, to allow
   -- back-to-back char sending)
@@ -621,6 +625,8 @@ begin  -- behavioural
           when x"3C" => sid_mode_int <= fastio_wdata(3 downto 0);
                         dc_track_enable_int <= fastio_wdata(4);
           when x"3D" => dc_track_rate <= fastio_wdata(7 downto 0);
+          when x"3E" => dvi_tv_range_int <= fastio_wdata(0);
+                        dvi_tv_range <= fastio_wdata(0);
           when others => null;
         end case;
       end if;
@@ -912,7 +918,9 @@ begin  -- behavioural
                       fastio_rdata(7 downto 5) <= last_reset_source;
         -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
         when x"3d" => fastio_rdata <= dc_track_rate_int;
-        when x"3e" => fastio_rdata <= reset_monitor_count(7 downto 0);
+        -- @IO:GS $D63E.0 DVID:TVRANGE Select TV intensity range (16-239) for digital video output. When 0, 0-255 is passed through, e.g., for monitors.
+        when x"3e" => fastio_rdata <= (others => '0');
+                      fastio_rdata(0) <= dvi_tv_range_int;
         when x"3f" => fastio_rdata(3 downto 0) <= reset_monitor_count(11 downto 8);
                       fastio_rdata(7 downto 4) <= x"0";
 
