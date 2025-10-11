@@ -31,6 +31,8 @@ entity vga_to_hdmi is
 
       -- Select which of the two audio clocks above to use
       select_44100 : in std_logic;
+
+      pal_select : in std_logic;
       
         dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
@@ -249,14 +251,14 @@ architecture synth of vga_to_hdmi is
     constant hb_3 : u8(0 to 2) := ( x"82", x"02", x"0D" );
     constant pb_3 : u8(0 to 27) := (
             0 => x"00",     -- *NOT CONSTANT* checksum
-            1 => x"12",     -- RSVD,Y(1:0),A0,B(1:0),S(1:0)
+            1 => x"00",     -- RSVD,Y(1:0),A0,B(1:0),S(1:0) (Y = RGB, no bar/scan)
             2 => x"00",     -- *PART CONSTANT* C(1:0),M(1:0),R(3:0)
-            3 => x"88",     -- ITC,EC(2:0),Q(1:0),SC(1:0)
+            3 => x"08",     -- ITC,EC(2:0),Q(1:0),SC(1:0)
             4 => x"00",     -- *NOT CONSTANT* VIC
-            5 => x"B0",     -- *PART CONSTANT* YQ(1:0),CN(1:0),PR(3:0)
+            5 => x"00",     -- *PART CONSTANT* YQ(1:0),CN(1:0),PR(3:0)
             others => x"00" -- zero
         );
-
+    
     -- type 4: Source Product Descriptor #1
     constant hb_4 : u8(0 to 2) := ( x"83", x"01", x"19" );
     constant pb_4 : u8(0 to 27) := (
