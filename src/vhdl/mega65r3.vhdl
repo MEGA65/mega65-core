@@ -481,7 +481,8 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
-
+  signal pal50 : std_logic;
+  
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
@@ -929,6 +930,7 @@ begin
           hpd_a           => hpd_a,
           lcd_dataenable => lcd_dataenable,
           hdmi_dataenable =>  hdmi_dataenable,
+          pal50_select_out => pal50,
           
           ----------------------------------------------------------------------
           -- CBM floppy  serial port
