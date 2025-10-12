@@ -4376,7 +4376,7 @@ begin
             -- extended attributes.
 
             -- FCM/NCM + CHARY16 causes interlacing of two consecutive glyphs #902
-            if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(4 downto 0) /= "00000") or fullcolour_8bitchars='1') then
+            if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(4 downto 0) /= "00000") or fullcolour_8bitchars='1') and colourramdata(4)='0' then
               glyph_number(0) <= '1';
               glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
             else
@@ -4820,7 +4820,7 @@ begin
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0) - 1;
-
+              
               if glyph_4bit='1' then
                 screenline_draw_mask <= screenline_draw_mask_drive;
                 report "DRAWMASK: PAINTING: Setting screenline_draw_mask to $" & to_hstring(screenline_draw_mask_drive);
