@@ -4820,13 +4820,19 @@ begin
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0) - 1;
-              
+
+              -- for GOTOX chars glyph_4bit is the ROWMASK enable bit
               if glyph_4bit='1' then
                 screenline_draw_mask <= screenline_draw_mask_drive;
                 report "DRAWMASK: PAINTING: Setting screenline_draw_mask to $" & to_hstring(screenline_draw_mask_drive);
               else
                 screenline_draw_mask <= (others => '1');
                 report "DRAWMASK: PAINTING: Ignoring drawmask. Using $ff (glyph_4bit not set)";
+
+                -- Allow bold + reverse on a GOTOX token to switch
+                -- primary/alternate palette selection for all chars that follow
+                -- Note: Moved here to fix a bug where ROWMASK would still be able to select the alternate palette
+                glyph_alternate_palette_invert <= glyph_bold_and_reverse;
               end if;
 
               -- Allow setting of the glyph y offset in GOTO tokens
@@ -4838,10 +4844,6 @@ begin
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
-
-              -- Allow bold + reverse on a GOTOX token to switch
-              -- primary/alternate palette selection for all chars that follow
-              glyph_alternate_palette_invert <= glyph_bold_and_reverse;
 
               -- Also allow forcing of the following characters to be
               -- background or foreground
