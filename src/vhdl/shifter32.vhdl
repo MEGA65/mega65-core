@@ -69,13 +69,8 @@ begin
         end if;
       end if;
 
-      -- Calculate the result
-      -- Even units do addition, odd ones do subtraction
-      -- if (unit mod 2) = 0 then
-        s <= unsigned((a(31) & a)+(b(31) & b));
-      -- else
-      --   s <= unsigned((a(31) & a)-(b(31) & b));
-      -- end if;
+      -- Calculate sum of inputs
+      s <= unsigned((a(31) & a)+(b(31) & b));
 
       if b(7 downto 0) = x"00" then
         p(63 downto 32) <= (others => '0');
@@ -93,18 +88,15 @@ begin
         end if;
       end if;
 
-      -- Display output value when requested, and tri-state outputs otherwise
-      -- if output_select = unit then
-        if do_add='1' then
-          -- Output sign-extended 33 bit addition result
-          output_value(63 downto 33) <= (others => s(32));
-          output_value(32 downto 0) <= s;
-        else
-          output_value <= p;
-        end if;
-      -- else
-      --   output_value <= (others => 'Z');
-      -- end if;
+      -- Output result, stored in output register on the CPU side
+      if do_add='1' then
+        -- Output sign-extended 33 bit addition result
+        output_value(63 downto 33) <= (others => s(32));
+        output_value(32 downto 0) <= s;
+      else
+        -- Output shifted result
+        output_value <= p;
+      end if;
     end if;
   end process;
 end neo_gregorian;

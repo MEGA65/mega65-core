@@ -80,16 +80,6 @@ architecture neo_gregorian of divider32 is
   end function count_leading_zeros;
 begin
 
-  -- instance "fast_divide_1"
-  -- fast_divide_1: entity work.fast_divide
-  --   port map (
-  --     clock      => clock,
-  --     n          => a,
-  --     d          => b,
-  --     q          => q,
-  --     start_over => start_over,
-  --     busy       => busy);
-
   process (clock) is
     variable temp64 : unsigned(73 downto 0) := to_unsigned(0,74);
     variable temp96 : unsigned(105 downto 0) := to_unsigned(0,106);
@@ -279,33 +269,27 @@ begin
         start_over <= '0';
       end if;
 
-      -- Even units do addition, odd ones do subtraction
-      -- if (unit mod 2) = 0 then
-        s <= unsigned((a(31) & a) + (b(31) & b));
-      -- else
-      --   s <= unsigned((a(31) & a)-(b(31) & b));
-      -- end if;
+      -- Compute sum of inputs
+      s <= unsigned((a(31) & a) + (b(31) & b));
 
-      -- Display output value when requested, and tri-state outputs otherwise
-      -- if output_select = unit then
-        if do_add='1' then
-          -- Output sign-extended 33 bit addition result
-          output_value(63 downto 33) <= (others => s(32));
-          output_value(32 downto 0) <= s;
-          report "MATH: Unit #" & integer'image(unit)
-            & " outputting addition sum $" & to_hstring(s);
-        elsif do_mult = '1' then
-          output_value <= shift_right(p, to_integer(mult_shift & "000"));
-          report "MATH: Unit #" & integer'image(unit)
-            & " outputting multiplication product $" & to_hstring(p);
-        else
-          output_value <= q;
-          report "MATH: Unit #" & integer'image(unit)
-            & " outputting division quotient $" & to_hstring(q);
-        end if;
-      -- else
-      --   output_value <= (others => 'Z');
-      -- end if;
+      -- Output result, stored in output register on the CPU side
+      if do_add='1' then
+        -- Output sign-extended 33 bit addition result
+        output_value(63 downto 33) <= (others => s(32));
+        output_value(32 downto 0) <= s;
+        report "MATH: Unit #" & integer'image(unit)
+          & " outputting addition sum $" & to_hstring(s);
+      elsif do_mult = '1' then
+        -- Output product shifted by multiplication shift
+        output_value <= shift_right(p, to_integer(mult_shift & "000"));
+        report "MATH: Unit #" & integer'image(unit)
+          & " outputting multiplication product $" & to_hstring(p);
+      else
+        -- Output quotient and fractional part
+        output_value <= q;
+        report "MATH: Unit #" & integer'image(unit)
+          & " outputting division quotient $" & to_hstring(q);
+      end if;
     end if;
   end process;
 end neo_gregorian;
