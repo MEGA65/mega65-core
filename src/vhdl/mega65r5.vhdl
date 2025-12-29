@@ -48,6 +48,10 @@ entity container is
          kb_io0 : inout std_logic;
          kb_io1 : inout std_logic;
          kb_io2 : in std_logic;
+         kb_tdo : in std_logic;
+         kb_tms : out std_logic := '0';
+         kb_tdi : out std_logic := '0';
+         kb_jtagen : out std_logic := '0';
 
          -- Direct joystick lines
          fa_left : in std_logic;
@@ -740,7 +744,9 @@ begin
       clock270 => clock270,
 
       p1lo => p1lo,
-      p1hi => p1hi,
+      -- Until we pull in the full r3 expansion board stuff from 768-,
+      -- we provide the accessory UART interface directly elsewhere in this file.
+      -- p1hi => p1hi,
       p2lo => p2lo,
       p2hi => p2hi,
 
@@ -1149,8 +1155,16 @@ begin
           iec_atn_en_n => iec_atn_en_n_drive,
           iec_bus_active => iec_bus_active,
 
---      buffereduart_rx => '1',
+          -- Connect buffered UARTs to PMOD and keyboard connector for MEGAphone
+          -- (Note that the PMOD assignments will get overwritten when we pull
+          --  in the expansion board connections 768-* branch)
           buffereduart_ringindicate => (others => '0'),
+          buffereduart_rx(7 downto 2) => (others => '1'),
+          buffereduart_rx(1) => kb_tdo,
+          buffereduart_rx(0) => p1hi(2),
+          buffereduart_tx(7 downto 2) => (others => open),
+          buffereduart_tx(1) => kb_tdi,
+          buffereduart_tx(0) => p1hi(1),
 
           porta_pins => column(7 downto 0),
           portb_pins => row(7 downto 0),
