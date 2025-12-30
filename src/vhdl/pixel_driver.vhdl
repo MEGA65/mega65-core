@@ -666,7 +666,12 @@ begin
                   last_raster => 480 - debug_height_reduction,
 
                   lcd_first_raster => 1,
-                  lcd_last_raster => 480 - debug_height_reduction
+                  lcd_last_raster => 480 - debug_height_reduction,
+
+                  cycles_per_raster_1mhz => 65,
+                  cycles_per_raster_2mhz => 65*2,
+                  cycles_per_raster_3mhz => 228 -- 65*3.5, rounded up to next integer
+                  
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
