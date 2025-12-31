@@ -237,7 +237,7 @@ entity container is
 
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
-         p1hi : inout std_logic_vector(3 downto 0);
+         p1hi : inout std_logic_vector(3 downto 0) := (others => 'Z');
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
 
