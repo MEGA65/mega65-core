@@ -78,8 +78,11 @@ architecture behavioural of cia6526 is
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
   signal reg_timera : unsigned(15 downto 0) := x"0001";
+  signal reg_timera_visible : unsigned(15 downto 0) := x"0001";
   signal reg_timera_latch : unsigned(15 downto 0) := x"0001";
+
   signal reg_timerb : unsigned(15 downto 0) := x"0000";
+  signal reg_timerb_visible : unsigned(15 downto 0) := x"0000";
   signal reg_timerb_latch : unsigned(15 downto 0) := x"0000";
 
   signal reg_timera_tick_source : std_logic := '0'; 
@@ -163,7 +166,7 @@ begin  -- behavioural
   
   process(cpuclock,fastio_address,fastio_write,flagin,cs,portain,portbin,
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
-          reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
+          reg_timera,reg_timera_visible,reg_timerb,reg_timerb_visible,read_tod_latched,read_tod_dsecs,
           reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
           reg_isr,reg_50hz,reg_serialport_direction,
           reg_timera_tick_source,reg_timera_oneshot,
@@ -224,10 +227,10 @@ begin  -- behavioural
             -- @IO:C64 $DD05 CIA2:TIMERA Timer A counter (16 bit)
             -- @IO:C64 $DD06 CIA2:TIMERB Timer B counter (16 bit)
             -- @IO:C64 $DD07 CIA2:TIMERB Timer B counter (16 bit)
-            when x"04" => fastio_rdata <= reg_timera(7 downto 0);
-            when x"05" => fastio_rdata <= reg_timera(15 downto 8);
-            when x"06" => fastio_rdata <= reg_timerb(7 downto 0);
-            when x"07" => fastio_rdata <= reg_timerb(15 downto 8);
+            when x"04" => fastio_rdata <= reg_timera_visible(7 downto 0);
+            when x"05" => fastio_rdata <= reg_timera_visible(15 downto 8);
+            when x"06" => fastio_rdata <= reg_timerb_visible(7 downto 0);
+            when x"07" => fastio_rdata <= reg_timerb_visible(15 downto 8);
             when x"08" =>
               -- @IO:C64 $DC08.0-3 CIA1:TODJIF TOD tenths of seconds
               -- @IO:C64 $DD08.0-3 CIA2:TODJIF TOD tenths of seconds
@@ -328,10 +331,10 @@ begin  -- behavioural
             when x"11" => fastio_rdata <= reg_timera_latch(15 downto 8);
 
             when x"13" => fastio_rdata <= reg_timerb_latch(15 downto 8);
-            when x"14" => fastio_rdata <= reg_timera(7 downto 0);
-            when x"15" => fastio_rdata <= reg_timera(15 downto 8);
-            when x"16" => fastio_rdata <= reg_timerb(7 downto 0);
-            when x"17" => fastio_rdata <= reg_timerb(15 downto 8);
+            when x"14" => fastio_rdata <= reg_timera_visible(7 downto 0);
+            when x"15" => fastio_rdata <= reg_timera_visible(15 downto 8);
+            when x"16" => fastio_rdata <= reg_timerb_visible(7 downto 0);
+            when x"17" => fastio_rdata <= reg_timerb_visible(15 downto 8);
 
             when x"18" => fastio_rdata(3 downto 0) <= reg_tod_dsecs(3 downto 0);
                           -- Also the flags needed to exactly restore the CIA settings
@@ -529,52 +532,58 @@ begin  -- behavioural
       reg_timera_underflow <= '0';
 --      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0_1mhz);
       if reg_timera_start='1' and hypervisor_mode='0' then
-        if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
-          -- underflow
-          report "CIA" & to_hexstring(unit) & " timera underflow (reg_serialport_direction="
-            & std_logic'image(reg_serialport_direction) & ", sdr_bits_remaining = "
-            & integer'image(sdr_bits_remaining) & ", sdr_bit_alternate="
-            & std_logic'image(sdr_bit_alternate);
-          reg_isr(0) <= '1';
-          reg_timera_underflow <= '1';
-          reg_timera <= reg_timera_latch;
-          if reg_timera_oneshot='1' then
-            reg_timera_start <= '0';
-          end if;
-          reg_timera_has_ticked <= '0';
+        if reg_timera_has_ticked='1' then
+          if reg_timera = x"FFFF" then
+            -- underflow
+            report "CIA" & to_hexstring(unit) & " timera underflow (reg_serialport_direction="
+              & std_logic'image(reg_serialport_direction) & ", sdr_bits_remaining = "
+              & integer'image(sdr_bits_remaining) & ", sdr_bit_alternate="
+              & std_logic'image(sdr_bit_alternate);
+            reg_isr(0) <= '1';
+            reg_timera_underflow <= '1';
+            reg_timera <= reg_timera_latch;
+            reg_timera_visible <= reg_timera_latch;
+            if reg_timera_oneshot='1' then
+              reg_timera_start <= '0';
+            end if;
+            reg_timera_has_ticked <= '0';
 
-          if reg_serialport_direction='1' and sdr_bits_remaining /= 0 then
-            -- Output next bit of serial shift register
-            -- This should happen at only 1/2 the phi clock, so we need to
-            -- shift out only every other time we get here.
-            -- When empty, we assert the serial port interrupt bit
-            sdr_bit_alternate <= not sdr_bit_alternate;
-            -- data is shifted out on negative edge of countout
-            -- pin.
-            countout <= sdr_bit_alternate;
-            if sdr_bit_alternate='0' then
-              spout <= reg_shift_data(7);
-              reg_sdr_data(7 downto 1) <= reg_sdr_data(6 downto 0);
-              reg_sdr_data(0) <= '0';
-              report "Shifting out bit, " & integer'image(sdr_bits_remaining-1) & " to go.";
-              
-              sdr_bits_remaining <= sdr_bits_remaining - 1;
-              if sdr_bits_remaining = 1 then
-                -- Shifted out last bit, so set bit in the ISR to
-                -- indicate this
-                reg_isr(3) <= '1';
-                report "Asserting shift register ISR flag";
-                -- Refill shift register from SDR
-                if reg_sdr_filled='1' then
-                    reg_shift_data <= reg_sdr_data;
-                    sdr_bits_remaining <= 8;
-                    sdr_bit_alternate <= '1';
-                    reg_sdr_filled <= '0';
+            if reg_serialport_direction='1' and sdr_bits_remaining /= 0 then
+              -- Output next bit of serial shift register
+              -- This should happen at only 1/2 the phi clock, so we need to
+              -- shift out only every other time we get here.
+              -- When empty, we assert the serial port interrupt bit
+              sdr_bit_alternate <= not sdr_bit_alternate;
+              -- data is shifted out on negative edge of countout
+              -- pin.
+              countout <= sdr_bit_alternate;
+              if sdr_bit_alternate='0' then
+                spout <= reg_shift_data(7);
+                reg_sdr_data(7 downto 1) <= reg_sdr_data(6 downto 0);
+                reg_sdr_data(0) <= '0';
+                report "Shifting out bit, " & integer'image(sdr_bits_remaining-1) & " to go.";
+                
+                sdr_bits_remaining <= sdr_bits_remaining - 1;
+                if sdr_bits_remaining = 1 then
+                  -- Shifted out last bit, so set bit in the ISR to
+                  -- indicate this
+                  reg_isr(3) <= '1';
+                  report "Asserting shift register ISR flag";
+                  -- Refill shift register from SDR
+                  if reg_sdr_filled='1' then
+                      reg_shift_data <= reg_sdr_data;
+                      sdr_bits_remaining <= 8;
+                      sdr_bit_alternate <= '1';
+                      reg_sdr_filled <= '0';
+                  end if;
                 end if;
               end if;
             end if;
-          end if;
-        end if;
+          else  -- if reg_timer is not 0xFFFF
+            reg_timera_visible <= reg_timera;   -- avoid setting visible timer value to 0xFFFF on underflow
+          end if;   -- end if reg_timera = x"FFFF"
+        end if;  -- if reg_timera_has_ticked='1' then
+
         case reg_timera_tick_source is
           when '0' =>
             -- phi2 pulses
@@ -594,18 +603,25 @@ begin  -- behavioural
       end if;
       if reg_timerb_start='1' and hypervisor_mode='0' then
         report "CIA" & to_hexstring(unit) & " timerb running. reg_timerb = $" & to_hexstring(reg_timerb);
-        if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
-          -- underflow
-          report "CIA" & to_hexstring(unit) & " timerb underflow";
-          reg_isr(1) <= '1';
-          report "CIA" & to_hstring(unit) & " timerb set from latch";
-          reg_timerb <= reg_timerb_latch;
-          if reg_timerb_oneshot='1' then
-            report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
-            reg_timerb_start <= '0';
-          end if;
-          reg_timerb_has_ticked <= '0';
-        end if;
+
+        if reg_timerb_has_ticked='1' then
+          if reg_timerb = x"FFFF" then
+            -- underflow
+            report "CIA" & to_hexstring(unit) & " timerb underflow";
+            reg_isr(1) <= '1';
+            report "CIA" & to_hstring(unit) & " timerb set from latch";
+            reg_timerb <= reg_timerb_latch;
+            reg_timerb_visible <= reg_timerb_latch;
+            if reg_timerb_oneshot='1' then
+              report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
+              reg_timerb_start <= '0';
+            end if;
+            reg_timerb_has_ticked <= '0';
+          else
+            reg_timerb_visible <= reg_timerb;   -- avoid setting visible timer value to 0xFFFF on underflow
+          end if;  -- if reg_timber = x"FFFF"
+        end if;  -- if reg_timerb_has_ticked='1'
+
         case reg_timerb_tick_source is
           when "00" => -- phi2 pulses
             if phi0_1mhz ='1' then

@@ -242,7 +242,7 @@ audioOptions0:
 	.byte		$20
 	.word		$0003
 	.byte		$01
-	.defPStr	"audio amplifier:"
+	.defPStr	"r3 audio amp chip:"
 	.defPStr	"off"
 	.defPStr	"on"
 

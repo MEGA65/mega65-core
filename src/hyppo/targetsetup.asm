@@ -55,16 +55,30 @@ mps3_loop:
         lda mega65r3_i2c_settings,y
         iny
 
+        ldx #$ff
 
         ;; Keep writing it until it gets written
 -
-         sta [<zptempv32],z
+        sta [<zptempv32],z
 
         inc $d020
         cmp [<zptempv32],z
+        beq mps3_loop
+        jsr i2c_job_delay
+        dex
         bne -
 
         jmp mps3_loop
+
+i2c_job_delay:
+        phx
+        ldx #$00
+-
+        dex
+        bne -
+
+        plx
+        rts
 
 megaphone_r1_i2c_setup:
 
@@ -93,6 +107,7 @@ mps_loop:
         lda megaphone_r1_i2c_settings,y
         iny
 
+        ldx #$ff
 
         ;; Keep writing it until it gets written
 -
@@ -103,6 +118,9 @@ mps_loop:
         inc $d020
 
         cmp [<zptempv32],z
+        beq mps_loop
+        jsr i2c_job_delay
+        dex
         bne -
 
 
@@ -145,8 +163,8 @@ mega65r3_i2c_settings:
         !8 $e3,$80
         !8 $e4,$0C
         !8 $e5,$99
-        !8 $e1,$20   ;; Left volume set ($FF = mute, $40 = full volume, $00 = +24dB)
-        !8 $e2,$20   ;; Right volume set ($FF = mute, $40 = full volume, $00 = +24dB)
+        !8 $e1,$45   ;; Left volume set ($FF = mute, $40 = full volume, $00 = +24dB)
+        !8 $e2,$45   ;; Right volume set ($FF = mute, $40 = full volume, $00 = +24dB)
 
 
         !8 $FF,$FF ;; End of list marker

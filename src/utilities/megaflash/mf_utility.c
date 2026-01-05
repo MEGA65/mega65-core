@@ -16,7 +16,7 @@ uint8_t mfu_slot_mb = 1;
 uint8_t mfu_slot_pagemask = (1 << 4) - 1;
 uint32_t mfu_slot_size = 1L << 20;
 
-uint8_t hw_model_id = 0;
+uint8_t hw_model_id = 0, hw_model_minor = 0;
 char hw_model_name[20] = "Unknown";
 
 /***************************************************************************
@@ -35,6 +35,8 @@ int8_t mfut_probe_hardware_version(void)
   uint8_t k = 0;
 
   hw_model_id = PEEK(0xD629);
+  hw_model_minor = (hw_model_id >> 4) & 0xf;
+  hw_model_id &= 0xf;
 
 #define MFUT_BUF2MOD(A) (((mega_models_t *)buffer)->A)
 
@@ -48,6 +50,11 @@ int8_t mfut_probe_hardware_version(void)
       mfu_slot_size = ((uint32_t)mfu_slot_pagemask) << 16;
       mfu_slot_pagemask--;
       mhx_strncpy(hw_model_name, buffer + sizeof(mega_models_t), 20);
+      if (hw_model_minor) {
+        k = mhx_strlen(hw_model_name);
+        hw_model_name[k++] = hw_model_minor;
+        hw_model_name[k] = MHX_C_EOS;
+      }
       return 0;
     }
   }

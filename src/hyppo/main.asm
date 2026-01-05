@@ -77,8 +77,8 @@ trap_entry_points:
         eom                                     ;; refer serialwrite in this file
         jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
-        jmp nosuchtrap
-        eom
+	jmp readsharedresourcetrap              ;; Trap #$05
+        eom                                     ;; refer: syspart.asm
         jmp nosuchtrap
         eom
         jmp nosuchtrap
@@ -1135,6 +1135,13 @@ f011Virtualised:
         ;; Check internal drive / SD card status, and don't mount D81 if set to use internal drive
         ;; Not only would this be a waste of time, it also stomps the $D6A1 bit 0 that indicates
         ;; to use the internal drive.
+        ;; this also assumes that nothing is going on with the second drive, and as no
+        ;; production has a second drive, we put it in a defined state by setting it as noreal
+        ;; TODO: add mount options for the second drive to configure
+        lda #d81_image_flag_noreal
+        sta currenttask_d81_image1_flags
+        lda #0
+        sta currenttask_d81_image1_namelen
         lda $d6a1
         and #$01
         bne @dontMountD81
@@ -1173,8 +1180,13 @@ f011Virtualised:
 ;;         ========================
 
 d81attachfail:
-        ;; we couldn't find the D81 file, so tell the user
-        ;;
+        ;; we couldn't find the D81 file
+        ;; set no real drive flag
+        lda #d81_image_flag_noreal
+        sta currenttask_d81_image0_flags
+        lda #0
+        sta currenttask_d81_image0_namelen
+        ;; and tell the user
         ldx #<msg_nod81
         ldy #>msg_nod81
         jsr printmessage
@@ -1986,9 +1998,10 @@ printhex:
         jsr printhexdigit
         tza
         and #$0f
-printhexdigit:
+printhexdigit:	
         ;; find next $ sign to replace with hex digit
         ;;
+	phx
         tax
 phd3:   lda (<zptempp2),y
         cmp #$24
@@ -1997,6 +2010,7 @@ phd3:   lda (<zptempp2),y
         iny
         cpy #$50
         bcc phd3
+	plx
         rts
 
 phd2:   txa
@@ -2007,6 +2021,7 @@ phd2:   txa
 phd1:   sta (<zptempp2),y
         iny
         iny
+	plx
         rts
 
 ;;         ========================
@@ -3080,7 +3095,8 @@ msg_noflashmenu:
 
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17"
+                        ;; this should match constants:os_version, dos_version
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V01.03/V01.03"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
@@ -3211,7 +3227,7 @@ txt_BOOTLOGOM65:        !text "BANNER.M65"
 txt_FREEZER:            !text "FREEZER.M65"
                         !8 0
 
-txt_ETHLOAD:                !text "ETHLOAD.M65"
+txt_ETHLOAD:            !text "ETHLOAD.M65"
                         !8 0
 
             ;; If this file is present, then machine starts up with video
@@ -3246,11 +3262,15 @@ dos_disk_table:
         * = SysPartStructure_Start
 
 syspart_structure:
-
+	;; XXX - WARNING: The following structure must exactly match the on-disk format of the
+	;; system partition information structure.
+	
 syspart_start_sector:
         !8 0,0,0,0
 syspart_size_in_sectors:
         !8 0,0,0,0
+;; this is never used nor set, fdisk sets it to 1MB and points syspart_freeze_area_start to it
+;; so it could be calculated by multiplying syspart_freeze_area_start with sector size (512b)
 syspart_reserved:
         !8 0,0,0,0,0,0,0,0
 
@@ -3296,6 +3316,11 @@ syspart_service_slot_count:
 syspart_service_directory_sector_count:
         !8 0,0
 
+syspart_resources_area_start:
+	!8 0,0,0,0
+syspart_resources_area_size:
+	!8 0,0,0,0
+	
 ;; /*  -------------------------------------------------------------------
 ;;     Hypervisor DOS work area and scratch pad at $BC00-$BCFF
 ;;     ---------------------------------------------------------------- */

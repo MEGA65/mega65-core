@@ -25,6 +25,12 @@ currenttask_id:
 currenttask_name:
         !text "OPERATING SYSTEM"
 
+        ;; the following fields are for all types of images, not only D81
+
+        ;; known flags:
+        ;; .0 FLAG_MOUNTED  - enable drive virtualisation
+        ;; .1 FLAG_NODISK   - don't mount a disk image
+        ;; .2 FLAG_WRITE_EN - mount the image with write enabled
 currenttask_d81_image0_flags:
         !8 0
 currenttask_d81_image1_flags:

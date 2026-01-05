@@ -9,15 +9,53 @@ Please look into [mega65-core](https://github.com/MEGA65/mega65-core/),
 [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/) git histories
 for complete changes.
 
+Starting with 0.98 we will also have Projects for each release, see
+the [GitHub Projects Page](https://github.com/orgs/MEGA65/projects/).
+
 Please check the [mega65-core repository](https://github.com/MEGA65/mega65-core/releases).
 for our tagged releases.
 
-## Release 0.97 (tbd) TODO: add hash
+## Release 0.98 (t.b.d.)
+
+This is perhaps the second release in 2025, we will see...
+
+You can find issues and pull requests ssociated with this release in the
+[Release 0.98 Project](https://github.com/orgs/MEGA65/projects/2/views/2).
+
+### ROM Release 0.98
+
+t.b.d.
+
+### Changes 0.98
+
+nothing here yet...
+
+### Known Bugs 0.98
+
+we'll see...
+
+## Release 0.97.1 (I2C bugfix for R6)
+
+First bugfix release for 0.97, only for R6 and later boards.
+
+The R6A board (PCB Revision R7) is a production update that replaces some parts that
+are no longer available. During the process a bug in the I2C communication came to light,
+which needed fixing.
+
+- [Release 0.97.1](https://github.com/orgs/MEGA65/projects/8/views/2)
+
+### Changes 0.97.1
+
+- MEGA65R6A Bringup fixes
+  [#915](https://github.com/MEGA65/mega65-core/issues/915)
+
+## Release 0.97 (10th Anniversary Edition)
 
 This is the first 2025 Release.
 
 You can find issues associated with this release by following these links:
 
+- [Release 0.97](https://github.com/orgs/MEGA65/projects/1/views/8)
 - [mega65-core](https://github.com/MEGA65/mega65-core/milestone/9?closed=1)
 - [mega65-freezemenu](https://github.com/MEGA65/mega65-freezemenu/milestone/7?closed=1)
 - [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/milestone/6?closed=1)
@@ -26,7 +64,7 @@ Note: It is possible that not all changes were marked with the milestone.
 
 ### ROM Release 0.97
 
-The 0.97 Release came with ROM Version 9204XX. TODO: insert version
+The 0.97 Release came with ROM Version 920413.
 
 Please see the
 [ROM Changelog](https://github.com/MEGA65/mega65-rom-public/blob/main/CHANGELOG.md)
@@ -36,6 +74,8 @@ for more information.
 
 - **MEGAFLASH**: refactor low level flashing interface
   [#782](https://github.com/MEGA65/mega65-core/issues/782):
+  - This does make it work for non-r3a/r4/r5/r6 Platforms again
+    (in 0.96 this was not supported)
   - CRC check fix for attic-less boards (plus Wukong build fix)
     [PR#839](https://github.com/MEGA65/mega65-core/pull/839)
   - Update mf_selectcore.c to correct a small typo
@@ -48,6 +88,16 @@ for more information.
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
   - CARTRIDGE: define a MEGA65 style cartridge
     [#711](https://github.com/MEGA65/mega65-core/issues/711)
+- HYPPO-DOS 1.3
+  - HDOS 1.3 (partial)
+    [#760](https://github.com/MEGA65/mega65-core/issues/760)
+    - also includes implementation of NO DISK option
+  - add attach, rmfile, and writefile for 0.97
+    [#866](https://github.com/MEGA65/mega65-core/issues/866)
+  - Implemented trap_dos_writefile and trap_dos_rmfile
+    [PR#748](https://github.com/MEGA65/mega65-core/pull/748)
+  - refactor d81attach / d81detach calls
+    [#628](https://github.com/MEGA65/mega65-core/issues/628)
 - Features:
   - Disable PALEMU scanlines if V400 is enabled
     [#854](https://github.com/MEGA65/mega65-core/issues/854)
@@ -63,6 +113,8 @@ for more information.
       [PR#818](https://github.com/MEGA65/mega65-core/pull/818)
     - 4541 - Add $4C, $50, and $70 commands
       [PR#825](https://github.com/MEGA65/mega65-core/pull/825)
+    - nexys4ddr stuck in ROM startup
+      [#857](https://github.com/MEGA65/mega65-core/issues/857)
   - HWERRATA register should return maximum errata level supported
     [#829](https://github.com/MEGA65/mega65-core/issues/829)
   - Allow DMA src/dst addresses to cross MB boundaries
@@ -76,6 +128,13 @@ for more information.
   - CONFIG: Add option to disable floppy drive sounds while accessing SD
     [#622](https://github.com/MEGA65/mega65-core/issues/622)
 - Bugfixes:
+  - Lengthen the keyboard debounce
+    [#880](https://github.com/MEGA65/mega65-core/pull/880)
+  - OPL2 - Correct setting Cx registers
+    [#859](https://github.com/MEGA65/mega65-core/issues/859)
+    [PR#879](https://github.com/MEGA65/mega65-core/pull/879)
+  - Sometimes keys double trigger while writing
+    [#870](https://github.com/MEGA65/mega65-core/issues/870)
   - add freeze region for 0xFFD3084
     [PR#868](https://github.com/MEGA65/mega65-core/pull/868)
   - fix Reverse shifting order of the CIA shift register
@@ -127,11 +186,20 @@ for more information.
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
   - sdcardio: D6A1.3 SDFDC:SILENT seems to have no effect
     [#621](https://github.com/MEGA65/mega65-core/issues/621)
-- FREEZER (updated to 0.3.1)
+- FREEZER (updated to 0.4.0)
+  - Correct makedisk header
+    [#96](https://github.com/MEGA65/mega65-freezemenu/pull/96)
+  - Implement NO DISK support
+    [#94](https://github.com/MEGA65/mega65-freezemenu/issues/94)
+  - Support new dos_attach HDOS 1.3 call
+    [#91](https://github.com/MEGA65/mega65-freezemenu/issues/91)
   - Key descriptions: HELP listed twice, F9 is not
     [#90](https://github.com/MEGA65/mega65-freezemenu/issues/90)
   - Tapping RESTORE key in Freezer menu causes unwanted chaotic behaviour
     [#89](https://github.com/MEGA65/mega65-freezemenu/issues/89)
+- FDISK (updated to 0.35)
+  - Fix population problem connected to MEGAFLASH QSPI core changes
+    [#26](https://github.com/MEGA65/mega65-fdisk/issues/26)
 - Build framework:
   - Switch to mega65-tools release 1.00, use coretool, don't build MCS for everything
     [#792](https://github.com/MEGA65/mega65-core/issues/792)
@@ -151,6 +219,10 @@ for more information.
     [#291](https://github.com/MEGA65/mega65-core/issues/291)
   - Documentation for VIC-IV XPOS ($D050/$D051) is wrong
     [#287](https://github.com/MEGA65/mega65-core/issues/287)
+
+### Known Bugs 0.97
+
+At the moment of release there where no known breaking bugs.
 
 ## Release 0.96 (commit hash 3c10488)
 
@@ -289,6 +361,8 @@ for more information.
   [#781](https://github.com/MEGA65/mega65-core/issues/781)
 - Mouse Support has open issues
   [#751](https://github.com/MEGA65/mega65-core/issues/751)
+- MEGAFLASH does not work for A100T platforms (Nexys, R2), please use
+  JTAG based flashing.
 
 ## Release 0.95 (commit hash 93d55f0)
 

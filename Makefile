@@ -242,14 +242,14 @@ $(FREEZER_FILES): %.M65: FORCE
 
 $(CBMCONVERT): FORCE
 	$(SUBMODULEUPDATE)
-	( cd cbmconvert && make -f Makefile.unix )
+	( cd cbmconvert && make "CFLAGS=-O2 -std=c17" -f Makefile.unix )
 
 $(MEGA65LIBCLIB):
 	$(SUBMODULEUPDATE)
 	make -C src/mega65-libc all
 	make -C src/mega65-libc clean
 
-cc65/bin/cc65:
+cc65/bin/cc65: cc65/bin/cc65
 	$(call mbuild_header,$@)
 	$(SUBMODULEUPDATE)
 	( cd cc65 && make -j 8 )
@@ -1133,8 +1133,8 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE
-	make -C $(SRCDIR)/mega65-fdisk/ USE_LOCAL_CC65=$(USE_LOCAL_CC65) test m65fdisk.prg
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE $(MEGA65LIBCLIB)
+	make -C $(SRCDIR)/mega65-fdisk/ USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 	$(call mbuild_header,$@)

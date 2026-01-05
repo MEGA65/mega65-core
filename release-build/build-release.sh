@@ -8,7 +8,7 @@ REPOPATH=${SCRIPTPATH%/*}
 usage () {
     echo "Usage: ${SCRIPTNAME} [-noreg] [-repack] [-tag TAG] MODEL VERSION [EXTRA]"
     echo
-    echo "  -noreg    skip regression testing"
+    echo "  -noreg    skip regression testing (currently not supported)"
     echo "  -repack   don't copy new stuff, redo cor and mcs, make new 7z"
     echo "  -tag TAG  TAG defaults to the 6 first characters of the branch, use"
     echo "            this for setting something like 'release-0.95'"
@@ -53,11 +53,14 @@ generate_version () {
   name=$1
   num=$2
   hash=$3
+  noshorten=$4
   # release + version?
   if [[ $name =~ ^release-(([0-9])\.([0-9][0-9]?))$ ]]; then
     name="Rel ${BASH_REMATCH[1]} RC#$num $hash"
-  else
+  elif [[ -z $noshorten ]]; then
     name="${name:0:17} #$num $hash"
+  else
+    name="${name} #$num $hash"
   fi
   # cut after 6 chars
   echo ${name}
@@ -65,6 +68,7 @@ generate_version () {
 
 CORETOOL=${SCRIPTPATH}/mega65-tools/bin/coretool
 REGTEST=${SCRIPTPATH}/mega65-tools/src/tests/regression-test.sh
+PETCONV=${SCRIPTPATH}/mega65-tools/src/tools/petconv
 
 TAG="NULL"
 REPACK=0
@@ -106,29 +110,18 @@ done
 
 BITMODEL=${MODEL}
 MODELRENAME=0
-BUILDMCS=0
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
-    # only for DEVKITs!
-    BUILDMCS=1
 elif [[ ${MODEL} = "mega65r4" ]]; then
     RM_TARGET="MEGA65R4 boards -- MEGA65 R4 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r5" ]]; then
     RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r6" ]]; then
     RM_TARGET="MEGA65R6 boards -- MEGA65 R6 (Artix A7 200T FPGA)"
-elif [[ ${MODEL} = "mega65r5_6" ]]; then
-    # build r5 core package using r6 bitstream
-    RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
-    MODEL="mega65r5"
-    BITMODEL="mega65r6"
-    MODELRENAME=1
 elif [[ ${MODEL} = "mega65r2" ]]; then
     RM_TARGET="MEGA65R2 boards -- Limited Testkit (Artix A7 100T FPGA)"
-    BUILDMCS=1
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
     RM_TARGET="Nexys4DDR boards -- Nexys4DDR, NexysA7 (Artix A7 100T FPGA)"
-    BUILDMCS=1
 elif [[ ${MODEL} = "wukong" ]]; then
     RM_TARGET="Wukong board -- TEST for WukongA100T-v2 (Artix A7 100T FPGA 7a100tfgg676)"
 else
@@ -151,18 +144,13 @@ fi
 echo
 echo "Bitstream found: ${BITNAME}"
 echo
-# hack for packaging r6 bitstreams as r5 cores
-if [[ ${MODELRENAME} -eq 1 ]]; then
-    BITBASE=${MODEL}-${BITBASE#*-}
-    echo "NOTE: packaging ${BITMODEL} COR as ${BITBASE} using model ${MODEL} instead!"
-    echo
-fi
 
 # determine branch
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
         VERSION="$(generate_version ${BRANCH_NAME} ${BUILD_NUMBER} ${HASH})"
+        RM_BUILD="$(generate_version ${BRANCH_NAME} ${BUILD_NUMBER} ${HASH} 1)"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
@@ -174,6 +162,7 @@ else
     fi
     PKGNAME=${MODEL}-${BRANCH}-${HASH}
     VERSION=${VERSION/HASH/$HASH}
+    RM_BUILD=${VERSION}
 fi
 VERSION=${VERSION:0:31}
 
@@ -203,7 +192,7 @@ echo "Creating info files from templates"
 echo
 for txtfile in README.md Changelog.md; do
     echo ".. ${txtfile}"
-    ( RM_TARGET=${RM_TARGET} envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile} )
+    ( RM_TARGET="${RM_TARGET}" RM_BUILD="${RM_BUILD}" RM_HASROM="${RM_HASROM}" envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile} )
 done
 
 UNSAFE=0
@@ -215,6 +204,8 @@ if [[ ${REPACK} -eq 0 ]]; then
     if [[ ${ROM_FILE} != "" ]]; then
         cp ${ROM_FILE} ${PKGPATH}/sdcard-files/
     fi
+    cp ${SCRIPTPATH}/SDCARD-README.md ${PKGPATH}/sdcard-files/README.md
+    ${PETCONV} ${SCRIPTPATH}/SDCARD-README.md > ${PKGPATH}/sdcard-files/TYPEME
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
     # we don't need ONBOARD.M65
     rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
@@ -257,19 +248,21 @@ fi
 # fi
 
 
-echo "Building COR/MCS"
+echo "Building COR"
 echo
-if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target nexys4ddrwidget --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
-elif [[ ${MODEL} == "wukong" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target wukong --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
-elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target mega65r2 --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
+# certain models with smaller core size can't handle the files...
+if [[ ${MODEL} == "XXX" ]]; then
+# but currently there are none!
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 else
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
-fi
-if [[ ${BUILDMCS} -eq 1 ]]; then
-    ${CORETOOL} --convert ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL/-widget/widget} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
+    if [[ ${MODEL} == "mega65r6" ]]; then
+        BITBASER5=mega65r5-${BITBASE#*-}
+        echo "NOTE: converting r6 cor file to r5 version"
+        mkdir ${PKGPATH}/beta-pcb
+        touch ${PKGPATH}/beta-pcb/r5-bit-is-the-same-as-r6
+        ${CORETOOL} --convert ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/beta-pcb/${BITBASER5}.cor --target mega65r5 
+    fi
 fi
 ${CORETOOL} --verify ${PKGPATH}/${BITBASE}.cor
 

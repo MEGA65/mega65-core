@@ -4357,7 +4357,19 @@ begin
             -- We only allow 8192 characters in extended mode.
             -- The spare bits are used to provide some (hopefully useful)
             -- extended attributes.
-            glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
+
+            -- FCM/NCM + CHARY16 causes interlacing of two consecutive glyphs #902
+            if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(4 downto 0) /= "00000") or fullcolour_8bitchars='1') then
+              glyph_number(7 downto 0) <= glyph_number(7 downto 0) + 1;
+              if glyph_number(7 downto 0) = x"ff" then
+                glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0) + 1;
+              else
+                glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
+              end if;
+            else
+              glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
+            end if;
+
             glyph_width_deduct(2 downto 0) <= screen_ram_buffer_dout(7 downto 5);
             glyph_width_deduct(3) <= '0';
             if screen_ram_buffer_dout = x"ff" then
@@ -4482,6 +4494,7 @@ begin
             -- Mark as possibly coming from ROM
             character_data_from_rom <= '1';
           end if;
+
           raster_fetch_state <= FetchTextCellColourAndSource;
         when FetchBitmapData =>
           -- Show what we are doing in debug display mode
@@ -4773,12 +4786,18 @@ begin
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0) - 1;
 
+              -- for GOTOX chars glyph_4bit is the ROWMASK enable bit
               if glyph_4bit='1' then
                 screenline_draw_mask <= screenline_draw_mask_drive;
                 report "DRAWMASK: PAINTING: Setting screenline_draw_mask to $" & to_hstring(screenline_draw_mask_drive);
               else
                 screenline_draw_mask <= (others => '1');
                 report "DRAWMASK: PAINTING: Ignoring drawmask. Using $ff (glyph_4bit not set)";
+
+                -- Allow bold + reverse on a GOTOX token to switch
+                -- primary/alternate palette selection for all chars that follow
+                -- Note: Moved here to fix a bug where ROWMASK would still be able to select the alternate palette
+                glyph_alternate_palette_invert <= glyph_bold_and_reverse;
               end if;
 
               -- Allow setting of the glyph y offset in GOTO tokens
@@ -4790,10 +4809,6 @@ begin
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
-
-              -- Allow bold + reverse on a GOTOX token to switch
-              -- primary/alternate palette selection for all chars that follow
-              glyph_alternate_palette_invert <= glyph_bold_and_reverse;
 
               -- Also allow forcing of the following characters to be
               -- background or foreground

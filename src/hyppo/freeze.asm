@@ -89,13 +89,30 @@ unfreeze_next_region:
 
         ;; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
-        ;; 1. Detach both drives
-        ldx #%10000010
-        jsr dos_attach
+        ;; 1a. Check image0 flags
+        ; first we check if we should mount
+        lda currenttask_d81_image0_flags
+        bit #d81_image_flag_mounted
+        bne @attach_image0
 
-        ;; 2. Copy filename for image 0 (emulating dos_setname)
+        ;; 2a. Detach image0, probably not attaching the real drive
+@detach_image0:
+        ldx #%10000000
+        ; check for real drive attach, currenttask_d81_image0_flags is still loaded
+        bit #d81_image_flag_noreal
+        beq @detach_image0_call
+        ldx #%11000000          ; FLAG_NOREAL set
+
+@detach_image0_call:
+        jsr dos_attach
+        bra handle_drive1
+
+        ;; 3a. Copy filename for image 0 (emulating dos_setname)
+@attach_image0:
+        ; if we got no namelen, we detach instead!
+        ; (second level security, if flags set incorrectly)
         ldx currenttask_d81_image0_namelen
-        beq noImage0ToRemount
+        beq @detach_image0
         ldx #0
 -       lda currenttask_d81_image0_name,x
         sta dos_requested_filename,x
@@ -106,15 +123,33 @@ unfreeze_next_region:
         sta dos_requested_filename,x
         stx dos_requested_filename_len
 
-        ;; 4. Try to reattach it
+        ;; 4a. Try to reattach it
         ldx #$00
         jsr dos_attach
 
-noImage0ToRemount:
+handle_drive1:
+        ;; 1b. Check image1 flags
+        ; first we check if we should mount
+        lda currenttask_d81_image1_flags
+        bit #d81_image_flag_mounted
+        bne @attach_image1
 
-        ;; 2. Copy filename for image 1 (emulating dos_setname)
+        ;; 2b. Detach image1, probably not attaching the real drive
+@detach_image1:
+        ldx #%10000001
+        ; check for real drive attach, currenttask_d81_image1_flags is still loaded
+        bit #d81_image_flag_noreal
+        beq @detach_image1_call
+        ldx #%11000001          ; FLAG_NOREAL set
+
+@detach_image1_call:
+        jsr dos_attach
+        bra @attach_done
+
+@attach_image1:
+        ;; 3b. Copy filename for image 1 (emulating dos_setname)
         ldx currenttask_d81_image1_namelen
-        beq noImage1ToRemount
+        beq @attach_done
         ldx #0
 -       lda currenttask_d81_image1_name,x
         sta dos_requested_filename,x
@@ -129,7 +164,7 @@ noImage0ToRemount:
         ldx #$01
         jsr dos_attach
 
-noImage1ToRemount:
+@attach_done:
 
         ;; Turn SID volume registers back on, as those registers
         ;; cannot be frozen.
