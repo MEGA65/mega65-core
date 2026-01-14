@@ -5989,18 +5989,22 @@ begin
               pre_dma_cpuport_bits <= cpuport_value(2 downto 0);
               cpuport_value(2 downto 1) <= "10";
 
-              -- setup delay states for destination line mode
+              -- setup delay states for destination line mode and perform initial slope accumulation
               -- slope accumulator takes a cycle to set up, and the first read cycle is bad anyways
               if reg_dmagic_line_mode = '1' then
-                reg_dmagic_line_mode_skip_pixels <= 1;
+                dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
+                reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                reg_dmagic_line_mode_skip_pixels <= 0;
               else
                 reg_dmagic_line_mode_skip_pixels <= 0;
               end if;
 
-              -- setup delay states for source line mode
+              -- setup delay states for source line mode and perform initial slope accumulation
               -- one cycle for slope accumulator
               if reg_dmagic_s_line_mode = '1' then
-                reg_dmagic_s_line_mode_skip_pixels <= 1;
+                dmagic_s_slope_overflow_toggle <= reg_dmagic_s_slope_fraction_start(16);
+                reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
+                reg_dmagic_s_line_mode_skip_pixels <= 0;
               else
                 reg_dmagic_s_line_mode_skip_pixels <= 0;
               end if;
@@ -6126,7 +6130,7 @@ begin
                 -- Add fractional position, but only when DMAgic has waited for enough cycles, according
                 -- to the skip rate. The skip accumulators start at a value of $10000, so this will
                 -- always run in the first few cycles.
-                if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels <= 1 then
+                if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels < 1 then
                   reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
                 end if;
 
@@ -6135,7 +6139,7 @@ begin
                 line_x_move_negative := '0';
                 line_y_move := '0';
                 line_y_move_negative := '0';
-                if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) then
+                if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) and reg_dmagic_line_mode_skip_pixels < 1 then
                   dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
                   -- Yes: Advance in minor axis
                   if reg_dmagic_line_x_or_y='0' then
@@ -6373,7 +6377,7 @@ begin
                   end if;
                 end if;
 
-                if line_source_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_s_line_mode_skip_pixels <= 1 then
+                if line_source_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_s_line_mode_skip_pixels < 1 then
                   -- Add fractional position
                   reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
                 end if;
@@ -6383,7 +6387,7 @@ begin
                 line_x_move_negative := '0';
                 line_y_move := '0';
                 line_y_move_negative := '0';
-                if dmagic_s_slope_overflow_toggle /= reg_dmagic_s_slope_fraction_start(16) then
+                if dmagic_s_slope_overflow_toggle /= reg_dmagic_s_slope_fraction_start(16) and reg_dmagic_s_line_mode_skip_pixels < 1 then
                   dmagic_s_slope_overflow_toggle <= reg_dmagic_s_slope_fraction_start(16);
                   -- Yes: Advance in minor axis
                   if reg_dmagic_s_line_x_or_y='0' then
@@ -6539,7 +6543,12 @@ begin
               report "DMAgicCopyWrite: dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&"), memory_read_value=$" & to_hexstring(memory_read_value);
-              dmagic_first_read <= '0';
+
+              -- Only start writing on last delay cycle
+              if reg_dmagic_line_mode_skip_pixels <= 1 then
+                dmagic_first_read <= '0';
+              end if;
+
               reg_t <= memory_read_value;
 
               -- Set IO visibility for source
@@ -6585,7 +6594,7 @@ begin
 
                   -- Add fractional position
                   -- Wait until the last skipped cycle to start updating the slope accumulator
-                  if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels <= 1 then
+                  if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels < 1 then
                     reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
                   end if;
 
@@ -6594,7 +6603,7 @@ begin
                   line_x_move_negative := '0';
                   line_y_move := '0';
                   line_y_move_negative := '0';
-                  if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) then
+                  if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) and reg_dmagic_line_mode_skip_pixels < 1 then
                     dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
                     -- Yes: Advance in minor axis
                     if reg_dmagic_line_x_or_y='0' then
