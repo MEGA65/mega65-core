@@ -604,6 +604,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
   signal reg_dmagic_line_mode_skip_pixels : integer range 0 to 3 := 0;
+  signal reg_dmagic_line_mode_enable_scaling : std_logic := '0';
 
   signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
@@ -614,6 +615,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_s_line_x_or_y : std_logic := '0';
   signal reg_dmagic_s_line_slope_negative : std_logic := '0';
   signal reg_dmagic_s_line_mode_skip_pixels : integer range 0 to 3 := 0;
+  signal reg_dmagic_s_line_mode_enable_scaling : std_logic := '0';
 
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
@@ -3860,6 +3862,7 @@ begin
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
       reg_dmagic_line_mode_skip_pixels <= 0;
+      reg_dmagic_line_mode_enable_scaling <= '0';  -- Scaling defaults to disabled for line mode
       reg_dmagic_line_x_or_y <= '0';
 
       reg_dmagic_s_x8_offset <= x"0000";
@@ -3870,6 +3873,7 @@ begin
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
       reg_dmagic_s_line_mode_skip_pixels <= 0;
+      reg_dmagic_s_line_mode_enable_scaling <= '0';  -- Scaling defaults to disabled for line mode
       reg_dmagic_s_line_x_or_y <= '0';
 
       reg_dmagic_floppy_mode <= '0';
@@ -5836,6 +5840,7 @@ begin
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
+                                reg_dmagic_line_mode_enable_scaling <= memory_read_value(4);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
                   when x"90" => dmagic_count(23 downto 16) <= memory_read_value;
 
@@ -5857,6 +5862,7 @@ begin
                   when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
                                 reg_dmagic_s_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_s_line_slope_negative <= memory_read_value(5);
+                                reg_dmagic_s_line_mode_enable_scaling <= memory_read_value(4);
 
                   when others => null;
                 end case;
@@ -6119,7 +6125,7 @@ begin
                   -- A skip rate of $0000 is treated as skipping 1 byte per cycle (which
                   -- equates to not scaling down) since not moving the address forwards at all
                   -- in line mode does not make any sense.
-                  if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" then
+                  if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" and reg_dmagic_line_mode_enable_scaling = '1' then
                     line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
                   else
                     -- Since the skip rate isn't set, don't scale.
@@ -6370,7 +6376,7 @@ begin
                 -- We are in line mode.
 
                 if reg_dmagic_s_line_mode_skip_pixels = 0 then
-                  if line_source_skip_rate_set = '1' and reg_dmagic_src_skip /= x"0000" then
+                  if line_source_skip_rate_set = '1' and reg_dmagic_src_skip /= x"0000" and reg_dmagic_s_line_mode_enable_scaling = '1' then
                     line_source_skip_accumulator := line_source_skip_accumulator + ("00" & reg_dmagic_src_skip);
                   else
                     line_source_skip_accumulator := "01" & x"0000";
@@ -6585,7 +6591,7 @@ begin
                   -- We are in line mode.
 
                   if reg_dmagic_line_mode_skip_pixels = 0 then
-                    if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" then
+                    if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" and reg_dmagic_line_mode_enable_scaling = '1' then
                       line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
                     else
                       line_skip_accumulator := "01" & x"0000";
