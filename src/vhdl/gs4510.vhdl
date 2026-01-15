@@ -6164,11 +6164,14 @@ begin
                 if reg_dmagic_line_mode_skip_pixels = 0 then
                   -- Only allow major axis movement when the skip accumulator
                   -- is greater than $10000.
+                  -- Set major axis invert to direction
                   if line_skip_accumulator(17 downto 16) /= "00" then
                     if reg_dmagic_line_x_or_y='0' then
                       line_x_move := '1';
+                      line_x_move_negative := dmagic_dest_direction;
                     else
                       line_y_move := '1';
+                      line_y_move_negative := dmagic_dest_direction;
                     end if;
                     -- Trim off the two most significant bits, but leave the rest
                     -- of the skip accumulator intact, so that skip values greater
@@ -6404,13 +6407,15 @@ begin
                     line_x_move_negative := reg_dmagic_s_line_slope_negative;
                   end if;
                 end if;
-                -- Also move major axis (which is always in the forward direction)
+                -- Also move major axis, using direction of pointer as direction of travel
                 if reg_dmagic_s_line_mode_skip_pixels = 0 then
                   if line_source_skip_accumulator(17 downto 16) /= "00" then
                     if reg_dmagic_s_line_x_or_y='0' then
                       line_x_move := '1';
+                      line_x_move_negative := dmagic_src_direction;
                     else
                       line_y_move := '1';
+                      line_y_move_negative := dmagic_src_direction;
                     end if;
                     line_source_skip_accumulator := "00" & line_source_skip_accumulator(15 downto 0);
                   end if;
@@ -6620,13 +6625,15 @@ begin
                       line_x_move_negative := reg_dmagic_line_slope_negative;
                     end if;
                   end if;
-                  -- Also move major axis (which is always in the forward direction)
+                  -- Also move major axis, using pointer direction as travel direction
                   if reg_dmagic_line_mode_skip_pixels = 0 then
                     if line_skip_accumulator(17 downto 16) /= "00" then
                       if reg_dmagic_line_x_or_y='0' then
                         line_x_move := '1';
+                        line_x_move_negative := dmagic_dest_direction;
                       else
                         line_y_move := '1';
+                        line_y_move_negative := dmagic_dest_direction;
                       end if;
                       line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                     end if;
