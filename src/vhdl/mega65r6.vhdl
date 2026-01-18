@@ -1335,12 +1335,9 @@ begin
       viciv_attic_data <= hyper_data;
     end if;
 
-    -- VGA output at full pixel clock
-    if upscale_enable = '0' then
-      vdac_clk_i <= pixelclock;
-    else
-      vdac_clk_i <= clock74p22;
-    end if;
+    -- VGA DAC clock for 15kHz RGB output
+    -- Use pixelclock (81MHz) for native 15kHz video timing
+    vdac_clk_i <= pixelclock;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
@@ -1536,11 +1533,29 @@ begin
     -- LED on main board
     led <= portp_drive(4);
 
-    hsync <= up_vga_hsync;
-    vsync <= up_vsync;
-    vgared <= up_red;
-    vgagreen <= up_green;
-    vgablue <= up_blue;
+    -- 15kHz RGB with Composite Sync (CSync) output for legacy monitors
+    -- Use original v_* signals (15kHz) instead of upscaled up_* signals (31kHz+)
+    -- CSync combines hsync and vsync into a single sync signal
+    -- For active-low syncs: csync = hsync AND vsync (low when either is low)
+    --
+    -- VGA DB-15 to Commodore 1084S-D2 DB-9 RGB cable wiring:
+    -- ┌────────────────────────────────────────────────────────┐
+    -- │  VGA DB-15 (MEGA65)      1084S-D2 DB-9 (RGB Input)     │
+    -- │  ──────────────────      ─────────────────────────     │
+    -- │  Pin 1  (Red)        →   Pin 3  (Red)                  │
+    -- │  Pin 2  (Green)      →   Pin 4  (Green)                │
+    -- │  Pin 3  (Blue)       →   Pin 5  (Blue)                 │
+    -- │  Pin 5  (Gnd)        →   Pin 1  (Ground)               │
+    -- │  Pin 10 (Gnd)        →   Pin 2  (Ground)               │
+    -- │  Pin 13 (CSync)      →   Pin 7  (Composite Sync)       │
+    -- │                          Pin 6, 8, 9 not connected     │
+    -- └────────────────────────────────────────────────────────┘
+    --
+    hsync <= v_vga_hsync and v_vsync;  -- Output composite sync on hsync pin
+    vsync <= '1';  -- Unused in csync mode, tie high
+    vgared <= v_red;
+    vgagreen <= v_green;
+    vgablue <= v_blue;
     hdmired <= v_red;
     hdmigreen <= v_green;
     hdmiblue <= v_blue;
