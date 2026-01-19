@@ -179,6 +179,10 @@ entity container is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
+         -- VGA DDC pins for 15kHz mode detection
+         -- 470Ω resistor between pins 12-15 enables 15kHz mode
+         vga_sda : out std_logic;
+         vga_scl : in std_logic;
 
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
@@ -560,8 +564,9 @@ architecture Behavioral of container is
   signal rgb15khz_csync : std_logic;
   signal vga_15khz_mode : std_logic := '0';
   
-  -- DIP switch 3 controls 15kHz RGB CSYNC mode (directly from machine entity)
-  signal dipsw3_15khz : std_logic := '0';
+  -- Hardware detection for 15kHz mode via VGA DDC pins
+  -- SDA driven LOW, SCL sensed - 470Ω resistor between pins 12-15 pulls SCL low
+  signal vga_15khz_detect : std_logic := '0';
 
   signal eth_load_enable : std_logic;
 
@@ -572,6 +577,9 @@ architecture Behavioral of container is
   signal sdram_slow_clock : std_logic;
 
 begin
+
+  -- Drive VGA SDA low for 15kHz detection
+  vga_sda <= '0';
 
 --STARTUPE2:STARTUPBlock--7Series
 
@@ -1309,7 +1317,7 @@ begin
 
           sw => sw,
           dipsw(4 downto 0) => (others => '0'),
-          dipsw3_out => dipsw3_15khz,
+          dipsw3_out => open,
 
 --      uart_rx => '1',
           btn => (others => '1')
@@ -1406,9 +1414,11 @@ begin
 
       dvi_select <= portp_drive(1);
       
-      -- 15kHz RGB CSYNC mode controlled by DIP switch 3 (directly from machine entity)
-      -- DIP switch ON = 15kHz mode, OFF = standard 31kHz VGA
-      vga_15khz_mode <= dipsw3_15khz;
+      -- 15kHz RGB CSYNC mode detection via VGA DDC pins
+      -- SDA (pin 12) driven LOW, SCL (pin 15) sensed
+      -- 470Ω resistor between pins 12-15 pulls SCL below threshold = 15kHz mode
+      vga_15khz_detect <= not vga_scl;
+      vga_15khz_mode <= vga_15khz_detect;
 
       -- btncpureset is active low
       -- reset_high is active high
@@ -1572,7 +1582,7 @@ begin
     if vga_15khz_mode = '1' then
       -- 15kHz RGB CSYNC mode for retro CRT monitors
       hsync <= rgb15khz_csync;  -- CSYNC on VGA pin 13 (active low)
-      vsync <= '1';             -- Hold high on VGA pin 14 (not used)
+      vsync <= rgb15khz_csync;  -- CSYNC also on VGA pin 14 for flexibility
       vgared <= rgb15khz_red;
       vgagreen <= rgb15khz_green;
       vgablue <= rgb15khz_blue;

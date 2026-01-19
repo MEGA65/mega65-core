@@ -9,24 +9,26 @@ composite sync input (commonly via SCART).
 
 In this mode:
 - Horizontal sync rate: ~15.6kHz (PAL) or ~15.7kHz (NTSC)
-- CSYNC is output on VGA pin 13 (active low)
-- VSYNC (pin 14) is held high (unused)
+- CSYNC is output on both VGA pin 13 and pin 14 (active low)
 - RGB video uses the same pins as standard VGA
 
 The HDMI output continues to operate at 31kHz regardless of this setting.
 
 ## Enabling 15kHz Mode
 
-15kHz RGB CSYNC mode is controlled by **DIP switch 4** on the MEGA65 board.
+15kHz mode is automatically detected via the VGA DDC pins (pins 12 and 15).
+The MEGA65 drives pin 12 (SDA) LOW and senses pin 15 (SCL) with an internal pull-up.
+Build a 15kHz cable with a **470Ω resistor** between VGA pins 12 and 15.
+(The board has a strong 5V pull-up on pin 15, so a low value resistor is required.)
 
-| DIP Switch 4 | Video Mode         |
-|--------------|--------------------|
-| OFF          | Standard 31kHz VGA |
-| ON           | 15kHz RGB CSYNC    |
+| Cable Type                       | VGA Pin 15 State | Video Mode         |
+|----------------------------------|------------------|--------------------|
+| Standard VGA cable               | HIGH (pull-up)   | Standard 31kHz VGA |
+| 15kHz cable with resistor 12-15  | LOW (via resistor)| 15kHz RGB CSYNC   |
 
-The DIP switch setting takes effect immediately at power-on, so 15kHz mode
-is active from the very first frame - including the core selection menu and
-all boot screens.
+This detection happens at the hardware level, so 15kHz mode is active from
+the very first frame - including the core selection menu and all boot screens.
+Works on all MEGA65 board revisions (R3, R4, R5, R6).
 
 ## Compatible Monitors
 
@@ -58,10 +60,21 @@ input (like the 1084S-D2), you need a custom cable with the following wiring:
     Pin 10 (GND)   <----+
                         +------------   Ground wire
 
+    15kHz Auto-Detection:
+    Pin 12 (SDA)   <---[470Ω]----   Pin 15 (SCL)
+
     Not connected:
     - DB-9 Pin 6 (Intensity) - not used
     - DB-9 Pins 8, 9 - not used
+
+    Note: CSYNC is available on both VGA pin 13 (HSYNC) and pin 14 (VSYNC)
+    for flexibility with different adapters.
 ```
+
+The 470Ω resistor between VGA pins 12 and 15 enables automatic 15kHz mode detection.
+Pin 12 is driven LOW by the MEGA65, and pin 15 has an external 5V pull-up on the board.
+When the resistor bridges them, pin 15 is pulled below the logic threshold, enabling 15kHz mode.
+Without this resistor, the MEGA65 outputs standard 31kHz VGA.
 
 ## Interlace Support for V400 Modes
 
