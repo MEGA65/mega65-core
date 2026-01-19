@@ -58,6 +58,9 @@ entity pixel_driver is
     interlace_mode : in std_logic := '1';
     mono_mode : in std_logic := '0';
     
+    -- 15kHz RGB CSYNC mode for VGA output (active high enables 15kHz mode)
+    vga_15khz_csync_mode : in std_logic := '0';
+    
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
     phi_1mhz_ntsc_out : out std_logic;
     phi_1mhz_out : out std_logic;
@@ -88,6 +91,12 @@ entity pixel_driver is
     luma : out unsigned(7 downto 0) := (others => '0');
     chroma : out unsigned(7 downto 0) := (others => '0');
     composite : out unsigned(7 downto 0) := (others => '0');
+    
+    -- 15kHz RGB output with composite sync for retro CRT monitors
+    rgb15khz_red : out unsigned(7 downto 0) := (others => '0');
+    rgb15khz_green : out unsigned(7 downto 0) := (others => '0');
+    rgb15khz_blue : out unsigned(7 downto 0) := (others => '0');
+    rgb15khz_csync : out std_logic := '1';  -- Active low composite sync
     
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
@@ -310,6 +319,12 @@ architecture greco_roman of pixel_driver is
   signal cv_vsync_row : integer range 0 to 10 := 0;
   signal cv_sync_hsrc : std_logic;
   signal cv_active_area : std_logic := '0';
+
+  -- 15kHz RGB output signals (active low csync)
+  signal rgb15khz_red_int : unsigned(7 downto 0) := (others => '0');
+  signal rgb15khz_green_int : unsigned(7 downto 0) := (others => '0');
+  signal rgb15khz_blue_int : unsigned(7 downto 0) := (others => '0');
+  signal rgb15khz_csync_int : std_logic := '1';
 
   signal x_zero_last : std_logic := '0';
   signal y_zero_last : std_logic := '0';
@@ -1577,8 +1592,35 @@ begin
         time_since_last_pixel <= 0;        
       end if;
 
+      -- =========================================================================
+      -- 15kHz RGB Output Generation
+      -- Uses the same RGB data and composite sync as composite video output
+      -- cv_sync is already the proper composite sync with PAL/NTSC timing,
+      -- serration pulses, and equalization pulses
+      -- =========================================================================
+      if vga_15khz_csync_mode = '1' then
+        -- Output 15kHz RGB with composite sync
+        rgb15khz_red_int <= cv_red;
+        rgb15khz_green_int <= cv_green;
+        rgb15khz_blue_int <= cv_blue;
+        -- cv_sync is active high during sync pulse, but VGA expects active low
+        rgb15khz_csync_int <= not cv_sync;
+      else
+        -- Default: output black with sync high (inactive)
+        rgb15khz_red_int <= (others => '0');
+        rgb15khz_green_int <= (others => '0');
+        rgb15khz_blue_int <= (others => '0');
+        rgb15khz_csync_int <= '1';
+      end if;
+
     end if;
 
   end process;
+  
+  -- Drive the 15kHz RGB output ports
+  rgb15khz_red <= rgb15khz_red_int;
+  rgb15khz_green <= rgb15khz_green_int;
+  rgb15khz_blue <= rgb15khz_blue_int;
+  rgb15khz_csync <= rgb15khz_csync_int;
 
 end greco_roman;

@@ -151,6 +151,14 @@ entity machine is
          luma : out unsigned(7 downto 0);
          chroma : out unsigned(7 downto 0);
          composite : out unsigned(7 downto 0);
+         
+         ----------------------------------------------------------------------
+         -- 15kHz RGB with Composite Sync for retro CRT monitors
+         ----------------------------------------------------------------------
+         rgb15khz_red : out unsigned(7 downto 0) := (others => '0');
+         rgb15khz_green : out unsigned(7 downto 0) := (others => '0');
+         rgb15khz_blue : out unsigned(7 downto 0) := (others => '0');
+         rgb15khz_csync : out std_logic := '1';  -- Active low composite sync
 
          ----------------------------------------------------------------------
          -- VGA output
@@ -161,6 +169,9 @@ entity machine is
          lcd_vsync : out std_logic := '0';
          pal50_select_out : out std_logic := '0';
          vga_blank : out std_logic := '0';
+         
+         -- 15kHz RGB CSYNC mode selection (active high enables 15kHz mode)
+         vga_15khz_csync_mode : in std_logic := '0';
 
          vgared : out  UNSIGNED (7 downto 0) := x"00";
          vgagreen : out  UNSIGNED (7 downto 0) := x"00";
@@ -417,6 +428,10 @@ entity machine is
          dipsw : in std_logic_vector(4 downto 0) := (others => '0');
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
+         
+         -- DIP switch 3 directly exposed for 15kHz RGB CSYNC mode control
+         -- (active high = enable 15kHz mode)
+         dipsw3_out : out std_logic := '0';
 
          UART_TXD : out std_logic := '1';
          RsRx : in std_logic;
@@ -881,6 +896,9 @@ begin
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
       eth_load_enabled <= eth_load_enable and dipsw_int(1);
+      
+      -- Expose DIP switch 3 for 15kHz RGB CSYNC mode control
+      dipsw3_out <= dipsw_int(3);
 
       -- Latch reset from monitor interface to avoid tripping on glitches
       -- But requiring to be low so long causes monitor induced reset to be ignored.
@@ -1295,6 +1313,7 @@ begin
 
                interlace_mode => interlace_mode,
                mono_mode => mono_mode,
+               vga_15khz_csync_mode => vga_15khz_csync_mode,
 
       -- Framing information for VIC-IV
       x_zero => external_frame_x_zero,
@@ -1324,6 +1343,12 @@ begin
       luma => luma,
       chroma => chroma,
       composite => composite,
+      
+      -- 15kHz RGB with composite sync
+      rgb15khz_red => rgb15khz_red,
+      rgb15khz_green => rgb15khz_green,
+      rgb15khz_blue => rgb15khz_blue,
+      rgb15khz_csync => rgb15khz_csync,
 
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,

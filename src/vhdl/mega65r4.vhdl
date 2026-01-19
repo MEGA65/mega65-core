@@ -531,6 +531,16 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
+  
+  -- 15kHz RGB with composite sync signals
+  signal rgb15khz_red : unsigned(7 downto 0);
+  signal rgb15khz_green : unsigned(7 downto 0);
+  signal rgb15khz_blue : unsigned(7 downto 0);
+  signal rgb15khz_csync : std_logic;
+  signal vga_15khz_mode : std_logic := '0';
+  
+  -- DIP switch 3 controls 15kHz RGB CSYNC mode (directly from machine entity)
+  signal dipsw3_15khz : std_logic := '0';
 
   signal eth_load_enable : std_logic;
 
@@ -1024,6 +1034,9 @@ begin
 
           pal50_select_out => pal50,
           upscale_enable => upscale_enable,
+          
+          -- 15kHz RGB CSYNC mode control (active high = 15kHz mode)
+          vga_15khz_csync_mode => vga_15khz_mode,
 
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,
@@ -1067,6 +1080,12 @@ begin
           luma => luma,
           chroma => chroma,
           composite => composite,
+          
+          -- 15kHz RGB with composite sync
+          rgb15khz_red => rgb15khz_red,
+          rgb15khz_green => rgb15khz_green,
+          rgb15khz_blue => rgb15khz_blue,
+          rgb15khz_csync => rgb15khz_csync,
 
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
@@ -1263,6 +1282,7 @@ begin
           sw => sw,
           dipsw(4) => '0',
           dipsw(3 downto 0) => dipsw,
+          dipsw3_out => dipsw3_15khz,
 --      uart_rx => '1',
           btn => (others => '1')
 
@@ -1308,7 +1328,10 @@ begin
     end if;
     
     -- VGA output at full pixel clock
-    if upscale_enable = '0' then
+    -- In 15kHz mode, use clock27 to match the 15kHz signal source
+    if vga_15khz_mode = '1' then
+      vdac_clk_i <= clock27;
+    elsif upscale_enable = '0' then
       vdac_clk_i <= pixelclock;
     else
       vdac_clk_i <= clock74p22;
@@ -1336,6 +1359,10 @@ begin
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
+      
+      -- 15kHz RGB CSYNC mode controlled by DIP switch 3 (directly from machine entity)
+      -- DIP switch ON = 15kHz mode, OFF = standard 31kHz VGA
+      vga_15khz_mode <= dipsw3_15khz;
 
       -- btncpureset is active low
       -- reset_high is active high
@@ -1490,11 +1517,29 @@ begin
     -- LED on main board
     led <= portp_drive(4);
 
-    hsync <= up_vga_hsync;
-    vsync <= up_vsync;
-    vgared <= up_red;
-    vgagreen <= up_green;
-    vgablue <= up_blue;
+    -- VGA output selection: 31kHz VGA or 15kHz RGB CSYNC
+    -- When 15kHz mode is enabled (vga_15khz_mode='1'):
+    --   - hsync outputs CSYNC (active low composite sync)
+    --   - vsync is held HIGH (not connected/used in 15kHz mode)
+    --   - RGB comes from 15kHz raster buffer
+    -- HDMI output always uses 31kHz signals regardless of VGA mode
+    if vga_15khz_mode = '1' then
+      -- 15kHz RGB CSYNC mode for retro CRT monitors
+      hsync <= rgb15khz_csync;  -- CSYNC on VGA pin 13 (active low)
+      vsync <= '1';             -- Hold high on VGA pin 14 (not used)
+      vgared <= rgb15khz_red;
+      vgagreen <= rgb15khz_green;
+      vgablue <= rgb15khz_blue;
+    else
+      -- Standard 31kHz VGA mode
+      hsync <= up_vga_hsync;
+      vsync <= up_vsync;
+      vgared <= up_red;
+      vgagreen <= up_green;
+      vgablue <= up_blue;
+    end if;
+    
+    -- HDMI output always uses 31kHz (unaffected by VGA mode selection)
     hdmired <= v_red;
     hdmigreen <= v_green;
     hdmiblue <= v_blue;
