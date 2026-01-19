@@ -63,9 +63,23 @@ input (like the 1084S-D2), you need a custom cable with the following wiring:
     - DB-9 Pins 8, 9 - not used
 ```
 
+## Interlace Support for V400 Modes
+
+When 15kHz mode is enabled and the VIC-IV is in V400 mode (e.g., 80x50 text mode),
+interlace is automatically enabled. This ensures all 400 vertical lines are
+displayed by alternating between odd and even fields on successive frames.
+
+Without interlace, V400 modes would only show every other scanline, resulting in
+half the vertical resolution being lost.
+
+The interlace auto-enable only affects the 15kHz VGA output - HDMI output
+continues to use progressive scan regardless of this setting.
+
 ## Notes
 
 - The 15kHz mode uses the same PAL/NTSC timing as the internal video system,
   so PAL regions get 50Hz and NTSC regions get 60Hz output.
 - If your monitor loses sync briefly when switching between screens, this is
   normal as the video mode stabilizes.
+- Interlace mode can also be manually controlled via VIC-IV register `$D031`
+  bit 0 if needed for other purposes.

@@ -852,6 +852,7 @@ architecture Behavioral of machine is
 
   signal interlace_mode : std_logic;
   signal mono_mode : std_logic;
+  signal v400_mode : std_logic;
 
 begin
 
@@ -1313,6 +1314,7 @@ begin
 
                interlace_mode => interlace_mode,
                mono_mode => mono_mode,
+               v400_mode => v400_mode,
                vga_15khz_csync_mode => vga_15khz_csync_mode,
 
       -- Framing information for VIC-IV
@@ -1379,6 +1381,7 @@ begin
 
       interlace_mode => interlace_mode,
       mono_mode => mono_mode,
+      v400_mode => v400_mode,
 
       hypervisor_mode => cpu_hypervisor_mode,
 

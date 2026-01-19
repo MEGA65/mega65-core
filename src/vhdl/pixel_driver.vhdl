@@ -57,6 +57,7 @@ entity pixel_driver is
 
     interlace_mode : in std_logic := '1';
     mono_mode : in std_logic := '0';
+    v400_mode : in std_logic := '0';
     
     -- 15kHz RGB CSYNC mode for VGA output (active high enables 15kHz mode)
     vga_15khz_csync_mode : in std_logic := '0';
@@ -141,6 +142,10 @@ architecture greco_roman of pixel_driver is
   
   signal last_interlace : std_logic := '0';
   signal interlace_mode_integer : integer range 0 to 1 := 0;
+  
+  -- Auto-enable interlace for 15kHz mode when V400 is active
+  -- This ensures 80x50 and other V400 modes display correctly on 15kHz CRT monitors
+  signal interlace_15khz : std_logic := '0';
 
   -- Set to 1 to enable gamma pre-correction of video
   signal gamma_enabled : std_logic := '0';
@@ -940,6 +945,10 @@ begin
         interlace_mode_integer <= 0;
       end if;
       
+      -- Auto-enable interlace for 15kHz mode when V400 is active
+      -- This ensures 80x50 and other V400 modes display all scanlines on 15kHz CRT monitors
+      interlace_15khz <= interlace_mode or (vga_15khz_csync_mode and v400_mode);
+      
       if debug_forward /= last_debug_forward then
         last_debug_forward <= debug_forward;
         if mono_mode='0' then
@@ -977,7 +986,7 @@ begin
           vblank_train_len_adjust <= 3;
         end if;
       else
-        if interlace_mode='1' then
+        if interlace_15khz='1' then
           if field_is_odd=0 then
             vblank_train_len_adjust <= 1;
           else
@@ -997,10 +1006,11 @@ begin
         report "Start of frame detected. field_is_odd was " & integer'image(field_is_odd);
         -- Start of new frame -- toggle field_is_odd
         -- Interlace mode controls if we always show the same field or alternate
+        -- Use interlace_15khz to auto-enable interlace for 15kHz + V400 modes
         -- XXX mono_mode for debug currently selects which of those two fields
         -- will be shown in non-interlace mode
         if mono_mode='0' then
-          if field_is_odd = 1 and interlace_mode='1' then
+          if field_is_odd = 1 and interlace_15khz='1' then
             report "Setting field_is_odd to 0";
             field_is_odd <= 0;
           else
@@ -1008,7 +1018,7 @@ begin
             field_is_odd <= 1;
           end if;
         else
-          if field_is_odd = 0 and interlace_mode='1' then
+          if field_is_odd = 0 and interlace_15khz='1' then
             report "Setting field_is_odd to 1";
             field_is_odd <= 1;
           else
@@ -1209,7 +1219,7 @@ begin
 
               if cv_vsync_row = 1 then
                 -- Set PAL V invert based on which field we are in
-                if interlace_mode='0' then
+                if interlace_15khz='0' then
                   -- For non-interlaced mode, all fields are the same
                   -- Suppress colour burst on the first raster of the frame
                   -- according to Demystifying Video 4th Ed Fig 8.18
@@ -1244,7 +1254,7 @@ begin
         end if;
         if pal50_select_internal='1' then
           -- PAL
-          if interlace_mode='0' then
+          if interlace_15khz='0' then
               cv_sync <= not pal_progressive_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
           else
             if field_is_odd=1 then
