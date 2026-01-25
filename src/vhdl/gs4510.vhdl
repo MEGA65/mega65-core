@@ -6181,7 +6181,7 @@ begin
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
-                  if dmagic_dest_addr(14 downto 11)="111" then
+                  if dmagic_dest_addr(13 downto 11)="111" then
                     -- Will overflow between Y cards
                     dmagic_dest_addr <= dmagic_dest_addr + (256*8)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6191,7 +6191,7 @@ begin
                   end if;
                 elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- Y = Y - 1
-                  if dmagic_dest_addr(14 downto 11)="000" then
+                  if dmagic_dest_addr(13 downto 11)="000" then
                     -- Will overflow between X cards
                     dmagic_dest_addr <= dmagic_dest_addr - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6221,12 +6221,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X + 1, Y = Y + 1
-                  if dmagic_dest_addr(14 downto 8)="111111" then
+                  if dmagic_dest_addr(13 downto 8)="111111" then
                     -- positive overflow on both
                     dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                         + (reg_dmagic_x8_offset&"00000000")
                                         + (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="111" then
+                  elsif dmagic_dest_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6240,12 +6240,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X + 1, Y = Y - 1
-                  if dmagic_dest_addr(14 downto 8)="000111" then
+                  if dmagic_dest_addr(13 downto 8)="000111" then
                     -- positive card overflow on X, negative on Y
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         + (reg_dmagic_x8_offset&"00000000")
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="000" then
+                  elsif dmagic_dest_addr(13 downto 11)="000" then
                     -- negative card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6258,12 +6258,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X - 1, Y = Y + 1
-                  if dmagic_dest_addr(14 downto 8)="111000" then
+                  if dmagic_dest_addr(13 downto 8)="111000" then
                     -- negative card overflow on X, positive on Y
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         - (reg_dmagic_x8_offset&"00000000")
                                         + (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="111" then
+                  elsif dmagic_dest_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6276,12 +6276,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X - 1, Y = Y - 1
-                  if dmagic_dest_addr(14 downto 8)="000000" then
+                  if dmagic_dest_addr(13 downto 8)="000000" then
                     -- negative card overflow on X, negative on Y
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_x8_offset&"00000000")
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="000" then
+                  elsif dmagic_dest_addr(13 downto 11)="000" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6422,7 +6422,7 @@ begin
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
-                  if dmagic_src_addr(14 downto 11)="111" then
+                  if dmagic_src_addr(13 downto 11)="111" then
                     -- Will overflow between Y cards
                     dmagic_src_addr <= dmagic_src_addr + (256*8)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6432,7 +6432,7 @@ begin
                   end if;
                 elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- Y = Y - 1
-                  if dmagic_src_addr(14 downto 11)="000" then
+                  if dmagic_src_addr(13 downto 11)="000" then
                     -- Will overflow between X cards
                     dmagic_src_addr <= dmagic_src_addr - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6462,12 +6462,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X + 1, Y = Y + 1
-                  if dmagic_src_addr(14 downto 8)="111111" then
+                  if dmagic_src_addr(13 downto 8)="111111" then
                     -- positive overflow on both
                     dmagic_src_addr <= dmagic_src_addr + (256*9)
                                         + (reg_dmagic_s_x8_offset&"00000000")
                                         + (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="111" then
+                  elsif dmagic_src_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr + (256*9)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6481,12 +6481,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X + 1, Y = Y - 1
-                  if dmagic_src_addr(14 downto 8)="000111" then
+                  if dmagic_src_addr(13 downto 8)="000111" then
                     -- positive card overflow on X, negative on Y
                     dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
                                         + (reg_dmagic_s_x8_offset&"00000000")
                                         - (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="000" then
+                  elsif dmagic_src_addr(13 downto 11)="000" then
                     -- negative card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6499,12 +6499,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X - 1, Y = Y + 1
-                  if dmagic_src_addr(14 downto 8)="111000" then
+                  if dmagic_src_addr(13 downto 8)="111000" then
                     -- negative card overflow on X, positive on Y
                     dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
                                         - (reg_dmagic_s_x8_offset&"00000000")
                                         + (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="111" then
+                  elsif dmagic_src_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6517,12 +6517,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X - 1, Y = Y - 1
-                  if dmagic_src_addr(14 downto 8)="000000" then
+                  if dmagic_src_addr(13 downto 8)="000000" then
                     -- negative card overflow on X, negative on Y
                     dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
                                         - (reg_dmagic_s_x8_offset&"00000000")
                                         - (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="000" then
+                  elsif dmagic_src_addr(13 downto 11)="000" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6640,7 +6640,7 @@ begin
                   end if;
                   if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- Y = Y + 1
-                    if dmagic_dest_addr(14 downto 11)="111" then
+                    if dmagic_dest_addr(13 downto 11)="111" then
                       -- Will overflow between Y cards
                       dmagic_dest_addr <= dmagic_dest_addr + (256*8)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6650,7 +6650,7 @@ begin
                     end if;
                   elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                     -- Y = Y - 1
-                    if dmagic_dest_addr(14 downto 11)="000" then
+                    if dmagic_dest_addr(13 downto 11)="000" then
                       -- Will overflow between X cards
                       dmagic_dest_addr <= dmagic_dest_addr - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
@@ -6680,12 +6680,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- X = X + 1, Y = Y + 1
-                    if dmagic_dest_addr(14 downto 8)="111111" then
+                    if dmagic_dest_addr(13 downto 8)="111111" then
                       -- positive overflow on both
                       dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                           + (reg_dmagic_x8_offset&"00000000")
                                           + (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                    elsif dmagic_dest_addr(13 downto 11)="111" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6699,12 +6699,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                     -- X = X + 1, Y = Y - 1
-                    if dmagic_dest_addr(14 downto 8)="000111" then
+                    if dmagic_dest_addr(13 downto 8)="000111" then
                       -- positive card overflow on X, negative on Y
                       dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                           + (reg_dmagic_x8_offset&"00000000")
                                           - (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                    elsif dmagic_dest_addr(13 downto 11)="000" then
                       -- negative card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
@@ -6717,12 +6717,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                     -- X = X - 1, Y = Y + 1
-                    if dmagic_dest_addr(14 downto 8)="111000" then
+                    if dmagic_dest_addr(13 downto 8)="111000" then
                       -- negative card overflow on X, positive on Y
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                           - (reg_dmagic_x8_offset&"00000000")
                                           + (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                    elsif dmagic_dest_addr(13 downto 11)="111" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6735,12 +6735,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                     -- X = X - 1, Y = Y - 1
-                    if dmagic_dest_addr(14 downto 8)="000000" then
+                    if dmagic_dest_addr(13 downto 8)="000000" then
                       -- negative card overflow on X, negative on Y
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                           - (reg_dmagic_x8_offset&"00000000")
                                           - (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                    elsif dmagic_dest_addr(13 downto 11)="000" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
