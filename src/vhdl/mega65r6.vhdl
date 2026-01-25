@@ -308,7 +308,8 @@ architecture Behavioral of container is
   signal cea_vic : std_logic_vector(7 downto 0) := (others => '0');
   signal dvi_tv_range : std_logic;
   
-  signal scart_mode : std_logic;
+  signal scart_mode_dipsw : std_logic;
+  signal scart_mode_cable : std_logic;
   signal composite_sync : std_logic;
   signal composite_red : std_logic_vector(7 downto 0);
   signal composite_green : std_logic_vector(7 downto 0);
@@ -1038,7 +1039,7 @@ begin
 
   sd0: entity work.scart_cable_detect port map (
     clock_in => cpuclock,
-    scart_cable_detected => scart_mode,
+    scart_cable_detected => scart_mode_cable,
     reset_n => '1',
     vga12 => vga_sda,
     vga15 => vga_scl
@@ -1068,6 +1069,8 @@ begin
           clock27 => clock27,
           clock50mhz      => ethclock,
 
+          scart_mode => scart_mode_dipsw,
+          
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 
@@ -1581,7 +1584,7 @@ begin
     -- LED on main board
     led <= portp_drive(4);
 
-    if scart_mode = '0' then
+    if scart_mode_dipsw = '0' and scart_mode_cable='0' then
       hsync <= up_vga_hsync;
       vsync <= up_vsync;
       vgared <= up_red;
