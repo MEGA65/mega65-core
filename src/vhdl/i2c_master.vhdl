@@ -53,6 +53,11 @@ ENTITY i2c_master IS
     scl       : INOUT  STD_LOGIC;                   --serial clock output of i2c bus
 
     latch_toggle : out std_logic := '0';
+
+    -- I2C bus logger
+    scl_log : out unsigned(7 downto 0) := x"00";
+    sda_log : out unsigned(7 downto 0) := x"00";
+    log_strobe : out std_logic := '0';
     
     -- Debug inputs that allow us to pull the lines low to test
     swap : in std_logic := '0';
@@ -84,8 +89,14 @@ ARCHITECTURE logic OF i2c_master IS
   SIGNAL stretch       : STD_LOGIC := '0';               --identifies if slave is stretching scl
 
   signal latch_toggle_int : std_logic := '0';
-BEGIN
 
+  signal last_sda_char : unsigned(7 downto 0) := x"00";
+  signal last_scl_char : unsigned(7 downto 0) := x"00";
+  signal sda_char : unsigned(7 downto 0) := x"00";
+  signal scl_char : unsigned(7 downto 0) := x"00";
+  
+BEGIN
+  
   --generate the timing for the bus clock (scl_clk) and the data clock (data_clk)
   PROCESS(clk, reset_n)
     VARIABLE count  :  INTEGER RANGE 0 TO divider*4;  --timing for clock generation
@@ -280,13 +291,74 @@ BEGIN
     sda_ena_n <= data_clk_prev WHEN start,     --generate start condition
                  NOT data_clk_prev WHEN stop,  --generate stop condition
                  sda_int WHEN OTHERS;          --set to internal sda signal    
-      
+
   --set scl and sda outputs
   scl <= '0' WHEN ( ( (swap='0') and (scl_ena = '1' AND scl_clk = '0'))
                     or ( (swap='1') and (sda_ena_n = '0'))
-                   or (debug_scl='1')) ELSE 'Z';
+                    or (debug_scl='1')) ELSE 'Z';
   sda <= '0' WHEN ( ( (swap='1') and (scl_ena = '1' AND scl_clk = '0'))
                     or ( (swap='0') and (sda_ena_n = '0'))
-                   or (debug_sda='1')) ELSE 'Z';
+                    or (debug_sda='1')) ELSE 'Z';
   
+  process (swap, scl_ena, scl_clk, sda_ena_n, debug_scl, debug_sda, clk)
+  begin
+    if rising_edge(clk) then
+
+    if swap='0' and (scl_ena='1' and scl_clk='0') then
+      scl_char <= x"30";
+    elsif (swap='1' and sda_ena_n='0') then
+      scl_char <= x"30";
+    elsif debug_scl='1' then
+      scl_char <= x"30";
+    elsif swap='0' then
+      case scl is
+        when '1' => scl_char <= x"69";
+        when '0' => scl_char <= x"6f";
+        when 'Z' => scl_char <= x"5A";
+        when others => scl_char <= x"3F";
+      end case;
+    else
+      case sda is
+        when '1' => sda_char <= x"69";
+        when '0' => sda_char <= x"6f";
+        when 'Z' => sda_char <= x"5A";
+        when others => sda_char <= x"3F";
+      end case;
+    end if;
+
+    if swap='0' and (scl_ena='1' and scl_clk='0') then
+      sda_char <= x"30";
+    elsif (swap='0' and sda_ena_n='0') then
+      sda_char <= x"30";
+    elsif debug_sda='1' then
+      sda_char <= x"30";
+    elsif swap='0' then
+      case sda is
+        when '1' => sda_char <= x"69";
+        when '0' => sda_char <= x"6f";
+        when 'Z' => sda_char <= x"5A";
+        when others => sda_char <= x"3F";
+      end case;
+    else
+      case scl is
+        when '1' => scl_char <= x"69";
+        when '0' => scl_char <= x"6f";
+        when 'Z' => scl_char <= x"5A";
+        when others => scl_char <= x"3F";
+      end case;
+    end if;
+
+    last_sda_char <= sda_char;
+    last_scl_char <= scl_char;
+    if (last_sda_char /= sda_char) or last_scl_char /= scl_char then
+      sda_log <= sda_char;
+      scl_log <= scl_char;
+      log_strobe <= '1';
+    else
+      log_strobe <= '0';
+    end if;
+
+    end if;   
+  end process;
+      
 END logic;

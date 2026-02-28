@@ -242,7 +242,7 @@ $(FREEZER_FILES): %.M65: FORCE
 
 $(CBMCONVERT): FORCE
 	$(SUBMODULEUPDATE)
-	( cd cbmconvert && make -f Makefile.unix )
+	( cd cbmconvert && make "CFLAGS=-O2 -std=c17" -f Makefile.unix )
 
 $(MEGA65LIBCLIB):
 	$(SUBMODULEUPDATE)
