@@ -34,7 +34,25 @@ nothing here yet...
 
 we'll see...
 
+## Release 0.97.2 (M65TARGET bugfix for R6)
+
+Second bugfix release for 0.97, only for R6 and later boards.
+
+The R6A board (PCB Revision R7) is a production update that replaces some parts that
+are no longer available. During the process a bug in the I2C communication came to light,
+which needed fixing. This fix was 0.97.1, but it was rushed and got it wrong! So this
+second patch release was needed to *really* fix the problem.
+
+- [Release 0.97.2](https://github.com/orgs/MEGA65/projects/9/views/2)
+
+### Changes 0.97.2
+
+- M65MODEL is filled with wrong value
+  [#920](https://github.com/MEGA65/mega65-core/issues/920)
+
 ## Release 0.97.1 (I2C bugfix for R6)
+
+**WARNING:** This fix messes up M65TARGET and should not be used!
 
 First bugfix release for 0.97, only for R6 and later boards.
 
