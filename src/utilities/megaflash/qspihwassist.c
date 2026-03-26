@@ -6,7 +6,7 @@
 /*
  * Address of buffer used by hardware QSPI flash controller.
  */
-#define QSPI_FLASH_BUFFER            (0xFFD6E00L)
+#define QSPI_FLASH_BUFFER            (0xFFD6A00L)
 #define QSPI_FLASH_BUFFER_UPPER_PAGE (QSPI_FLASH_BUFFER + 0x100)
 
 /*
