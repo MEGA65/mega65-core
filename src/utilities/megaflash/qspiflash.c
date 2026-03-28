@@ -46,14 +46,14 @@ char qspi_flash_erase(void * qspi_flash_device, enum qspi_flash_erase_block_size
     return interface->erase(qspi_flash_device, erase_block_size, address);
 }
 
-char qspi_flash_program(void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data)
+char qspi_flash_program(void * qspi_flash_device, unsigned long address, const unsigned char * data, unsigned int size)
 {
     const struct qspi_flash_interface * interface = qspi_flash_device;
     if (interface == NULL || interface->program == NULL)
     {
         return -1;
     }
-    return interface->program(qspi_flash_device, page_size, address, data);
+    return interface->program(qspi_flash_device, address, data, size);
 }
 
 char qspi_flash_get_size(void * qspi_flash_device, unsigned int * size)

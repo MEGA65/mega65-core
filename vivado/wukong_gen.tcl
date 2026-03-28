@@ -239,6 +239,8 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/types_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/utils_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_tx_encoder.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sector_buffer.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/qspi_flash.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/6502_alu.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_mux.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_reg.v"]"\
@@ -265,7 +267,6 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/syn_fifo.v"]"\
  "[file normalize "$origin_dir/src/verilog/tremolo.v"]"\
  "[file normalize "$origin_dir/src/verilog/vibrato.v"]"
-
 ]
 set imported_files [add_files -fileset sources_1 $files]
 
@@ -815,6 +816,14 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/serialiser_10to1_selectio.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/sector_buffer.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/qspi_flash.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

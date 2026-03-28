@@ -314,7 +314,10 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDriveWait,   -- 0x11
                       F011WriteSectorRealDrive,       -- 0x12
                       FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack               -- 0x14
+                      FDCAutoFormatTrack,              -- 0x14
+
+                      QspiBusyArm,                    -- 0x15
+                      QspiBusy                        -- 0x16
 
                       );
   signal sd_state : sd_state_t := Idle;
@@ -323,7 +326,6 @@ architecture behavioural of sdcardio is
 
   -- Interface signals for qspi_flash entity
   signal qspi_busy            : std_logic := '0';
-  signal qspi_bytes_differ    : std_logic := '0';
   signal qspi_buf_raddr       : unsigned(8 downto 0) := (others => '0');
   signal qspi_buf_waddr       : unsigned(11 downto 0) := (others => '0');
   signal qspi_buf_wdata       : unsigned(7 downto 0) := (others => '0');
@@ -829,7 +831,6 @@ begin  -- behavioural
       action_strobe   => qspi_action_strobe,
       spi_address_in  => sd_sector,
       busy            => qspi_busy,
-      bytes_differ    => qspi_bytes_differ,
       buf_rdata       => f011_buffer_rdata,
       buf_raddr       => qspi_buf_raddr,
       buf_waddr       => qspi_buf_waddr,
@@ -1051,7 +1052,7 @@ begin  -- behavioural
            f011_motor,f011_swap,f011_rnf,f011_write_protected,f011_disk_present,
            f011_disk_changed,sb_cpu_rdata,last_sd_rxbyte,f011_eq_inhibit,
            sd_interface_select_internal,sdcard_busy,sd_handshake,sd_data_ready,
-           f011_swap_drives,qspi_bytes_differ,virtualise_f011_drive0,
+           f011_swap_drives,virtualise_f011_drive0,
            virtualise_f011_drive1,f011_d64_disk,f011_d64_disk2,f011_mega_disk,
            f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw,dipsw_hi,
            latched_disk_change_event,fdc_sector_found_2x,fdc_sector_end_2x,
@@ -1293,7 +1294,7 @@ begin  -- behavioural
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - RESERVED
           -- @IO:GS $D689.5 - F011 swap drive 0 / 1
-          -- @IO:GS $D689.6 - QSPI bytes not all identical during last read
+          -- @IO:GS $D689.6 - RESERVED
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
@@ -1302,7 +1303,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= '0';
             fastio_rdata(5) <= f011_swap_drives;
-            fastio_rdata(6) <= qspi_bytes_differ;
+            fastio_rdata(6) <= '0';
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
@@ -1558,11 +1559,14 @@ begin  -- behavioural
             fastio_rdata <= reconfigure_address_int(23 downto 16);
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
-          when x"CC" | x"CD" =>
+          when x"C2" | x"C3" | x"CC" | x"CD" | x"CE" =>
+            -- @IO:GS $D6C2 QSPI:FLASHMB Flash memory size in megabytes (read only)
+            -- @IO:GS $D6C3 QSPI:ERASEBLK Supported erase block sizes bitmask (read only)
+            -- @IO:GS $D6CC QSPI:STATUS QSPI status byte (read only)
+            -- @IO:GS $D6CD QSPI:SIZEL Transfer block size low byte (read/write)
+            -- @IO:GS $D6CE QSPI:SIZEH Transfer block size high bits 1:0 (read/write)
             -- Handled by qspi_flash entity
             fastio_rdata <= qspi_fastio_rdata;
-          when x"CE" =>
-            fastio_rdata <= to_unsigned(f_wdata_minimum,8);
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -3047,12 +3051,14 @@ begin  -- behavioural
                 when x"57" =>
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
-                when x"50" | x"51" | x"52" | x"53" | x"54" | x"55" | x"56" |
-                     x"58" | x"59" | x"5a" | x"5b" | x"5c" | x"5d" | x"5e" |
-                     x"5f" | x"66" | x"67" | x"68" | x"69" | x"6a" | x"6b" |
-                     x"6c" =>
-                  -- QSPI actions: forwarded to qspi_flash entity via action_strobe
-                  qspi_action_strobe <= '1';
+                when x"50" | x"51" | x"52" | x"53" | x"54" | x"55" | x"56" =>
+                  -- QSPI actions ($50=init, $51=read, $52=program, $53=verify,
+                  --               $54=erase4K, $55=erase32K, $56=erase64K):
+                  -- forwarded to qspi_flash entity via action_strobe
+                  if sdio_busy = '0' then
+                    qspi_action_strobe <= '1';
+                    sd_state           <= QspiBusyArm;
+                  end if;
 
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
@@ -3349,10 +3355,9 @@ begin  -- behavioural
             when x"CB" =>
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
-            when x"CC" | x"CD" | x"CE" =>
-              -- @IO:GS $D6CC QSPI:BITBANG QSPI bit-bang interface (handled by qspi_flash entity)
-              -- @IO:GS $D6CD QSPI:CLOCKRUN QSPI clock run / clock (handled by qspi_flash entity)
-              -- @IO:GS $D6CE QSPI:BITBANG2 Alias for $D6CC (handled by qspi_flash entity)
+            when x"CD" | x"CE" =>
+              -- @IO:GS $D6CD QSPI:SIZEL Transfer block size low byte (handled by qspi_flash entity)
+              -- @IO:GS $D6CE QSPI:SIZEH Transfer block size high bits 1:0 (handled by qspi_flash entity)
               null;
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
@@ -4394,20 +4399,26 @@ begin  -- behavioural
             f011_wsector_found <= '1';
           end if;
 
-        -- QSPI states removed: handled by qspi_flash entity
+        when QspiBusyArm =>
+          -- Strobe has been sent to qspi_flash; wait for it to assert busy
+          sdio_busy <= '1';
+          if qspi_busy = '1' then
+            sd_state <= QspiBusy;
+          end if;
+
+        when QspiBusy =>
+          -- Wait for qspi_flash to finish
+          sdio_busy <= '1';
+          if qspi_buf_write = '1' then
+            f011_buffer_write_address <= qspi_buf_waddr;
+            f011_buffer_wdata         <= qspi_buf_wdata;
+            f011_buffer_write         <= '1';
+          end if;
+          if qspi_busy = '0' then
+            sd_state <= Idle;
+          end if;
+
       end case;
-
-      -- Propagate qspi_busy into sdio_busy
-      if qspi_busy = '1' then
-        sdio_busy <= '1';
-      end if;
-
-      -- Write QSPI buffer data into shared sector buffer
-      if qspi_buf_write = '1' then
-        f011_buffer_write_address <= qspi_buf_waddr;
-        f011_buffer_wdata <= qspi_buf_wdata;
-        f011_buffer_write <= '1';
-      end if;
 
     end if;
   end process;

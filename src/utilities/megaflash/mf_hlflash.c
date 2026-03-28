@@ -156,7 +156,7 @@ void mfhl_flash_inspector(void)
       data_buffer[3] = addr >> 0L;
       // Now program it
       mhx_writef("Program... \n");
-      qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, addr, data_buffer);
+      qspi_flash_program(qspi_flash_device, addr, data_buffer, 256);
       // dummy read!
       qspi_flash_read(qspi_flash_device, 0, data_buffer, 512); // discard result, we reread anyways
       mhx_press_any_key(0, MHX_A_NOCOLOR);
@@ -651,13 +651,14 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MFHF_PT_DONE);
       break;
     }
+
     mfp_change_code(MFP_DIR_DOWN, 'P'|MHX_A_INVERT, MFHF_PT_WRITE);
 
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
 
     // Program sector
-    for (wraddr = addr + size; wraddr > addr; wraddr -= 256) {
+    for (wraddr = addr + size; wraddr > addr; wraddr -= 512) {
 #ifdef STANDALONE
       if (mfhf_attic_disabled) {
 #endif /* STANDALONE */
@@ -670,7 +671,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
           }
         }
 
-        lcopy(SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU), (unsigned long)data_buffer, 256);
+        lcopy(SECTORBUFFER + ((wraddr - 512 - end_addr) & 0xffffU), (unsigned long)data_buffer, 512);
 
         /* mhx_set_xy(0, 1);
         mhx_writef("%08lx %08lx %08lx ", wraddr - 256, (wraddr - 256 - end_addr) & 0xffffU, SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU));
@@ -681,7 +682,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       else {
 #endif /* STANDALONE */
 #if !defined(NO_ATTIC) || defined(STANDALONE)
-        lcopy(SECTORBUFFER + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
+        lcopy(SECTORBUFFER + wraddr - 512 - end_addr, (unsigned long)data_buffer, 512);
 #endif /* !NO_ATTIC || STANDALONE */
 #ifdef STANDALONE
       }
@@ -691,14 +692,14 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 #if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MFHF_PT_WRITE);
 #endif
-      if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
+      if (qspi_flash_program(qspi_flash_device, wraddr - 512, data_buffer, 512) != 0) {
         // if one write fails, we need to abort, re-erase, and start over! So break out of the inner write loop
         break;
       }
 #if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MHX_A_BLACK);
 #endif
-      mfp_progress(wraddr - 256 - end_addr);
+      mfp_progress(wraddr - 512 - end_addr);
     }
   }
 
