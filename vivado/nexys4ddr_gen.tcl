@@ -127,7 +127,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/multisid.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/shadowram-s25flxsno.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shadowram-no-attic.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_complex.vhdl"]"\
@@ -464,7 +464,7 @@ set file "vhdl/sid_6581.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/shadowram-s25flxsno.vhdl"
+set file "vhdl/shadowram-no-attic.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

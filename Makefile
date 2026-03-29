@@ -455,9 +455,8 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_videobuffer.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl \
 			$(VHDLSRCDIR)/asym_ram.vhdl \
-			$(VHDLSRCDIR)/shadowram-s25flxlno.vhdl \
-			$(VHDLSRCDIR)/shadowram-s25flxsno.vhdl \
-			$(VHDLSRCDIR)/shadowram-s25flxs.vhdl
+			$(VHDLSRCDIR)/shadowram-no-attic.vhdl \
+			$(VHDLSRCDIR)/shadowram-attic.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 			$(VHDLSRCDIR)/sdcard.vhdl \
@@ -910,11 +909,7 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(MEG
 MFUTILDIR=$(UTILDIR)/megaflash
 
 MFLASH_QSPI_H = \
-	$(MFUTILDIR)/qspiflash.h \
-	$(MFUTILDIR)/s25flxxxl.h \
-	$(MFUTILDIR)/s25flxxxs.h \
-	$(MFUTILDIR)/qspihwassist.h \
-	$(MFUTILDIR)/qspibitbash.h
+	$(MFUTILDIR)/qspiflash.h
 
 MFLASH_BASE_H = \
 	$(UTILDIR)/version.h \
@@ -947,54 +942,31 @@ MFLASH_SOLO_H = \
 	$(MFUTILDIR)/mf_hlflash.h \
 	$(MFLASH_BASE_H)
 
-MFLASH_CORE_S25FLXLNO_OBJ = \
+MFLASH_CORE_NO_ATTIC_OBJ = \
 	$(MFUTILDIR)/mf_screens.o \
-	$(MFUTILDIR)/mf_hlflash_s25flxlno.o \
-	$(MFUTILDIR)/qspiflash_s25flxlno.o \
-	$(MFUTILDIR)/s25flxxxl_s25flxlno.o \
-	$(MFUTILDIR)/qspihwassist_s25flxlno.o \
-	$(MFUTILDIR)/qspibitbash_s25flxlno.o \
+	$(MFUTILDIR)/mf_hlflash_no_attic.o \
+	$(MFUTILDIR)/qspiflash.o \
 	$(MFLASH_BASE_OBJ)
 
-MFLASH_CORE_S25FLXSNO_OBJ = \
+MFLASH_CORE_ATTIC_OBJ = \
 	$(MFUTILDIR)/mf_screens.o \
-	$(MFUTILDIR)/mf_hlflash_s25flxsno.o \
-	$(MFUTILDIR)/qspiflash_s25flxsno.o \
-	$(MFUTILDIR)/s25flxxxs_s25flxsno.o \
-	$(MFUTILDIR)/qspihwassist_s25flxsno.o \
-	$(MFUTILDIR)/qspibitbash_s25flxsno.o \
-	$(MFLASH_BASE_OBJ)
-
-MFLASH_CORE_S25FLXS_OBJ = \
-	$(MFUTILDIR)/mf_screens.o \
-	$(MFUTILDIR)/mf_hlflash_s25flxs.o \
-	$(MFUTILDIR)/qspiflash_s25flxs.o \
-	$(MFUTILDIR)/s25flxxxs_s25flxs.o \
-	$(MFUTILDIR)/qspihwassist_s25flxs.o \
-	$(MFUTILDIR)/qspibitbash_s25flxs.o \
+	$(MFUTILDIR)/mf_hlflash.o \
+	$(MFUTILDIR)/qspiflash.o \
 	$(MFLASH_BASE_OBJ)
 
 MFLASH_SOLO_OBJ = \
 	$(MFUTILDIR)/mf_screens_solo.o \
 	$(MFUTILDIR)/mf_hlflash_sa.o \
 	$(MFUTILDIR)/qspiflash_sa.o \
-	$(MFUTILDIR)/s25flxxxl_sa.o \
-	$(MFUTILDIR)/s25flxxxs_sa.o \
-	$(MFUTILDIR)/qspihwassist_sa.o \
-	$(MFUTILDIR)/qspibitbash_sa.o \
 	$(MFLASH_BASE_OBJ)
 
-# version for the MEGA65 PCBs, using S25FLXXXS flash chips
-MFLASH_CORE_S25FLXS_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_CORE_S25FLXS_OBJ)
-MFLASH_CORE_S25FLXS_LINK = $(MFLASH_CORE_S25FLXS_OBJ)
+# version for the MEGA65 PCBs, with ATTIC RAM
+MFLASH_CORE_ATTIC_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_CORE_ATTIC_OBJ)
+MFLASH_CORE_ATTIC_LINK = $(MFLASH_CORE_ATTIC_OBJ)
 
-# version for the Nexys DevBoards, using S25FLXXXS flash chips and no ATTIC
-MFLASH_CORE_S25FLXSNO_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_CORE_S25FLXSNO_OBJ)
-MFLASH_CORE_S25FLXSNO_LINK = $(MFLASH_CORE_S25FLXSNO_OBJ)
-
-# version for WUKONG, using S25FLXXXL flash chips and no ATTIC
-MFLASH_CORE_S25FLXLNO_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_CORE_S25FLXLNO_OBJ)
-MFLASH_CORE_S25FLXLNO_LINK = $(MFLASH_CORE_S25FLXLNO_OBJ)
+# version for Nexys DevBoards and Wukong, without ATTIC RAM
+MFLASH_CORE_NO_ATTIC_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_CORE_NO_ATTIC_OBJ)
+MFLASH_CORE_NO_ATTIC_LINK = $(MFLASH_CORE_NO_ATTIC_OBJ)
 
 # autodetection and debugging standalone version
 MFLASH_SOLO_REQ = $(MFLASH_QSPI_H) $(MFLASH_SOLO_H) $(MFLASH_SOLO_OBJ)
@@ -1013,32 +985,18 @@ $(MFUTILDIR)/%.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	$(CC65) $(MEGA65LIBCINC) -O -o $(MFUTILDIR)/work/$*.s $<
 	$(CA65) -o $@ --listing $(MFUTILDIR)/$*.list $(MFUTILDIR)/work/$*.s
 
-$(MFUTILDIR)/%_s25flxlno.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
+$(MFUTILDIR)/%_no_attic.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(MFUTILDIR)/work ]; then \
 		mkdir $(MFUTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_NO_BIT_BASH -DQSPI_S25FLXXXL -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_s25flxlno.s $<
-	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_s25flxlno.list $(MFUTILDIR)/work/$*_s25flxlno.s
-
-$(MFUTILDIR)/%_s25flxsno.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
-	@if [ ! -e $(MFUTILDIR)/work ]; then \
-		mkdir $(MFUTILDIR)/work; \
-	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_NO_BIT_BASH -DQSPI_S25FLXXXS -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_s25flxsno.s $<
-	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_s25flxsno.list $(MFUTILDIR)/work/$*_s25flxsno.s
-
-$(MFUTILDIR)/%_s25flxs.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
-	@if [ ! -e $(MFUTILDIR)/work ]; then \
-		mkdir $(MFUTILDIR)/work; \
-	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_NO_BIT_BASH -DQSPI_S25FLXXXS -O -o $(MFUTILDIR)/work/$*_s25flxs.s $<
-	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_s25flxs.list $(MFUTILDIR)/work/$*_s25flxs.s
+	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_no_attic.s $<
+	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_no_attic.list $(MFUTILDIR)/work/$*_no_attic.s
 
 $(MFUTILDIR)/%_sa.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(MFUTILDIR)/work ]; then \
 		mkdir $(MFUTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DSTANDALONE -DFLASH_INSPECT -DQSPI_VERBOSE -DQSPI_HW_ASSIST -O -o $(MFUTILDIR)/work/$*_sa.s $<
+	$(CC65) $(MEGA65LIBCINC) -DSTANDALONE -DFLASH_INSPECT -DQSPI_VERBOSE -O -o $(MFUTILDIR)/work/$*_sa.s $<
 #	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DFLASH_INSPECT -DQSPI_VERBOSE -DQSPI_HW_ASSIST -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_sa.s $<
 	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_sa.list $(MFUTILDIR)/work/$*_sa.s
 
@@ -1047,34 +1005,24 @@ $(MFUTILDIR)/%_sa.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 # in addition util-core.cfg is used to move BSS and stack behind HYPPE starting at C000
 # all string data is placed into upper memory (see shadowram entry)
 #
-$(MFUTILDIR)/megaflash-s25flxlno.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_S25FLXLNO_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
-		$(MEGA65LIBCINC) -O --add-source \
-		-o $*.prg \
-		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DFIRMWARE_UPGRADE -DTAB_FOR_MENU $< \
-		$(MFLASH_CORE_S25FLXLNO_LINK) $(MEGA65LIBCLIB)
-	$(call mbuild_sizecheck,30719,$@)
-
-$(MFUTILDIR)/megaflash-s25flxsno.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_S25FLXSNO_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(MFUTILDIR)/megaflash-no-attic.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_NO_ATTIC_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DFIRMWARE_UPGRADE $< \
-		$(MFLASH_CORE_S25FLXSNO_LINK) $(MEGA65LIBCLIB)
+		$(MFLASH_CORE_NO_ATTIC_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
-$(MFUTILDIR)/megaflash-s25flxs.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_S25FLXS_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(MFUTILDIR)/megaflash-attic.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_ATTIC_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DFIRMWARE_UPGRADE $< \
-		$(MFLASH_CORE_S25FLXS_LINK) $(MEGA65LIBCLIB)
+		$(MFLASH_CORE_ATTIC_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging, but also for production and recovery
@@ -1088,7 +1036,7 @@ $(MFUTILDIR)/mflash.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEG
 		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
-megaflash: $(MFUTILDIR)/megaflash-s25flxlno.prg $(MFUTILDIR)/megaflash-s25flxsno.prg $(MFUTILDIR)/megaflash-s25flxs.prg $(MFUTILDIR)/mflash.prg
+megaflash: $(MFUTILDIR)/megaflash-no-attic.prg $(MFUTILDIR)/megaflash-attic.prg $(MFUTILDIR)/mflash.prg
 
 #-----------------------------------------------------------------------------
 # OLD MEGAFLASH BUILD, not working
@@ -1215,22 +1163,17 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 # available address is calculates by screenbuilder, see megaflash.scr header
 # for definition.
 #
-# The difference in shadowram is the hardcoded driver in MEGAFLASH
-# - s25flxlno for wukong
-# - s25flxsno for nexys
-# - s25flxs for m65pcbs
+# The difference in shadowram is whether the board has ATTIC RAM or not
+# - no-attic for wukong and nexys
+# - attic for mega65 PCBs
 #
-$(VHDLSRCDIR)/shadowram-s25flxlno.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-s25flxlno.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
+$(VHDLSRCDIR)/shadowram-no-attic.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-no-attic.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-s25flxlno.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-s25flxlno.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-no-attic.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-no-attic.prg@50000
 
-$(VHDLSRCDIR)/shadowram-s25flxsno.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-s25flxsno.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
+$(VHDLSRCDIR)/shadowram-attic.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-attic.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-s25flxsno.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-s25flxsno.prg@50000
-
-$(VHDLSRCDIR)/shadowram-s25flxs.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-s25flxs.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
-	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-s25flxs.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-s25flxs.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-attic.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-attic.prg@50000
 
 $(VHDLSRCDIR)/shadowram-cpusim.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(UTILDIR)/cpusim.prg
 	mkdir -p $(SDCARD_DIR)
