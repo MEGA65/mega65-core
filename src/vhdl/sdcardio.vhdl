@@ -314,11 +314,10 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDriveWait,   -- 0x11
                       F011WriteSectorRealDrive,       -- 0x12
                       FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack,              -- 0x14
+                      FDCAutoFormatTrack,             -- 0x14
 
                       QspiBusyArm,                    -- 0x15
                       QspiBusy                        -- 0x16
-
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
