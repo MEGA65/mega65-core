@@ -11,7 +11,8 @@ use work.cputypes.all;
 --
 -- Register map (fastio):
 --   $D6C2 RO Flash size in MB
---   $D6C3 RO Erase block size (bit 4 = 64K, bit 3 = 32K, bit 0 = 4K)
+--   $D6C3 RO Supported erase block sizes bitmask (bit 6 = 256K, bit 4 = 64K,
+--                                                 bit 3 = 32K, bit 0 = 4K)
 --   $D6CC RO Status (bit 4 = block mismatch, bit 3 = internal fault,
 --                    bit 2 = initialization error, bit 1 = operation error,
 --                    bit 0 = busy)
@@ -242,7 +243,7 @@ begin
   -- Combinational fastio read
   process (fastio_cs, fastio_addr, fastio_write,
            dev_busy, dev_error, block_mismatch, dev_state,
-           flash_size, flash_erase_block_size, block_size) is
+           flash_size, block_size) is
   begin
     fastio_rdata <= (others => 'Z');
     if fastio_cs = '1' and fastio_write = '0' then
@@ -251,8 +252,8 @@ begin
           -- @IO:GS $D6C2 QSPI:FLASHSIZE Flash size in MB (read only)
           fastio_rdata <= to_unsigned(flash_size, 8);
         when x"C3" =>
-          -- @IO:GS $D6C3 QSPI:ERASEBLK Erase block size (bit 4=64K, bit 3=32K, bit 0=4K)
-          fastio_rdata <= flash_erase_block_size;
+          -- @IO:GS $D6C3 QSPI:ERASEBLK Supported erase block sizes bitmask (read only)
+          fastio_rdata <= "00011001";
         when x"CC" =>
           -- @IO:GS $D6CC QSPI:STATUS QSPI status (bit 4=block mismatch, bit 3=fault, bit 2=init error, bit 1=op error, bit 0=busy)
           fastio_rdata    <= (others => '0');
