@@ -20,14 +20,17 @@ use work.cputypes.all;
 --   $D6CE RW Size high byte (bits 1:0, for values up to 512)
 --
 -- Actions (dispatched from sdcardio via action_strobe + action_byte):
---   $50  Initialize (auto-detects flash, enables quad mode)
---   $51  Read    (spi_address_in -> block_address, size from $D6CD/$D6CE)
---   $52  Program (spi_address_in -> block_address, size from $D6CD/$D6CE; hypervisor only)
---   $53  Verify  (spi_address_in -> block_address, size from $D6CD/$D6CE)
---   $54  Erase 4K sector   (spi_address_in -> block_address; hypervisor only)
---   $55  Erase 32K block   (spi_address_in -> block_address; hypervisor only)
---   $56  Erase 64K sector  (spi_address_in -> block_address; hypervisor only)
---   $57  Erase 256K sector (spi_address_in -> block_address; hypervisor only)
+--   $60  Initialize (auto-detects flash, enables quad mode)
+--   $61  Read    (spi_address_in -> block_address, size from $D6CD/$D6CE)
+--   $62  Verify  (spi_address_in -> block_address, size from $D6CD/$D6CE)
+--   $63  Program (spi_address_in -> block_address, size from $D6CD/$D6CE; hypervisor only)
+--   $64  Erase 4K block   (spi_address_in -> block_address; hypervisor only)
+--   $65  Erase 8K block   (RESERVED)
+--   $66  Erase 16K block  (RESERVED)
+--   $67  Erase 32K block  (RESERVED)
+--   $68  Erase 64K block  (spi_address_in -> block_address; hypervisor only)
+--   $69  Erase 128K block (RESERVED)
+--   $6A  Erase 256K block (spi_address_in -> block_address; hypervisor only)
 --
 -- The sector buffer slot for QSPI is $A00-$BFF ("101" & offset[8:0]).
 
@@ -316,7 +319,7 @@ begin
         if action_strobe = '1' and dev_busy = '0' then
           if dev_state = UNINITIALIZED then
             -- Only initialize ($50) is accepted when uninitialized
-            if action_byte = x"50" then
+            if action_byte = x"60" then
               dev_error <= '0';
               dev_state <= FLASH_RESET;
             else
@@ -326,12 +329,15 @@ begin
           elsif dev_state = IDLE then
             dev_error <= '0';
             case action_byte is
-              when x"50" =>  -- Initialize
+              when x"60" =>  -- Initialize
                 dev_state <= FLASH_RESET;
-              when x"51" =>  -- Read
+              when x"61" =>  -- Read
                 block_address <= spi_address_in;
                 dev_state     <= FLASH_READ;
-              when x"52" =>  -- Program (hypervisor only)
+              when x"62" =>  -- Verify
+                block_address <= spi_address_in;
+                dev_state     <= FLASH_VERIFY;
+              when x"63" =>  -- Program (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
                   block_address <= spi_address_in;
                   dev_state     <= FLASH_PROGRAM;
@@ -339,10 +345,7 @@ begin
                   post_rejected_state <= IDLE;
                   dev_state           <= REJECTED;
                 end if;
-              when x"53" =>  -- Verify
-                block_address <= spi_address_in;
-                dev_state     <= FLASH_VERIFY;
-              when x"54" =>  -- Erase 4K (hypervisor only)
+              when x"64" =>  -- Erase 4K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
                   block_address          <= spi_address_in;
                   flash_erase_block_size <= x"01";
@@ -351,16 +354,7 @@ begin
                   post_rejected_state <= IDLE;
                   dev_state           <= REJECTED;
                 end if;
-              when x"55" =>  -- Erase 32K (hypervisor only)
-                if hypervisor_mode = '1' or dipsw2 = '1' then
-                  block_address          <= spi_address_in;
-                  flash_erase_block_size <= x"08";
-                  dev_state              <= FLASH_ERASE;
-                else
-                  post_rejected_state <= IDLE;
-                  dev_state           <= REJECTED;
-                end if;
-              when x"56" =>  -- Erase 64K (hypervisor only)
+              when x"68" =>  -- Erase 64K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
                   block_address          <= spi_address_in;
                   flash_erase_block_size <= x"10";
@@ -369,7 +363,7 @@ begin
                   post_rejected_state <= IDLE;
                   dev_state           <= REJECTED;
                 end if;
-              when x"57" =>  -- Erase 256K (hypervisor only)
+              when x"6A" =>  -- Erase 256K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
                   block_address          <= spi_address_in;
                   flash_erase_block_size <= x"40";

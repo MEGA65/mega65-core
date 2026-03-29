@@ -11,7 +11,7 @@
 
 char qspi_flash_reset(void)
 {
-    POKE(0xD680, 0x50);
+    POKE(0xD680, 0x60);
     while (PEEK(0xD6CC) & 1);
     if (PEEK(0xD6CC) & 0x0F)
     {
@@ -39,7 +39,7 @@ char qspi_flash_read(unsigned long address, unsigned char * data, unsigned int s
     POKE(0xD684, address >> 24);
     POKE(0xD6CD, size >> 0);
     POKE(0xD6CE, size >> 8);
-    POKE(0xD680, 0x51);
+    POKE(0xD680, 0x61);
 
     while (PEEK(0xD6CC) & 1);
     if (PEEK(0xD6CC) & 0x0F)
@@ -75,7 +75,7 @@ char qspi_flash_verify(unsigned long address, unsigned char * data, unsigned int
     POKE(0xD684, address >> 24);
     POKE(0xD6CD, size >> 0);
     POKE(0xD6CE, size >> 8);
-    POKE(0xD680, 0x53);
+    POKE(0xD680, 0x62);
 
     while (PEEK(0xD6CC) & 1);
 
@@ -87,11 +87,13 @@ char qspi_flash_erase(enum qspi_flash_erase_block_size erase_block_size, unsigne
     unsigned char erase_command;
 
     if (erase_block_size == qspi_flash_erase_block_size_4k)
-        erase_command = 0x54;
+        erase_command = 0x64;
     else if (erase_block_size == qspi_flash_erase_block_size_32k)
-        erase_command = 0x55;
+        erase_command = 0x67;
     else if (erase_block_size == qspi_flash_erase_block_size_64k)
-        erase_command = 0x56;
+        erase_command = 0x68;
+    else if (erase_block_size == qspi_flash_erase_block_size_256k)
+        erase_command = 0x6A;
     else
         return 1;
 
@@ -126,7 +128,7 @@ char qspi_flash_program(unsigned long address, const unsigned char * data, unsig
     POKE(0xD684, address >> 24);
     POKE(0xD6CD, size >> 0);
     POKE(0xD6CE, size >> 8);
-    POKE(0xD680, 0x52);
+    POKE(0xD680, 0x63);
 
     while (PEEK(0xD6CC) & 1);
 

@@ -3051,9 +3051,11 @@ begin  -- behavioural
                 when x"57" =>
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
-                when x"50" | x"51" | x"52" | x"53" | x"54" | x"55" | x"56" =>
-                  -- QSPI actions ($50=init, $51=read, $52=program, $53=verify,
-                  --               $54=erase4K, $55=erase32K, $56=erase64K):
+                when x"60" | x"61" | x"62" | x"63" | x"64" | x"65" | x"66" | x"67" | x"68" | x"69" | x"6A" =>
+                  -- QSPI actions ($60=init, $61=read, $52=verify, $53=program,
+                  --               $64=erase4K, $65=erase8K, $66=erase16K,
+                  --               $67=erase32K, $68=erase64K, $69=erase128K,
+                  --               $6A=erase256K):
                   -- forwarded to qspi_flash entity via action_strobe
                   if sdio_busy = '0' then
                     qspi_action_strobe <= '1';
