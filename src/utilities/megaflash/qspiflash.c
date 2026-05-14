@@ -12,8 +12,8 @@
 char qspi_flash_reset(void)
 {
     POKE(0xD680, 0x60);
-    while (PEEK(0xD6CC) & 1);
-    if (PEEK(0xD6CC) & 0x0F)
+    while (PEEK(0xD6C1) & 1);
+    if (PEEK(0xD6C1) & 0x0F)
     {
         return 1;
     }
@@ -21,14 +21,9 @@ char qspi_flash_reset(void)
     return 0;
 }
 
-char qspi_flash_read(unsigned long address, unsigned char * data, unsigned int size)
+char qspi_flash_read(unsigned long address, unsigned char * data)
 {
     if (data == NULL)
-    {
-        return 1;
-    }
-
-    if (size > 512)
     {
         return 1;
     }
@@ -37,49 +32,37 @@ char qspi_flash_read(unsigned long address, unsigned char * data, unsigned int s
     POKE(0xD682, address >> 8);
     POKE(0xD683, address >> 16);
     POKE(0xD684, address >> 24);
-    POKE(0xD6CD, size >> 0);
-    POKE(0xD6CE, size >> 8);
     POKE(0xD680, 0x61);
 
-    while (PEEK(0xD6CC) & 1);
-    if (PEEK(0xD6CC) & 0x0F)
+    while (PEEK(0xD6C1) & 1);
+    if (PEEK(0xD6C1) & 0x0F)
     {
         return 1;
     }
 
-    if (data != NULL)
-    {
-        lcopy(QSPI_FLASH_BUFFER, (unsigned long)data, size);
-    }
+    lcopy(QSPI_FLASH_BUFFER, (unsigned long)data, 512);
 
     return 0;
 }
 
-char qspi_flash_verify(unsigned long address, unsigned char * data, unsigned int size)
+char qspi_flash_verify(unsigned long address, unsigned char * data)
 {
     if (data == NULL)
     {
         return 1;
     }
 
-    if (size > 512)
-    {
-        return 1;
-    }
-
-    lcopy((unsigned long)data, QSPI_FLASH_BUFFER, size);
+    lcopy((unsigned long)data, QSPI_FLASH_BUFFER, 512);
 
     POKE(0xD681, address >> 0);
     POKE(0xD682, address >> 8);
     POKE(0xD683, address >> 16);
     POKE(0xD684, address >> 24);
-    POKE(0xD6CD, size >> 0);
-    POKE(0xD6CE, size >> 8);
     POKE(0xD680, 0x62);
 
-    while (PEEK(0xD6CC) & 1);
+    while (PEEK(0xD6C1) & 1);
 
-    return (PEEK(0xD6CC) & 0x1F) ? 1 : 0;
+    return (PEEK(0xD6C1) & 0x1F) ? 1 : 0;
 }
 
 char qspi_flash_erase(enum qspi_flash_erase_block_size erase_block_size, unsigned long address)
@@ -103,36 +86,29 @@ char qspi_flash_erase(enum qspi_flash_erase_block_size erase_block_size, unsigne
     POKE(0xD684, address >> 24);
     POKE(0xD680, erase_command);
 
-    while (PEEK(0xD6CC) & 1);
+    while (PEEK(0xD6C1) & 1);
 
-    return (PEEK(0xD6CC) & 0x0F) ? 1 : 0;
+    return (PEEK(0xD6C1) & 0x0F) ? 1 : 0;
 }
 
-char qspi_flash_program(unsigned long address, const unsigned char * data, unsigned int size)
+char qspi_flash_program(unsigned long address, const unsigned char * data)
 {
-    if (size > 512)
-    {
-        return 1;
-    }
-
     if (data == NULL)
     {
         return 1;
     }
 
-    lcopy((unsigned long)data, QSPI_FLASH_BUFFER, size);
+    lcopy((unsigned long)data, QSPI_FLASH_BUFFER, 512);
 
     POKE(0xD681, address >> 0);
     POKE(0xD682, address >> 8);
     POKE(0xD683, address >> 16);
     POKE(0xD684, address >> 24);
-    POKE(0xD6CD, size >> 0);
-    POKE(0xD6CE, size >> 8);
     POKE(0xD680, 0x63);
 
-    while (PEEK(0xD6CC) & 1);
+    while (PEEK(0xD6C1) & 1);
 
-    return (PEEK(0xD6CC) & 0x0F) ? 1 : 0;
+    return (PEEK(0xD6C1) & 0x0F) ? 1 : 0;
 }
 
 char qspi_flash_get_size(unsigned int * size)
@@ -214,4 +190,3 @@ char get_erase_block_size_in_bytes(enum qspi_flash_erase_block_size erase_block_
         return -1;
     }
 }
-

@@ -80,7 +80,7 @@ void mfhl_flash_inspector(void)
     }
 
     mhx_set_xy(7, 0);
-    if (!qspi_flash_read(addr, data_buffer, 512)) {
+    if (!qspi_flash_read(addr, data_buffer)) {
       mhx_writef(MHX_W_REVON MHX_W_LGREY "%07lx" MHX_W_WHITE MHX_W_REVOFF, addr);
       for (i = 0; i < 256; i++) {
         if (!(i & 15))
@@ -144,7 +144,7 @@ void mfhl_flash_inspector(void)
       mhx_writef("\nErase... ");
       qspi_flash_erase(mfhf_erase_block_size, addr);
       // Some known data
-      for (i = 4; i < 256; i++) {
+      for (i = 4; i < 512; i++) {
         data_buffer[i] = i;
       }
       data_buffer[0] = addr >> 24L;
@@ -153,9 +153,9 @@ void mfhl_flash_inspector(void)
       data_buffer[3] = addr >> 0L;
       // Now program it
       mhx_writef("Program... \n");
-      qspi_flash_program(addr, data_buffer, 256);
+      qspi_flash_program(addr, data_buffer);
       // dummy read!
-      qspi_flash_read(0, data_buffer, 512); // discard result, we reread anyways
+      qspi_flash_read(0, data_buffer); // discard result, we reread anyways
       mhx_press_any_key(0, MHX_A_NOCOLOR);
       break;
     }
@@ -226,7 +226,7 @@ int8_t mfhf_read_core_header_from_flash(uint8_t slot) {
   if (slot >= slot_count) return 1;
 
   // Read core header for the specified slot.
-  return qspi_flash_read(slot * mfu_slot_size, data_buffer, 512);
+  return qspi_flash_read(slot * mfu_slot_size, data_buffer);
 }
 
 #define mfhf_display_sderror(error, code) mfhf_display_error("Load Error", error, code)
@@ -453,7 +453,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   // load core from qspi to attic ram
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
   for (flash_addr = mfu_slot_size * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
-    if (qspi_flash_read(flash_addr, data_buffer, 512))
+    if (qspi_flash_read(flash_addr, data_buffer))
       return MFHF_LC_NOTLOADED;
     lcopy((long)&data_buffer, 0x8000000L + addr, 512);
     mfp_progress(addr);
@@ -538,17 +538,17 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 #if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MHX_A_YELLOW);
 #endif
-    if (qspi_flash_verify(flash_addr, data_buffer, 512) != 0) {
+    if (qspi_flash_verify(flash_addr, data_buffer) != 0) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
       mhx_writef("\nVerify error  ");
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
       mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
-      qspi_flash_read(flash_addr, data_buffer, 512);
+      qspi_flash_read(flash_addr, data_buffer);
       lcopy(SECTORBUFFER + (attic_addr & 0xffff), (long)buffer, 512);
       debug_memory_block(MHX_AK_NOMESSAGE, flash_addr);
       debug_memory_block(256, flash_addr);
-      mhx_writef("comparing read data against reread yields %d\n", qspi_flash_verify(flash_addr, data_buffer, 512));
+      mhx_writef("comparing read data against reread yields %d\n", qspi_flash_verify(flash_addr, data_buffer));
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
       mhx_clearscreen(' ', MHX_A_WHITE);
       mhx_set_xy(0, 0);
@@ -661,7 +661,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 #if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MFHF_PT_WRITE);
 #endif
-      if (qspi_flash_program(wraddr - 512, data_buffer, 512) != 0) {
+      if (qspi_flash_program(wraddr - 512, data_buffer) != 0) {
         // if one write fails, we need to abort, re-erase, and start over! So break out of the inner write loop
         break;
       }

@@ -10,20 +10,18 @@ use work.cputypes.all;
 -- New QSPI flash controller.
 --
 -- Register map (fastio):
---   $D6C2 RO Flash size in MB
---   $D6C3 RO Supported erase block sizes bitmask (bit 6 = 256K, bit 4 = 64K,
---                                                 bit 3 = 32K, bit 0 = 4K)
---   $D6CC RO Status (bit 4 = block mismatch, bit 3 = internal fault,
+--   $D6C1 RO Status (bit 4 = block mismatch, bit 3 = internal fault,
 --                    bit 2 = initialization error, bit 1 = operation error,
 --                    bit 0 = busy)
---   $D6CD RW Size low byte (bits 7:0 of transfer size in bytes)
---   $D6CE RW Size high byte (bits 1:0, for values up to 512)
+--   $D6C2 RO Flash size in MB
+--   $D6C3 RO Supported erase block sizes bitmask (bit 6 = 256K, bit 4 = 64K,
+--                                                 bit 0 = 4K)
 --
 -- Actions (dispatched from sdcardio via action_strobe + action_byte):
 --   $60  Initialize (auto-detects flash, enables quad mode)
---   $61  Read    (spi_address_in -> block_address, size from $D6CD/$D6CE)
---   $62  Verify  (spi_address_in -> block_address, size from $D6CD/$D6CE)
---   $63  Program (spi_address_in -> block_address, size from $D6CD/$D6CE; hypervisor only)
+--   $61  Read    (spi_address_in -> block_address, 512 bytes)
+--   $62  Verify  (spi_address_in -> block_address, 512 bytes)
+--   $63  Program (spi_address_in -> block_address, 512 bytes; hypervisor only)
 --   $64  Erase 4K block   (spi_address_in -> block_address; hypervisor only)
 --   $65  Erase 8K block   (RESERVED)
 --   $66  Erase 16K block  (RESERVED)
@@ -62,7 +60,7 @@ entity qspi_flash is
     buf_wdata       : out unsigned(7 downto 0);
     buf_write       : out std_logic;
 
-    -- Fastio registers: $D6C2, $D6C3, $D6CC, $D6CD, $D6CE
+    -- Fastio registers: $D6C1, $D6C2, $D6C3
     fastio_cs       : in  std_logic;
     fastio_addr     : in  unsigned(7 downto 0);
     fastio_write    : in  std_logic;
@@ -207,7 +205,6 @@ architecture behavioural of qspi_flash is
 
   signal flash_erase_block_size : unsigned(7 downto 0);
 
-  signal block_size        : unsigned(15 downto 0);
   signal block_address     : unsigned(31 downto 0);
   signal block_address_int : unsigned(31 downto 0);
   signal block_mismatch    : std_logic := '0';
@@ -238,11 +235,23 @@ begin
   -- Combinational fastio read
   process (fastio_cs, fastio_addr, fastio_write,
            dev_busy, dev_error, block_mismatch, dev_state,
-           flash_size, flash_uniform_256k_sectors, block_size) is
+           flash_size, flash_uniform_256k_sectors) is
   begin
     fastio_rdata <= (others => 'Z');
     if fastio_cs = '1' and fastio_write = '0' then
       case fastio_addr is
+        when x"C1" =>
+          -- @IO:GS $D6C1 QSPI:STATUS QSPI status (bit 4=block mismatch, bit 3=fault, bit 2=init error, bit 1=op error, bit 0=busy)
+          fastio_rdata    <= (others => '0');
+          fastio_rdata(4) <= block_mismatch;
+          if dev_state = INTERNAL_ERROR then
+            fastio_rdata(3) <= '1';
+          end if;
+          if dev_state = UNINITIALIZED then
+            fastio_rdata(2) <= '1';
+          end if;
+          fastio_rdata(1) <= dev_error;
+          fastio_rdata(0) <= dev_busy;
         when x"C2" =>
           -- @IO:GS $D6C2 QSPI:FLASHSIZE Flash size in MB (read only)
           fastio_rdata <= to_unsigned(flash_size, 8);
@@ -257,25 +266,6 @@ begin
             fastio_rdata(4) <= '1';
             fastio_rdata(0) <= '1';
           end if;
-        when x"CC" =>
-          -- @IO:GS $D6CC QSPI:STATUS QSPI status (bit 4=block mismatch, bit 3=fault, bit 2=init error, bit 1=op error, bit 0=busy)
-          fastio_rdata    <= (others => '0');
-          fastio_rdata(4) <= block_mismatch;
-          if dev_state = INTERNAL_ERROR then
-            fastio_rdata(3) <= '1';
-          end if;
-          if dev_state = UNINITIALIZED then
-            fastio_rdata(2) <= '1';
-          end if;
-          fastio_rdata(1) <= dev_error;
-          fastio_rdata(0) <= dev_busy;
-        when x"CD" =>
-          -- @IO:GS $D6CD QSPI:SIZEL Transfer size low byte
-          fastio_rdata <= block_size(7 downto 0);
-        when x"CE" =>
-          -- @IO:GS $D6CE QSPI:SIZEH Transfer size high (bits 1:0, max 512 bytes)
-          fastio_rdata             <= (others => '0');
-          fastio_rdata(1 downto 0) <= block_size(9 downto 8);
         when others =>
           null;
       end case;
@@ -291,7 +281,6 @@ begin
       if reset = '0' then
         dev_state <= FLASH_RESET;
         block_address <= (others => '0');
-        block_size <= to_unsigned(512, 16);
         block_mismatch <= '0';
         dev_error <= '0';
         dev_write <= '0';
@@ -302,18 +291,6 @@ begin
         qspi_db_oe_int <= '0';
       else
         dev_write <= '0';
-
-        -- Fastio register writes ($D6CD/$D6CE: transfer size)
-        if fastio_cs = '1' and fastio_write = '1' then
-          case fastio_addr is
-            when x"CD" =>
-              block_size(7 downto 0) <= fastio_wdata;
-            when x"CE" =>
-              block_size(9 downto 8) <= fastio_wdata(1 downto 0);
-            when others =>
-              null;
-          end case;
-        end if;
 
         -- Action dispatch from $D680 in sdcardio
         if action_strobe = '1' and dev_busy = '0' then
@@ -397,11 +374,7 @@ begin
               dev_read_to_mem <= '0';
             end if;
 
-            if block_size(9) = '1' then
-              read_x4_num_bytes <= 512;
-            else
-              read_x4_num_bytes <= to_integer(block_size);
-            end if;
+            read_x4_num_bytes <= 512;
 
             qspi_tx_buffer(0) <= x"6c";
             qspi_tx_buffer(1) <= block_address(31 downto 24);
@@ -415,13 +388,9 @@ begin
 
           when FLASH_PROGRAM =>
 
-            if block_size = x"0000" then
-              dev_state <= IDLE;
-            else
-              post_write_enable_state <= FLASH_PROGRAM_STEP_0;
-              post_clear_status_state <= WRITE_ENABLE;
-              dev_state <= CLEAR_STATUS;
-            end if;
+            post_write_enable_state <= FLASH_PROGRAM_STEP_0;
+            post_clear_status_state <= WRITE_ENABLE;
+            dev_state <= CLEAR_STATUS;
 
           when FLASH_PROGRAM_STEP_0 =>
 
@@ -435,13 +404,12 @@ begin
             transaction_type <= TRANSACTION_WRITE_X4;
             dev_state <= TRANSACTION;
 
-            if flash_page_size_512 = '1' or block_size <= x"0100" then
-              -- 512-byte page buffer, or request fits in one 256-byte page:
-              -- write everything in a single transaction.
-              write_x4_num_bytes <= to_integer(block_size(9 downto 0));
+            if flash_page_size_512 = '1' then
+              -- 512-byte page buffer: write all 512 bytes in a single transaction.
+              write_x4_num_bytes <= 512;
               post_transaction_state <= FLASH_PROGRAM_STEP_4;
             else
-              -- 256-byte page buffer with > 256 bytes requested: first half.
+              -- 256-byte page buffer: write first 256 bytes.
               write_x4_num_bytes <= 256;
               block_address_int <= block_address + x"100";
               post_transaction_state <= FLASH_PROGRAM_STEP_1;
@@ -461,11 +429,7 @@ begin
 
           when FLASH_PROGRAM_STEP_3 =>
 
-            if block_size(9) = '1' then
-              write_x4_num_bytes <= 256;
-            else
-              write_x4_num_bytes <= to_integer(block_size(7 downto 0));
-            end if;
+            write_x4_num_bytes <= 256;
 
             qspi_tx_buffer(0) <= x"34";
             qspi_tx_buffer(1) <= block_address_int(31 downto 24);

@@ -26,16 +26,16 @@ enum qspi_flash_erase_block_size
 char qspi_flash_reset(void);
 
 /*
-  Read bytes from flash memory starting from the specified address. The read
-  bytes are stored in the buffer provided by the caller.
+  Read 512 bytes from flash memory starting from the specified address into
+  the caller-supplied buffer, which must be at least 512 bytes.
 */
-char qspi_flash_read(unsigned long address, unsigned char * data, unsigned int size);
+char qspi_flash_read(unsigned long address, unsigned char * data);
 
 /*
-  Read bytes from flash memory and compare against the data provided by the
-  caller.
+  Read 512 bytes from flash memory and compare against the 512-byte buffer
+  provided by the caller.
 */
-char qspi_flash_verify(unsigned long address, unsigned char * data, unsigned int size);
+char qspi_flash_verify(unsigned long address, unsigned char * data);
 
 /*
   Erase a block of the specified size. The address does not need to be aligned
@@ -45,12 +45,13 @@ char qspi_flash_verify(unsigned long address, unsigned char * data, unsigned int
 char qspi_flash_erase(enum qspi_flash_erase_block_size erase_block_size, unsigned long address);
 
 /*
-  Program a page in flash memory. The address must be aligned on a page
-  boundary. Note that before a page can be programmed, it must be erased
-  first. (Programming can only change bits from '1' to '0'; changing bits
-  from '0' to '1' requires an erase operation.)
+  Program 512 bytes from the caller-supplied buffer into flash memory at the
+  specified address. The address must be aligned on a page boundary. Note that
+  before a page can be programmed, it must be erased first. (Programming can
+  only change bits from '1' to '0'; changing bits from '0' to '1' requires an
+  erase operation.)
 */
-char qspi_flash_program(unsigned long address, const unsigned char * data, unsigned int size);
+char qspi_flash_program(unsigned long address, const unsigned char * data);
 
 /*
   Return the size of the flash memory array in megabytes (MB).
