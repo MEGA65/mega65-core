@@ -1537,6 +1537,12 @@ begin  -- behavioural
             -- @IO:GS $D6C0.7-4 TOUCH:GESTUREID Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
             fastio_rdata(7 downto 4) <= gesture_event_id;
+          when x"C1" | x"C2" | x"C3" =>
+            -- @IO:GS $D6C1 QSPI:STATUS QSPI status byte (read only)
+            -- @IO:GS $D6C2 QSPI:FLASHMB Flash memory size in megabytes (read only)
+            -- @IO:GS $D6C3 QSPI:ERASEBLK Supported erase block sizes bitmask (read only)
+            -- Handled by qspi_flash entity
+            fastio_rdata <= qspi_fastio_rdata;
           -- @IO:GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
           when x"C4" =>
             -- @IO:GS $D6C4 FPGA:REGVAL Value of selected ICAPE2 register (least significant byte)
@@ -1558,14 +1564,6 @@ begin  -- behavioural
             fastio_rdata <= reconfigure_address_int(23 downto 16);
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
-          when x"C2" | x"C3" | x"CC" | x"CD" | x"CE" =>
-            -- @IO:GS $D6C2 QSPI:FLASHMB Flash memory size in megabytes (read only)
-            -- @IO:GS $D6C3 QSPI:ERASEBLK Supported erase block sizes bitmask (read only)
-            -- @IO:GS $D6CC QSPI:STATUS QSPI status byte (read only)
-            -- @IO:GS $D6CD QSPI:SIZEL Transfer block size low byte (read/write)
-            -- @IO:GS $D6CE QSPI:SIZEH Transfer block size high bits 1:0 (read/write)
-            -- Handled by qspi_flash entity
-            fastio_rdata <= qspi_fastio_rdata;
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -3356,10 +3354,6 @@ begin  -- behavioural
             when x"CB" =>
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
-            when x"CD" | x"CE" =>
-              -- @IO:GS $D6CD QSPI:SIZEL Transfer block size low byte (handled by qspi_flash entity)
-              -- @IO:GS $D6CE QSPI:SIZEH Transfer block size high bits 1:0 (handled by qspi_flash entity)
-              null;
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then

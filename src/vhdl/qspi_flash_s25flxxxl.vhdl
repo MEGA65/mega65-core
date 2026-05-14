@@ -10,9 +10,8 @@ use work.cputypes.all;
 -- New QSPI flash controller.
 --
 -- Register map (fastio):
---   $D6C1 RO Status (bit 4 = block mismatch, bit 3 = internal fault,
---                    bit 2 = initialization error, bit 1 = operation error,
---                    bit 0 = busy)
+--   $D6C1 RO Status (bit 0 = error; bit 1 = initialization error; bit 2 = internal fault)
+--            Poll $D680 bit 0 for busy.
 --   $D6C2 RO Flash size in MB
 --   $D6C3 RO Supported erase block sizes bitmask (bit 4 = 64K, bit 3 = 32K,
 --                                                 bit 0 = 4K)
@@ -149,7 +148,9 @@ architecture behavioural of qspi_flash is
     READ_BYTE_X4_STEP_2,
     READ_BYTE_X4_STEP_3,
     INTERNAL_ERROR,
-    REJECTED
+    ERROR_IDLE,
+    ERROR_UNINITIALIZED,
+    ERROR_INTERNAL_ERROR
   );
 
   signal dev_state : dev_state_t := UNINITIALIZED;
@@ -167,7 +168,6 @@ architecture behavioural of qspi_flash is
 
   signal transaction_type : transaction_type_t := TRANSACTION_X1;
 
-  signal post_rejected_state         : dev_state_t := UNINITIALIZED;
   signal post_read_status_state      : dev_state_t;
   signal post_clear_status_state     : dev_state_t;
   signal post_await_status_state     : dev_state_t;
@@ -216,7 +216,6 @@ architecture behavioural of qspi_flash is
 
   signal block_address     : unsigned(31 downto 0);
   signal block_address_int : unsigned(31 downto 0);
-  signal block_mismatch    : std_logic := '0';
 
   signal dev_write       : std_logic := '0';
   signal dev_waddr       : integer range 0 to 511;
@@ -243,24 +242,23 @@ begin
 
   -- Combinational fastio read
   process (fastio_cs, fastio_addr, fastio_write,
-           dev_busy, dev_error, block_mismatch, dev_state,
+           dev_error, dev_state,
            flash_size) is
   begin
     fastio_rdata <= (others => 'Z');
     if fastio_cs = '1' and fastio_write = '0' then
       case fastio_addr is
         when x"C1" =>
-          -- @IO:GS $D6C1 QSPI:STATUS QSPI status (bit 4=block mismatch, bit 3=fault, bit 2=init error, bit 1=op error, bit 0=busy)
+          -- @IO:GS $D6C1 QSPI:STATUS QSPI status (bit 0=error, bit 1=initialization error, bit 2=internal fault)
+          -- Note: busy is not reported here; poll $D680 bit 0 instead.
           fastio_rdata    <= (others => '0');
-          fastio_rdata(4) <= block_mismatch;
           if dev_state = INTERNAL_ERROR then
-            fastio_rdata(3) <= '1';
-          end if;
-          if dev_state = UNINITIALIZED then
             fastio_rdata(2) <= '1';
           end if;
-          fastio_rdata(1) <= dev_error;
-          fastio_rdata(0) <= dev_busy;
+          if dev_state = UNINITIALIZED then
+            fastio_rdata(1) <= '1';
+          end if;
+          fastio_rdata(0) <= dev_error;
         when x"C2" =>
           -- @IO:GS $D6C2 QSPI:FLASHSIZE Flash size in MB (read only)
           fastio_rdata <= to_unsigned(flash_size, 8);
@@ -282,7 +280,6 @@ begin
       if reset = '0' then
         dev_state <= FLASH_RESET;
         block_address <= (others => '0');
-        block_mismatch <= '0';
         dev_error <= '0';
         dev_write <= '0';
         dev_read_to_mem <= '0';
@@ -293,16 +290,16 @@ begin
       else
         dev_write <= '0';
 
-        -- Action dispatch from $D680 in sdcardio
+        -- Action dispatch from $D680 in sdcardio.
+        -- Strobes while busy are silently ignored; the active operation continues.
         if action_strobe = '1' and dev_busy = '0' then
           if dev_state = UNINITIALIZED then
-            -- Only initialize ($50) is accepted when uninitialized
+            -- Only initialize ($60) is accepted when uninitialized.
             if action_byte = x"60" then
               dev_error <= '0';
               dev_state <= FLASH_RESET;
             else
-              post_rejected_state <= UNINITIALIZED;
-              dev_state           <= REJECTED;
+              dev_state <= ERROR_UNINITIALIZED;
             end if;
           elsif dev_state = IDLE then
             dev_error <= '0';
@@ -320,8 +317,7 @@ begin
                   block_address <= spi_address_in;
                   dev_state     <= FLASH_PROGRAM;
                 else
-                  post_rejected_state <= IDLE;
-                  dev_state           <= REJECTED;
+                  dev_state <= ERROR_IDLE;
                 end if;
               when x"64" =>  -- Erase 4K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
@@ -329,8 +325,7 @@ begin
                   flash_erase_block_size <= x"01";
                   dev_state              <= FLASH_ERASE;
                 else
-                  post_rejected_state <= IDLE;
-                  dev_state           <= REJECTED;
+                  dev_state <= ERROR_IDLE;
                 end if;
               when x"67" =>  -- Erase 32K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
@@ -338,8 +333,7 @@ begin
                   flash_erase_block_size <= x"08";
                   dev_state              <= FLASH_ERASE;
                 else
-                  post_rejected_state <= IDLE;
-                  dev_state           <= REJECTED;
+                  dev_state <= ERROR_IDLE;
                 end if;
               when x"68" =>  -- Erase 64K (hypervisor only)
                 if hypervisor_mode = '1' or dipsw2 = '1' then
@@ -347,16 +341,11 @@ begin
                   flash_erase_block_size <= x"10";
                   dev_state              <= FLASH_ERASE;
                 else
-                  post_rejected_state <= IDLE;
-                  dev_state           <= REJECTED;
+                  dev_state <= ERROR_IDLE;
                 end if;
               when others =>
-                post_rejected_state <= IDLE;
-                dev_state           <= REJECTED;
+                dev_state <= ERROR_IDLE;
             end case;
-          else
-            -- Strobe while busy — shouldn't happen
-            dev_error <= '1';
           end if;
         end if;
 
@@ -457,8 +446,7 @@ begin
                 -- 4K
                 flash_erase_command <= x"21";
             else
-                dev_error <= '1';
-                dev_state <= IDLE;
+                dev_state <= ERROR_IDLE;
             end if;
 
           when FLASH_ERASE_STEP_0 =>
@@ -535,9 +523,9 @@ begin
           when INITIALIZE_STEP_2 =>
 
             if flash_id(0) /= x"01" or flash_id(1) /= x"60" then
-              dev_state <= UNINITIALIZED;
+              dev_state <= ERROR_UNINITIALIZED;
             elsif flash_id(2) /= x"18" and flash_id(2) /= x"19" then
-              dev_state <= UNINITIALIZED;
+              dev_state <= ERROR_UNINITIALIZED;
             else
               if flash_id(2) = x"18" then
                 flash_size <= 16;
@@ -563,7 +551,7 @@ begin
           when INITIALIZE_STEP_4 =>
 
             if cr1(1) = '0' then
-              dev_state <= UNINITIALIZED;
+              dev_state <= ERROR_UNINITIALIZED;
             else
               dev_state <= IDLE;
             end if;
@@ -757,8 +745,7 @@ begin
             if sr1(0) = '1' or sr1(1) = '1' then
               -- If an error occurred, clear status and set operation error flag.
               if sr2(5) = '1' or sr2(6) = '1' then
-                dev_error <= '1';
-                post_clear_status_state <= IDLE;
+                post_clear_status_state <= ERROR_IDLE;
                 dev_state <= CLEAR_STATUS;
               else
                 dev_state <= AWAIT_STATUS;
@@ -774,7 +761,6 @@ begin
             qspi_db_oe_int <= '0';
 
             qspi_byte_counter <= 0;
-            block_mismatch <= '0';
             dev_state <= TRANSACTION_WRITE;
 
           when TRANSACTION_WRITE =>
@@ -803,7 +789,7 @@ begin
                 dev_raddr <= qspi_read_addr;  -- pre-fetch: present address now so data is ready one cycle later
                 dev_state <= TRANSACTION_WRITE_QUAD;
               else
-                dev_state <= INTERNAL_ERROR;
+                dev_state <= ERROR_INTERNAL_ERROR;
               end if;
             else
               --qspi_byte <= qspi_tx_buffer(qspi_byte_counter);
@@ -953,14 +939,13 @@ begin
             end if;
 
             -- dev_rdata is valid here (2 cycles after dev_raddr was set in STEP_0).
-            -- Compare both nibbles of the buffer byte against the flash nibbles:
-            --   high nibble from flash was captured in qspi_nibble during STEP_1,
-            --   low  nibble from flash is the current qspi_db_in.
-            if dev_rdata(7 downto 4) /= qspi_nibble then
-              block_mismatch <= '1';
-            end if;
-            if dev_rdata(3 downto 0) /= qspi_db_in then
-              block_mismatch <= '1';
+            -- In verify mode, compare both nibbles of the buffer byte against the
+            -- flash nibbles. On mismatch, redirect the transaction to ERROR_IDLE so
+            -- the bus is closed cleanly before reporting the error.
+            if dev_read_to_mem = '0' then
+              if dev_rdata(7 downto 4) /= qspi_nibble or dev_rdata(3 downto 0) /= qspi_db_in then
+                post_transaction_state <= ERROR_IDLE;
+              end if;
             end if;
 
             qspi_clock_int <= '1';
@@ -970,12 +955,20 @@ begin
           when INTERNAL_ERROR =>
             null;
 
-          when REJECTED =>
+          when ERROR_IDLE =>
             dev_error <= '1';
-            dev_state <= post_rejected_state;
+            dev_state <= IDLE;
+
+          when ERROR_UNINITIALIZED =>
+            dev_error <= '1';
+            dev_state <= UNINITIALIZED;
+
+          when ERROR_INTERNAL_ERROR =>
+            dev_error <= '1';
+            dev_state <= INTERNAL_ERROR;
 
           when others =>
-            dev_state <= INTERNAL_ERROR;
+            dev_state <= ERROR_INTERNAL_ERROR;
 
         end case;
       end if;
