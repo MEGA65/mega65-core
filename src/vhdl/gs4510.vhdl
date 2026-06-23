@@ -603,7 +603,8 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_mode : std_logic := '0';
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
-  signal reg_dmagic_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
+  signal reg_dmagic_line_mode_skip_pixels : integer range 0 to 3 := 0;
+  signal reg_dmagic_line_mode_enable_scaling : std_logic := '0';
 
   signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
@@ -613,7 +614,8 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_s_line_mode : std_logic := '0';
   signal reg_dmagic_s_line_x_or_y : std_logic := '0';
   signal reg_dmagic_s_line_slope_negative : std_logic := '0';
-  signal reg_dmagic_s_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
+  signal reg_dmagic_s_line_mode_skip_pixels : integer range 0 to 3 := 0;
+  signal reg_dmagic_s_line_mode_enable_scaling : std_logic := '0';
 
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
@@ -3859,7 +3861,8 @@ begin
       reg_dmagic_line_slope_negative <= '0';
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
-      reg_dmagic_line_mode_skip_pixels <= (others => '0');
+      reg_dmagic_line_mode_skip_pixels <= 0;
+      reg_dmagic_line_mode_enable_scaling <= '0';  -- Scaling defaults to disabled for line mode
       reg_dmagic_line_x_or_y <= '0';
 
       reg_dmagic_s_x8_offset <= x"0000";
@@ -3869,7 +3872,8 @@ begin
       reg_dmagic_s_line_slope_negative <= '0';
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
-      reg_dmagic_s_line_mode_skip_pixels <= (others => '0');
+      reg_dmagic_s_line_mode_skip_pixels <= 0;
+      reg_dmagic_s_line_mode_enable_scaling <= '0';  -- Scaling defaults to disabled for line mode
       reg_dmagic_s_line_x_or_y <= '0';
 
       reg_dmagic_floppy_mode <= '0';
@@ -4068,6 +4072,16 @@ begin
     variable line_x_move_negative : std_logic := '0';
     variable line_y_move : std_logic := '0';
     variable line_y_move_negative : std_logic := '0';
+
+    -- Skip accumulators for line scaling. DMAgic adds
+    -- the source/destination skip value to these in line mode
+    -- in order to not perform line calculations on some
+    -- cycles. This allows for scaling the source and destination
+    -- lines down by an arbitrary amount.
+    variable line_skip_accumulator : unsigned(17 downto 0) := "01" & x"0000";
+    variable line_source_skip_accumulator : unsigned(17 downto 0) := "01" & x"0000";
+    variable line_dest_skip_rate_set : std_logic := '0';
+    variable line_source_skip_rate_set : std_logic := '0';
 
     variable add_result : unsigned(11 downto 0); -- has NVZC flags and result
 
@@ -5761,6 +5775,14 @@ begin
               end if;
               dmagic_list_counter <= 0;
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
+
+              -- Reset the line scaling accumulators
+              line_skip_accumulator := "01" & x"0000";
+              line_source_skip_accumulator := "01" & x"0000";
+
+              -- Reset skip rate override flags. Used to reset the skip rate units in line mode.
+              line_dest_skip_rate_set := '0';
+              line_source_skip_rate_set := '0';
             when DMAgicReadOptions =>
               reg_dmagic_addr <= reg_dmagic_addr + 1;
 
@@ -5781,12 +5803,16 @@ begin
                   when x"81" => reg_dmagic_dst_mb <= memory_read_value;
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $82 $xx = Set source skip rate (/256ths of bytes)
                   when x"82" => reg_dmagic_src_skip(7 downto 0) <= memory_read_value;
+                                line_source_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $83 $xx = Set source skip rate (whole bytes)
                   when x"83" => reg_dmagic_src_skip(15 downto 8) <= memory_read_value;
+                                line_source_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256ths of bytes)
                   when x"84" => reg_dmagic_dst_skip(7 downto 0) <= memory_read_value;
+                                line_dest_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
                   when x"85" => reg_dmagic_dst_skip(15 downto 8) <= memory_read_value;
+                                line_dest_skip_rate_set := '1';
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
                   when x"86" => reg_dmagic_transparent_value <= memory_read_value;
                   -- For hardware line drawing, we need to know about the
@@ -5812,9 +5838,9 @@ begin
                   when x"8d" => reg_dmagic_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"8e" => reg_dmagic_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
-                                reg_dmagic_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
+                                reg_dmagic_line_mode_enable_scaling <= memory_read_value(4);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
                   when x"90" => dmagic_count(23 downto 16) <= memory_read_value;
 
@@ -5834,9 +5860,9 @@ begin
                   when x"9d" => reg_dmagic_s_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"9e" => reg_dmagic_s_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
-                                reg_dmagic_s_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_s_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_s_line_slope_negative <= memory_read_value(5);
+                                reg_dmagic_s_line_mode_enable_scaling <= memory_read_value(4);
 
                   when others => null;
                 end case;
@@ -5969,6 +5995,26 @@ begin
               pre_dma_cpuport_bits <= cpuport_value(2 downto 0);
               cpuport_value(2 downto 1) <= "10";
 
+              -- setup delay states for destination line mode and perform initial slope accumulation
+              -- slope accumulator takes a cycle to set up, and the first read cycle is bad anyways
+              if reg_dmagic_line_mode = '1' then
+                dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
+                reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                reg_dmagic_line_mode_skip_pixels <= 0;
+              else
+                reg_dmagic_line_mode_skip_pixels <= 0;
+              end if;
+
+              -- setup delay states for source line mode and perform initial slope accumulation
+              -- one cycle for slope accumulator
+              if reg_dmagic_s_line_mode = '1' then
+                dmagic_s_slope_overflow_toggle <= reg_dmagic_s_slope_fraction_start(16);
+                reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
+                reg_dmagic_s_line_mode_skip_pixels <= 0;
+              else
+                reg_dmagic_s_line_mode_skip_pixels <= 0;
+              end if;
+
               case dmagic_cmd(1 downto 0) is
                 when "11" => -- fill
                   state <= DMAgicFill;
@@ -5976,6 +6022,11 @@ begin
                   -- And set IO visibility based on destination bank flags
                   -- since we are only writing.
                   cpuport_value(0) <= dmagic_dest_bank_temp(7);
+
+                  -- When destination line mode is set, skip the first counter decrement cycle.
+                  -- Since line mode skips the first cycle to allow for slope accumulator
+                  -- latency, the counter is decremented one too many times.
+                  dmagic_first_read <= reg_dmagic_line_mode;
 
                 when "00" => -- copy
                   dmagic_first_read <= '1';
@@ -6014,8 +6065,12 @@ begin
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
               -- Clear first pixel of line flag
-              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
-              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+              if reg_dmagic_line_mode_skip_pixels /= 0 then
+                reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels - 1;
+              end if;
+              if reg_dmagic_s_line_mode_skip_pixels /= 0 then
+                reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels - 1;
+              end if;
 
               -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -6065,14 +6120,32 @@ begin
               else
                 -- We are in line mode.
 
-                -- Add fractional position
-                reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                if reg_dmagic_line_mode_skip_pixels = 0 then
+                  -- Accumulate scale value, but only if the skip rate was manually specified.
+                  -- A skip rate of $0000 is treated as skipping 1 byte per cycle (which
+                  -- equates to not scaling down) since not moving the address forwards at all
+                  -- in line mode does not make any sense.
+                  if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" and reg_dmagic_line_mode_enable_scaling = '1' then
+                    line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
+                  else
+                    -- Since the skip rate isn't set, don't scale.
+                    line_skip_accumulator := "01" & x"0000";
+                  end if;
+                end if;
+
+                -- Add fractional position, but only when DMAgic has waited for enough cycles, according
+                -- to the skip rate. The skip accumulators start at a value of $10000, so this will
+                -- always run in the first few cycles.
+                if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels < 1 then
+                  reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                end if;
+
                 -- Check if we have accumulated a whole pixel of movement?
                 line_x_move := '0';
                 line_x_move_negative := '0';
                 line_y_move := '0';
                 line_y_move_negative := '0';
-                if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) then
+                if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) and reg_dmagic_line_mode_skip_pixels < 1 then
                   dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
                   -- Yes: Advance in minor axis
                   if reg_dmagic_line_x_or_y='0' then
@@ -6088,16 +6161,27 @@ begin
                 -- so handle this by not advancing the major axis on the first
                 -- pixel.  The first pixel will thus effectively be written to
                 -- twice.
-                if reg_dmagic_line_mode_skip_pixels="00" then
-                  if reg_dmagic_line_x_or_y='0' then
-                    line_x_move := '1';
-                  else
-                    line_y_move := '1';
+                if reg_dmagic_line_mode_skip_pixels = 0 then
+                  -- Only allow major axis movement when the skip accumulator
+                  -- is greater than $10000.
+                  -- Set major axis invert to direction
+                  if line_skip_accumulator(17 downto 16) /= "00" then
+                    if reg_dmagic_line_x_or_y='0' then
+                      line_x_move := '1';
+                      line_x_move_negative := dmagic_dest_direction;
+                    else
+                      line_y_move := '1';
+                      line_y_move_negative := dmagic_dest_direction;
+                    end if;
+                    -- Trim off the two most significant bits, but leave the rest
+                    -- of the skip accumulator intact, so that skip values greater
+                    -- than $8000 work correctly.
+                    line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                   end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
-                  if dmagic_dest_addr(14 downto 11)="111" then
+                  if dmagic_dest_addr(13 downto 11)="111" then
                     -- Will overflow between Y cards
                     dmagic_dest_addr <= dmagic_dest_addr + (256*8)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6107,7 +6191,7 @@ begin
                   end if;
                 elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- Y = Y - 1
-                  if dmagic_dest_addr(14 downto 11)="000" then
+                  if dmagic_dest_addr(13 downto 11)="000" then
                     -- Will overflow between X cards
                     dmagic_dest_addr <= dmagic_dest_addr - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6137,12 +6221,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X + 1, Y = Y + 1
-                  if dmagic_dest_addr(14 downto 8)="111111" then
+                  if dmagic_dest_addr(13 downto 8)="111111" then
                     -- positive overflow on both
                     dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                         + (reg_dmagic_x8_offset&"00000000")
                                         + (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="111" then
+                  elsif dmagic_dest_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6156,12 +6240,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X + 1, Y = Y - 1
-                  if dmagic_dest_addr(14 downto 8)="000111" then
+                  if dmagic_dest_addr(13 downto 8)="000111" then
                     -- positive card overflow on X, negative on Y
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         + (reg_dmagic_x8_offset&"00000000")
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="000" then
+                  elsif dmagic_dest_addr(13 downto 11)="000" then
                     -- negative card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6174,12 +6258,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X - 1, Y = Y + 1
-                  if dmagic_dest_addr(14 downto 8)="111000" then
+                  if dmagic_dest_addr(13 downto 8)="111000" then
                     -- negative card overflow on X, positive on Y
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         - (reg_dmagic_x8_offset&"00000000")
                                         + (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="111" then
+                  elsif dmagic_dest_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         + (reg_dmagic_y8_offset&"00000000");
@@ -6192,12 +6276,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X - 1, Y = Y - 1
-                  if dmagic_dest_addr(14 downto 8)="000000" then
+                  if dmagic_dest_addr(13 downto 8)="000000" then
                     -- negative card overflow on X, negative on Y
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_x8_offset&"00000000")
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 11)="000" then
+                  elsif dmagic_dest_addr(13 downto 11)="000" then
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
@@ -6237,7 +6321,12 @@ begin
                   state <= DMAgicTrigger;
                 end if;
               else
-                dmagic_count <= dmagic_count - 1;
+                dmagic_first_read <= '0';
+
+                -- Skip the first decrements in line mode.
+                if reg_dmagic_line_mode_skip_pixels = 0 then
+                  dmagic_count <= dmagic_count - 1;
+                end if;
 
                 if pending_dma_busy='1' then
                   state <= DMAgicFillPauseForAudioDMA;
@@ -6273,8 +6362,9 @@ begin
                                         -- and can read or write on every cycle.
                                         -- so we need to read the first byte now.
 
-              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
-              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+              if reg_dmagic_s_line_mode_skip_pixels /= 0 then
+                reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels - 1;
+              end if;
 
                                         -- Do memory read
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -6288,14 +6378,25 @@ begin
               if reg_dmagic_s_line_mode='1' then
                 -- We are in line mode.
 
-                -- Add fractional position
-                reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
+                if reg_dmagic_s_line_mode_skip_pixels = 0 then
+                  if line_source_skip_rate_set = '1' and reg_dmagic_src_skip /= x"0000" and reg_dmagic_s_line_mode_enable_scaling = '1' then
+                    line_source_skip_accumulator := line_source_skip_accumulator + ("00" & reg_dmagic_src_skip);
+                  else
+                    line_source_skip_accumulator := "01" & x"0000";
+                  end if;
+                end if;
+
+                if line_source_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_s_line_mode_skip_pixels < 1 then
+                  -- Add fractional position
+                  reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
+                end if;
+
                 -- Check if we have accumulated a whole pixel of movement?
                 line_x_move := '0';
                 line_x_move_negative := '0';
                 line_y_move := '0';
                 line_y_move_negative := '0';
-                if dmagic_s_slope_overflow_toggle /= reg_dmagic_s_slope_fraction_start(16) then
+                if dmagic_s_slope_overflow_toggle /= reg_dmagic_s_slope_fraction_start(16) and reg_dmagic_s_line_mode_skip_pixels < 1 then
                   dmagic_s_slope_overflow_toggle <= reg_dmagic_s_slope_fraction_start(16);
                   -- Yes: Advance in minor axis
                   if reg_dmagic_s_line_x_or_y='0' then
@@ -6306,17 +6407,22 @@ begin
                     line_x_move_negative := reg_dmagic_s_line_slope_negative;
                   end if;
                 end if;
-                -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_s_line_mode_skip_pixels="00" then
-                  if reg_dmagic_s_line_x_or_y='0' then
-                    line_x_move := '1';
-                  else
-                    line_y_move := '1';
+                -- Also move major axis, using direction of pointer as direction of travel
+                if reg_dmagic_s_line_mode_skip_pixels = 0 then
+                  if line_source_skip_accumulator(17 downto 16) /= "00" then
+                    if reg_dmagic_s_line_x_or_y='0' then
+                      line_x_move := '1';
+                      line_x_move_negative := dmagic_src_direction;
+                    else
+                      line_y_move := '1';
+                      line_y_move_negative := dmagic_src_direction;
+                    end if;
+                    line_source_skip_accumulator := "00" & line_source_skip_accumulator(15 downto 0);
                   end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
-                  if dmagic_src_addr(14 downto 11)="111" then
+                  if dmagic_src_addr(13 downto 11)="111" then
                     -- Will overflow between Y cards
                     dmagic_src_addr <= dmagic_src_addr + (256*8)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6326,7 +6432,7 @@ begin
                   end if;
                 elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- Y = Y - 1
-                  if dmagic_src_addr(14 downto 11)="000" then
+                  if dmagic_src_addr(13 downto 11)="000" then
                     -- Will overflow between X cards
                     dmagic_src_addr <= dmagic_src_addr - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6356,12 +6462,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X + 1, Y = Y + 1
-                  if dmagic_src_addr(14 downto 8)="111111" then
+                  if dmagic_src_addr(13 downto 8)="111111" then
                     -- positive overflow on both
                     dmagic_src_addr <= dmagic_src_addr + (256*9)
                                         + (reg_dmagic_s_x8_offset&"00000000")
                                         + (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="111" then
+                  elsif dmagic_src_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr + (256*9)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6375,12 +6481,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X + 1, Y = Y - 1
-                  if dmagic_src_addr(14 downto 8)="000111" then
+                  if dmagic_src_addr(13 downto 8)="000111" then
                     -- positive card overflow on X, negative on Y
                     dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
                                         + (reg_dmagic_s_x8_offset&"00000000")
                                         - (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="000" then
+                  elsif dmagic_src_addr(13 downto 11)="000" then
                     -- negative card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6393,12 +6499,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                   -- X = X - 1, Y = Y + 1
-                  if dmagic_src_addr(14 downto 8)="111000" then
+                  if dmagic_src_addr(13 downto 8)="111000" then
                     -- negative card overflow on X, positive on Y
                     dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
                                         - (reg_dmagic_s_x8_offset&"00000000")
                                         + (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="111" then
+                  elsif dmagic_src_addr(13 downto 11)="111" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
                                         + (reg_dmagic_s_y8_offset&"00000000");
@@ -6411,12 +6517,12 @@ begin
                   end if;
                 elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                   -- X = X - 1, Y = Y - 1
-                  if dmagic_src_addr(14 downto 8)="000000" then
+                  if dmagic_src_addr(13 downto 8)="000000" then
                     -- negative card overflow on X, negative on Y
                     dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
                                         - (reg_dmagic_s_x8_offset&"00000000")
                                         - (reg_dmagic_s_y8_offset&"00000000");
-                  elsif dmagic_src_addr(14 downto 11)="000" then
+                  elsif dmagic_src_addr(13 downto 11)="000" then
                     -- positive card overflow on Y only
                     dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
                                         - (reg_dmagic_s_y8_offset&"00000000");
@@ -6428,7 +6534,8 @@ begin
                     dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8);
                   end if;
                 end if;
-              elsif dmagic_src_hold='0' then
+              elsif dmagic_src_hold='0' and reg_dmagic_s_line_mode_skip_pixels = 0 then
+                -- only increment source address if there are no cycles to skip. reg_dmagic_s_line_mode_skip_pixels is zero when not in line mode.
                 if dmagic_src_direction='0' then
                   dmagic_src_addr(35 downto 0) <= dmagic_src_addr(35 downto 0) + reg_dmagic_src_skip;
                 else
@@ -6447,7 +6554,12 @@ begin
               report "DMAgicCopyWrite: dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&"), memory_read_value=$" & to_hexstring(memory_read_value);
-              dmagic_first_read <= '0';
+
+              -- Only start writing on last delay cycle
+              if reg_dmagic_line_mode_skip_pixels <= 1 then
+                dmagic_first_read <= '0';
+              end if;
+
               reg_t <= memory_read_value;
 
               -- Set IO visibility for source
@@ -6469,22 +6581,40 @@ begin
 
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
 
-              if dmagic_first_read = '0' then
+              -- check if line mode will independently wait a cycle to avoid logic that makes my head hurt
+              if dmagic_first_read = '0' or reg_dmagic_line_mode_skip_pixels /= 0 then
                                         -- Update address and check for end of job.
                                         -- XXX Ignores modulus, whose behaviour is insufficiently defined
                                         -- in the C65 specifications document
+
+                if reg_dmagic_line_mode_skip_pixels /= 0 then
+                  reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels - 1;
+                end if;
+
                 if reg_dmagic_line_mode='1' then
                   -- Line mode with copy, so that textured lines can be drawn
                   -- We are in line mode.
 
+                  if reg_dmagic_line_mode_skip_pixels = 0 then
+                    if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" and reg_dmagic_line_mode_enable_scaling = '1' then
+                      line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
+                    else
+                      line_skip_accumulator := "01" & x"0000";
+                    end if;
+                  end if;
+
                   -- Add fractional position
-                  reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                  -- Wait until the last skipped cycle to start updating the slope accumulator
+                  if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels < 1 then
+                    reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                  end if;
+
                   -- Check if we have accumulated a whole pixel of movement?
                   line_x_move := '0';
                   line_x_move_negative := '0';
                   line_y_move := '0';
                   line_y_move_negative := '0';
-                  if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) then
+                  if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) and reg_dmagic_line_mode_skip_pixels < 1 then
                     dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
                     -- Yes: Advance in minor axis
                     if reg_dmagic_line_x_or_y='0' then
@@ -6495,17 +6625,22 @@ begin
                       line_x_move_negative := reg_dmagic_line_slope_negative;
                     end if;
                   end if;
-                  -- Also move major axis (which is always in the forward direction)
-                  if reg_dmagic_line_mode_skip_pixels= "00" then
-                    if reg_dmagic_line_x_or_y='0' then
-                      line_x_move := '1';
-                    else
-                      line_y_move := '1';
+                  -- Also move major axis, using pointer direction as travel direction
+                  if reg_dmagic_line_mode_skip_pixels = 0 then
+                    if line_skip_accumulator(17 downto 16) /= "00" then
+                      if reg_dmagic_line_x_or_y='0' then
+                        line_x_move := '1';
+                        line_x_move_negative := dmagic_dest_direction;
+                      else
+                        line_y_move := '1';
+                        line_y_move_negative := dmagic_dest_direction;
+                      end if;
+                      line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                     end if;
                   end if;
                   if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- Y = Y + 1
-                    if dmagic_dest_addr(14 downto 11)="111" then
+                    if dmagic_dest_addr(13 downto 11)="111" then
                       -- Will overflow between Y cards
                       dmagic_dest_addr <= dmagic_dest_addr + (256*8)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6515,7 +6650,7 @@ begin
                     end if;
                   elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
                     -- Y = Y - 1
-                    if dmagic_dest_addr(14 downto 11)="000" then
+                    if dmagic_dest_addr(13 downto 11)="000" then
                       -- Will overflow between X cards
                       dmagic_dest_addr <= dmagic_dest_addr - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
@@ -6545,12 +6680,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- X = X + 1, Y = Y + 1
-                    if dmagic_dest_addr(14 downto 8)="111111" then
+                    if dmagic_dest_addr(13 downto 8)="111111" then
                       -- positive overflow on both
                       dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                           + (reg_dmagic_x8_offset&"00000000")
                                           + (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                    elsif dmagic_dest_addr(13 downto 11)="111" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr + (256*9)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6564,12 +6699,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
                     -- X = X + 1, Y = Y - 1
-                    if dmagic_dest_addr(14 downto 8)="000111" then
+                    if dmagic_dest_addr(13 downto 8)="000111" then
                       -- positive card overflow on X, negative on Y
                       dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                           + (reg_dmagic_x8_offset&"00000000")
                                           - (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                    elsif dmagic_dest_addr(13 downto 11)="000" then
                       -- negative card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
@@ -6582,12 +6717,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
                     -- X = X - 1, Y = Y + 1
-                    if dmagic_dest_addr(14 downto 8)="111000" then
+                    if dmagic_dest_addr(13 downto 8)="111000" then
                       -- negative card overflow on X, positive on Y
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                           - (reg_dmagic_x8_offset&"00000000")
                                           + (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                    elsif dmagic_dest_addr(13 downto 11)="111" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                           + (reg_dmagic_y8_offset&"00000000");
@@ -6600,12 +6735,12 @@ begin
                     end if;
                   elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
                     -- X = X - 1, Y = Y - 1
-                    if dmagic_dest_addr(14 downto 8)="000000" then
+                    if dmagic_dest_addr(13 downto 8)="000000" then
                       -- negative card overflow on X, negative on Y
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                           - (reg_dmagic_x8_offset&"00000000")
                                           - (reg_dmagic_y8_offset&"00000000");
-                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                    elsif dmagic_dest_addr(13 downto 11)="000" then
                       -- positive card overflow on Y only
                       dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                           - (reg_dmagic_y8_offset&"00000000");
@@ -6618,7 +6753,8 @@ begin
                     end if;
                   end if;
                   -- end of line mode case
-                elsif dmagic_dest_hold='0' then
+                elsif dmagic_dest_hold='0' and reg_dmagic_line_mode_skip_pixels = 0 then
+                  -- reg_dmagic_line_mode_skip_pixels is zero when line mode is disabled
                   if dmagic_dest_direction='0' then
                     dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) + reg_dmagic_dst_skip;
                   else
@@ -6654,7 +6790,9 @@ begin
                     state <= DMAgicTrigger;
                   end if;
                 else
-                  dmagic_count <= dmagic_count - 1;
+                  if reg_dmagic_line_mode = '0' or reg_dmagic_line_mode_skip_pixels = 0 then
+                    dmagic_count <= dmagic_count - 1;
+                  end if;
                 end if;
               end if;
             when DMAgicCopyPauseForAudioDMA =>
