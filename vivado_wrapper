@@ -1,15 +1,52 @@
 #!/bin/bash
 
-# Check if VIVADODIR is empty or undefined and detect version instead
+# Auto-detect Vivado installation
+# Searches common locations and finds the latest version.
+# If your installation ends up in another location, add it to
+# the search_paths array. For some reason different versions
+# install in different locations.
+
+find_vivado() {
+    local search_paths=(
+        "/opt/Xilinx/Vivado"
+        "/opt/Xilinx"
+        "/opt/Xilinx/2025.2"
+        "/opt/Xilinx/2025.2/Vivado"
+    )
+
+    # If VIVADODIR is already set and valid, use it
+    if [ -n "$VIVADODIR" ] && [ -f "$VIVADODIR/settings64.sh" ]; then
+        echo "$VIVADODIR"
+        return 0
+    fi
+
+    # Check each path for settings64.sh
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path/settings64.sh" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+VIVADODIR=$(find_vivado)
+
 if [ -z "$VIVADODIR" ]; then
-  # workaround for wrongly chosen VIVADO install path
-  if [ -e /opt/Xilinx/Vivado/Vivado ]; then
-    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/Vivado/* /opt/Xilinx/Vivado/* | sort | grep -v "Vivado/xic" | tail -1`
-  else
-    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/* | sort | tail -1`
-  fi
+    echo "ERROR: Could not find Vivado installation." >&2
+    echo "Searched in: /opt/Xilinx, /tools/Xilinx, ~/Xilinx" >&2
+    echo "Set VIVADODIR environment variable to your Vivado installation path." >&2
+    echo "Example: export VIVADODIR=/opt/Xilinx/Vivado/2024.1" >&2
+    exit 1
 fi
 
-. ${VIVADODIR}/settings64.sh
-echo vivado $*
-vivado $*
+if [ ! -f "$VIVADODIR/settings64.sh" ]; then
+    echo "ERROR: settings64.sh not found in $VIVADODIR" >&2
+    exit 1
+fi
+
+echo "Using Vivado from: $VIVADODIR" >&2
+. "$VIVADODIR/settings64.sh"
+echo vivado "$@"
+vivado "$@"
