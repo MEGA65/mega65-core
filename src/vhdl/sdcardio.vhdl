@@ -44,12 +44,12 @@
 --library UNISIM;
 --use UNISIM.vcomponents.all;
 
-use WORK.ALL;
+use work.all;
 
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use Std.TextIO.all;
+use std.textio.all;
 use work.debugtools.all;
 use work.cputypes.all;
 
@@ -314,61 +314,23 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDriveWait,   -- 0x11
                       F011WriteSectorRealDrive,       -- 0x12
                       FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack,              -- 0x14
+                      FDCAutoFormatTrack,             -- 0x14
 
-                      QSPI_Send_Command,
-                      QSPI_Release_CS,
-                      QSPI_write_256,
-                      QSPI_write_512,
-                      QSPI_qwrite_16,
-                      QSPI_qwrite_256,
-                      QSPI_qwrite_512,
-                      QSPI_write_phase1,
-                      QSPI_write_phase2,
-                      QSPI_write_phase3,
-                      QSPI_write_phase4,
-                      QSPI_qwrite_phase1,
-                      QSPI_qwrite_phase2,
-                      QSPI_qwrite_phase3,
-                      QSPI_qwrite_phase4,
-                      QSPI4_write_256,
-                      QSPI4_write_512,
-                      QSPI4_write_phase1,
-                      QSPI4_write_phase2,
-                      QSPI_read_512,
-                      QSPI_read_phase1,
-                      QSPI_read_phase2,
-                      QSPI_read_phase3,
-                      QSPI_read_phase4,
-                      SPI_read_512,
-                      SPI_read_phase1,
-                      SPI_read_phase2,
-                      SPI_read_phase3,
-                      SPI_read_phase4
+                      QspiBusyArm,                    -- 0x15
+                      QspiBusy                        -- 0x16
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
   signal last_f011_drq : std_logic := '0';
 
-  signal qspi_clock_int : std_logic := '1';
-  signal qspi_clock_run : std_logic := '1';
-  signal qspi_csn_int : std_logic := '1';
-  signal qspi_bits : unsigned(3 downto 0) := "0000";
-  signal qspi_bytes_differ : std_logic := '0';
-  signal qspi_byte_value : unsigned(7 downto 0) := x"00";
-  signal qspi_bit_counter : integer range 0 to 7 := 0;
-  signal qspidb_tristate : std_logic := '1';
-  signal qspi_read_sector_phase : integer range 0 to 128 := 0;
-  signal qspi_action_state : sd_state_t := Idle;
-  signal qspi_command_len : integer range 84 to 100 := 98;
-  signal spi_address : unsigned(31 downto 0) := (others => '0');
-  signal qspi_release_cs_on_completion : std_logic := '0';
-  signal qspi_release_cs_on_completion_enable : std_logic := '1';
-  signal qspi_verify_mode : std_logic := '0';
-  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
-  signal spi_flash_cmd_only : std_logic := '0';
-  signal spi_flash_16bits : std_logic := '0';
-  signal spi_no_dummy_cycles : std_logic := '0';
+  -- Interface signals for qspi_flash entity
+  signal qspi_busy            : std_logic := '0';
+  signal qspi_buf_raddr       : unsigned(8 downto 0) := (others => '0');
+  signal qspi_buf_waddr       : unsigned(11 downto 0) := (others => '0');
+  signal qspi_buf_wdata       : unsigned(7 downto 0) := (others => '0');
+  signal qspi_buf_write       : std_logic := '0';
+  signal qspi_action_strobe   : std_logic := '0';
+  signal qspi_fastio_rdata    : unsigned(7 downto 0);
 
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -846,47 +808,44 @@ begin  -- behavioural
       );
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
-  sb_memorymapped0: entity work.ram8x4096_sync
-    generic map (
-      unit => x"0"
-      )
+  sector_buf : entity work.sector_buffer
     port map (
-      clkr => clock,
-      clkw => clock,
+      clock             => clock,
+      cpu_read_address  => to_unsigned(sector_buffer_fastio_address, 12),
+      cpu_rdata         => fastio_rdata_ram,
+      dev_write         => f011_buffer_write,
+      dev_write_address => f011_buffer_write_address,
+      dev_wdata         => f011_buffer_wdata,
+      dev_read_address  => f011_buffer_read_address,
+      dev_rdata         => f011_buffer_rdata
+    );
 
-      -- CPU side read access
-      cs => '1',
---      cs => sectorbuffercs,
-      address => sector_buffer_fastio_address,
-      rdata => fastio_rdata_ram,
-
-      -- Write side controlled by SD-card side.
-      -- (CPU side effects writes by asking SD-card side to write)
-      w => f011_buffer_write,
-      write_address => to_integer(f011_buffer_write_address),
-      wdata => f011_buffer_wdata
-      );
-
-  -- Locally readable copy of the same data, so that we can read it when writing
-  -- to SD card or floppy drive
-  sb_workcopy: entity work.ram8x4096_sync
-    generic map (
-      unit => x"1"
-      )
+  qspi_flash_inst : entity work.qspi_flash
     port map (
-      clkr => clock,
-      clkw => clock,
-
-      cs => '1',
-      address => to_integer(f011_buffer_read_address),
-      rdata => f011_buffer_rdata,
-
-      -- Write side controlled by SD-card side.
-      -- (CPU side effects writes by asking SD-card side to write)
-      w => f011_buffer_write,
-      write_address => to_integer(f011_buffer_write_address),
-      wdata => f011_buffer_wdata
-      );
+      clock           => clock,
+      reset           => reset,
+      hypervisor_mode => hypervisor_mode,
+      dipsw2          => dipsw(2),
+      action_byte     => fastio_wdata,
+      action_strobe   => qspi_action_strobe,
+      spi_address_in  => sd_sector,
+      busy            => qspi_busy,
+      buf_rdata       => f011_buffer_rdata,
+      buf_raddr       => qspi_buf_raddr,
+      buf_waddr       => qspi_buf_waddr,
+      buf_wdata       => qspi_buf_wdata,
+      buf_write       => qspi_buf_write,
+      fastio_cs       => sdcardio_cs,
+      fastio_addr     => fastio_addr(7 downto 0),
+      fastio_write    => fastio_write,
+      fastio_wdata    => fastio_wdata,
+      fastio_rdata    => qspi_fastio_rdata,
+      qspi_db         => QspiDB,
+      qspi_db_in      => QspiDB_in,
+      qspi_db_oe      => qspidb_oe,
+      qspi_csn        => QspiCSn,
+      qspi_clock      => qspi_clock
+    );
 
   rawencoder0: entity work.raw_bits_to_gaps port map (
     clock40mhz => clock,
@@ -1059,12 +1018,6 @@ begin  -- behavioural
     sector_end => fdc_sector_end_2x
     );
 
-  qspi_clock <= qspi_clock_int;
-  process (qspi_clock_int) is
-  begin
-    report "qspi_clock <= " & std_logic'image(qspi_clock_int);
-  end process;
-
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
@@ -1098,7 +1051,7 @@ begin  -- behavioural
            f011_motor,f011_swap,f011_rnf,f011_write_protected,f011_disk_present,
            f011_disk_changed,sb_cpu_rdata,last_sd_rxbyte,f011_eq_inhibit,
            sd_interface_select_internal,sdcard_busy,sd_handshake,sd_data_ready,
-           f011_swap_drives,qspi_bytes_differ,virtualise_f011_drive0,
+           f011_swap_drives,virtualise_f011_drive0,
            virtualise_f011_drive1,f011_d64_disk,f011_d64_disk2,f011_mega_disk,
            f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw,dipsw_hi,
            latched_disk_change_event,fdc_sector_found_2x,fdc_sector_end_2x,
@@ -1112,8 +1065,8 @@ begin  -- behavioural
            touch_scale_y_internal,touch_delta_x_internal,touch_delta_y_internal,
            touch_x1,touch_y1,touch_x2,touch_y2,touch_enabled_internal,
            touch_byte,gesture_event,gesture_event_id,flash_boot_address,
-           reconfigure_address_int,qspidb_tristate,qspi_csn_int,qspi_clock_int,
-           QspiDB_in,qspi_clock_run,f_wdata_minimum,i2c_bus_id,i2c0_reset_internal,
+           reconfigure_address_int,qspi_busy,qspi_fastio_rdata,qspi_buf_raddr,
+           QspiDB_in,f_wdata_minimum,i2c_bus_id,i2c0_reset_internal,
            i2c0_command_en_internal,i2c0_rw_internal,i2c0_busy,i2c0_error,
            i2c1_reset_internal,i2c1_command_en_internal,i2c1_rw_internal,i2c1_busy,
            i2c1_error,i2c0_address_internal,i2c1_address_internal,i2c0_wdata_internal,
@@ -1130,9 +1083,13 @@ begin  -- behavioural
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
 
-    if hypervisor_mode='0' then
+    if hypervisor_mode='0' and fastio_addr_fast(11 downto 9) /= "101" then
+      -- Non-hypervisor mode: map to F011 or SD card buffer slot.
+      -- The QSPI slot ($A00-$BFF, bits[11:9]="101") is excluded here so that
+      -- it remains directly addressable in non-hypervisor mode too.
       sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr_fast(8 downto 0));
     else
+      -- Hypervisor mode, or QSPI buffer range: use direct 12-bit address.
       sector_buffer_fastio_address <= to_integer(fastio_addr_fast(11 downto 0));
     end if;
 
@@ -1315,7 +1272,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= sd_reset;
             fastio_rdata(1) <= sdcard_busy;  -- Whether the SD card thinks it is busy
-            fastio_rdata(0) <= sdio_busy;  -- Whether we think we are busy
+            fastio_rdata(0) <= sdio_busy or qspi_busy;  -- Whether we think we are busy
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
           when x"82" => fastio_rdata <= sd_sector(15 downto 8); -- SD-control
@@ -1336,7 +1293,7 @@ begin  -- behavioural
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - RESERVED
           -- @IO:GS $D689.5 - F011 swap drive 0 / 1
-          -- @IO:GS $D689.6 - QSPI bytes not all identical during last read
+          -- @IO:GS $D689.6 - RESERVED
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
@@ -1345,7 +1302,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= '0';
             fastio_rdata(5) <= f011_swap_drives;
-            fastio_rdata(6) <= qspi_bytes_differ;
+            fastio_rdata(6) <= '0';
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
@@ -1580,6 +1537,12 @@ begin  -- behavioural
             -- @IO:GS $D6C0.7-4 TOUCH:GESTUREID Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
             fastio_rdata(7 downto 4) <= gesture_event_id;
+          when x"C1" | x"C2" | x"C3" =>
+            -- @IO:GS $D6C1 QSPI:STATUS QSPI status byte (read only)
+            -- @IO:GS $D6C2 QSPI:FLASHMB Flash memory size in megabytes (read only)
+            -- @IO:GS $D6C3 QSPI:ERASEBLK Supported erase block sizes bitmask (read only)
+            -- Handled by qspi_flash entity
+            fastio_rdata <= qspi_fastio_rdata;
           -- @IO:GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
           when x"C4" =>
             -- @IO:GS $D6C4 FPGA:REGVAL Value of selected ICAPE2 register (least significant byte)
@@ -1601,18 +1564,6 @@ begin  -- behavioural
             fastio_rdata <= reconfigure_address_int(23 downto 16);
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
-          when x"CC" =>
-            fastio_rdata(7) <= qspidb_tristate;
-            fastio_rdata(6) <= qspi_csn_int;
-            fastio_rdata(5) <= qspi_clock_int;
-            fastio_rdata(4) <= '0';
-            fastio_rdata(3 downto 0) <= qspidb_in;
-          when x"CD" =>
-            fastio_rdata(0) <= qspi_clock_run;
-            fastio_rdata(1) <= qspi_clock_int;
-            fastio_rdata(7 downto 2) <= (others => '0');
-          when x"CE" =>
-            fastio_rdata <= to_unsigned(f_wdata_minimum,8);
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1754,20 +1705,23 @@ begin  -- behavioural
     -- ==================================================================
 
 
-    case sd_state is
-      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_16|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4|QSPI_read_phase3 =>
-        report "QSPI: Possible f011 buffer fetch";
-        if f011_sector_fetch='1' then
+    if qspi_busy = '1' then
+      -- QSPI entity drives the buffer offset; use QSPI slot ($A00-$BFF, "101" prefix)
+      f011_buffer_read_address <= "101" & qspi_buf_raddr;
+    else
+      case sd_state is
+        when WriteSector|WritingSector|WritingSectorAckByte =>
+          if f011_sector_fetch='1' then
+            f011_buffer_read_address <= "110"&f011_buffer_disk_address;
+          else
+            f011_buffer_read_address <= "111"&sd_buffer_offset;
+          end if;
+        when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
-        else
-          f011_buffer_read_address <= "111"&sd_buffer_offset;
-          report "QSPI: reading from 111&sd_buffer_offset = $" & to_hstring("111"&sd_buffer_offset);
-        end if;
-      when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
-        f011_buffer_read_address <= "110"&f011_buffer_disk_address;
-      when others =>
-        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
-    end case;
+        when others =>
+          f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
+      end case;
+    end if;
 
     if rising_edge(clock) then
 
@@ -1950,10 +1904,7 @@ begin  -- behavioural
         write_sector_gate_open <= '0';
       end if;
 
-      -- Enable QSPI clock if in hypervisor mode, or 3rd dipswitch is enabled
-      if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
-        qspi_clock_int <= not qspi_clock_int;
-      end if;
+      -- QSPI clock run: handled by qspi_flash entity
 
 --      report "sectorbuffercs = " & std_logic'image(sectorbuffercs) & ", sectorbuffercs_fast=" & std_logic'image(sectorbuffercs_fast)
 --        & ", fastio_rdata_ram=$" & to_hstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hstring(to_unsigned(sector_buffer_fastio_address,12));
@@ -2351,6 +2302,8 @@ begin  -- behavioural
         sectorbuffermapped <= sector_buffer_mapped;
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
+
+      qspi_action_strobe <= '0';
 
       if fastio_write='1' then
         if f011_cs='1' then
@@ -3095,257 +3048,16 @@ begin  -- behavioural
                 when x"57" =>
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
-                when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_write_256;
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
+                when x"60" | x"61" | x"62" | x"63" | x"64" | x"65" | x"66" | x"67" | x"68" | x"69" | x"6A" =>
+                  -- QSPI actions ($60=init, $61=read, $52=verify, $53=program,
+                  --               $64=erase4K, $65=erase8K, $66=erase16K,
+                  --               $67=erase32K, $68=erase64K, $69=erase128K,
+                  --               $6A=erase256K):
+                  -- forwarded to qspi_flash entity via action_strobe
+                  if sdio_busy = '0' then
+                    qspi_action_strobe <= '1';
+                    sd_state           <= QspiBusyArm;
                   end if;
-                when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_write_512;
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
-                  report "QSPI: Read request";
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_read_512;
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"53" =>
-                  -- S - Read a 512 byte region from QSPI flash, handling
-                  -- all aspects of the transaction.  Sector address is taken
-                  -- from $D681-$D684 address.
-                  -- This command is non-dangerous, so allow it even from userland
-                  report "QSPI: Dispatching command";
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  -- busy is set in state
-                  -- sdio_busy <= '1';
-                  sd_state <= qspi_send_command;
-                  spi_address <= sd_sector;
-                  qspi_read_sector_phase <= 0;
-                  qspi_action_state <= qspi_read_512;
-                  qspi_verify_mode <= '0';
-                  spi_flash_cmd_byte <= x"6c";
-                  spi_no_dummy_cycles <= '0';
-                when x"54" =>
-                  -- T - Write a 512 byte region to QSPI flash, handling
-                  -- all aspects of the transaction.  Sector address is taken
-                  -- from $D681-$D684 address.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    spi_no_dummy_cycles <= '1';
-                    qspi_action_state <= qspi_qwrite_512;
-                    spi_flash_cmd_byte <= x"34";
-                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
-                    f011_sector_fetch <= '0';
-                    -- Write whole SD card buffer to QSPI
-                    sd_buffer_offset <= to_unsigned(0,9);
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"55" =>
-                  -- U - Write a 256 byte region to QSPI flash, handling
-                  -- all aspects of the transaction.  Sector address is taken
-                  -- from $D681-$D684 address.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= qspi_qwrite_256;
-                    spi_flash_cmd_byte <= x"34";
-                    spi_no_dummy_cycles <= '1';
-                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
-                    f011_sector_fetch <= '0';
-                    -- Write last 256 bytes of SD card buffer to QSPI
-                    sd_buffer_offset <= to_unsigned(256,9);
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"56" =>
-                  -- V - Verify a 512 byte region from QSPI flash, handling
-                  -- all aspects of the transaction.  Sector address is taken
-                  -- from $D681-$D684 address.
-                  -- This command is non-dangerous, so allow it even from userland
-                  report "QSPI: Dispatching verify command";
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  -- busy is set in state
-                  -- sdio_busy <= '1';
-                  sd_state <= qspi_send_command;
-                  spi_address <= sd_sector;
-                  qspi_read_sector_phase <= 0;
-                  qspi_action_state <= qspi_read_512;
-                  qspi_verify_mode <= '1';
-                  spi_flash_cmd_byte <= x"6c";
-                  spi_no_dummy_cycles <= '0';
-                when x"58" =>
-                  -- X - Erase page: Send command and address, then return
-                  -- to idle immediately.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= QSPI_Release_CS;
-                    spi_flash_cmd_byte <= x"dc";
-                    f011_sector_fetch <= '0';
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"59" =>
-                  -- Y - Erase small page: Send command and address, then return
-                  -- to idle immediately.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= QSPI_Release_CS;
-                    spi_flash_cmd_byte <= x"21";
-                    f011_sector_fetch <= '0';
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"5a" => qspi_command_len <= 90;
-                when x"5b" => qspi_command_len <= 92;
-                when x"5c" => qspi_command_len <= 94;
-                when x"5d" => qspi_command_len <= 96;
-                when x"5e" => qspi_command_len <= 98;
-                when x"5f" => qspi_command_len <= 100;
-                when x"66" =>
-                  -- SPI Flash write enable
-                  -- to idle immediately.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= QSPI_Release_CS;
-                    spi_flash_cmd_byte <= x"06";
-                    spi_flash_cmd_only <= '1';
-                    f011_sector_fetch <= '0';
-                    report "QSPI: Starting bare command";
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"67" =>
-                  qspi_release_cs_on_completion_enable <= '0';
-                when x"68" =>
-                  qspi_release_cs_on_completion_enable <= '1';
-                when x"69" =>
-                  -- Set CR1
-                  -- to idle immediately.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= QSPI_Release_CS;
-                    spi_flash_cmd_byte <= x"01";
-                    spi_flash_16bits <= '1';
-                    f011_sector_fetch <= '0';
-                    report "QSPI: Starting bare command";
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                when x"6a" =>
-                  -- SPI Clear status register. Allowed from user land
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  -- busy is set in state
-                  -- sdio_busy <= '1';
-                sd_state <= qspi_send_command;
-                  qspi_read_sector_phase <= 0;
-                  qspi_action_state <= QSPI_Release_CS;
-                  spi_flash_cmd_byte <= x"30";
-                  spi_flash_cmd_only <= '1';
-                  f011_sector_fetch <= '0';
-                  report "QSPI: Starting bare command";
-                when x"6b" =>
-                  -- Read CFI data block
-                  -- This command is non-dangerous, so allow it even from userland
-                  report "QSPI: Dispatching command";
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  -- busy is set in state
-                  -- sdio_busy <= '1';
-                  sd_state <= qspi_send_command;
-                  spi_address <= x"00000000";
-                  qspi_read_sector_phase <= 0;
-                  qspi_action_state <= spi_read_512;
-                  spi_flash_cmd_byte <= x"9f";
-                  spi_flash_cmd_only <= '1';
-                  spi_no_dummy_cycles <= '1';
-                when x"6c" =>
-                  -- Write a 16 byte region to QSPI flash, handling
-                  -- all aspects of the transaction.  Sector address is taken
-                  -- from $D681-$D684 address. This is meant for debugging.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- busy is set in state
-                    -- sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    spi_address <= sd_sector;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= qspi_qwrite_16;
-                    spi_flash_cmd_byte <= x"34";
-                    spi_no_dummy_cycles <= '1';
-                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
-                    f011_sector_fetch <= '0';
-                    -- Write last 16 bytes of SD card buffer to QSPI
-                    sd_buffer_offset <= to_unsigned(256+240,9);
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
-                  -- Allow setting the number of dummy cycles
 
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
@@ -3642,40 +3354,6 @@ begin  -- behavioural
             when x"CB" =>
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
-            when x"CC" =>
-              -- @IO:GS $D6CC.7 QSPI:TRI Tristate DB0-3
-              -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
-              -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:RESERVED (set to 0)
-              -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
-
-              if hypervisor_mode='1' or dipsw(2)='1' then
-                qspicsn <= fastio_wdata(6);
-                qspi_csn_int <= fastio_wdata(6);
---                qspi_clock_int <= fastio_wdata(5);
-                qspidb <= fastio_wdata(3 downto 0);
-                qspidb_tristate <= fastio_wdata(7);
-                qspidb_oe <= not fastio_wdata(7);
-              end if;
-            when x"CD" =>
-              -- XXX This register was added, because without it the QSPI clock
-              -- could not be controlled. No idea why, as with it here, it is
-              -- possible to control it via $D6CC :/
-              -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
-              -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
-              if hypervisor_mode='1' or dipsw(2)='1' then
-                qspi_clock_run <= fastio_wdata(0);
-                qspi_clock_int <= fastio_wdata(1);
-              end if;
-            when x"CE" =>
-              if hypervisor_mode='1' or dipsw(2)='1' then
-                qspicsn <= fastio_wdata(6);
-                qspi_csn_int <= fastio_wdata(6);
-                qspi_clock_int <= fastio_wdata(5);
-                qspidb <= fastio_wdata(3 downto 0);
-                qspidb_tristate <= fastio_wdata(7);
-                qspidb_oe <= not fastio_wdata(7);
-              end if;
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
@@ -3828,19 +3506,16 @@ begin  -- behavioural
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
           f_wgate <= '1';
-          if qspi_release_cs_on_completion='1' then
-            qspi_release_cs_on_completion <= '0';
-            qspicsn <= '1';
-            qspi_csn_int <= '1';
-          end if;
-
           if sectorbuffercs='1' and fastio_write='1' then
             -- Writing via memory mapped sector buffer
 
-            if hypervisor_mode='0' then
+            if hypervisor_mode='0' and fastio_addr(11 downto 9) /= "101" then
+              -- Non-hypervisor mode, non-QSPI slot: remap to F011 or SD card slot.
               f011_buffer_write_address <=
                 "11"&f011sd_buffer_select&fastio_addr(8 downto 0);
             else
+              -- Hypervisor mode, or QSPI buffer range ($A00-$BFF): use direct
+              -- 12-bit address so CPU writes land in the QSPI slot.
               f011_buffer_write_address <=
                 fastio_addr(11 downto 0);
             end if;
@@ -4719,326 +4394,25 @@ begin  -- behavioural
             f011_wsector_found <= '1';
           end if;
 
-        when QSPI_send_command =>
-          report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
-            & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
+        when QspiBusyArm =>
+          -- Strobe has been sent to qspi_flash; wait for it to assert busy
           sdio_busy <= '1';
-          if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
-            qspi_clock_int <= '1';
-          else
-            qspi_clock_int <= '0';
+          if qspi_busy = '1' then
+            sd_state <= QspiBusy;
           end if;
-          -- Go through QSPI command setup and address TX.
-          -- Allow extra cycles after changing clock, because
-          -- there is 1 cycle latency on clock output
-          if qspi_read_sector_phase < qspi_command_len then
-            qspi_read_sector_phase <= qspi_read_sector_phase + 1;
-          else
-            report "QSPI: Preserving clock while switching to action state at phase " & integer'image(qspi_read_sector_phase);
-            sd_state <= qspi_action_state;
-            qspi_clock_int <= qspi_clock_int;
-          end if;
-          if qspi_read_sector_phase > 2 and qspi_read_sector_phase < (2 + 8*2) then
-            qspidb(0) <= spi_flash_cmd_byte(7);
-          end if;
-          if qspi_read_sector_phase > 18 and qspi_read_sector_phase < (18 + 32*2) then
-            qspidb(0) <= spi_address(31);
-          end if;
-          if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
-            spi_flash_cmd_only <= '0';
-            report "QSPI: Exiting early due to cmd_only flag";
-            qspi_clock_int <= qspi_clock_int;
-            if qspi_action_state = QSPI_Release_CS then
-              report "QSPI: Pulling clock low while exiting to action state";
-              qspi_clock_int <= '0';
-            end if;
-            sd_state <= qspi_action_state;
-          end if;
-          if qspi_read_sector_phase = (20+16*2) and spi_flash_16bits='1' then
-            report "QSPI: Exiting early due to flash_16bits flag";
-            if qspi_action_state = QSPI_Release_CS then
-              qspi_clock_int <= '0';
-              spi_flash_16bits <= '0';
-            end if;
-            sd_state <= qspi_action_state;
-          end if;
-          case qspi_read_sector_phase is
-            when 4 | 6 | 8 | 10 | 12 | 14 | 16 =>
-              spi_flash_cmd_byte(7 downto 1) <= spi_flash_cmd_byte(6 downto 0);
-            when 20 | 22 | 24 | 26 | 28 | 30 | 32 |
-              34 | 36 | 38 | 40 | 42 | 44 | 46 | 48 |
-              50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
-              66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
-              spi_address(31 downto 1) <= spi_address(30 downto 0);
-            when 81 =>
-              if qspi_action_state = qspi_qwrite_512 or qspi_action_state = qspi_qwrite_256 or qspi_action_state = qspi_qwrite_16 then
-                sd_state <= qspi_action_state;
-              end if;
-            when 84 =>
-              -- No dummy cycles for sector erase operations,
-              -- and CS must be released while clock low IMMEDIATELY
-              -- after writing the 32nd address bit
-              if qspi_action_state = QSPI_Release_CS or spi_no_dummy_cycles='1' then
-                qspi_clock_int <= '0';
-                report "QSPI: pulling clock low while switching to action state";
 
-                spi_no_dummy_cycles <= '0';
-                sd_state <= qspi_action_state;
-              end if;
-            when others =>
-              null;
-          end case;
-          case qspi_read_sector_phase is
-                            -- Release CS to ensure new transaction
-            when 0 | 1   => qspicsn <= '1'; qspi_csn_int <= '1';
-                            -- Bring chip to attention
-            when 2       => qspicsn <= '0'; qspi_csn_int <= '0';
-                            -- Send QSPI command
-            when 3 | 4   => qspidb_oe <= '1'; qspidb_tristate <= '0';
-                            qspidb(3 downto 1) <= "111";
-                            -- Address of data to read
-            when others => null;
-          end case;
-
-        when QSPI_Release_CS =>
-          qspi_clock_int <= '0';
-          qspicsn <= '1';
-          qspi_csn_int <= '1';
-          sd_state <= Idle;
-        when SPI_read_512 =>
-          report "QSPI: in SPI_read_512";
+        when QspiBusy =>
+          -- Wait for qspi_flash to finish
           sdio_busy <= '1';
-          -- Tristate SI and SO
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
-          sd_buffer_offset <= to_unsigned(0,9);
-          sd_state <= SPI_read_phase1;
-          -- Keep track if read bytes are identical or not
-          -- (used for speeding up erasure checking of flash)
-          qspi_bytes_differ <= '0';
-        when QSPI_read_512 =>
-          report "QSPI: in QSPI_read_512";
-          sdio_busy <= '1';
-          -- Tristate SI and SO
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
-          sd_buffer_offset <= to_unsigned(0,9);
-          sd_state <= QSPI_read_phase1;
-          -- Keep track if read bytes are identical or not
-          -- (used for speeding up erasure checking of flash)
-          qspi_bytes_differ <= '0';
-        when QSPI_read_phase1 =>
-          qspi_clock_int <= '0';
-          sd_state <= QSPI_read_phase2;
-        when QSPI_read_phase2 =>
-          qspi_clock_int <= '1';
-          sd_state <= QSPI_read_phase3;
-        when QSPI_read_phase3 =>
-          qspi_bits <= qspidb_in;
-          qspi_clock_int <= '0';
-          sd_state <= QSPI_read_phase4;
-        when QSPI_read_phase4 =>
-          report "QSPI read $"
-            & to_hstring(qspi_bits) & to_hstring(qspidb_in) &
-            " into f011 buffer @ $" & to_hstring(sd_buffer_offset);
-          if qspi_verify_mode='0' then
-            f011_buffer_write_address <= "111"&sd_buffer_offset;
-            f011_buffer_wdata(3 downto 0) <= qspidb_in;
-            f011_buffer_wdata(7 downto 4) <= qspi_bits;
-            f011_buffer_write <= '1';
-
-            if sd_buffer_offset = 0 then
-              qspi_byte_value(3 downto 0) <= qspidb_in;
-              qspi_byte_value(7 downto 4) <= qspi_bits;
-            else
-              if qspi_byte_value(3 downto 0) /= qspidb_in then
-                qspi_bytes_differ <= '1';
-              elsif qspi_byte_value(7 downto 4) /= qspi_bits then
-                qspi_bytes_differ <= '1';
-              end if;
-            end if;
-          else
-            -- Compare byte with previously read byte and set bytes_differ flag
-            -- if different
-            report "QSPI: Verifying: read $" & to_hstring(qspi_bits) & to_hstring(qspidb_in)
-              & " vs expected $" & to_hstring(f011_buffer_rdata);
-            report "QSPI: qspi_command_len="& integer'image(qspi_command_len);
-            if (f011_buffer_rdata(3 downto 0) /= qspidb_in)
-              or (f011_buffer_rdata(7 downto 4) /= qspi_bits) then
-              qspi_bytes_differ <= '1';
-            end if;
+          if qspi_buf_write = '1' then
+            f011_buffer_write_address <= qspi_buf_waddr;
+            f011_buffer_wdata         <= qspi_buf_wdata;
+            f011_buffer_write         <= '1';
           end if;
-          if sd_buffer_offset /= 511 then
-            sd_buffer_offset <= sd_buffer_offset + 1;
-            sd_state <= QSPI_read_phase1;
-          else
+          if qspi_busy = '0' then
             sd_state <= Idle;
-            sdio_busy <= '0';
-            qspicsn <= '1';
-            qspi_csn_int <= '1';
-          end if;
-          qspi_clock_int <= '1';
-        when QSPI_qwrite_512 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspi_clock_int <= '1';
-          sd_state <= QSPI_qwrite_phase1;
-        when QSPI_write_512 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspi_clock_int <= '1';
-          sd_buffer_offset <= to_unsigned(0,9);
-          sd_state <= QSPI_write_phase1;
-        when QSPI_qwrite_256 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspi_clock_int <= '1';
-          sd_state <= QSPI_qwrite_phase1;
-        when QSPI_qwrite_16 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspi_clock_int <= '1';
-          sd_state <= QSPI_qwrite_phase1;
-        when QSPI_write_256 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspi_clock_int <= '1';
-          -- Write 2nd half of SD card buffer to QSPI
-          sd_buffer_offset <= to_unsigned(256,9);
-          sd_state <= QSPI_write_phase1;
-
-        when QSPI_qwrite_phase1 =>
-          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata) & " @ $" & to_hstring(sd_buffer_offset);
-          sd_state <= QSPI_qwrite_phase2;
-          qspidb <= f011_buffer_rdata(7 downto 4);
-          qspi_bits <= f011_buffer_rdata(3 downto 0);
-          qspi_clock_int <= '0';
-        when QSPI_qwrite_phase2 =>
-          sd_state <= QSPI_qwrite_phase3;
-          qspi_clock_int <= '1';
-        when QSPI_qwrite_phase3 =>
-          sd_state <= QSPI_qwrite_phase4;
-          qspidb <= qspi_bits;
-          qspi_clock_int <= '0';
-          report "QSPI: Bump sd_buffer_offset from $" & to_hstring(sd_buffer_offset);
-          if sd_buffer_offset /= 511 then
-            sd_buffer_offset <= sd_buffer_offset + 1;
-          else
-            sd_buffer_offset <= to_unsigned(0,9);
-          end if;
-        when QSPI_qwrite_phase4 =>
-          qspi_clock_int <= '1';
-          if sd_buffer_offset /= 0 then
-            sd_state <= QSPI_qwrite_phase1;
-          else
-            sd_state <= Idle;
-            sdio_busy <= '0';
           end if;
 
-        when QSPI_write_phase1 =>
-          qspi_bit_counter <= 0;
-          sd_state <= QSPI_write_phase2;
-        when QSPI_write_phase2 =>
-          if qspi_bit_counter = 0 then
-            report "QSPI: Sending byte $" & to_hstring(f011_buffer_rdata);
-            qspi_byte_value <= f011_buffer_rdata;
-          end if;
-          qspi_clock_int <= '0';
-          sd_state <= QSPI_write_phase3;
-        when QSPI_write_phase3 =>
-          qspidb_tristate <= '0';
-          qspidb_oe <= '1';
-          qspidb(3 downto 1) <= "111";
-          qspidb(0) <= qspi_byte_value(7);
-          report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
-          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
-          sd_state <= QSPI_write_phase4;
-        when QSPI_write_phase4 =>
-          qspi_clock_int <= '1';
-          if qspi_bit_counter = 7 then
-            if sd_buffer_offset /= 511 then
-              sd_buffer_offset <= sd_buffer_offset + 1;
-              sd_state <= QSPI_write_phase1;
-            else
-              sd_state <= Idle;
-              sdio_busy <= '0';
-            end if;
-          else
-            qspi_bit_counter <= qspi_bit_counter + 1;
-            sd_state <= QSPI_write_phase2;
-          end if;
-
-        when SPI_read_phase1 =>
-          qspi_bit_counter <= 0;
-          sd_state <= SPI_read_phase2;
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
-        when SPI_read_phase2 =>
-          qspi_clock_int <= '0';
-          sd_state <= SPI_read_phase3;
-        when SPI_read_phase3 =>
-          qspi_byte_value(0) <= qspidb_in(1);
-          report "QSPI: Reading bit " & std_logic'image(std_logic(qspidb_in(1)));
-          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
-          sd_state <= SPI_read_phase4;
-        when SPI_read_phase4 =>
-          qspi_clock_int <= '1';
-          if qspi_bit_counter = 7 then
-            report "QSPI: SPI read byte $" & to_hstring(qspi_byte_value);
-            f011_buffer_write_address <= "111"&sd_buffer_offset;
-            f011_buffer_wdata <= qspi_byte_value;
-            f011_buffer_write <= '1';
-
-            if sd_buffer_offset /= 511 then
-              sd_buffer_offset <= sd_buffer_offset + 1;
-              sd_state <= SPI_read_phase1;
-            else
-              sd_state <= Idle;
-              sdio_busy <= '0';
-              qspicsn <= '1';
-              qspi_csn_int <= '1';
-            end if;
-          else
-            qspi_bit_counter <= qspi_bit_counter + 1;
-            sd_state <= SPI_read_phase2;
-          end if;
-
-
-        when QSPI4_write_512 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
-          sd_buffer_offset <= to_unsigned(0,9);
-          sd_state <= QSPI4_write_phase1;
-        when QSPI4_write_256 =>
-          sdio_busy <= '1';
-          sdio_error <= '0';
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
-          -- Write 2nd half of SD card buffer to QSPI
-          sd_buffer_offset <= to_unsigned(256,9);
-          sd_state <= QSPI4_write_phase1;
-        when QSPI4_write_phase1 =>
-          qspi_bit_counter <= 0;
-          sd_state <= QSPI4_write_phase2;
-        when QSPI4_write_phase2 =>
-          if qspi_bit_counter = 0 then
-            report "QSPI4: Sending byte $" & to_hstring(f011_buffer_rdata);
-            qspi_byte_value <= f011_buffer_rdata;
-          end if;
-          -- XXX INCOMPLETE!
-          sd_state <= Idle;
       end case;
 
     end if;

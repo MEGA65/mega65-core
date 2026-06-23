@@ -14,8 +14,6 @@
 #include "mf_utility.h"
 
 #include "qspiflash.h"
-#include "s25flxxxl.h"
-#include "s25flxxxs.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
@@ -45,7 +43,6 @@ uint8_t mfhf_slot0_erase_list[16] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
 
 static enum qspi_flash_erase_block_size mfhf_erase_block_size;
-static void * qspi_flash_device = NULL;
 
 unsigned char slot_count = 0;
 
@@ -83,7 +80,7 @@ void mfhl_flash_inspector(void)
     }
 
     mhx_set_xy(7, 0);
-    if (!qspi_flash_read(qspi_flash_device, addr, data_buffer, 512)) {
+    if (!qspi_flash_read(addr, data_buffer)) {
       mhx_writef(MHX_W_REVON MHX_W_LGREY "%07lx" MHX_W_WHITE MHX_W_REVOFF, addr);
       for (i = 0; i < 256; i++) {
         if (!(i & 15))
@@ -145,9 +142,9 @@ void mfhl_flash_inspector(void)
         break;
       // Erase page, write page, read it back
       mhx_writef("\nErase... ");
-      qspi_flash_erase(qspi_flash_device, mfhf_erase_block_size, addr);
+      qspi_flash_erase(mfhf_erase_block_size, addr);
       // Some known data
-      for (i = 4; i < 256; i++) {
+      for (i = 4; i < 512; i++) {
         data_buffer[i] = i;
       }
       data_buffer[0] = addr >> 24L;
@@ -156,9 +153,9 @@ void mfhl_flash_inspector(void)
       data_buffer[3] = addr >> 0L;
       // Now program it
       mhx_writef("Program... \n");
-      qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, addr, data_buffer);
+      qspi_flash_program(addr, data_buffer);
       // dummy read!
-      qspi_flash_read(qspi_flash_device, 0, data_buffer, 512); // discard result, we reread anyways
+      qspi_flash_read(0, data_buffer); // discard result, we reread anyways
       mhx_press_any_key(0, MHX_A_NOCOLOR);
       break;
     }
@@ -178,31 +175,15 @@ int8_t mfhf_init() {
     return 1;
   }
 
-  // Select the flash chip device driver based on the hardware model ID.
-#if defined(STANDALONE)
-  if (hw_model_id == 0x60 || hw_model_id == 0x61 || hw_model_id == 0x62 || hw_model_id == 0xFD) {
-    qspi_flash_device = s25flxxxl;
-  }
-  else {
-    qspi_flash_device = s25flxxxs;
-  }
-#elif defined(QSPI_S25FLXXXL)
-  qspi_flash_device = s25flxxxl;
-#elif defined(QSPI_S25FLXXXS)
-  qspi_flash_device = s25flxxxs;
-#else
-#error "Failed to select low-level flash chip device driver."
-#endif
-
-  if (qspi_flash_init(qspi_flash_device)) {
+  if (qspi_flash_reset()) {
     return 1;
   }
 
-  if (qspi_flash_get_size(qspi_flash_device, &size) != 0) {
+  if (qspi_flash_get_size(&size) != 0) {
     return 1;
   }
 
-  if (qspi_flash_get_max_erase_block_size(qspi_flash_device, &mfhf_erase_block_size) != 0) {
+  if (qspi_flash_get_max_erase_block_size(&mfhf_erase_block_size) != 0) {
     return 1;
   }
 
@@ -211,20 +192,10 @@ int8_t mfhf_init() {
 #ifdef QSPI_VERBOSE
   {
     uint8_t i;
-    enum qspi_flash_page_size page_size;
-    unsigned int page_size_bytes;
     BOOL erase_block_sizes[qspi_flash_erase_block_size_last];
 
-    if (qspi_flash_get_page_size(qspi_flash_device, &page_size) != 0) {
-      return 1;
-    }
-
-    if (get_page_size_in_bytes(page_size, &page_size_bytes) != 0) {
-      return 1;
-    }
-
     for (i = 0; i < qspi_flash_erase_block_size_last; ++i) {
-      if (qspi_flash_get_erase_block_size_support(qspi_flash_device, (enum qspi_flash_erase_block_size) i,
+      if (qspi_flash_get_erase_block_size_support((enum qspi_flash_erase_block_size) i,
                                                   &erase_block_sizes[i]) != 0) {
         return 1;
       }
@@ -243,8 +214,6 @@ int8_t mfhf_init() {
     if (erase_block_sizes[qspi_flash_erase_block_size_256k])
       mhx_writef(" 256K");
     mhx_writef("\n");
-    mhx_writef("Page size    = %u\n", page_size_bytes);
-    mhx_writef("\n");
     mhx_press_any_key(0, MHX_A_NOCOLOR);
   }
 #endif
@@ -257,7 +226,7 @@ int8_t mfhf_read_core_header_from_flash(uint8_t slot) {
   if (slot >= slot_count) return 1;
 
   // Read core header for the specified slot.
-  return qspi_flash_read(qspi_flash_device, slot * mfu_slot_size, data_buffer, 512);
+  return qspi_flash_read(slot * mfu_slot_size, data_buffer);
 }
 
 #define mfhf_display_sderror(error, code) mfhf_display_error("Load Error", error, code)
@@ -484,7 +453,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   // load core from qspi to attic ram
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
   for (flash_addr = mfu_slot_size * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
-    if (qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512))
+    if (qspi_flash_read(flash_addr, data_buffer))
       return MFHF_LC_NOTLOADED;
     lcopy((long)&data_buffer, 0x8000000L + addr, 512);
     mfp_progress(addr);
@@ -569,17 +538,17 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 #if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MHX_A_YELLOW);
 #endif
-    if (qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512) != 0) {
+    if (qspi_flash_verify(flash_addr, data_buffer) != 0) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
       mhx_writef("\nVerify error  ");
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
       mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
-      qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512);
+      qspi_flash_read(flash_addr, data_buffer);
       lcopy(SECTORBUFFER + (attic_addr & 0xffff), (long)buffer, 512);
       debug_memory_block(MHX_AK_NOMESSAGE, flash_addr);
       debug_memory_block(256, flash_addr);
-      mhx_writef("comparing read data against reread yields %d\n", qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512));
+      mhx_writef("comparing read data against reread yields %d\n", qspi_flash_verify(flash_addr, data_buffer));
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
       mhx_clearscreen(' ', MHX_A_WHITE);
       mhx_set_xy(0, 0);
@@ -621,7 +590,7 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 #if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MFHF_PT_ERASE);
 #endif
-    if (qspi_flash_erase(qspi_flash_device, mfhf_erase_block_size, addr) != 0) {
+    if (qspi_flash_erase(mfhf_erase_block_size, addr) != 0) {
       return 1;
     }
 #if MFHF_PT_BORDERFLASH
@@ -651,13 +620,14 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MFHF_PT_DONE);
       break;
     }
+
     mfp_change_code(MFP_DIR_DOWN, 'P'|MHX_A_INVERT, MFHF_PT_WRITE);
 
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
 
     // Program sector
-    for (wraddr = addr + size; wraddr > addr; wraddr -= 256) {
+    for (wraddr = addr + size; wraddr > addr; wraddr -= 512) {
 #ifdef STANDALONE
       if (mfhf_attic_disabled) {
 #endif /* STANDALONE */
@@ -670,7 +640,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
           }
         }
 
-        lcopy(SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU), (unsigned long)data_buffer, 256);
+        lcopy(SECTORBUFFER + ((wraddr - 512 - end_addr) & 0xffffU), (unsigned long)data_buffer, 512);
 
         /* mhx_set_xy(0, 1);
         mhx_writef("%08lx %08lx %08lx ", wraddr - 256, (wraddr - 256 - end_addr) & 0xffffU, SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU));
@@ -681,7 +651,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       else {
 #endif /* STANDALONE */
 #if !defined(NO_ATTIC) || defined(STANDALONE)
-        lcopy(SECTORBUFFER + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
+        lcopy(SECTORBUFFER + wraddr - 512 - end_addr, (unsigned long)data_buffer, 512);
 #endif /* !NO_ATTIC || STANDALONE */
 #ifdef STANDALONE
       }
@@ -691,14 +661,14 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 #if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MFHF_PT_WRITE);
 #endif
-      if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
+      if (qspi_flash_program(wraddr - 512, data_buffer) != 0) {
         // if one write fails, we need to abort, re-erase, and start over! So break out of the inner write loop
         break;
       }
 #if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MHX_A_BLACK);
 #endif
-      mfp_progress(wraddr - 256 - end_addr);
+      mfp_progress(wraddr - 512 - end_addr);
     }
   }
 
