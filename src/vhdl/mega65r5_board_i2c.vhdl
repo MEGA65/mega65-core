@@ -43,10 +43,15 @@ entity mega65r5_board_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    -- I2C bus logger
+    scl_log : out unsigned(7 downto 0) := x"00";
+    sda_log : out unsigned(7 downto 0) := x"00";
+    log_strobe : out std_logic := '0';
+    log_reset_strobe : out std_logic := '0';
+    
     dipsw_read : out std_logic_vector(7 downto 0);
     board_major : out unsigned(3 downto 0);
-    board_minor : out unsigned(3 downto 0)    
-
+    board_minor : out unsigned(3 downto 0)
     );
 end mega65r5_board_i2c;
 
@@ -55,155 +60,167 @@ architecture behavioural of mega65r5_board_i2c is
   signal dipsw_int : std_logic_vector(7 downto 0) := (others => '0');
   
   signal i2c1_address : unsigned(6 downto 0) := to_unsigned(0,7);
-  signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
-  signal i2c1_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal i2c1_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_rdata   : unsigned(7 downto 0) := (others => '0');
+  signal i2c1_wdata   : unsigned(7 downto 0) := (others => '0');
   signal i2c1_latch_toggle : std_logic;
-  signal i2c1_busy : std_logic := '0';
-  signal i2c1_busy_last : std_logic := '0';
-  signal i2c1_rw : std_logic := '0';
-  signal i2c1_rw_internal : std_logic := '0';
-  signal i2c1_error : std_logic := '0';
-  signal i2c1_reset : std_logic := '1';
+  signal i2c1_busy    : std_logic := '0';
+  signal i2c1_rw      : std_logic := '0';
+  signal i2c1_error   : std_logic := '0';
+  signal i2c1_reset   : std_logic := '1';
   signal i2c1_command_en : std_logic := '0';
-  signal command_en : std_logic := '0';
-  signal command_continue : std_logic := '0';
-  signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal latch_count : integer range 0 to 255 := 150;
-  signal last_latch_count : integer range 0 to 255 := 150;
-  signal last_latch : std_logic := '1';
-  signal last_busy : std_logic := '0';
+  signal command_en   : std_logic := '0';
+  signal command_is_last : std_logic := '0';
 
-  subtype uint8 is unsigned(7 downto 0);
-  type byte_array is array (0 to 255) of uint8;
-  signal bytes : byte_array := (others => x"bd");
+  signal latch_count  : integer range 0 to 255 := 150;
+  signal last_latch   : std_logic := '1';
+  signal wait_for_not_busy : std_logic := '1';
 
   signal write_job_pending : std_logic := '0';
-  signal write_addr : unsigned(7 downto 0) := x"48";
-  signal write_reg : unsigned(7 downto 0) := x"02";
-  signal write_val : unsigned(7 downto 0) := x"99";
 
-  signal i2c1_swap : std_logic := '0';
+  signal i2c1_swap    : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  signal hold_countdown : integer range 0 to 65535 := 0;
+  
 begin
 
   i2c1: entity work.i2c_master
     generic map (
       input_clk => clock_frequency,
-      bus_clk => 400_000
+      bus_clk   => 400_000
       )
     port map (
-      clk => clock,
-      reset_n => i2c1_reset,
-      ena => i2c1_command_en,
-      addr => std_logic_vector(i2c1_address),
-      rw => i2c1_rw,
-      data_wr => std_logic_vector(i2c1_wdata),
-      busy => i2c1_busy,
+      clk         => clock,
+      reset_n     => i2c1_reset,
+      ena         => i2c1_command_en,
+      addr        => std_logic_vector(i2c1_address),
+      rw          => i2c1_rw,
+      data_wr     => std_logic_vector(i2c1_wdata),
+      busy        => i2c1_busy,
       unsigned(data_rd) => i2c1_rdata,
-      ack_error => i2c1_error,
-      latch_toggle => i2c1_latch_toggle,
-      sda => sda,
-      scl => scl,
-      swap => i2c1_swap,
-      debug_sda => i2c1_debug_sda,
-      debug_scl => i2c1_debug_scl
+      ack_error   => i2c1_error,
+      latch_toggle=> i2c1_latch_toggle,
+      sda         => sda,
+      scl         => scl,
+      swap        => i2c1_swap,
+      debug_sda   => i2c1_debug_sda,
+      debug_scl   => i2c1_debug_scl,
+
+      scl_log     => scl_log,
+      sda_log     => sda_log,
+      log_strobe  => log_strobe
       );
 
-  process (clock) is
+  process (clock)
+    variable fire : boolean;
   begin
-
     if rising_edge(clock) then
+      -- defaults each cycle
+      dipsw_read        <= dipsw_int;
+      i2c1_command_en   <= command_en;
+      log_reset_strobe  <= '0';  -- one-shot pulse when we kick off a new sequence
 
-      dipsw_read <= dipsw_int;
-      
-      -- Activate command
-      i2c1_command_en <= command_en;
+      if hold_countdown /= 0 then
+        hold_countdown <= hold_countdown - 1;
+      else      
+        -- Arm/start condition : either idle-then-start, or a byte completed
+        fire := ((wait_for_not_busy='1') and (i2c1_busy='0')) or (i2c1_latch_toggle /= last_latch);
+        if fire then
+          -- edge bookkeeping
+          last_latch <= i2c1_latch_toggle;
+          wait_for_not_busy <= '0';
 
-      -- State machine for reading registers from the various
-      -- devices.
-      last_busy <= i2c1_busy;
-      last_latch <= i2c1_latch_toggle;
-      if i2c1_latch_toggle /= last_latch then
-        latch_count <= latch_count + 1;
-      end if;
-      last_latch_count <= latch_count;
+          -- step counter
+          latch_count <= latch_count + 1;
 
-      case latch_count is
-        -- Enable force PWM mode for DCDC converter #1
-        when 0 =>
-          command_continue <= '0';
-          command_en <= '1';
-          i2c1_address <= "1100001"; -- 0x61 = I2C address of device;
-          i2c1_wdata <= x"01";
-          i2c1_rw <= '0';
-        when 1 =>
-          -- Continue previous transaction
-          command_continue <= '1';
-          command_en <= '1';
-          i2c1_rw <= '0';
-          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
-          -- to make your ears water from the annoying high frequency sounds
-          i2c1_wdata <= x"A6";
-          i2c1_wdata(0) <= not ear_watering_mode;
-
-        -- Enable force PWM mode for DCDC converter #2
-        when 2 =>
-          command_continue <= '0';
-          command_en <= '1';
-          i2c1_address <= "1100111"; -- 0x67 = I2C address of device;
-          i2c1_wdata <= x"01";
-          i2c1_rw <= '0';
-        when 3 =>
-          command_en <= '1';
-          i2c1_rw <= '0';
-          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
-          -- to make your ears water from the annoying high frequency sounds
-          i2c1_wdata <= x"A6";
-          i2c1_wdata(0) <= not ear_watering_mode;
-
-        -- Read DIP switches and board revision straps
-        when 4 =>
-          command_en <= '1';
-          i2c1_address <= "0100000"; -- 0x20 = I2C address of device;
-          i2c1_wdata <= x"00";
-          i2c1_rw <= '0';
-        when 5 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-        when 6 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-        when 7 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-          if i2c1_busy = '1' and last_busy = '0' then
-            board_minor <= i2c1_rdata(7 downto 4);
-            board_major <= i2c1_rdata(3 downto 0);
-          end if;
-        when 8 =>
-          command_en <= '1';
-          i2c1_rw <= '1';
-          if i2c1_busy = '1' and last_busy = '0' then
-            dipsw_int <= std_logic_vector(i2c1_rdata);
+          command_is_last <= '0';
+          if command_is_last='1' then
+            command_en <= '0';
+            wait_for_not_busy <= '1';
           end if;
           
-        when others =>
-          command_en <= '0';
-          latch_count <= 0;
-          last_latch <= i2c1_latch_toggle;
-          write_job_pending <= '0';
-      end case;
+          case latch_count is
 
+            -- Enable force PWM mode for DCDC converter #1
+            when 0 =>
+              command_en   <= '1';
+              i2c1_address <= "1100001"; -- 0x61
+              i2c1_wdata   <= x"01";
+              i2c1_rw      <= '0';
+
+            when 1 =>
+              command_en   <= '1';
+              i2c1_rw      <= '0';
+              i2c1_wdata   <= x"A6";
+              i2c1_wdata(0) <= not ear_watering_mode;
+
+            -- Enable force PWM mode for DCDC converter #2
+            when 2 =>
+              command_en   <= '1';
+              i2c1_address <= "1100111"; -- 0x67
+              i2c1_wdata   <= x"01";
+              i2c1_rw      <= '0';
+
+            when 3 =>
+              command_en   <= '1';
+              i2c1_rw      <= '0';
+              i2c1_wdata   <= x"A6";
+              i2c1_wdata(0) <= not ear_watering_mode;
+
+            -- Read DIP switches and board revision straps
+            when 4 =>
+              command_en   <= '1';
+              command_is_last <= '1';
+              i2c1_address <= "0100000"; -- 0x20
+              i2c1_wdata   <= x"00";
+              i2c1_rw      <= '0';            
+
+            when 5 =>
+              -- STOP after selecting register
+              command_en <= '0';
+              wait_for_not_busy <= '1';
+              hold_countdown <= 300;
+              
+            when 6 =>
+              command_en   <= '1';
+              i2c1_rw      <= '1';
+              
+            when 7 =>
+              command_en   <= '1';
+              i2c1_address <= "0100000"; -- 0x20
+              i2c1_wdata   <= x"00";
+              i2c1_rw      <= '1';
+
+            when 8 =>
+              command_en   <= '1';
+              i2c1_rw      <= '1';
+              
+            when 9 =>
+              command_en   <= '1';
+              i2c1_rw      <= '1';
+              board_minor  <= i2c1_rdata(7 downto 4);
+              board_major  <= i2c1_rdata(3 downto 0);
+
+            when 10 =>
+              command_en   <= '1';
+              i2c1_rw      <= '1';
+              dipsw_int    <= std_logic_vector(i2c1_rdata);
+
+            when others =>
+              command_en       <= '0';
+              latch_count      <= 0;
+              write_job_pending<= '0';
+              wait_for_not_busy<= '1';
+              latch_count      <= 0;
+              log_reset_strobe <= '1';
+
+          end case;
+        end if;
+      end if;
     end if;
   end process;
+
 end behavioural;
-
-
-

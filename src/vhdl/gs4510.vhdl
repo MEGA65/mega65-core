@@ -3259,7 +3259,7 @@ begin
       variable long_address : unsigned(27 downto 0);
     begin
       -- Schedule the memory write to the appropriate destination.
-      
+
       last_action <= 'W'; last_value <= value; last_address <= real_long_address;
 
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';

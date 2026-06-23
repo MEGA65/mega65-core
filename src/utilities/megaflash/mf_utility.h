@@ -6,6 +6,7 @@ extern uint8_t mfu_slot_pagemask;
 extern uint32_t mfu_slot_size;
 
 extern uint8_t hw_model_id;
+extern uint8_t hw_model_minor;
 extern char hw_model_name[];
 
 int8_t mfut_probe_hardware_version(void);

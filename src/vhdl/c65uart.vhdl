@@ -867,7 +867,7 @@ begin  -- behavioural
           case target is
             when mega65r5 | mega65r6 | mega65r7 | mega65r8 | mega65r9 | mega65r10
               | mega65r11 | mega65r12 | mega65r13 | mega65r14 =>
-              fastio_rdata(7 downto 4) <= x"0";
+              fastio_rdata(7 downto 4) <= "0000";
               fastio_rdata(3 downto 0) <= board_major;
             when others =>
               fastio_rdata <= target_id;

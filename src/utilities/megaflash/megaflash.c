@@ -186,7 +186,7 @@ void display_version(void)
          PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), booted_via_jtag ? " (booted via JTAG)" : "",
          utilVersion,
          slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
-         hw_model_id, hw_model_name, slot_count, mfu_slot_mb, (long)mfu_slot_size, mfu_slot_pagemask,
+         hw_model_id | (hw_model_minor << 4), hw_model_name, slot_count, mfu_slot_mb, (long)mfu_slot_size, mfu_slot_pagemask,
          corecap_def[cc].help, selected);
 
 #ifndef STANDALONE
