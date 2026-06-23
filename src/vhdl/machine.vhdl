@@ -151,7 +151,7 @@ entity machine is
          luma : out unsigned(7 downto 0);
          chroma : out unsigned(7 downto 0);
          composite : out unsigned(7 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- 15kHz RGB with Composite Sync for retro CRT monitors
          ----------------------------------------------------------------------
@@ -169,7 +169,7 @@ entity machine is
          lcd_vsync : out std_logic := '0';
          pal50_select_out : out std_logic := '0';
          vga_blank : out std_logic := '0';
-         
+
          -- 15kHz RGB CSYNC mode selection (active high enables 15kHz mode)
          vga_15khz_csync_mode : in std_logic := '0';
 
@@ -428,7 +428,7 @@ entity machine is
          dipsw : in std_logic_vector(4 downto 0) := (others => '0');
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
-         
+
          -- DIP switch 3 directly exposed for 15kHz RGB CSYNC mode control
          -- (active high = enable 15kHz mode)
          dipsw3_out : out std_logic := '0';
@@ -785,7 +785,7 @@ architecture Behavioral of machine is
   signal osk_touch2_key_driver : unsigned(7 downto 0) := x"FF";
 
   signal sector_buffer_mapped_int : std_logic := '0';
-  
+
   signal secure_mode_flag : std_logic := '0';
   signal secure_mode_from_monitor : std_logic := '0';
   signal secure_mode_triage_required : std_logic := '0';
@@ -884,7 +884,7 @@ begin
     if rising_edge(cpuclock) then
 
       sector_buffer_mapped <= sector_buffer_mapped_int;
-      
+
       -- Select either direct-connected dipswitches (upto R4) or the dip
       -- switches as read from the I2C IO expander (R5)
       if target = mega65r5 or target = mega65r6 then
@@ -893,11 +893,11 @@ begin
         dipsw_int(7 downto 4) <= (others => '0');
         dipsw_int(3 downto 0) <= dipsw(3 downto 0);
       end if;
-      
+
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
       eth_load_enabled <= eth_load_enable and dipsw_int(1);
-      
+
       -- Expose DIP switch 3 for 15kHz RGB CSYNC mode control
       dipsw3_out <= dipsw_int(3);
 
@@ -1345,7 +1345,7 @@ begin
       luma => luma,
       chroma => chroma,
       composite => composite,
-      
+
       -- 15kHz RGB with composite sync
       rgb15khz_red => rgb15khz_red,
       rgb15khz_green => rgb15khz_green,
@@ -1969,13 +1969,13 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
-      
+
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
 
       board_sda => board_sda,
       board_scl => board_scl,
-      
+
       grove_sda => grove_sda,
       grove_scl => grove_scl,
 

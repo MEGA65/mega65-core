@@ -34,13 +34,13 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;         
+  Port ( CLK_IN : STD_LOGIC;
          reset_from_max10 : out  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
-         
+
          ----------------------------------------------------------------------
-         -- keyboard/joystick 
+         -- keyboard/joystick
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
@@ -53,7 +53,7 @@ entity container is
          kb_tdi : out std_logic := '0';
          kb_jtagen : out std_logic := '0';
 
-         -- Direct joystick lines         
+         -- Direct joystick lines
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
@@ -69,7 +69,7 @@ entity container is
 
          -- 8 test points on the motherboard
          testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
-         
+
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -115,7 +115,7 @@ entity container is
 --         hr2_reset : out std_logic;
 --         hr2_clk_p : out std_logic;
 --         hr2_cs0 : out std_logic;
-         
+
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
@@ -130,7 +130,7 @@ entity container is
          iec_clk_i : in std_logic;
          iec_data_i : in std_logic;
          iec_srq_i : in std_logic;
-         
+
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -152,7 +152,7 @@ entity container is
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_clk_p : out STD_LOGIC;
          TMDS_clk_n : out STD_LOGIC;
-         
+
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_cec_a : inout std_logic := 'Z';
@@ -167,7 +167,7 @@ entity container is
          ---------------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
-                
+
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -182,13 +182,13 @@ entity container is
 --         eth_interrupt : in std_logic;
          eth_clock : out std_logic;
          eth_led : out std_logic_vector(1 downto 1) := "0";
-         
+
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
          sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
          sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;      
+         sdMOSI : out std_logic;
          sdMISO : in  std_logic;
          sdCD : in std_logic;
          sdWP : in std_logic;
@@ -202,13 +202,13 @@ entity container is
          -- Left and right headphone port audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
-         
+
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
          p1hi : inout std_logic_vector(3 downto 0);
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
@@ -238,32 +238,32 @@ entity container is
          i2s_speaker : out std_logic;
          i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
          i2s_sd : out std_logic;
-         
+
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
          fpga_sda : inout std_logic;
-         fpga_scl : inout std_logic;         
+         fpga_scl : inout std_logic;
 
          ----------------------------------------------------------------------
          -- Grove connector I2C peripherals
          -- (Currently used for auxilliary RTC, for boards with faulty RTCs)
          ----------------------------------------------------------------------
          grove_sda : inout std_logic;
-         grove_scl : inout std_logic;         
-         
+         grove_scl : inout std_logic;
+
          ----------------------------------------------------------------------
          -- Comms link to MAX10 FPGA
          ----------------------------------------------------------------------
          max10_tx : in std_logic;
          max10_rx : out std_logic := '1';
-         
+
          ----------------------------------------------------------------------
          -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
          RsRx : in std_logic
-         
+
          );
 end container;
 
@@ -290,7 +290,7 @@ architecture Behavioral of container is
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
-  
+
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -308,8 +308,8 @@ architecture Behavioral of container is
   -- widget board interface, so just have these as dummy all-high place holders
   signal column : std_logic_vector(8 downto 0) := (others => '1');
   signal row : std_logic_vector(7 downto 0) := (others => '1');
-  
-  
+
+
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -322,8 +322,8 @@ architecture Behavioral of container is
   signal slow_prefetched_address : unsigned(26 downto 0);
   signal slow_prefetched_data : unsigned(7 downto 0);
   signal slow_prefetched_request_toggle : std_logic;
-  
-  signal sector_buffer_mapped : std_logic;  
+
+  signal sector_buffer_mapped : std_logic;
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
@@ -340,7 +340,7 @@ architecture Behavioral of container is
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
   signal hdmi_int : std_logic;
-  
+
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
@@ -350,7 +350,7 @@ architecture Behavioral of container is
   signal fa_up_drive : std_logic;
   signal fa_down_drive : std_logic;
   signal fa_fire_drive : std_logic;
-  
+
   signal fb_left_drive : std_logic;
   signal fb_right_drive : std_logic;
   signal fb_up_drive : std_logic;
@@ -364,7 +364,7 @@ architecture Behavioral of container is
   signal pot_drain : std_logic;
 
   signal pot_via_iec : std_logic;
-  
+
   signal iec_clk_en_n_drive : std_logic;
   signal iec_data_en_n_drive : std_logic;
   signal iec_srq_en_n_drive : std_logic;
@@ -396,7 +396,7 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal fastkey : std_logic;
-  
+
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic;
   signal expansionram_rdata : unsigned(7 downto 0);
@@ -410,7 +410,7 @@ architecture Behavioral of container is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
-  
+
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
   signal audio_left_slow : std_logic_vector(19 downto 0);
@@ -418,7 +418,7 @@ architecture Behavioral of container is
   signal h_audio_left : std_logic_vector(19 downto 0);
   signal h_audio_right : std_logic_vector(19 downto 0);
   signal spdif_44100 : std_logic;
-  
+
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
   signal portp_drive : unsigned(7 downto 0);
@@ -446,7 +446,7 @@ architecture Behavioral of container is
   signal sample_ready_toggle : std_logic := '0';
   signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
   signal acr_counter : integer range 0 to 12288 := 0;
-  
+
   signal pcm_clk : std_logic := '0';
   signal pcm_rst : std_logic := '1';
   signal pcm_clken : std_logic := '0';
@@ -455,8 +455,8 @@ architecture Behavioral of container is
   signal pcm_acr : std_logic := '0';
   signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
   signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
-  
-  
+
+
   signal hdmi_is_progressive : boolean := true;
   signal hdmi_is_pal : boolean := true;
   signal hdmi_is_30khz : boolean := true;
@@ -478,20 +478,20 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
-  
+
   -- 15kHz RGB with composite sync signals
   signal rgb15khz_red : unsigned(7 downto 0);
   signal rgb15khz_green : unsigned(7 downto 0);
   signal rgb15khz_blue : unsigned(7 downto 0);
   signal rgb15khz_csync : std_logic;
   signal vga_15khz_mode : std_logic := '0';
-  
+
   -- Hardware detection for 15kHz mode via VGA DDC pins
   -- SDA driven LOW, SCL sensed - 470Ω resistor between pins 12-15 pulls SCL low
   signal vga_15khz_detect : std_logic := '0';
 
   signal eth_load_enable : std_logic;
-  
+
 begin
 
   -- Drive VGA SDA low for 15kHz detection (concurrent assignment)
@@ -567,19 +567,19 @@ begin
             audio_left_slow => audio_left_slow,
             audio_right_slow => audio_right_slow,
             sample_ready_toggle => sample_ready_toggle,
-            
+
             pcm_l     => pcm_l,
             pcm_r     => pcm_r
         );
-  
+
     pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
     pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
-    
+
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
-        dvi => dvi_select, 
+        dvi => dvi_select,
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -619,14 +619,14 @@ begin
       p1hi => p1hi,
       p2lo => p2lo,
       p2hi => p2hi,
-      
+
       luma => luma,
       chroma => chroma,
       composite => composite,
       audio => luma
-      
+
       );
-  
+
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
@@ -645,14 +645,14 @@ begin
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
         );
-  
+
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
     port map (
       rst => '0',
       clk => cpuclock,
-      temp => fpga_temperature); 
-  
+      temp => fpga_temperature);
+
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -662,20 +662,20 @@ begin
       disco_led_val => disco_led_val,
 
       eth_load_enable => eth_load_enable,
-      
+
       powerled => '1',
       flopled0 => flopled0_drive,
       flopled2 => flopled2_drive,
       flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
-            
+
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
 
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
-      
+
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
@@ -683,7 +683,7 @@ begin
       capslock_out => widget_capslock,
       upkey => keyup,
       leftkey => keyleft
-      
+
       );
 
   hyperram0: entity work.hyperram
@@ -699,7 +699,7 @@ begin
       viciv_request_toggle => hyper_request_toggle,
       viciv_data_out => hyper_data,
       viciv_data_strobe => hyper_data_strobe,
-      
+
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
@@ -711,9 +711,9 @@ begin
 
       current_cache_line => current_cache_line,
       current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,     
+      current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
+
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
@@ -740,8 +740,8 @@ begin
 --      hr_clk_p => hr_clk_p,
 --      hr_cs0 => hr_cs0
 --      );
-    
-  
+
+
   slow_devices0: entity work.slow_devices
     generic map (
       target => mega65r3
@@ -756,16 +756,16 @@ begin
 
       irq_out => irq_out,
       nmi_out => nmi_out,
-      
+
       joya => joy3,
       joyb => joy4,
 
       fm_left => fm_left,
       fm_right => fm_right,
-      
+
 --      cart_busy => led,
       cart_access_count => cart_access_count,
-      
+
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_write => slow_access_write,
@@ -776,7 +776,7 @@ begin
       slow_prefetched_address => slow_prefetched_address,
       slow_prefetched_data => slow_prefetched_data,
       slow_prefetched_request_toggle => slow_prefetched_request_toggle,
-      
+
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
@@ -792,7 +792,7 @@ begin
       expansionram_current_cache_line_address => current_cache_line_address,
       expansionram_current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
+
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -806,11 +806,11 @@ begin
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
       cart_reset => cart_reset,
-      
+
       cart_nmi => cart_nmi,
       cart_irq => cart_irq,
       cart_dma => cart_dma,
-      
+
       cart_exrom => cart_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
@@ -819,7 +819,7 @@ begin
       cart_io1 => cart_io1,
       cart_game => cart_game,
       cart_io2 => cart_io2,
-      
+
       cart_d_in => cart_d,
       cart_d => cart_d,
       cart_a => cart_a
@@ -831,7 +831,7 @@ begin
       cpuclock        => cpuclock,
 
 --      led => led,
-      
+
       max10_clkandsync => reset_from_max10,
       max10_rx => max10_rx,
       max10_tx => max10_tx,
@@ -860,7 +860,7 @@ begin
                      num_eth_rx_buffers => 32,
                      hyper_installed => true -- For VIC-IV to know it can use
                                              -- hyperram for full-colour glyphs
-                     )                 
+                     )
         port map (
           pixelclock      => pixelclock,
           cpuclock        => cpuclock,
@@ -871,56 +871,56 @@ begin
           clock50mhz      => ethclock,
 
           eth_load_enabled => eth_load_enable,
-          
+
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,
           hyper_data => hyper_data,
           hyper_data_strobe => hyper_data_strobe,
-          
+
           fast_key => fastkey,
-          
+
           j21in => j21in,
           j21out => j21out,
-          
+
           j21ddr => j21ddr,
-          
+
           max10_fpga_commit => max10_fpga_commit,
           max10_fpga_date => max10_fpga_date,
-          
+
           kbd_datestamp => kbd_datestamp,
           kbd_commit => kbd_commit,
-          
+
           btncpureset => btncpureset,
           reset_out => reset_out,
           irq => irq_combined,
           nmi => nmi_combined,
           restore_key => restore_key,
           sector_buffer_mapped => sector_buffer_mapped,
-          
+
           qspi_clock => qspi_clock,
           qspicsn => qspicsn,
           qspidb => qspidb_out,
           qspidb_in => qspidb_in,
           qspidb_oe => qspidb_oe,
-          
+
           joy3 => joy3,
           joy4 => joy4,
-          
+
           fm_left => fm_left,
           fm_right => fm_right,
-          
+
           no_hyppo => '0',
 
           luma => luma,
           chroma => chroma,
           composite => composite,
-          
+
           -- 15kHz RGB with composite sync
           rgb15khz_red => rgb15khz_red,
           rgb15khz_green => rgb15khz_green,
           rgb15khz_blue => rgb15khz_blue,
           rgb15khz_csync => rgb15khz_csync,
-          
+
           -- 15kHz RGB CSYNC mode control (active high = 15kHz mode)
           vga_15khz_csync_mode => vga_15khz_mode,
 
@@ -935,7 +935,7 @@ begin
           hpd_a           => hpd_a,
           lcd_dataenable => lcd_dataenable,
           hdmi_dataenable =>  hdmi_dataenable,
-          
+
           ----------------------------------------------------------------------
           -- CBM floppy  serial port
           ----------------------------------------------------------------------
@@ -951,33 +951,33 @@ begin
 
 --      buffereduart_rx => '1',
           buffereduart_ringindicate => (others => '0'),
-          
+
           porta_pins => column(7 downto 0),
           portb_pins => row(7 downto 0),
           keyboard_column8 => column(8),
           caps_lock_key => '1',
           keyleft => keyleft,
           keyup => keyup,
-          
+
           fa_fire => fa_fire_drive,
           fa_up => fa_up_drive,
           fa_left => fa_left_drive,
           fa_down => fa_down_drive,
           fa_right => fa_right_drive,
-          
+
           fb_fire => fb_fire_drive,
           fb_up => fb_up_drive,
           fb_left => fb_left_drive,
           fb_down => fb_down_drive,
           fb_right => fb_right_drive,
-          
+
           fa_potx => fa_potx,
           fa_poty => fa_poty,
           fb_potx => fb_potx,
           fb_poty => fb_poty,
           pot_drain => pot_drain,
           pot_via_iec => pot_via_iec,
-          
+
           f_density => f_density,
           f_motorb => f_motorb,
           f_motora => f_motora,
@@ -993,7 +993,7 @@ begin
           f_writeprotect => f_writeprotect,
           f_rdata => f_rdata,
           f_diskchanged => f_diskchanged,
-          
+
           ---------------------------------------------------------------------------
           -- IO lines to the ethernet controller
           ---------------------------------------------------------------------------
@@ -1006,7 +1006,7 @@ begin
           eth_rxer => eth_rxer,
           eth_rxdv => eth_rxdv,
           eth_interrupt => '0',
-          
+
           -------------------------------------------------------------------------
           -- Lines for the SDcard interfaces
           -------------------------------------------------------------------------
@@ -1021,22 +1021,22 @@ begin
           sclk2_o => sd2Clock,
           mosi2_o => sd2MOSI,
           miso2_i => sd2MISO,
-          
+
           slow_access_request_toggle => slow_access_request_toggle,
           slow_access_ready_toggle => slow_access_ready_toggle,
           slow_access_address => slow_access_address,
           slow_access_write => slow_access_write,
           slow_access_wdata => slow_access_wdata,
           slow_access_rdata => slow_access_rdata,
-          
+
           slow_prefetched_address => slow_prefetched_address,
           slow_prefetched_data => slow_prefetched_data,
           slow_prefetched_request_toggle => slow_prefetched_request_toggle,
-          
-          cpu_exrom => cpu_exrom,      
+
+          cpu_exrom => cpu_exrom,
           cpu_game => cpu_game,
           cart_access_count => cart_access_count,
-          
+
 --      aclMISO => aclMISO,
           aclMISO => '1',
 --      aclMOSI => aclMOSI,
@@ -1046,16 +1046,16 @@ begin
 --      aclInt2 => aclInt2,
           aclInt1 => '1',
           aclInt2 => '1',
-          
+
           micData0 => '1',
           micData1 => '1',
 --      micClk => micClk,
 --      micLRSel => micLRSel,
-          
+
           disco_led_en => disco_led_en,
           disco_led_id => disco_led_id,
-          disco_led_val => disco_led_val,      
-          
+          disco_led_val => disco_led_val,
+
           flopled0 => flopled0_drive,
           flopled2 => flopled2_drive,
           flopledsd => flopledsd_drive,
@@ -1064,55 +1064,55 @@ begin
           ampPWM_r => pwm_r_drive,
           audio_left => audio_left,
           audio_right => audio_right,
-          
+
           -- PC speakers left/right on main board
           ampSD => i2s_sd,
           i2s_master_clk => i2s_mclk,
           i2s_master_sync => i2s_sync,
           i2s_speaker_data_out => i2s_speaker,
-          
+
           -- Normal connection of I2C peripherals to dedicated address space
           i2c1sda => fpga_sda,
           i2c1scl => fpga_scl,
 
           grove_sda => grove_sda,
           grove_scl => grove_scl,
-          
+
 --      tmpsda => fpga_sda,
 --      tmpscl => fpga_scl,
-          
+
           portp_out => portp,
-          
+
           -- No PS/2 keyboard for now
           ps2data =>      '1',
           ps2clock =>     '1',
-          
+
           fpga_temperature => fpga_temperature,
-          
+
           UART_TXD => UART_TXD,
           RsRx => RsRx,
-          
+
           -- Ignore widget board interface and other things
           tmpint => '1',
           tmpct => '1',
-          
+
           -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
           widget_matrix_col_idx => widget_matrix_col_idx,
           widget_matrix_col => widget_matrix_col,
           widget_restore => widget_restore,
           widget_capslock => widget_capslock,
           widget_joya => (others => '1'),
-          widget_joyb => (others => '1'),      
-          
+          widget_joyb => (others => '1'),
+
           sw => sw,
           dipsw => dipsw,
           dipsw3_out => open,
 --      uart_rx => '1',
           btn => (others => '1')
-          
+
           );
-    end generate;  
-      
+    end generate;
+
   -- Ethernet clock already has a bufg, so just propagate it out
   eth_clock <= ethclock;
 
@@ -1120,18 +1120,18 @@ begin
 --  bufg port map ( I => ethclock,
 --                  O => eth_clock);
 
-  -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
---  led <= pcm_acr;  
+  -- XXX debug: export exactly 1KHz rate out to the LED for monitoring
+--  led <= pcm_acr;
 
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
-  
+
   process (pixelclock,cpuclock,pcm_clk,
            irq,irq_out,nmi,nmi_out,
            audio_right,audio_left,portp_drive) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
+    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
     -- VGA output at full pixel clock
     -- In 15kHz mode, use clock27 to match the 15kHz signal source
@@ -1155,20 +1155,20 @@ begin
         acr_counter <= 0;
       end if;
     end if;
-    
+
     -- Drive most ports, to relax timing
-    if rising_edge(cpuclock) then      
+    if rising_edge(cpuclock) then
 
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
-      
+
       -- 15kHz RGB CSYNC mode detection via VGA DDC pins
       -- SDA (pin 12) driven LOW, SCL (pin 15) sensed
       -- 470Ω resistor between pins 12-15 pulls SCL below threshold = 15kHz mode
       vga_15khz_detect <= not vga_scl;
       vga_15khz_mode <= vga_15khz_detect;
-      
+
       reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
@@ -1177,7 +1177,7 @@ begin
       if reset_high='0' then
         dvi_reset <= '0';
       end if;
-      
+
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
       -- have a slow toggle
@@ -1201,20 +1201,20 @@ begin
       end if;
 
       reset_high <= not btncpureset;
-      
+
 --      led <= cart_exrom;
 --      led <= flopled_drive;
-      
+
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;
       fa_up_drive <= fa_up;
       fa_down_drive <= fa_down;
-      fa_fire_drive <= fa_fire;  
+      fa_fire_drive <= fa_fire;
       fb_left_drive <= fb_left;
       fb_right_drive <= fb_right;
       fb_up_drive <= fb_up;
       fb_down_drive <= fb_down;
-      fb_fire_drive <= fb_fire;  
+      fb_fire_drive <= fb_fire;
 
       -- The simple output-only IEC lines we just drive
       iec_reset_en_n <= iec_reset_en_n_drive;
@@ -1247,7 +1247,7 @@ begin
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
-      
+
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
@@ -1258,7 +1258,7 @@ begin
     -- @IO:GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
 
 
-    
+
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
@@ -1266,7 +1266,7 @@ begin
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
-    -- LED on main board 
+    -- LED on main board
     led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
@@ -1291,7 +1291,7 @@ begin
         vgagreen <= v_green;
         vgablue <= v_blue;
       end if;
-      
+
       -- HDMI output always uses 31kHz (unaffected by VGA mode selection)
       hdmired <= v_red;
       hdmigreen <= v_green;
@@ -1306,7 +1306,7 @@ begin
         hdmired <= unsigned(audio_right(15 downto 8));
       end if;
     end if;
-    
-  end process;    
-  
+
+  end process;
+
 end Behavioral;

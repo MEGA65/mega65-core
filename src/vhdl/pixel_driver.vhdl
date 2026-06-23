@@ -58,16 +58,16 @@ entity pixel_driver is
     interlace_mode : in std_logic := '1';
     mono_mode : in std_logic := '0';
     v400_mode : in std_logic := '0';
-    
+
     -- 15kHz RGB CSYNC mode for VGA output (active high enables 15kHz mode)
     vga_15khz_csync_mode : in std_logic := '0';
-    
+
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
     phi_1mhz_ntsc_out : out std_logic;
     phi_1mhz_out : out std_logic;
     phi_2mhz_out : out std_logic;
     phi_3mhz_out : out std_logic;
-    
+
     -- Incoming video, e.g., from VIC-IV and rain compositer
     -- Clocked at clock81 (aka pixelclock)
     red_i : in unsigned(7 downto 0);
@@ -92,13 +92,13 @@ entity pixel_driver is
     luma : out unsigned(7 downto 0) := (others => '0');
     chroma : out unsigned(7 downto 0) := (others => '0');
     composite : out unsigned(7 downto 0) := (others => '0');
-    
+
     -- 15kHz RGB output with composite sync for retro CRT monitors
     rgb15khz_red : out unsigned(7 downto 0) := (others => '0');
     rgb15khz_green : out unsigned(7 downto 0) := (others => '0');
     rgb15khz_blue : out unsigned(7 downto 0) := (others => '0');
     rgb15khz_csync : out std_logic := '1';  -- Active low composite sync
-    
+
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
     hsync_uninverted : out std_logic := '0';
@@ -110,13 +110,13 @@ entity pixel_driver is
 
     debug_forward : in std_logic := '0';
     debug_backward : in std_logic := '0';
-  
+
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic := '0';
 
     fullwidth_dataenable : out std_logic := '1';
     narrow_dataenable : out std_logic := '1';
-    
+
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
     -- letter box that the LCD can show.
@@ -139,26 +139,26 @@ architecture greco_roman of pixel_driver is
   signal debug_angle : integer := 0;
   signal debug_sine : integer := 0;
   signal debug_cosine : integer := 0;
-  
+
   signal last_interlace : std_logic := '0';
   signal interlace_mode_integer : integer range 0 to 1 := 0;
-  
+
   -- Auto-enable interlace for 15kHz mode when V400 is active
   -- This ensures 80x50 and other V400 modes display correctly on 15kHz CRT monitors
   signal interlace_15khz : std_logic := '0';
 
   -- Set to 1 to enable gamma pre-correction of video
   signal gamma_enabled : std_logic := '0';
-  
+
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
-  
+
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
 
   signal vga60_select_internal : std_logic := '0';
   signal vga60_select_internal_drive : std_logic := '0';
-  
+
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
@@ -179,19 +179,19 @@ architecture greco_roman of pixel_driver is
   signal phi2_3mhz_pal50 : std_logic;
   signal phi2_3mhz_ntsc60 : std_logic;
   signal phi2_3mhz_vga60 : std_logic;
-  
+
   signal cv_hsync_ntsc60 : std_logic := '0';
   signal hsync_ntsc60 : std_logic := '0';
   signal hsync_ntsc60_uninverted : std_logic := '0';
   signal vsync_ntsc60 : std_logic := '0';
   signal vsync_ntsc60_uninverted : std_logic := '0';
-  
+
   signal cv_hsync_vga60 : std_logic := '0';
   signal hsync_vga60 : std_logic := '0';
   signal hsync_vga60_uninverted : std_logic := '0';
   signal vsync_vga60 : std_logic := '0';
   signal vsync_vga60_uninverted : std_logic := '0';
-  
+
   signal lcd_vsync_pal50 : std_logic := '0';
   signal lcd_vsync_ntsc60 : std_logic := '0';
   signal lcd_vsync_vga60 : std_logic := '0';
@@ -199,7 +199,7 @@ architecture greco_roman of pixel_driver is
   signal lcd_hsync_pal50 : std_logic := '0';
   signal lcd_hsync_ntsc60 : std_logic := '0';
   signal lcd_hsync_vga60 : std_logic := '0';
-  
+
   signal vga_hsync_pal50 : std_logic := '0';
   signal vga_hsync_ntsc60 : std_logic := '0';
   signal vga_hsync_vga60 : std_logic := '0';
@@ -207,7 +207,7 @@ architecture greco_roman of pixel_driver is
   signal vga_blank_pal50 : std_logic := '0';
   signal vga_blank_ntsc60 : std_logic := '0';
   signal vga_blank_vga60 : std_logic := '0';
-  
+
   signal test_pattern_red : unsigned(7 downto 0) := x"00";
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue : unsigned(7 downto 0) := x"00";
@@ -238,7 +238,7 @@ architecture greco_roman of pixel_driver is
   signal lcd_pixel_clock_50 : std_logic := '0';
   signal lcd_pixel_clock_60 : std_logic := '0';
   signal lcd_pixel_clock_vga60 : std_logic := '0';
-  
+
   signal pixel_strobe_50 : std_logic := '0';
   signal pixel_strobe_60 : std_logic := '0';
   signal pixel_strobe_vga60 : std_logic := '0';
@@ -247,7 +247,7 @@ architecture greco_roman of pixel_driver is
   signal cv_pixel_strobe_50 : std_logic := '0';
   signal cv_pixel_strobe_60 : std_logic := '0';
   signal cv_pixel_strobe_vga60 : std_logic := '0';
-  
+
   signal test_pattern_red50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue50 : unsigned(7 downto 0) := x"00";
@@ -266,7 +266,7 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle_lastvga60 : std_logic := '0';
 
   signal test_pattern_enable120 : std_logic := '0';
-  
+
   signal y_zero_internal : std_logic := '0';
 
   signal cv_sync : std_logic := '0';
@@ -302,7 +302,7 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_subpixel_counter : integer range 0 to 5 := 0;
   signal raster15khz_skip : integer range 0 to 108 := 0;
   signal raster15khz_active_raster : std_logic := '0';
-  
+
   signal raster15khz_buf0_cs : std_logic := '1';
   signal raster15khz_buf0_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
@@ -342,7 +342,7 @@ architecture greco_roman of pixel_driver is
   signal buffer_target_31khz : std_logic := '0';
 
   signal time_since_last_pixel : integer range 0 to 1023 := 0;
-  
+
   -- 15KHz video VBLANK SYNC formats
   constant vsync_xpos_max : integer := 31;
   type vblank_format_t is array(0 to 10) of std_logic_vector(vsync_xpos_max downto 0);
@@ -362,7 +362,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111000000000000000100",
     "00000000000001000000000000000100",
     "00000000000001000000000000000101",
-    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
     "11111111111111011111111111111100",
     "11111111111111011111111111111111",
     "01111111111111111111111111111111",
@@ -383,7 +383,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111000000000000000100",
     "00000000000001000000000000000100",
     "00000000000001000000000000000101",
-    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
     "11111111111111011111111111111101",
     "11111111111111011111111111111111",
     "01111111111111111111111111111111",
@@ -395,7 +395,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111000000000000000001",
     "00000000000001000000000000000100",
     "00000000000001000000000000000101",
-    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
     "11111111111111011111111111111101",
     "11111111111111011111111111111100",
     "11111111111111111111111111111111",
@@ -403,7 +403,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111111111111111111111"
     );
 
-  
+
   -- See "Video Demystified", p272
   signal ntsc_even_vblanks : vblank_format_t := (
     -- NTSC is simpler with a 6:6:6 pattern, that just gets the last
@@ -440,7 +440,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111000000000000000100",
     "00000000000001000000000000000100",
     "00000000000001000000000000000100",
-    "00000000000001011111111111111101",        
+    "00000000000001011111111111111101",
     "11111111111111011111111111111101",
     "11111111111111011111111111111100",
     -- Last line is dummy. Only the very first bit will be used, for half
@@ -462,13 +462,13 @@ architecture greco_roman of pixel_driver is
   signal pal_phase_offset : integer range 0 to 255 := 225;
   signal pal_v_invert : integer range 0 to 128 := 0;
   signal colour_burst_mask_count : integer range 0 to 15 := 0;
-  
+
   signal colour_burst_mask : std_logic := '1';
   signal colour_burst_en : std_logic := '0';
   signal colour_burst_start_neg : std_logic := '0';
-  
+
   signal vblank_train_len_adjust : integer range 0 to 3 := 0;
-  
+
 -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
   -- 6 cycles duration
@@ -479,7 +479,7 @@ architecture greco_roman of pixel_driver is
   signal pixel_num : integer range 0 to 3 := 0;
   type px_timing_t is array (0 to 3) of integer;
   signal pixel_widths : px_timing_t := ( 4, 4, 5, 5);
-  
+
   -- Use 32 element look-up table for producing sine curve
   -- for colour signal.  We can only produce ~20 samples per
   -- cycle of the colour burst frequency, as limited by our 81MHz
@@ -487,8 +487,8 @@ architecture greco_roman of pixel_driver is
   -- burst phase with higher accuracy, and because the colour burst
   -- phase is used to encode colour on PAL and NTSC (but not SECAM)
   -- we need to be able to reproduce quite fine phases.
-  -- Thus we will use a 256 entry 
-  type s7_0to255 is array (0 to 255) of integer range -128 to 127;  
+  -- Thus we will use a 256 entry
+  type s7_0to255 is array (0 to 255) of integer range -128 to 127;
   signal sine_table : s7_0to255 := (
     0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,
     48,51,54,57,59,62,65,67,70,73,75,78,80,82,85,87,
@@ -507,7 +507,7 @@ architecture greco_roman of pixel_driver is
     -89,-87,-85,-82,-80,-78,-75,-73,-70,-67,-65,-62,-59,-57,-54,-51,
     -48,-45,-42,-39,-36,-33,-30,-27,-24,-21,-18,-15,-12,-9,-6,-3
     );
-  
+
   type gamma_table is array (0 to 255) of unsigned(7 downto 0);
   -- Generated using:
   --  for(int i=0;i<256;i++) {
@@ -521,9 +521,9 @@ architecture greco_roman of pixel_driver is
   --  }
   --  if (i!=255) printf(",");
   --  if ((i&0x0f)==0x0f) printf("\n");
-  --  
+  --
   --  }
-  
+
   signal ntsc_gamma : gamma_table := (
     x"00",x"04",x"09",x"0d",x"12",x"16",x"1a",x"1e",x"21",x"25",x"28",x"2a",x"2d",x"30",x"32",x"35",
     x"37",x"39",x"3b",x"3d",x"3f",x"41",x"43",x"45",x"47",x"49",x"4b",x"4c",x"4e",x"50",x"51",x"53",
@@ -542,7 +542,7 @@ architecture greco_roman of pixel_driver is
     x"ef",x"f0",x"f0",x"f1",x"f1",x"f2",x"f2",x"f3",x"f3",x"f4",x"f4",x"f5",x"f5",x"f6",x"f6",x"f7",
     x"f7",x"f8",x"f8",x"f9",x"f9",x"fa",x"fb",x"fb",x"fc",x"fc",x"fd",x"fd",x"fe",x"fe",x"ff",x"ff"
     );
-  
+
   signal phi_1mhz_int : std_logic;
   signal phi_2mhz_int : std_logic;
   signal phi_3mhz_int : std_logic;
@@ -555,7 +555,7 @@ begin
 
   assert ( (debug_height_reduction mod 2) = 0) report "debug_height_reduction must be even";
   assert (debug_height_reduction <= 500) report "debug_height_reduction must be somewhat less than the shortest frame height";
-  
+
   -- Here we generate the frames and the pixel strobe references for everything
   -- that needs to produce pixels, and then buffer the pixels that arrive at pixelclock
   -- in a buffer, and then emit the pixels at the appropriate clock rate
@@ -565,11 +565,11 @@ begin
   -- they are supported by HDMI, and should match the frame cycle timing of the
   -- C64 properly.
   -- They also use a common 27MHz pixel clock, which makes our life simpler
-  
+
   -- EDTV 720x576p 50Hz from:
   -- http://read.pudn.com/downloads222/doc/1046129/CEA861D.pdf
   -- (This is the mode lines that the ADV7511 should want to see)
-  frame50: entity work.frame_generator 
+  frame50: entity work.frame_generator
     generic map (
 
                   -- XXX To match C64 timing, we have to very slightly trim the
@@ -581,11 +581,11 @@ begin
       -- are 864 wide. In interlace mode to keep timing when we add the single
       -- extra raster, we trim the frame width by one tick
       frame_width => 864,
-      
+
                   frame_height => 625 - debug_height_reduction,        -- 312.5 lines x 2 fields
 
                   x_zero_position => 864-45,
-                  
+
                   fullwidth_width => 800,
                   fullwidth_start => 0,
 
@@ -607,13 +607,13 @@ begin
                   hsync_end => 720+12+5+64,
                   -- Again, VGA ends up a bit to the left, so make HSYNC earlier
                   vga_hsync_start => 720,
-                  vga_hsync_end => 720+64,                 
-                  
+                  vga_hsync_end => 720+64,
+
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2 - debug_height_reduction,
                   lcd_last_raster => 1+576-(576-480)/2 - debug_height_reduction
-                  
-                  )                  
+
+                  )
     port map ( clock81 => clock81,
                clock41 => cpuclock,
                hsync => hsync_pal50,
@@ -626,13 +626,13 @@ begin
                field_is_odd => field_is_odd,
 
                interlace_enable => interlace_mode,
-               
+
                cv_hsync => cv_hsync_pal50,
-               
+
                phi2_1mhz_out => phi2_1mhz_pal50,
                phi2_2mhz_out => phi2_2mhz_pal50,
                phi2_3mhz_out => phi2_3mhz_pal50,
-               
+
                vga_hsync => vga_hsync_pal50,
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
@@ -646,7 +646,7 @@ begin
                red_o => test_pattern_red50,
                green_o => test_pattern_green50,
                blue_o => test_pattern_blue50,
-               
+
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
                y_zero => y_zero_pal50,
@@ -671,7 +671,7 @@ begin
                   narrow_start => 0,
 
                   pipeline_delay => 0,
-                  
+
                   -- Advance VSYNC 23 lines (HDMI test 7-25)
                   vsync_start => 480+1+9 - debug_height_reduction,
                   vsync_end => 480+1+5+9 - debug_height_reduction,
@@ -681,7 +681,7 @@ begin
                   -- ... but not for VGA, or it ends up off-centre
                   vga_hsync_start => 720+10,
                   vga_hsync_end => 720+10+62,
-                  
+
                   first_raster => 1,
                   last_raster => 480 - debug_height_reduction,
 
@@ -691,8 +691,8 @@ begin
                   cycles_per_raster_1mhz => 65,
                   cycles_per_raster_2mhz => 65*2,
                   cycles_per_raster_3mhz => 228 -- 65*3.5, rounded up to next integer
-                  
-                  )                  
+
+                  )
     port map ( clock81 => clock81,
                clock41 => cpuclock,
                hsync => hsync_ntsc60,
@@ -705,7 +705,7 @@ begin
                cv_hsync => cv_hsync_ntsc60,
                field_is_odd => field_is_odd,
                interlace_enable => interlace_mode,
-               
+
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
                phi2_3mhz_out => phi2_3mhz_ntsc60,
@@ -723,14 +723,14 @@ begin
                blue_o => test_pattern_blue60,
 
                vga_blank => vga_blank_ntsc60,
-               
+
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_ntsc60,
                y_zero => y_zero_ntsc60,
                pixel_strobe => pixel_strobe_60,
                cv_pixel_strobe => cv_pixel_strobe_60
-               
-               );               
+
+               );
 
   -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync
   -- Ends up being 64Hz, because our dotclock is ~27MHz.  Most monitors accept
@@ -742,12 +742,12 @@ begin
 
                   fullwidth_start => 16+62+60,
                   fullwidth_width => 800,
-                  
+
                   narrow_start => 16+62+60,
                   narrow_width => 720,
 
                   pipeline_delay => 0,
-                  
+
                   vsync_start => 6,
                   vsync_end => 6+6,
 
@@ -756,7 +756,7 @@ begin
 
                   vga_hsync_start => 858-1-(64-16)-62,
                   vga_hsync_end => 858-1-(64-16),
-                  
+
                   first_raster => 42,
                   last_raster => 522,
 
@@ -766,8 +766,8 @@ begin
                   cycles_per_raster_1mhz => 65,
                   cycles_per_raster_2mhz => 65*2,
                   cycles_per_raster_3mhz => 228 -- 65*3.5, rounded up to next integer
-                  
-                  )                  
+
+                  )
     port map ( clock81 => clock81,
                clock41 => cpuclock,
                hsync => hsync_vga60,
@@ -784,7 +784,7 @@ begin
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
                phi2_3mhz_out => phi2_3mhz_vga60,
-               
+
                vga_hsync => vga_hsync_vga60,
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
@@ -794,14 +794,14 @@ begin
                vga_inletterbox => vga_inletterbox_vga60,
 
                vga_blank => vga_blank_vga60,
-               
+
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_vga60,
                y_zero => y_zero_vga60,
                pixel_strobe => pixel_strobe_vga60,
-               cv_pixel_strobe => cv_pixel_strobe_vga60               
-               
-               );               
+               cv_pixel_strobe => cv_pixel_strobe_vga60
+
+               );
 
   -- We have two raster buffers for 31KHz to 15KHz video
   -- down-conversion.  One is being read from while the other
@@ -845,7 +845,7 @@ begin
   cv_hsync <= cv_hsync_pal50 when pal50_select_internal='1' else
               cv_hsync_vga60 when vga60_select_internal='1'
               else cv_hsync_ntsc60;
-  
+
   hsync <= hsync_pal50 when pal50_select_internal='1' else
            hsync_vga60 when vga60_select_internal='1'
            else hsync_ntsc60;
@@ -856,7 +856,7 @@ begin
   vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
                           vsync_vga60_uninverted when vga60_select_internal='1'
                           else vsync_ntsc60_uninverted;
-  
+
   hsync_uninverted <= hsync_pal50_uninverted when pal50_select_internal='1' else
            hsync_vga60_uninverted when vga60_select_internal='1'
            else hsync_ntsc60_uninverted;
@@ -877,7 +877,7 @@ begin
   vga_blank <=       vga_blank_pal50 when pal50_select_internal='1' else
                      vga_blank_vga60 when vga60_select_internal='1'
                      else vga_blank_ntsc60;
-  
+
   fullwidth_dataenable <= fullwidth_dataenable_pal50 when pal50_select_internal='1' else
                  fullwidth_dataenable_vga60 when vga60_select_internal='1'
                  else fullwidth_dataenable_ntsc60;
@@ -931,7 +931,7 @@ begin
   test_pattern_blue <= test_pattern_blue50 when pal50_select_internal='1' else
                       test_pattern_bluevga60 when vga60_select_internal='1'
                       else test_pattern_blue60;
-  
+
   process (clock81,clock27) is
     variable colour_phase_sine : integer;
     variable colour_phase_cosine : integer;
@@ -944,11 +944,11 @@ begin
       else
         interlace_mode_integer <= 0;
       end if;
-      
+
       -- Auto-enable interlace for 15kHz mode when V400 is active
       -- This ensures 80x50 and other V400 modes display all scanlines on 15kHz CRT monitors
       interlace_15khz <= interlace_mode or (vga_15khz_csync_mode and v400_mode);
-      
+
       if debug_forward /= last_debug_forward then
         last_debug_forward <= debug_forward;
         if mono_mode='0' then
@@ -972,13 +972,13 @@ begin
           end if;
         end if;
       end if;
-      
+
       -- Generate PAL and NTSC colour carrier phase
       pal_colour_phase <= pal_colour_phase + pal_colour_phase_add + to_integer(pal_colour_phase_sub(32 downto 32));
       pal_colour_phase_sub <= ("0"&pal_colour_phase_sub(31 downto 0)) + ("0"&pal_colour_phase_add_sub);
       ntsc_colour_phase <= ntsc_colour_phase + ntsc_colour_phase_add + to_integer(ntsc_colour_phase_sub(32 downto 32));
       ntsc_colour_phase_sub <= ("0"&ntsc_colour_phase_sub(31 downto 0)) + ("0"&ntsc_colour_phase_add_sub);
-      
+
       if pal50_select_internal='0' then
         if field_is_odd=0 then
           vblank_train_len_adjust <= 3;
@@ -996,9 +996,9 @@ begin
           vblank_train_len_adjust <= 0;
         end if;
       end if;
-      
+
 --  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
---    & std_logic'image(pixel_strobe_vga60) & ", " 
+--    & std_logic'image(pixel_strobe_vga60) & ", "
 --    & std_logic'image(pixel_strobe_60);
 
       y_zero_last <= y_zero_int;
@@ -1050,7 +1050,7 @@ begin
           buffer_target_31khz <= not buffer_target_31khz;
           raster15khz_waddr <= 0;
         end if;
-        
+
       end if;
 
       -- Update 15KHz composite raster buffer write and read addresses.
@@ -1064,7 +1064,7 @@ begin
         if raster15khz_waddr = 719 then
           -- Clear write enable lines once we have written the whole raster.
           raster15khz_buf0_we <= '0';
-        end if;        
+        end if;
       end if;
 
       cv_hsync_last <= cv_hsync;
@@ -1083,7 +1083,7 @@ begin
         else
           colour_burst_mask <= '1';
         end if;
-        
+
         -- Implement the Phase Alternation that gives PAL its name
         -- XXX Why do we need to add 64 to get the colour spaces right?
         if pal_phase_offset = 96 then -- 96 hexadegrees = 135 degrees
@@ -1093,7 +1093,7 @@ begin
           pal_phase_offset <= 96;
           pal_v_invert <= 0;
         end if;
-        
+
         -- Wait 8 usec from release of composite HSYNC
         -- 8usec @ 81MHz = 648 cycles.
         -- But then we divide by 6 to get 13.5MHz pixel clock ticks
@@ -1154,7 +1154,7 @@ begin
           end if;
         end if;
       end if;
-      
+
       -- Update the write address into the 31KHz to 15KHz raster buffer
       -- This has to come before the code that resets raster15khz_waddr when
       -- HSYNC is active.
@@ -1170,7 +1170,7 @@ begin
 --          if (raster15khz_waddr mod 72) = 71 then
 --            report "PIXEL #" & integer'image(raster15khz_waddr);
 --          end if;
-          
+
           if buffering_31khz='1' then
             -- Write it to the buffer
             waddr_inc_toggle <= not waddr_inc_toggle;
@@ -1182,8 +1182,8 @@ begin
             end if;
           end if;
         end if;
-      end if;      
-      
+      end if;
+
       -- Determine width of 31KHz HSYNC pulses to use as timing aid for
       -- 15KHz short and long sync pulses
       if hsync_uninverted_int = '1' then
@@ -1227,12 +1227,12 @@ begin
                 else
                   pal_phase_offset <= 160;
                   pal_v_invert <= 128;
-                  colour_burst_mask_count <= 5 + 1;                  
+                  colour_burst_mask_count <= 5 + 1;
                 end if;
               end if;
-              
+
             end if;
-          end if;          
+          end if;
         else
           -- NTSC : lines 858 cycles long. 858 / 16 = 53.625
           -- We are clocked at 81 rather than 27MHz, so multiply
@@ -1277,7 +1277,7 @@ begin
           end if;
         end if;
 
-        cv_sync_hsrc <= '0';        
+        cv_sync_hsrc <= '0';
       else
         cv_sync_hsrc <= '1';
         cv_sync <= cv_hsync;
@@ -1321,19 +1321,19 @@ begin
         -- (either can be the case, depending whether we are in the odd or
         -- even field, and PAL or NTSC).
         if cv_hsync='0' then
-          cv_vsync <= '0';       
+          cv_vsync <= '0';
         end if;
       end if;
 
-      
+
       if pal50_select_internal='1' then
 --        report "x_zero=" & std_logic'image(x_zero_pal50)
 --          & ", y_zero=" & std_logic'image(y_zero_pal50);
       else
 --        report "x_zero = " & std_logic'image(x_zero_ntsc60)
 --          & ", y_zero = " & std_logic'image(y_zero_ntsc60);
-      end if;       
-      
+      end if;
+
       -- Update component video signals
       if cv_sync = '1' then
         luma_drive <= to_unsigned(0,10);
@@ -1382,7 +1382,7 @@ begin
                         ;
       else
         chroma_drive <= to_signed(0,16);
-      end if;                           
+      end if;
 
       -- Generate final composite signals
       -- XXX Allow switching between composite and component video?
@@ -1396,8 +1396,8 @@ begin
       -- Dedicated chroma signal has full amplitude, for now at least.
       chroma <= unsigned(chroma_drive(15 downto 8));
 
-    end if;    
-    
+    end if;
+
     if rising_edge(clock27) then
 
       -- Calculate luma value.
@@ -1470,7 +1470,7 @@ begin
       -- Then we do it all again for U and V.
       -- U and V can be positive or negative, so we need an extra bit of
       -- precision, and then just offset things, so that it stays in range
-      -- 
+      --
       -- U = – 0.147R – 0.289G + 0.436B = 0.492 (B – Y)
       -- V = 0.615R – 0.515G – 0.100B = 0.877(R´ – Y)
       --
@@ -1479,12 +1479,12 @@ begin
       -- about right
       -- U = ( - 0.08R - 0.157G + 0.237B ) x 100 = - 8R - 15G + 24B
       -- V = ( 0.334R - 0.280G - 0.0543B ) x 100 = 24R - 20G - 4B
-      -- 
+      --
       px_u <= to_signed(0,16)
               -- -8  R = 01000
               - to_integer(cv_red&"000")
               -- -15 G = 01111
-              - to_integer(cv_green&"0000") - to_integer(cv_green) 
+              - to_integer(cv_green&"0000") - to_integer(cv_green)
               -- +24 B = 11000
               + to_integer(cv_blue & "00000") + to_integer(cv_blue&"0000")
               ;
@@ -1500,7 +1500,7 @@ begin
       -- Generate half-rate composite video pixel toggle
       cv_pixel_strobe <= cv_pixel_toggle;
       cv_pixel_toggle <= not cv_pixel_toggle;
-      
+
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
 
@@ -1508,9 +1508,9 @@ begin
       vga60_select_internal <= vga60_select_internal_drive;
 
       test_pattern_enable120 <= test_pattern_enable;
-      
+
       -- Output the pixels or else the test pattern
-      if fullwidth_dataenable_internal='0' then        
+      if fullwidth_dataenable_internal='0' then
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
@@ -1563,20 +1563,20 @@ begin
         cv_green <= x"00";
         cv_blue <= x"00";
       end if;
-      
-      if narrow_dataenable_internal='0' then        
-        red_no <= x"00"; 
+
+      if narrow_dataenable_internal='0' then
+        red_no <= x"00";
         green_no <= x"00";
         blue_no <= x"00";
 
         if time_since_last_pixel < 1023 then
           time_since_last_pixel <= time_since_last_pixel + 1;
-        end if;        
+        end if;
       elsif test_pattern_enable120='1' then
         red_no <= test_pattern_red;
         green_no <= test_pattern_green;
         blue_no <= test_pattern_blue;
-        
+
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
         raster15khz_wdata(15 downto 8) <= test_pattern_green;
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
@@ -1585,8 +1585,8 @@ begin
 --        raster15khz_wdata(7 downto 0) <= to_unsigned(0,8);
 --        raster15khz_wdata(15 downto 8) <= to_unsigned(255,8);
 --        raster15khz_wdata(23 downto 16) <= to_unsigned(0,8);
-        
-        
+
+
         time_since_last_pixel <= 0;
       else
         red_no <= red_i;
@@ -1599,7 +1599,7 @@ begin
         raster15khz_wdata(15 downto 8) <= green_i;
         raster15khz_wdata(23 downto 16) <= blue_i;
 
-        time_since_last_pixel <= 0;        
+        time_since_last_pixel <= 0;
       end if;
 
       -- =========================================================================
@@ -1626,7 +1626,7 @@ begin
     end if;
 
   end process;
-  
+
   -- Drive the 15kHz RGB output ports
   rgb15khz_red <= rgb15khz_red_int;
   rgb15khz_green <= rgb15khz_green_int;

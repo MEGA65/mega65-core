@@ -536,14 +536,14 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
-  
+
   -- 15kHz RGB with composite sync signals
   signal rgb15khz_red : unsigned(7 downto 0);
   signal rgb15khz_green : unsigned(7 downto 0);
   signal rgb15khz_blue : unsigned(7 downto 0);
   signal rgb15khz_csync : std_logic;
   signal vga_15khz_mode : std_logic := '0';
-  
+
   -- Hardware detection for 15kHz mode via VGA DDC pins
   -- SDA driven LOW, SCL sensed - 470Ω resistor between pins 12-15 pulls SCL low
   signal vga_15khz_detect : std_logic := '0';
@@ -555,7 +555,7 @@ architecture Behavioral of container is
   signal vdac_clk_i : std_logic;
 
   signal sdram_slow_clock : std_logic;
-  
+
 begin
 
   -- Drive VGA SDA low for 15kHz detection (concurrent assignment)
@@ -771,7 +771,7 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-  mk2: entity work.mk2_to_mk1 
+  mk2: entity work.mk2_to_mk1
     port map (
       cpuclock => cpuclock,
 
@@ -881,7 +881,7 @@ begin
       r  =>  '0',
       q  => sdram_clk
       );
-  
+
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
@@ -1038,12 +1038,12 @@ begin
 
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
-          
+
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
           upscale_enable => upscale_enable,
-          
+
           -- 15kHz RGB CSYNC mode control (active high = 15kHz mode)
           vga_15khz_csync_mode => vga_15khz_mode,
 
@@ -1089,7 +1089,7 @@ begin
           luma => luma,
           chroma => chroma,
           composite => composite,
-          
+
           -- 15kHz RGB with composite sync
           rgb15khz_red => rgb15khz_red,
           rgb15khz_green => rgb15khz_green,
@@ -1335,7 +1335,7 @@ begin
       viciv_attic_data_strobe <= hyper_data_strobe;
       viciv_attic_data <= hyper_data;
     end if;
-    
+
     -- VGA output at full pixel clock
     -- In 15kHz mode, use clock27 to match the 15kHz signal source
     if vga_15khz_mode = '1' then
@@ -1368,7 +1368,7 @@ begin
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
-      
+
       -- 15kHz RGB CSYNC mode detection via VGA DDC pins
       -- 15kHz RGB CSYNC mode detection via VGA DDC pins
       -- SDA (pin 12) driven LOW, SCL (pin 15) sensed
@@ -1383,7 +1383,7 @@ begin
       reset_high <= reset_button;
       -- Reset button also resets 3.5mm audio ADC
       audio_powerdown_n <= reset_out;
-      
+
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then
@@ -1478,7 +1478,7 @@ begin
         end if;
       end if;
     end if;
-    
+
     if mk1_connected='1' then
       -- Connect MK-I keyboard to keyboard decoder
       kb_io0 <= xil_io1;
@@ -1490,9 +1490,9 @@ begin
       -- Make tri-state link from keyboard connector to MK-II controller
       mk2_io1_in <= kb_io0;
       if mk2_io1_en='1' then
-        kb_io0 <= mk2_io1; 
+        kb_io0 <= mk2_io1;
       else
-        kb_io0 <= 'Z'; 
+        kb_io0 <= 'Z';
       end if;
       mk2_io2_in <= kb_io1;
       if mk2_io2_en='1' then
@@ -1502,7 +1502,7 @@ begin
 --        report "io2 Z";
         kb_io1 <= 'Z';
       end if;
-      
+
       -- Connect Xilinx MK-I interface to MK-II controller
       mk2_xil_io1 <= xil_io1;
       mk2_xil_io2 <= xil_io2;
@@ -1550,7 +1550,7 @@ begin
       vgagreen <= up_green;
       vgablue <= up_blue;
     end if;
-    
+
     -- HDMI output always uses 31kHz (unaffected by VGA mode selection)
     hdmired <= v_red;
     hdmigreen <= v_green;

@@ -276,10 +276,10 @@ entity container is
 
          ----------------------------------------------------------------------
          -- I2C board management peripherals (dip sw and dc-dc converters)
-         ----------------------------------------------------------------------         
+         ----------------------------------------------------------------------
          board_sda : inout std_logic;
          board_scl : inout std_logic;
-         
+
          ----------------------------------------------------------------------
          -- Grove connector I2C peripherals
          -- (Currently used for auxilliary RTC, for boards with faulty RTCs)
@@ -552,14 +552,14 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
-  
+
   -- 15kHz RGB with composite sync signals
   signal rgb15khz_red : unsigned(7 downto 0);
   signal rgb15khz_green : unsigned(7 downto 0);
   signal rgb15khz_blue : unsigned(7 downto 0);
   signal rgb15khz_csync : std_logic;
   signal vga_15khz_mode : std_logic := '0';
-  
+
   -- Hardware detection for 15kHz mode via VGA DDC pins
   -- SDA driven LOW, SCL sensed - 470Ω resistor between pins 12-15 pulls SCL low
   signal vga_15khz_detect : std_logic := '0';
@@ -752,7 +752,7 @@ begin
       chroma => chroma,
       composite => composite,
       -- XXX As of revC of the expansion board, we still don't have the audio
-      -- piped through. 
+      -- piped through.
       audio => luma
 
       );
@@ -796,7 +796,7 @@ begin
       temp => fpga_temperature);
 
   kk0: if true generate
-  mk2: entity work.mk2_to_mk1 
+  mk2: entity work.mk2_to_mk1
     port map (
       cpuclock => cpuclock,
 
@@ -1039,7 +1039,7 @@ begin
       cart_a => cart_a
       );
   end generate;
-  
+
   m0:
     if true generate
       machine0: entity work.machine
@@ -1071,7 +1071,7 @@ begin
 
           pal50_select_out => pal50,
           upscale_enable => upscale_enable,
-          
+
           -- 15kHz RGB CSYNC mode control (active high = 15kHz mode)
           vga_15khz_csync_mode => vga_15khz_mode,
 
@@ -1117,7 +1117,7 @@ begin
           luma => luma,
           chroma => chroma,
           composite => composite,
-          
+
           -- 15kHz RGB with composite sync
           rgb15khz_red => rgb15khz_red,
           rgb15khz_green => rgb15khz_green,
@@ -1283,11 +1283,11 @@ begin
 
           -- Normal connection of I2C peripherals to dedicated address space
           i2c1sda => fpga_sda,
-          i2c1scl => fpga_scl,          
+          i2c1scl => fpga_scl,
 
           board_sda => board_sda,
           board_scl => board_scl,
-          
+
           grove_sda => grove_sda,
           grove_scl => grove_scl,
 
@@ -1408,14 +1408,14 @@ begin
         cart_romh_en_n <= '1';
         cart_romh <= 'Z';
       end if;
-      
+
       cart_reset <= cart_reset_int;
       cart_reset_en_n <= cart_reset_int;
-      
+
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
-      
+
       -- 15kHz RGB CSYNC mode detection via VGA DDC pins
       -- 15kHz RGB CSYNC mode detection via VGA DDC pins
       -- SDA (pin 12) driven LOW, SCL (pin 15) sensed
@@ -1525,7 +1525,7 @@ begin
         end if;
       end if;
     end if;
-    
+
     if mk1_connected='1' then
       -- Connect MK-I keyboard to keyboard decoder
       kb_io0 <= xil_io1;
@@ -1537,9 +1537,9 @@ begin
       -- Make tri-state link from keyboard connector to MK-II controller
       mk2_io1_in <= kb_io0;
       if mk2_io1_en='1' then
-        kb_io0 <= mk2_io1; 
+        kb_io0 <= mk2_io1;
       else
-        kb_io0 <= 'Z'; 
+        kb_io0 <= 'Z';
       end if;
       mk2_io2_in <= kb_io1;
       if mk2_io2_en='1' then
@@ -1549,7 +1549,7 @@ begin
 --        report "io2 Z";
         kb_io1 <= 'Z';
       end if;
-      
+
       -- Connect Xilinx MK-I interface to MK-II controller
       mk2_xil_io1 <= xil_io1;
       mk2_xil_io2 <= xil_io2;
@@ -1597,7 +1597,7 @@ begin
       vgagreen <= up_green;
       vgablue <= up_blue;
     end if;
-    
+
     -- HDMI output always uses 31kHz (unaffected by VGA mode selection)
     hdmired <= v_red;
     hdmigreen <= v_green;
