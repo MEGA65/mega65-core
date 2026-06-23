@@ -142,6 +142,11 @@ entity container is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
+         -- VGA DDC pins for 15kHz mode detection
+         -- VGA DDC pins for 15kHz mode detection
+         -- 470Ω resistor between pins 12-15 enables 15kHz mode
+         vga_sda : out std_logic;
+         vga_scl : in std_logic;
 
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
@@ -473,10 +478,24 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
+  
+  -- 15kHz RGB with composite sync signals
+  signal rgb15khz_red : unsigned(7 downto 0);
+  signal rgb15khz_green : unsigned(7 downto 0);
+  signal rgb15khz_blue : unsigned(7 downto 0);
+  signal rgb15khz_csync : std_logic;
+  signal vga_15khz_mode : std_logic := '0';
+  
+  -- Hardware detection for 15kHz mode via VGA DDC pins
+  -- SDA driven LOW, SCL sensed - 470Ω resistor between pins 12-15 pulls SCL low
+  signal vga_15khz_detect : std_logic := '0';
 
   signal eth_load_enable : std_logic;
   
 begin
+
+  -- Drive VGA SDA low for 15kHz detection (concurrent assignment)
+  vga_sda <= '0';
 
 --STARTUPE2:STARTUPBlock--7Series
 
@@ -896,6 +915,15 @@ begin
           chroma => chroma,
           composite => composite,
           
+          -- 15kHz RGB with composite sync
+          rgb15khz_red => rgb15khz_red,
+          rgb15khz_green => rgb15khz_green,
+          rgb15khz_blue => rgb15khz_blue,
+          rgb15khz_csync => rgb15khz_csync,
+          
+          -- 15kHz RGB CSYNC mode control (active high = 15kHz mode)
+          vga_15khz_csync_mode => vga_15khz_mode,
+
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
           hdmi_hsync       => v_hdmi_hsync,
@@ -1078,6 +1106,7 @@ begin
           
           sw => sw,
           dipsw => dipsw,
+          dipsw3_out => open,
 --      uart_rx => '1',
           btn => (others => '1')
           
@@ -1105,7 +1134,12 @@ begin
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
+    -- In 15kHz mode, use clock27 to match the 15kHz signal source
+    if vga_15khz_mode = '1' then
+      vdac_clk <= clock27;
+    else
+      vdac_clk <= pixelclock;
+    end if;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
@@ -1128,6 +1162,12 @@ begin
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
+      
+      -- 15kHz RGB CSYNC mode detection via VGA DDC pins
+      -- SDA (pin 12) driven LOW, SCL (pin 15) sensed
+      -- 470Ω resistor between pins 12-15 pulls SCL below threshold = 15kHz mode
+      vga_15khz_detect <= not vga_scl;
+      vga_15khz_mode <= vga_15khz_detect;
       
       reset_high <= not btncpureset;
 
@@ -1230,11 +1270,29 @@ begin
     led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
-      hsync <= v_vga_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
+      -- VGA output selection: 31kHz VGA or 15kHz RGB CSYNC
+      -- When 15kHz mode is enabled (vga_15khz_mode='1'):
+      --   - hsync outputs CSYNC (active low composite sync)
+      --   - vsync is held HIGH (not connected/used in 15kHz mode)
+      --   - RGB comes from 15kHz raster buffer
+      -- HDMI output always uses 31kHz signals regardless of VGA mode
+      if vga_15khz_mode = '1' then
+        -- 15kHz RGB CSYNC mode for retro CRT monitors
+        hsync <= rgb15khz_csync;  -- CSYNC on VGA pin 13 (active low)
+        vsync <= rgb15khz_csync;  -- CSYNC also on VGA pin 14 for flexibility
+        vgared <= rgb15khz_red;
+        vgagreen <= rgb15khz_green;
+        vgablue <= rgb15khz_blue;
+      else
+        -- Standard 31kHz VGA mode
+        hsync <= v_vga_hsync;
+        vsync <= v_vsync;
+        vgared <= v_red;
+        vgagreen <= v_green;
+        vgablue <= v_blue;
+      end if;
+      
+      -- HDMI output always uses 31kHz (unaffected by VGA mode selection)
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;

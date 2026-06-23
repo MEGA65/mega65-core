@@ -107,6 +107,7 @@ entity viciv is
 
     interlace_mode : out std_logic := '0';
     mono_mode : out std_logic := '0';
+    v400_mode : out std_logic := '0';
 
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
@@ -2104,6 +2105,7 @@ begin
 
       interlace_mode <= reg_interlace;
       mono_mode <= reg_mono;
+      v400_mode <= reg_v400;
 
       last_dd00_bits <= dd00_bits;
       if last_dd00_bits /= dd00_bits then

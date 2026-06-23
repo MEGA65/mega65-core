@@ -178,9 +178,11 @@ set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_drai
 
 ##VGA Connector
 
-# VGA I2C bus
-# set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports vga_sda]
-# set_property -dict {PACKAGE_PIN W15 IOSTANDARD LVCMOS33} [get_ports vga_scl]
+# VGA I2C bus - used for 15kHz mode detection
+# SDA (pin 12) driven LOW, SCL (pin 15) sensed with pull-up
+# If resistor bridges pins 12-15, SCL reads LOW = 15kHz mode
+set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports vga_sda]
+set_property -dict {PACKAGE_PIN W15 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports vga_scl]
 
 # XXX - Is this needed?
 set_property -dict {PACKAGE_PIN AA9 IOSTANDARD LVCMOS33} [get_ports vdac_clk]
