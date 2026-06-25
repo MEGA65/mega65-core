@@ -1183,12 +1183,17 @@ freeze_mem_list:
         !8 freeze_prep_none
 
         ;; The reset of FFD3000 from last track (for drive initialization)
+        ;; This MUST NOT overwrite register 255!! Otherwise it would overwrite
+        ;; the value that is set in the FFD0030 (VIC-II C128FAST bit) block above.
         !32 $ffd3084
-        !16 $007C
+        !16 $007B
         !8 0
         !8 freeze_prep_none
 
         ;; XXX - Other IO chips!
+        ;;
+        ;; IMPORTANT: MAKE SURE YOU DON'T OVERWRITE PRIOR BLOCKS BY ACCIDENT!
+        ;;
 
         ;; End of list
         !32 $FFFFFFFF
