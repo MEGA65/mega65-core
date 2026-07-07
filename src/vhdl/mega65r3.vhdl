@@ -272,12 +272,6 @@ architecture Behavioral of container is
   signal cea_vic : std_logic_vector(7 downto 0) := (others => '0');
   signal dvi_tv_range : std_logic;
   
-  signal scart_mode : std_logic;
-  signal composite_sync : std_logic;
-  signal composite_red : std_logic_vector(7 downto 0);
-  signal composite_green : std_logic_vector(7 downto 0);
-  signal composite_blue : std_logic_vector(7 downto 0);
-  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
