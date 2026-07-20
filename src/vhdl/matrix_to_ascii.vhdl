@@ -51,6 +51,7 @@ architecture behavioral of matrix_to_ascii is
   -- (As key repeat is checked on each of the 72 key tests, we don't need to
   -- divide the maximum repeat counters by 72.)
   signal repeat_key : integer range 0 to 71 := 0;
+  signal repeat_key_active : std_logic := '0';
   -- Approximate MEGA65 ROM key repeat timings (August 2023)
   constant repeat_start_timer : integer := clock_frequency/scan_frequency/2 * 19/26;
   constant repeat_again_timer : integer := clock_frequency/scan_frequency/20;
@@ -852,13 +853,26 @@ architecture behavioral of matrix_to_ascii is
   );
 
   signal key_num : integer range 0 to 71 := 0;
-  signal cur_key_num : integer range 0 to 71 := 0;
-  signal prev_key_num : integer range 0 to 71 := 0;
-  signal key_num_timeout : integer := 0;
-  -- Cherry key switches claim a 5 ms debounce time = 1/200th of clock frequency
-  -- Using a longer delay based on user reports of occasional unintentional
-  -- double-strikes:
-  constant cherry_mx_debounce_time : integer := clock_frequency / 2500;
+
+  function divide_rounding_up(dividend : natural; divisor : natural)
+    return natural is
+  begin
+    return (dividend + divisor - 1) / divisor;
+  end function;
+
+  constant milliseconds_per_second : natural := 1000;
+  constant key_debounce_milliseconds : natural := 20;
+
+  -- After a press, require the key to remain continuously released for the
+  -- requested interval before accepting another press. Counters advance once
+  -- per complete matrix scan and round up to avoid shortening the interval.
+  constant key_debounce_scans : natural := divide_rounding_up(
+    scan_frequency * key_debounce_milliseconds,
+    milliseconds_per_second);
+  type key_release_counters_t is array(0 to 71)
+    of integer range 0 to key_debounce_scans;
+  signal key_release_counters : key_release_counters_t := (others => 0);
+  signal key_press_armed : std_logic_vector(71 downto 0) := (others => '1');
 
 begin
 
@@ -1016,10 +1030,6 @@ begin
 
       bucky_key <= bucky_key_internal;
 
-      if key_num_timeout /= 0 then
-        key_num_timeout <= key_num_timeout - 1;
-      end if;
-
       key_valid <= '0';
 
       -- Check for key press events
@@ -1043,18 +1053,33 @@ begin
 
         keyscan_counter <= keyscan_delay;
 
+        -- Any reclosure during the release qualification interval restarts it.
+        if key_press_armed(key_num)='0' then
+          if debounce_key_state='1' then
+            if key_release_counters(key_num) = key_debounce_scans - 1 then
+              key_release_counters(key_num) <= 0;
+              key_press_armed(key_num) <= '1';
+            else
+              key_release_counters(key_num)
+                <= key_release_counters(key_num) + 1;
+            end if;
+          else
+            key_release_counters(key_num) <= 0;
+          end if;
+        end if;
+
         if (last_key_state = '1') and (debounce_key_state='0') then
           -- Key state has changed.
 
           if key_matrix(key_num) /= x"00" or petscii_matrix(key_num) /= x"ff" then
             -- This is a typing event.
 
-            cur_key_num <= key_num;
-            if prev_key_num /= cur_key_num or key_num_timeout = 0 then
+            if key_press_armed(key_num) = '1' then
 
-              prev_key_num <= key_num;
-              key_num_timeout <= cherry_mx_debounce_time;
+              key_release_counters(key_num) <= 0;
+              key_press_armed(key_num) <= '0';
               repeat_key <= key_num;
+              repeat_key_active <= '1';
               repeat_key_timer <= repeat_start_timer;
               repeat_timer_expired <= '0';
               key_valid_countdown <= 1023;
@@ -1090,10 +1115,17 @@ begin
         else
           -- Key state has not changed. Check for held and repeating keys.
 
+          -- A released key must not retain an armed repeat timer. In
+          -- particular, a later re-press rejected by debounce must not inherit
+          -- the original press's timer and turn into an automatic repeat.
+          if repeat_key = key_num and debounce_key_state = '1' then
+            repeat_key_active <= '0';
+          end if;
+
           if repeat_key_timer /= 0 then
             repeat_key_timer <= repeat_key_timer - 1;
             key_valid <= '0';
-          elsif repeat_timer_expired = '1' then
+          elsif repeat_timer_expired = '1' and repeat_key_active = '1' then
             --repeat_key_timer <= repeat_again_timer;
             if (repeat_key = key_num) and debounce_key_state='0' then
               report "Repeating key held down";
@@ -1138,6 +1170,3 @@ begin
 
   end process;
 end behavioral;
-
-
-

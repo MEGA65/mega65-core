@@ -1033,6 +1033,9 @@ begin
   block5: block
   begin
     kc0 : entity work.keyboard_complex
+      generic map (
+        clock_frequency => cpu_frequency
+        )
       port map (
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
