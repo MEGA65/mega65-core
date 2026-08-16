@@ -8218,7 +8218,13 @@ begin
               -- reg_q33 holds the q reg, no need to load anything
               next_is_axyz32_instruction <= '0';
               report "ExecuteQreg32: reg_q33 = $" & to_hstring(reg_q33) & ", reg_instruction = " & instruction'image(reg_instruction);
-              pc_inc := '1';
+              if fast_fetch_state = InstructionDecode then
+                pc_inc := '1';
+              else
+                report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
+                pc_inc := '0';
+              end if;
+              -- pc_inc := '1';
               pc_dec := '0';
               case reg_instruction is
                 when I_INC =>
