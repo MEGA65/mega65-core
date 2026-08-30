@@ -68,7 +68,7 @@ mps3_loop:
         dex
         bne -
 
-        jmp mps3_loop
+        bra mps3_loop
 
 i2c_job_delay:
         phx
@@ -124,7 +124,7 @@ mps_loop:
         bne -
 
 
-        jmp mps_loop
+        bra mps_loop
 
 
 megaphone_r1_i2c_settings:

@@ -79,7 +79,7 @@ audiomix_set_sid_lr_coefficients:
         ldx #$22
         jsr audiomix_set2coefficients
         ldx #$32
-        jmp audiomix_set2coefficients
+        bra audiomix_set2coefficients
 
 audiomix_set_sid_rl_coefficients:
         ldx #$c2
@@ -97,7 +97,7 @@ audiomix_set_sid_rl_coefficients:
         ldx #$20
         jsr audiomix_set2coefficients
         ldx #$30
-        jmp audiomix_set2coefficients
+        bra audiomix_set2coefficients
 
 audio_set_stereo:
         ;; Left and right SID volume levels
@@ -105,7 +105,7 @@ audio_set_stereo:
         lda #$be
         jsr audiomix_set_sid_lr_coefficients
         lda #$40
-        jmp audiomix_set_sid_rl_coefficients
+        bra audiomix_set_sid_rl_coefficients
 
 audio_set_stereomirrored:
         ;; Left and right SID volume levels
@@ -113,7 +113,7 @@ audio_set_stereomirrored:
         lda #$40
         jsr audiomix_set_sid_lr_coefficients
         lda #$be
-        jmp audiomix_set_sid_rl_coefficients
+        bra audiomix_set_sid_rl_coefficients
 
 audiomix_setcoefficient:
         stx audiomix_addr
@@ -144,4 +144,4 @@ audiomix_set4coefficients:
 audiomix_set2coefficients:
         jsr audiomix_setcoefficient
         inx
-        jmp audiomix_setcoefficient
+        bra audiomix_setcoefficient

@@ -219,8 +219,7 @@ dos_find_contiguous_free_space:
         ;;  and reading the FAT sector number).
         lda dos_file_loadaddress+0
         and #$7F
-        bne @sameSector
-        jmp @testIfClusterEmptyAfterReadingFATSector
+        lbeq @testIfClusterEmptyAfterReadingFATSector
 @sameSector:
         jmp @testIfClusterEmpty
 

@@ -1,29 +1,28 @@
-  ;; -------------------------------------------------------------------
-  ;;   MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-  ;;   Paul Gardner-Stephen, 2014-2024.
-  ;;   -------------------------------------------------------------------
-  ;;   Purpose:
-  ;;   1. Verify checksum of ROM area of slow RAM.
-  ;;   2. If checksum fails, load complete ROM from SD card.
-  ;;   3. Select default disk image for F011 emulation.
-
-  ;;   The hyppo ROM is 16KB in length, and maps at $8000-$BFFF
-  ;;   in hypervisor mode.
-
-  ;;   Hyppo modifies RAM from $0000-$07FFF (ZP, stack, 40-column
-  ;;   screen, 16-bit text mode) during normal boot.
-
-  ;;   BG: is the below true still, I dont think so.
-  ;;   If Hyppo needs to load the ROM from SD card, then it may
-  ;;   modify the first 64KB of fast ram.
-
-  ;;   We will use the convention of C=0 means failure, ie CLC/RTS,
-  ;;                             and C=1 means success, ie SEC/RTS.
-
-
-  ;;   This included file defines many of the alias used throughout
-  ;;   it also suggests some memory-map definitions
-  ;;   ----------------------------------------------------------------
+;;     -------------------------------------------------------------------
+;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+;;     Paul Gardner-Stephen, 2014-2024.
+;;     -------------------------------------------------------------------
+;;
+;; Purpose:
+;;   1. Verify checksum of ROM area of slow RAM.
+;;   2. If checksum fails, load complete ROM from SD card.
+;;   3. Select default disk image for F011 emulation.
+;;
+;; The hyppo ROM is 16KB in length, and maps at $8000-$BFFF in
+;; hypervisor mode.
+;;
+;; Hyppo modifies RAM from $0000-$07FFF (ZP, stack, 40-column screen,
+;; 16-bit text mode) during normal boot.
+;;
+;; BG: is the below true still, I dont think so.
+;; If Hyppo needs to load the ROM from SD card, then it may modify the
+;; first 64KB of fast ram.
+;;
+;; We will use the convention of C=0 means failure, ie CLC/RTS, and
+;; C=1 means success, ie SEC/RTS.
+;;
+;; This included file defines many of the alias used throughout it
+;; also suggests some memory-map definitions.
 
 !src "constants.asm"
 !src "macros.asm"
@@ -40,21 +39,8 @@
 !addr HyppoZP_Start                = $bf00
 !addr Hyppo_End                    = $bfff
 
-;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
         !to "bin/HICKUP.M65", plain
 
-;; .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
-;; .segmentdef RelocatedCPUVectors    [min=RelocatedCPUVectors_Start, max=Traps_Start-1                                       ]
-;; .segmentdef Traps                  [min=Traps_Start,               max=DOSDiskTable_Start-1                                ]
-;; .segmentdef DOSDiskTable           [min=DOSDiskTable_Start,        max=SysPartStructure_Start-1,                           ]
-;; .segmentdef SysPartStructure       [min=SysPartStructure_Start,    max=DOSWorkArea_Start-1                                 ]
-;; .segmentdef DOSWorkArea            [min=DOSWorkArea_Start,         max=ProcessDescriptors_Start-1                          ]
-;; .segmentdef ProcessDescriptors     [min=ProcessDescriptors_Start,  max=HyppoStack_Start-1                                  ]
-;; .segmentdef HyppoStack             [min=HyppoStack_Start,          max=HyppoZP_Start-1,            fill, fillByte=$3e      ]
-;; .segmentdef HyppoZP                [min=HyppoZP_Start,             max=Hyppo_End,                  fill, fillByte=$3f      ]
-;; .segmentdef Data                   [min=Data_Start,                max=$ffff                                               ]
-
-;;         .segment TrapEntryPoints
         * = TrapEntryPoints_Start
 
 ;; /*  -------------------------------------------------------------------
@@ -77,7 +63,7 @@ trap_entry_points:
         eom                                     ;; refer serialwrite in this file
         jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
-	jmp readsharedresourcetrap              ;; Trap #$05
+        jmp readsharedresourcetrap              ;; Trap #$05
         eom                                     ;; refer: syspart.asm
         jmp nosuchtrap
         eom
@@ -261,11 +247,10 @@ trap_entry_points:
         jmp nosuchtrap
         eom
 
-        ;; Leave room for relocated cpu vectors below
-        ;;
-        ;; .segment RelocatedCPUVectors
+;; /*  -------------------------------------------------------------------
+;;     Relocated CPU Vectors $81F8 - $81FF
+;;     ---------------------------------------------------------------- */
         * = RelocatedCPUVectors_Start
-
         ;; Then we have relocated CPU vectors at $81F8-$81FF
         ;; (which are 2-byte vectors for interrupts, not 4-byte
         ;; trap addresses).
@@ -276,13 +261,10 @@ trap_entry_points:
         !16 reset_entry    ;; RESET
         !16 hypervisor_irq ;; IRQ
 
-
-        ;; .segment Traps
-        * = Traps_Start
-
 ;; /*  -------------------------------------------------------------------
-;;     Hypervisor traps
+;;     Hypervisor traps $8200 - $BAFF
 ;;     ---------------------------------------------------------------- */
+        * = Traps_Start
 
 ;; /*  -------------------------------------------------------------------
 ;;     Illegal trap / trap sub-function handlers
@@ -317,10 +299,10 @@ nosuchtrap:
 ;;         ========================
 
 return_from_trap_with_success_and_zero_accumulator:
-	lda #$00
-	sta hypervisor_a
-	jmp return_from_trap_with_success
-	
+        lda #$00
+        sta hypervisor_a
+        bra return_from_trap_with_success
+
 return_from_trap_with_success_and_file_descriptor_in_a:
 
         lda dos_current_file_descriptor
@@ -371,7 +353,7 @@ return_from_trap_with_failure:
 
 invalid_subfunction:
 
-        jmp nosuchtrap
+        bra nosuchtrap
 
 ;;         ========================
 
@@ -558,7 +540,7 @@ reset_machine_state:
 reset_entry:
         sei
 
-         ;; Put ZP and stack back where they belong
+        ;; Put ZP and stack back where they belong
         lda #$bf
         tab
         ldy #$be
@@ -614,7 +596,7 @@ reset_entry:
         ldx #<msg_hyppohelpfirst
         ldy #>msg_hyppohelpfirst
         jsr printmessage
-        jmp first_boot_flag_instruction
+        bra first_boot_flag_instruction
 
 not_first_boot_message:
         ldx #<msg_hyppohelpnotfirst
@@ -691,8 +673,6 @@ return_from_flashmenu:
 
         jsr resetdisplay
 
-        jmp dont_launch_flash_menu
-
 dont_launch_flash_menu:
         lda ascii_key_in
         cmp #$09
@@ -708,7 +688,7 @@ noflash_menu:
         jsr printmessage
         inc $d020
 nfm1:
-        jmp nfm1
+        bra nfm1
 
 
 fpga_has_been_reconfigured:
@@ -728,11 +708,11 @@ fpga_has_been_reconfigured:
 
 normalboot:
 
-; add a test if the ESC key is held down
-; if so, make an endless loop so that a person debugging
-; and turn trace mode on, move the pc (with 'g<addr>') to skip
-; over the loop and then comfortably step through early
-; hypervisor code.
+        ;; add a test if the ESC key is held down
+        ;; if so, make an endless loop so that a person debugging
+        ;; and turn trace mode on, move the pc (with 'g<addr>') to skip
+        ;; over the loop and then comfortably step through early
+        ;; hypervisor code.
         ldx #$ff    ;; make a few attempts are reading keyscan early
 
 @earlyscan:
@@ -795,7 +775,7 @@ morewaiting:
 
         plx
 
-        jmp tryreadmbr
+        bra tryreadmbr
 trybus0:
         dex
         bne morewaiting
@@ -839,8 +819,7 @@ tryreadmbr:
         jsr scankeyboard
         bcs nokey2
         cmp #$20
-        bne nokey2
-        jmp utility_menu
+        lbeq utility_menu
 nokey2:
 
         ;; Oops, cant read MBR
@@ -859,7 +838,7 @@ nokey2:
         ;;
         +Checkpoint "re-try reading MBR of sdcard"
 
-        jmp tryreadmbr
+        bra tryreadmbr
 
 ;;         ========================
 
@@ -895,8 +874,7 @@ gotmbr:
 
         ;; If we have no disks, offer the utility menu
         lda dos_disk_count
-        bne @thereIsADisk
-        jmp utility_menu
+        lbeq utility_menu
 @thereIsADisk:
 
         ;; Go to root directory on default disk
@@ -1371,7 +1349,7 @@ loadrom:
         jsr attempt_loadcharrom
         bcs loadedcharromok
 
-        jmp loadc65rom
+        bra loadc65rom
 
 ;;         ========================
 
@@ -1444,7 +1422,7 @@ loadedok:
         cmp #$00
         bne @romFileNotTooShort
 @romFileIsTooShort:
-        jmp romfiletooshort
+        bra romfiletooshort
 @romFileNotTooShort:
         cmp #$01
         beq @romFileIsTooShort
@@ -1453,7 +1431,7 @@ loadedok:
         lda file_pagesread
         beq @romFileNotTooLong
 @romFileIsTooLong:
-        jmp romfiletoolong
+        bra romfiletoolong
 @romFileNotTooLong:
 
         ;; the loaded ROM was OK in size
@@ -1472,7 +1450,7 @@ loadedok:
         lda #<charromdmalist
         sta $d705
 
-        jmp loadedmegaromok
+        bra loadedmegaromok
 
 charromdmalist:
         ;; M65 DMA options
@@ -1689,10 +1667,10 @@ resetpalette:
         rts
 
 c64_colours_table:
-        ;   0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
-        !8 $00,$ff,$ba,$66,$bb,$55,$d1,$ae,$9b,$87,$dd,$b5,$b8,$0b,$aa,$8b  ; -- red
-        !8 $00,$ff,$13,$ad,$f3,$ec,$e0,$5f,$47,$37,$39,$b5,$b8,$4f,$d9,$8b  ; -- green
-        !8 $00,$ff,$62,$ff,$8b,$85,$79,$c7,$81,$00,$78,$b5,$b8,$ca,$fe,$8b  ; -- blue
+        ;;  0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
+        !8 $00,$ff,$ba,$66,$bb,$55,$d1,$ae,$9b,$87,$dd,$b5,$b8,$0b,$aa,$8b  ;; -- red
+        !8 $00,$ff,$13,$ad,$f3,$ec,$e0,$5f,$47,$37,$39,$b5,$b8,$4f,$d9,$8b  ;; -- green
+        !8 $00,$ff,$62,$ff,$8b,$85,$79,$c7,$81,$00,$78,$b5,$b8,$ca,$fe,$8b  ;; -- blue
 
 ;;         ========================
 
@@ -1830,8 +1808,6 @@ bannerpalettedmalist:
         !16 $3100 ;; ; $xxx3100
         !8 $0D   ;; ; $xxDxxxx
         !16 $0000 ;; modulo (unused)
-
-
 
 ;;         ========================
 
@@ -2003,10 +1979,10 @@ printhex:
         jsr printhexdigit
         tza
         and #$0f
-printhexdigit:	
+printhexdigit:
         ;; find next $ sign to replace with hex digit
         ;;
-	phx
+        phx
         tax
 phd3:   lda (<zptempp2),y
         cmp #$24
@@ -2015,7 +1991,7 @@ phd3:   lda (<zptempp2),y
         iny
         cpy #$50
         bcc phd3
-	plx
+        plx
         rts
 
 phd2:   txa
@@ -2026,7 +2002,7 @@ phd2:   txa
 phd1:   sta (<zptempp2),y
         iny
         iny
-	plx
+        plx
         rts
 
 ;;         ========================
@@ -2299,8 +2275,7 @@ utility_menu_check:
         ;; ... but only if available
         lda first_boot_flag_instruction
         cmp #$4c
-        beq @flashMenuNoAvail
-        jmp launch_flash_menu
+        lbne launch_flash_menu
 @flashMenuNoAvail:
         jmp noflash_menu
 
@@ -2323,7 +2298,7 @@ keyboardread:
         ;; no key pressed yet
         dex
         bne @startscan
-        jmp kr2  ;; no key was pressed, despite looping for a while to wait for it
+        bra kr2  ;; no key was pressed, despite looping for a while to wait for it
 
 @checkkey:
         cmp #$30
@@ -2372,6 +2347,10 @@ hypervisor_setup_copy_region:
         ;; Hypervisor copy region sit entirely within the first 32KB of
         ;; mapped address space. Since we allow a 256 byte copy region,
         ;; we limit the start address to the range $0000-$7EFF
+        ;;
+        ;; hypervisor_userspace_copy_vector is always offset 0 of page
+        ;; hypervisor_y; hypervisor_x is not used.
+        ;;
         ;; XXX - We should also return an error if there is an IO
         ;; region mapped there, so that the hypervisor can't be tricked
         ;; into doing privileged IO operations as part of the copy-back
@@ -2604,7 +2583,7 @@ noutility_menu:
         jsr printmessage
         inc $d020
 num1:
-        jmp num1
+        bra num1
 
 safe_video_mode:
         ;; No digital audio, just pure DVI
@@ -3259,17 +3238,22 @@ txt_ETHLOAD:            !text "ETHLOAD.M65"
         ;;
         dos_max_disks = 6
 
-        ;; .segment DOSDiskTable
+;; /*  -------------------------------------------------------------------
+;;     Hypervisor DOSDisk table at $BB00-$BBBF
+;;     ---------------------------------------------------------------- */
+
         * = DOSDiskTable_Start
 dos_disk_table:
 
-        ;; .segment SysPartStructure
+;; /*  -------------------------------------------------------------------
+;;     Hypervisor System partition structure at $BBC0-$BBFF
+;;     ---------------------------------------------------------------- */
         * = SysPartStructure_Start
 
 syspart_structure:
-	;; XXX - WARNING: The following structure must exactly match the on-disk format of the
-	;; system partition information structure.
-	
+        ;; XXX - WARNING: The following structure must exactly match the on-disk format of the
+        ;; system partition information structure.
+
 syspart_start_sector:
         !8 0,0,0,0
 syspart_size_in_sectors:
@@ -3322,15 +3306,13 @@ syspart_service_directory_sector_count:
         !8 0,0
 
 syspart_resources_area_start:
-	!8 0,0,0,0
+        !8 0,0,0,0
 syspart_resources_area_size:
-	!8 0,0,0,0
-	
+        !8 0,0,0,0
+
 ;; /*  -------------------------------------------------------------------
 ;;     Hypervisor DOS work area and scratch pad at $BC00-$BCFF
 ;;     ---------------------------------------------------------------- */
-
-        ;; .segment DOSWorkArea
         * = DOSWorkArea_Start
 
 hyppo_scratchbyte0:
@@ -3391,9 +3373,11 @@ dos_dirent_longfilename:
 dos_dirent_longfilename_length:
         !8 0
 
+;; Raw, space-padded, dot-less 8.3 short name (11 bytes used; the
+;; trailing 2 bytes below are unused pad).
 dos_dirent_shortfilename:
-        !text "FILENAME.EXT"
-        !8 0
+        !text "FILENAMEEXT"
+        !8 0,0
 
 dos_dirent_cluster:
         !8 0,0,0,0
@@ -3418,14 +3402,6 @@ dos_requested_filename:
 
 ;;         ========================
 
-        ;; Details about current DOS request
-        ;;
-dos_sectorsread:                !16 0
-dos_bytes_remaining:            !16 0,0
-dos_current_sector:             !16 0,0
-dos_current_cluster:            !16 0,0
-dos_current_sector_in_cluster:  !8 0
-
 ;; Current file descriptors
 ;; Each descriptor has:
 ;;   disk id : 1 byte ($00-$07 = file open, $FF = file closed)
@@ -3435,33 +3411,38 @@ dos_current_sector_in_cluster:  !8 0
 ;;   current sector in cluster : 1 byte
 ;;   offset in sector: 2 bytes
 ;;   file offset / $100 : 3 bytes
-;;
+
         dos_filedescriptor_max = 4
         dos_filedescriptor_offset_diskid = 0
         dos_filedescriptor_offset_mode = 1
         dos_filedescriptor_offset_startcluster = 2
-;;
+
 ;; These last four fields must be contiguous,
 ;; as dos_rmfile and dos_open_current_file rely on it.
-;;
+
         dos_filedescriptor_offset_currentcluster = 6
         dos_filedescriptor_offset_sectorincluster = 10
         dos_filedescriptor_offset_offsetinsector = 11
         dos_filedescriptor_offset_fileoffset = 13
 
 dos_file_descriptors:
-        !8 $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0        ;; each is 16 bytes
-        !8 $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-        !8 $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-        !8 $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        ;; !fill's count must be a compile-time constant known before
+        ;; dos_filedescriptor_stride is declared below (ACME needs it
+        ;; during address bookkeeping, unlike an ordinary forward
+        ;; reference), so this is 15 (stride-1) written out, not
+        ;; computed from the constant.
+        !8 $FF : !fill 15, 0
+        !8 $FF : !fill 15, 0
+        !8 $FF : !fill 15, 0
+        !8 $FF : !fill 15, 0
 
-    ;; The current file descriptor
-    ;;
+        ;; The current file descriptor
+
 dos_current_file_descriptor:
         !8 0
 
-    ;; Offset of current file descriptor
-    ;;
+        ;; Offset of current file descriptor
+
 dos_current_file_descriptor_offset:
         !8 0
 
@@ -3470,33 +3451,30 @@ dos_first_vfat_chunk_in_list_flag:
 
 ;;         ========================
 
-    ;; For providing feedback on why DOS calls have failed
-    ;; There is a set of error codes defined in hyppo_dos.asm
+        ;; For providing feedback on why DOS calls have failed
+        ;; There is a set of error codes defined in hyppo_dos.asm
 dos_error_code:
         !8 $00
 
-    ;; Similarly for system partition related errors
+        ;; Similarly for system partition related errors
 syspart_error_code:
         !8 $00
 
-    ;; Non-zero if there is a valid system partition
+        ;; Non-zero if there is a valid system partition
 syspart_present:
         !8 $00
 
+
 ;; /*  -------------------------------------------------------------------
-;;     Reserved space for Hypervisor Process work area $BD00-$BDFF
+;;     Reserved space for Hypervisor Process work area at $BD00-$BEFF
 ;;     ---------------------------------------------------------------- */
-        ;; .segment ProcessDescriptors
         * = ProcessDescriptors_Start
 
 !src "process_descriptor.asm"
 
-
-
 ;; /*  -------------------------------------------------------------------
 ;;     Reserved space for Hyppo ZP at $BF00-$BFFF
 ;;     ---------------------------------------------------------------- */
-        ;; .segment HyppoZP
         * = HyppoZP_Start
 
         ;; Temporary vector storage for DOS
@@ -3588,6 +3566,74 @@ d71_clustersneeded:
 d81_clustercount:
         !16 0
 dos_attach_offset:
+        !8 0
+
+;; Saved dos_disk_cwd_cluster across a rename that has to temporarily
+;; repoint the cwd at the target's parent directory.
+dos_rename_saved_cwd:
+        !8 0,0,0,0
+
+;; Target cluster number for dos_find_dirent_in_cwd_by_cluster's scan.
+dos_dfdcbc_target:
+        !8 0,0,0,0
+dos_dirent_lfn_checksum:
+        !8 0
+
+dos_filedescriptor_stride = 16
+
+dos_sectorsread:
+        !16 0
+dos_bytes_remaining:
+        !16 0,0
+dos_current_sector:
+        !16 0,0
+dos_current_cluster:
+        !16 0,0
+dos_current_sector_in_cluster:
+        !8 0
+
+;; Saved copy of a dirent's offset 11-31 span (attributes, create/
+;; access/modify date+time, cluster, length - everything except the
+;; name fields) across a rename-to-LFN relocation.
+;; dos_write_lfn_and_shortentry only fills in the name
+;; fields, leaving the rest as whatever garbage was already in the
+;; freshly-found slot, and the old entry has already been deleted
+;; from its old slot by the time the new one is written, so this has
+;; to survive somewhere in the meantime.
+dos_rename_saved_dirent:
+        !8 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+;; Saved dos_current_file_descriptor/_offset across a nested dos_opendir
+dos_saved_current_fd:
+        !8 0
+dos_saved_current_fd_offset:
+        !8 0
+
+;; Mode/target run length for the shared dirent scanner. Needs its own
+;; byte rather than a dos_scratch_byte_*: the scan stays live across
+;; dos_file_advance_to_next_sector, which clobbers those when it has to
+;; walk the FAT to the next cluster.
+dos_dirscan_target:
+        !8 0
+
+;; Tilde sequence number and the offset it gets written to, while
+;; ran_build_tilde walks ~1..~9. Both stay live across the
+;; dos_shortname_exists call that tests each candidate, so they can't
+;; live in zptempv2/zptempp.
+dos_tilde_number:
+        !8 0
+dos_tilde_digit_pos:
+        !8 0
+
+;; Bounds the walk up the frozen cwd's ancestry on resume, so that a
+;; damaged ".." chain cannot loop forever.
+dos_cwd_walk_limit:
+        !8 0
+
+;; Nonzero while sd_map_sectorbuffer has the caller's $D030 colour-RAM
+;; bit cleared, so that sd_unmap_sectorbuffer knows to put it back.
+;; Addressed absolutely - nothing else in sdfat.asm assumes a base page.
+sd_saved_cram2k:
         !8 0
 
         ;; Make sure we pad to full size
