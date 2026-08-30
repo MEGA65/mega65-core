@@ -198,7 +198,7 @@ void disassemble_rel8(FILE *f, struct instruction_log *log)
 
 void disassemble_rel16(FILE *f, struct instruction_log *log)
 {
-  fprintf(f, "$%04X", log->pc + 2 + rel16_delta(log->bytes[1] + (log->bytes[1] << 8)));
+  fprintf(f, "$%04X", log->pc + 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8)));
 }
 
 void disassemble_imm(FILE *f, struct instruction_log *log)
@@ -607,6 +607,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     fprintf(f, "EOR  ");
     disassemble_izpz(f, log);
     break;
+  case 0x53:
+    fprintf(f, "BVC  ");
+    disassemble_rel16(f, log);
+    break;
   case 0x56:
     fprintf(f, "LSR  ");
     disassemble_zpx(f, log);
@@ -734,6 +738,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
   case 0x72:
     fprintf(f, "ADC  ");
     disassemble_izpz(f, log);
+    break;
+  case 0x73:
+    fprintf(f, "BVS  ");
+    disassemble_rel16(f, log);
     break;
   case 0x74:
     fprintf(f, "STZ  ");
@@ -966,6 +974,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     fprintf(f, "LDA  ");
     disassemble_izpz(f, log);
     break;
+  case 0xb3:
+    fprintf(f, "BCS  ");
+    disassemble_rel16(f, log);
+    break;
   case 0xb4:
     fprintf(f, "LDY  ");
     disassemble_zpx(f, log);
@@ -1137,6 +1149,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
   case 0xE9:
     fprintf(f, "SBC  ");
     disassemble_imm(f, log);
+    break;
+  case 0xd3:
+    fprintf(f, "BNE  ");
+    disassemble_rel16(f, log);
     break;
   case 0xea:
     fprintf(f, "EOM");
@@ -2602,7 +2618,7 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     if (cpu->regs.flags & FLAG_N)
       cpu->regs.pc += 3;
     else
-      cpu->regs.pc += 2 + rel16_delta(log->bytes[1]);
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
     break;
   case 0x14: // TRB $xx
     log->len = 2;
@@ -2831,7 +2847,7 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     if (!(cpu->regs.flags & FLAG_N))
       cpu->regs.pc += 3;
     else
-      cpu->regs.pc += 2 + rel16_delta(log->bytes[1]);
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
     break;
   case 0x34: // BIT $xx,X
     log->len = 2;
@@ -3028,6 +3044,13 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     cpu->regs.a = v;
     log->len = 2;
     cpu->regs.pc += 2;
+    break;
+  case 0x53: // BVC $rrrr
+    log->len = 3;
+    if (!(cpu->regs.flags & FLAG_V))
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
+    else
+      cpu->regs.pc += 3;
     break;
   case 0x55: // EOR $nn,X
     v = read_memory(cpu, addr_zpx(cpu, log));
@@ -3234,6 +3257,13 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     log->len = 2;
     cpu->regs.pc += 2;
     break;
+  case 0x73: // BVS $rrrr
+    log->len = 3;
+    if ((cpu->regs.flags & FLAG_V))
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
+    else
+      cpu->regs.pc += 3;
+    break;
   case 0x74: // STZ $xx,X
     log->len = 2;
     cpu->regs.pc += 2;
@@ -3322,7 +3352,7 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     break;
   case 0x83: // BRA $rrrr
     log->len = 3;
-    cpu->regs.pc += 2 + rel16_delta(log->bytes[1]);
+    cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
     break;
   case 0x84: // STY $xx
     log->len = 2;
@@ -3597,6 +3627,13 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     cpu->regs.a = read_memory(cpu, addr_izpz(cpu, log));
     update_nz(cpu->regs.a);
     break;
+  case 0xb3: // BCS $rrrr
+    log->len = 3;
+    if ((cpu->regs.flags & FLAG_C))
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
+    else
+      cpu->regs.pc += 3;
+    break;
   case 0xb4: // LDY $xx,X
     log->len = 2;
     cpu->regs.pc += 2;
@@ -3836,6 +3873,13 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     log->len = 2;
     cpu->regs.pc += 2;
     break;
+  case 0xd3: // BNE $rrrr
+    log->len = 3;
+    if (!(cpu->regs.flags & FLAG_Z))
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
+    else
+      cpu->regs.pc += 3;
+    break;
   case 0xe1: // SBC ($nn,X)
     sbc(cpu, read_memory(cpu, addr_izpx(cpu, log)));
     log->len = 2;
@@ -3930,7 +3974,7 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
   case 0xf3: // BEQ $rrrr
     log->len = 3;
     if (cpu->regs.flags & FLAG_Z)
-      cpu->regs.pc += 3 + rel16_delta(log->bytes[1]);
+      cpu->regs.pc += 3 + rel16_delta(log->bytes[1] + (log->bytes[2] << 8));
     else
       cpu->regs.pc += 3;
     break;
