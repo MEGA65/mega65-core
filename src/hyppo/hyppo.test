@@ -183,3 +183,47 @@ check registers
 dump instructions 1587000 to 1588000
 test end
 
+
+####################################################################
+#
+# trap_dos_mkfile searches for free space by stepping through the FAT
+# 128 clusters at a time. It used to do so with no upper bound - the
+# source carried an "XXX Check that we haven't hit the end of the file
+# system" where the test should have been - so on a card without a big
+# enough run of free space it walked off the end of the FAT, read
+# whatever followed, accepted the first sectors that happened to be
+# blank, and allocated clusters that do not exist. The file came out at
+# its full length with a chain that cannot be attached, and writing to
+# it put data outside the file system.
+#
+# The test enters at the bounds check itself with the search cursor
+# already past the last cluster. Hyppo keeps its zero page at $BFxx,
+# hence the B register.
+#
+# Note "ignore all regs": check registers compares every register, so
+# without it the unmentioned ones mismatch and the test fails. And the
+# check line is required - with expect but no check, the expectations are
+# never compared and the test passes whatever happens. Both were verified
+# by giving this test a deliberately wrong expectation and confirming it
+# then fails.
+#
+####################################################################
+test "mkfile stops its cluster search at the end of the file system"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+# First disk in the table, cluster count $00001000
+poke dos_disk_table_offset $00
+poke $BB12 $00 $10 $00 $00
+# Cursor has stepped past the last cluster
+poke zptempv32 $80 $10 $00 $00
+breakpoint mkfile_fail_with_a
+breakpoint find_empty_fat_page_loop
+jmp mkfile_check_end_of_fs
+ignore all regs
+expect pc = mkfile_fail_with_a
+# A carries the error code into mkfile_fail_with_a
+expect a = $8c
+check registers
+test end
