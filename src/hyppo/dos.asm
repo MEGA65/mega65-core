@@ -207,8 +207,12 @@ trap_dos_getdisksize:
         ;; Y: MSB of destination area (same convention as get_proc_desc).
         ;; Output, starting at $YY00:
         ;;   $00 dword  total sector count of the partition
-        ;;   $04 byte   sectors per cluster
-        ;;   $05 dword  total cluster count of the partition
+        ;;   $04 dword  total cluster count of the partition
+        ;;   $08 byte   sectors per cluster
+        ;;
+        ;; The order follows dos_disk_table's own field order, so that
+        ;; each run of fields copies out as a loop rather than as a
+        ;; hand-unrolled sequence.
         ;;
         ;; Example:
         ;;   LDY #$80             ; destination page for the result
@@ -221,35 +225,23 @@ gds_havearea:
 
         ldx dos_disk_table_offset
         ldy #0
+gds_sector_count:
+        lda dos_disk_table + fs_sector_count,x
+        sta (<hypervisor_userspace_copy_vector),y
+        inx
+        iny
+        cpy #4
+        bne gds_sector_count
 
-        lda dos_disk_table + fs_sector_count + 0,x
+        ;; cluster count and sectors per cluster are adjacent fields
+        ldx dos_disk_table_offset
+gds_cluster_count:
+        lda dos_disk_table + fs_fat32_cluster_count,x
         sta (<hypervisor_userspace_copy_vector),y
+        inx
         iny
-        lda dos_disk_table + fs_sector_count + 1,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-        lda dos_disk_table + fs_sector_count + 2,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-        lda dos_disk_table + fs_sector_count + 3,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-
-        lda dos_disk_table + fs_fat32_sectors_per_cluster,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-
-        lda dos_disk_table + fs_fat32_cluster_count + 0,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-        lda dos_disk_table + fs_fat32_cluster_count + 1,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-        lda dos_disk_table + fs_fat32_cluster_count + 2,x
-        sta (<hypervisor_userspace_copy_vector),y
-        iny
-        lda dos_disk_table + fs_fat32_cluster_count + 3,x
-        sta (<hypervisor_userspace_copy_vector),y
+        cpy #9
+        bne gds_cluster_count
 
         +Checkpoint "trap_dos_getdisksize <success>"
         sec
@@ -901,15 +893,13 @@ trap_dos_mkfile:
         ;; XXX Must be a file in the current directory only.
         ;; XXX Can only create normal files, not directories
         ;;     (change attribute after).
-        ;; XXX Allocates 512KB at a time, i.e., a full FAT sector's
-        ;;     worth of clusters.
-        ;; XXX Allocates a contiguous block, so that D81s etc can
-        ;;     be created, and guaranteed contiguous on the storage,
-        ;;     so that they can be mounted.
         ;; XXX Size of file specified in $ZZYYXX, i.e., limit of 16MB.
-        ;; XXX Doesn't handle full file systems (or ones without enough space
-        ;;     free properly. Should check candidate cluster number is not too
-        ;;     high, and abort if it is.
+        ;;
+        ;; Searches in units of a whole FAT sector - 128 clusters - so
+        ;; that the space it finds is contiguous, which is what lets a
+        ;; D81 created here be mounted. The chain it then writes stops at
+        ;; the exact number of clusters the file needs, leaving the rest
+        ;; of the last sector free.
 
         ;; First, make sure the file doesn't already exist
         jsr dos_findfile
@@ -923,15 +913,84 @@ trap_dos_mkfile:
         ;; any) it needs, before allocating anything.
         jsr dos_analyze_name_or_fail
 
-        ;; We need 1 FAT sector per 512KB of data.
-        ;; I.e., shift ZZ right by three bits to get number
-        ;; of empty FAT sectors we need to indicate sufficient space.
+        ;; How many clusters the file actually needs.
+        ;;
+        ;; The search below works a whole FAT sector at a time, but the
+        ;; chain written afterwards has to stop at exactly this many
+        ;; clusters. A chain longer than the file's recorded length is
+        ;; malformed FAT32 in its own right, and dos_checkimage rejects
+        ;; it outright, so a D81 created with a rounded-up chain could
+        ;; never be attached.
+        ;;
+        ;; clusters = ceil(ceil(size / 512) / sectors_per_cluster).
+        ;; Nested round-ups compose, so this is the same answer as
+        ;; dividing once by the cluster size in bytes, and it never has
+        ;; to hold anything wider than 16 bits or double
+        ;; sectors_per_cluster (which is a byte, and can be 128).
+mkfile_count_clusters:
+        ldx dos_disk_table_offset
+
+        ;; 256-byte pages, rounded up: the size's own low byte only
+        ;; matters as "is there a part page as well", which cmp #1
+        ;; turns into a carry.
+        lda hypervisor_x
+        cmp #1
+        lda hypervisor_y
+        adc #0
+        sta <mkfile_clusters_left
         lda hypervisor_z
-        lsr
-        lsr
-        lsr
+        adc #0
+        sta <(mkfile_clusters_left+1)
+        bcc +
+        ;; 16MB is the trap's documented limit; a size right at it
+        ;; carries out of the page count, so peg it just below, where
+        ;; the round-up below still has somewhere to go.
+        lda #$fe
+        sta <mkfile_clusters_left
+        lda #$ff
+        sta <(mkfile_clusters_left+1)
++
+        ;; ...and on into sectors, rounded up again
+        inw <mkfile_clusters_left
+        lsr <(mkfile_clusters_left+1)
+        ror <mkfile_clusters_left
+
+        ;; Round up once more, then divide by sectors per cluster: it is
+        ;; always a power of two, so that is a shift for each halving it
+        ;; takes to get back to 1.
+        lda dos_disk_table + fs_fat32_sectors_per_cluster,x
+        sec
+        sbc #1
         clc
-        adc #$01
+        adc <mkfile_clusters_left
+        sta <mkfile_clusters_left
+        bcc +
+        inc <(mkfile_clusters_left+1)
++       lda dos_disk_table + fs_fat32_sectors_per_cluster,x
+-       cmp #1
+        beq +
+        lsr <(mkfile_clusters_left+1)
+        ror <mkfile_clusters_left
+        lsr
+        bra -
++
+        ;; Even an empty file gets a cluster of its own.
+        lda <mkfile_clusters_left
+        ora <(mkfile_clusters_left+1)
+        bne +
+        inc <mkfile_clusters_left
++
+        ;; FAT sectors to look for, at 128 clusters to a sector. The
+        ;; whole-sector granularity is what makes the allocation
+        ;; contiguous, which D81s need in order to be mountable.
+        lda <mkfile_clusters_left
+        clc
+        adc #127
+        sta <dos_scratch_byte_2
+        lda <(mkfile_clusters_left+1)
+        adc #0
+        asl <dos_scratch_byte_2         ;; (clusters+127) >> 7
+        rol
         sta <dos_scratch_byte_1
 
         ;; Now go looking for empty FAT sectors
@@ -979,6 +1038,18 @@ find_empty_fat_page_loop:
 
 fat_sector_is_empty:
         inc <dos_scratch_byte_2
+        ldx <dos_scratch_byte_2
+        cpx #1
+        bne mkfile_still_in_run
+        ;; First empty sector of a run, so this is where the file would
+        ;; start. Noting it here is what lets the search itself run
+        ;; forwards only.
+        ldx #3
+-	lda <zptempv32,x
+        sta <mkfile_start_cluster,x
+        dex
+        bpl -
+mkfile_still_in_run:
         lda <dos_scratch_byte_2
         cmp <dos_scratch_byte_1
         beq found_enough_contiguous_free_space
@@ -1025,29 +1096,8 @@ mkfile_check_end_of_fs:
 
 found_enough_contiguous_free_space:
 
-        ;; Space begins <dos_scratch_byte_2 FAT sectors before here,
-        ;; so rewind back to there by taking $80 away for each count.
-        dec <dos_scratch_byte_2
-
--	lda <dos_scratch_byte_2
-        beq +
-        lda <(zptempv32+0)
-        sec
-        sbc #$80
-        sta <(zptempv32+0)
-        lda <(zptempv32+1)
-        sbc #0
-        sta <(zptempv32+1)
-        lda <(zptempv32+2)
-        sbc #0
-        sta <(zptempv32+2)
-        lda <(zptempv32+3)
-        sbc #0
-        sta <(zptempv32+3)
-        dec <dos_scratch_byte_2
-        jmp -
-+
-        ;; zptempv32 now contains the starting cluster for our file
+        ;; mkfile_start_cluster is the file's first cluster: the search
+        ;; noted it when this run of free FAT sectors began.
 
         ;; Find (N+1) consecutive free dirent slots: N LFN pieces
         ;; (zptempv32b+0) plus the short entry itself.
@@ -1063,85 +1113,82 @@ found_enough_contiguous_free_space:
         ;; the same sector buffer for FAT reads/writes.
         ldx #3
 -	lda $d681,x
-        sta <zptempv2,x
+        sta <mkfile_dirent_sector,x
         dex
         bpl -
 
-        ;; Update both FATs to make the allocation
-
-        ;; Work out how many sectors full of incrementing clusters
-        ;; we need.
-        lda <dos_scratch_byte_1
-        sta <dos_scratch_byte_2
-
-        ;; Save the starting cluster too - the loop below walks the
-        ;; chain in place, so zptempv32 ends up holding the last
-        ;; cluster, not the first. Relocate zptempv32b+0 (the LFN piece
-        ;; count, needed again after this loop) into <dos_scratch_byte_1
-        ;; first, freeing zptempv32b as the save slot.
-        lda <zptempv32b
-        sta <dos_scratch_byte_1
+        ;; Update both FATs to make the allocation. The loop walks the
+        ;; chain in zptempv32, so start it at the file's first cluster.
         ldx #3
--	lda <zptempv32,x
-        sta <zptempv32b,x
+-	lda <mkfile_start_cluster,x
+        sta <zptempv32,x
         dex
         bpl -
+
 mkfile_fat_write_loop:
         ;; Get the (currently empty) sector
         jsr dos_copy_zptempv32_and_read_fat_sector
 
-        ;; Update cluster number and write it into the field
-        ldy #0
--
-        lda #1 : jsr dos_add_a_to_zptempv32
-        lda <(zptempv32+0) : sta sd_sectorbuffer,y : iny
-        lda <(zptempv32+1) : sta sd_sectorbuffer,y : iny
-        lda <(zptempv32+2) : sta sd_sectorbuffer,y : iny
-        lda <(zptempv32+3) : sta sd_sectorbuffer,y : iny
-        bne -
--
-        lda #1 : jsr dos_add_a_to_zptempv32
-        lda <(zptempv32+0) : sta sd_sectorbuffer+$100,y : iny
-        lda <(zptempv32+1) : sta sd_sectorbuffer+$100,y : iny
-        lda <(zptempv32+2) : sta sd_sectorbuffer+$100,y : iny
-        lda <(zptempv32+3) : sta sd_sectorbuffer+$100,y : iny
-        bne -
+        ;; mkfile_fat_ptr walks the 128 FAT entries in it, four bytes
+        ;; each.
+        ;; Entries past the end of the file are simply not written: the
+        ;; sector was checked empty during the search and is re-read
+        ;; fresh here, so anything left alone is already zero, i.e.
+        ;; still free.
+        lda #<sd_sectorbuffer
+        sta <mkfile_fat_ptr
+        lda #>sd_sectorbuffer
+        sta <mkfile_fat_ptr+1
 
-        ;; If the last FAT sector for this file, then
-        ;; the last cluster entry should be $0FFFFFF8 to mark
-        ;; end of file.
-        lda <dos_scratch_byte_2
-        cmp #1
-        bne +
-        lda #$F8
-        sta $dffc
-        lda #$FF
-        sta $dffd
-        sta $dffe
-        lda #$0F
-        sta $dfff
-+
-        ;; Write FAT sector to FAT1, then mirror to FAT2.
+mkfile_fat_entry:
+        ;; Each entry links to the next cluster...
+        lda #1
+        jsr dos_add_a_to_zptempv32
+
+        ;; ...except the file's last one, which ends the chain.
+        dew <mkfile_clusters_left
+        beq mkfile_fat_end_of_chain
+        jsr mkfile_put_fat_entry
+
+        lda <mkfile_fat_ptr
+        clc
+        adc #4
+        sta <mkfile_fat_ptr
+        bcc +
+        inc <mkfile_fat_ptr+1
++       lda <mkfile_fat_ptr+1
+        cmp #>(sd_sectorbuffer+$200)
+        bne mkfile_fat_entry
+
+        ;; Sector full: write it to FAT1, mirror to FAT2, and carry the
+        ;; chain on into the next one.
         jsr dos_write_sector_and_fat2_mirror
-
-        ;; More FAT sectors to go?
-        dec <dos_scratch_byte_2
-        beq +
         bra mkfile_fat_write_loop
-+
+
+mkfile_fat_end_of_chain:
+        ;; $0FFFFFF8 marks the end of the file. zptempv32 is the running
+        ;; cluster number, but we are done with it - it gets reloaded
+        ;; from mkfile_start_cluster below.
+        lda #$F8
+        sta <(zptempv32+0)
+        lda #$FF
+        sta <(zptempv32+1)
+        sta <(zptempv32+2)
+        lda #$0F
+        sta <(zptempv32+3)
+        jsr mkfile_put_fat_entry
+        jsr dos_write_sector_and_fat2_mirror
 
         ;; Restore the starting cluster and directory sector address,
         ;; and re-read that sector fresh before writing the new dirent.
         ldx #3
--	lda <zptempv32b,x
+-	lda <mkfile_start_cluster,x
         sta <zptempv32,x
         dex
         bpl -
-        lda <dos_scratch_byte_1
-        sta <zptempv32b
 
         ldx #3
--	lda <zptempv2,x
+-	lda <mkfile_dirent_sector,x
         sta $d681,x
         dex
         bpl -
@@ -1159,6 +1206,18 @@ mkfile_fat_write_loop:
 
         ;; All done: File has been created.
         jmp return_from_trap_with_success
+
+;; Store zptempv32 as the four-byte FAT entry at mkfile_fat_ptr.
+mkfile_put_fat_entry:
+        ldx #0
+        ldy #0
+-	lda <zptempv32,x
+        sta (<mkfile_fat_ptr),y
+        inx
+        iny
+        cpx #4
+        bne -
+        rts
 
 ;; ---- trap_dos_closefile ----
 
