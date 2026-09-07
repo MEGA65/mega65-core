@@ -987,7 +987,39 @@ fat_sector_is_empty:
         lda #$80
         jsr dos_add_a_to_zptempv32
 
-        ;; XXX Check that we haven't hit the end of the file system
+mkfile_check_end_of_fs:
+        ;; Stop when the search reaches the end of the file system.
+        ;;
+        ;; Without this the loop runs off the end of the FAT, reads
+        ;; whatever follows it, accepts the first sectors that happen to
+        ;; read as blank, and allocates clusters that do not exist. The
+        ;; file is then created at its full length with a chain that
+        ;; cannot be attached, and writing to it puts data outside the
+        ;; file system altogether - so the failure is silent at creation
+        ;; and destructive afterwards.
+        ;;
+        ;; Unsigned 32-bit compare: cluster >= cluster_count means we are
+        ;; past the end. Testing equality alone, as the check in
+        ;; dos_write.asm does, is not enough here because this walks 128
+        ;; clusters at a stride and can step straight over the last one.
+        ;;
+        ;; dos_disk_table_offset is already valid: dos_findfile above and
+        ;; read_fat_sector_for_cluster in the loop both work through the
+        ;; current disk.
+        ldx dos_disk_table_offset
+        sec
+        lda <(zptempv32+0)
+        sbc dos_disk_table + fs_fat32_cluster_count + 0,x
+        lda <(zptempv32+1)
+        sbc dos_disk_table + fs_fat32_cluster_count + 1,x
+        lda <(zptempv32+2)
+        sbc dos_disk_table + fs_fat32_cluster_count + 2,x
+        lda <(zptempv32+3)
+        sbc dos_disk_table + fs_fat32_cluster_count + 3,x
+        bcc +
+        lda #dos_errorcode_no_space
+        jmp mkfile_fail_with_a
++
 
         bra find_empty_fat_page_loop
 
