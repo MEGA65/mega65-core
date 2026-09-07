@@ -168,8 +168,7 @@ task_asblankslate:
 
         jsr task_new_processcontrolblock
 
-        jsr task_set_c64_memorymap
-        rts
+        jmp task_set_c64_memorymap
 
 task_set_as_system_task:
         ;; Task ID is reserved for the hypervisor and its helpers, and prevents freezing
@@ -238,7 +237,7 @@ ethernet_remote_trap:
         lda #>$8000
         sta hypervisor_pch
 
-        jmp safe_exit_to_loaded_program
+        bra safe_exit_to_loaded_program
 
 unstable_illegal_opcode_trap:
 kill_opcode_trap:
@@ -261,9 +260,14 @@ restore_press_trap:
 
 non_hypervisor_task:
 
+        ;; Carry the task's current directory into the process descriptor
+        ;; before the freeze writes that page out.
+        jsr dos_save_cwd_to_task
+
         ;; Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
+
         ;; and DMA audio
         lda #$00
         sta $d711

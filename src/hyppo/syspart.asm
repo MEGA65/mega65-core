@@ -137,12 +137,11 @@ spo2:        lda $de00,x
 
         ;; Copy bytes from offset $10 - $37 into syspart_structure
         ;; XXX It is assumed that these fields are aligned with each other
-        ldx #$10
-spo3:        lda $de00,x
-        sta syspart_structure,x
-        inx
-        cpx #$38
-        bne spo3
+        ldx #$27        ;; ($38-$10-1) = 39 iterations, x counts down to 0
+spo3:        lda $de10,x
+        sta syspart_structure+$10,x
+        dex
+        bpl spo3
 
 	;; Add start of system partition to the start of the shared resource area.
 	;; This allows the hypervisor trap to simply add the requested sector within
@@ -255,12 +254,27 @@ wasnt_ff:
         ;; perfect, but it should already be accurate to within one raster line.
 
 
+        ;; Bounded wait: if $D012 is ever unreachable (e.g. C64 IO
+        ;; personality not mapped in for some reason).
         lda #$ff
+        ldx #$00
 @unfreezesyncwait:
         cmp $d012
+        beq @unfreezesyncwait_done
+        inx
         bne @unfreezesyncwait
+@unfreezesyncwait_done:
         ;; Clear any pending raster interrupt, to avoid problems.
         dec $d019
+
+        ;; The process descriptor has been restored by now, so the task's
+        ;; own directory can be put back - the freezer menu will have left
+        ;; the cwd wherever it was last browsed to.
+        jsr dos_restore_cwd_to_task
+
+        ;; Plain DMA restoration of PCL/PCH/hypervisor_cpuport01 (part of
+        ;; the hyperregs region) is reliable here on its own - no late
+        ;; re-apply needed.
         sta hypervisor_enterexit_trigger
 
 syspart_get_slot_count_trap:
@@ -501,13 +515,13 @@ syspart_configsector_apply:
         and #$40
         beq is_stereo
         jsr audio_set_mono
-        jmp done_audio
+        bra done_audio
 is_stereo:
         lda $de03
         and #$20
         bne is_mirrored
         jsr audio_set_stereo
-        jmp done_audio
+        bra done_audio
 is_mirrored:
         jsr audio_set_stereomirrored
 done_audio:
@@ -522,15 +536,14 @@ done_audio:
         lda $de05
         sta mouse_detect_ctrl
 
-        ;; Enable/disable experimental long filename support
-        lda #$4c                 ; Disable LFN support by default
-        sta disable_lfn_byte
+        ;; Enable/disable long filename support ($de0f bit 7 set = enabled)
         lda $de0f
-        bpl @nolfn
-        ;; Diable jump that disables LFN support
-        lda #$2c                 ; BIT $xxxx opcode
+        asl                      ; bit 7 -> carry
+        lda #$4c                 ; JMP $xxxx opcode (LFN support disabled)
+        bcc @setlfn
+        lda #$2c                 ; BIT $xxxx opcode (LFN support enabled)
+@setlfn:
         sta disable_lfn_byte
-@nolfn:
         ;; Copy MAC address
         ldx #$05
 maccopy:

@@ -104,7 +104,7 @@ sd_open_write_gate:
 
 write_non_mbr_sector:
         jsr sd_open_write_gate
-        jmp write_sector_trigger
+        bra write_sector_trigger
 write_mbr_sector:
         lda #$4D
         sta $d680
@@ -126,7 +126,7 @@ sd_wait_for_ready_reset_if_required:
         jsr sd_wait_for_ready
         bcs @isReady
         jsr sd_resetsequence
-        jmp sd_wait_for_ready_reset_if_required
+        bra sd_wait_for_ready_reset_if_required
 @isReady:
         rts
 
@@ -217,9 +217,17 @@ sd_map_sectorbuffer:
 
         ;; BG this clobbers .A, maybe we should protect .A as the UNMAP-function does? (see below)
 
-        ;; Clear colour RAM at $DC00 flag, as this prevents mapping of sector buffer at $DE00
-        lda #$01
-        trb $D030
+        ;; Clear colour RAM at $DC00 flag, as this prevents mapping of sector buffer at $DE00.
+        ;; Remember whether the caller had it set so that the unmap can put it back. Only the
+        ;; map that actually clears the bit records anything: a single trap maps the buffer
+        ;; several times but unmaps it once on the way out, so a later map must not overwrite
+        ;; the saved value with the already-cleared one.
+        lda $D030
+        and #$01
+        beq @cram2k_already_clear
+        sta sd_saved_cram2k
+        trb $D030                       ;; .A is $01 here
+@cram2k_already_clear:
 
         ;; Actually map the sector buffer
         lda #$81
@@ -234,6 +242,18 @@ sd_unmap_sectorbuffer:
         pha
         lda #$82
         sta $D680
+
+        ;; Give the caller back the colour RAM at $DC00 flag if the map cleared it. Setting it
+        ;; unconditionally would hand it to callers that never had it, which leaves tasks
+        ;; started from a DOS trap running with colour RAM over $DC00-$DFFF.
+        lda sd_saved_cram2k
+        beq @cram2k_done
+        lda #$00
+        sta sd_saved_cram2k
+        lda #$01
+        tsb $D030
+@cram2k_done:
+
         pla
         sec
         rts
@@ -247,6 +267,18 @@ sd_unmap_sectorbuffer:
 
         ;; Assumes fixed sector number (or byte address in case of SD cards) is loaded into $D681 - $D684
 
+;; NOTE: the retry below never gives up. sd_rws_checksuccess resets the card and
+;; returns carry clear on timeout, and we come straight back here, so a sector the
+;; card genuinely cannot read spins forever rather than failing. That matters on
+;; the unfreeze path, where a stale cwd cluster from a swapped card can reach it.
+;;
+;; Bounding it is not safe on its own. sd_readsector can already return carry
+;; clear today - sd_rws_checkbusy gives up without retrying if the card is busy on
+;; entry - and four of its callers ignore that. Three of them (the dirent writes in
+;; mkfile and dos_goto_direntstart_direct..., and dos_write.asm's "XXX Fail on
+;; error") go on to write through the sector buffer, so they would commit dirents
+;; built on stale contents. Giving up early would turn a hang into a corrupted
+;; directory. Fix the callers first, then bound this.
 sd_readsector:
         jsr sd_rws_checkbusy
 sd_readsector_retry:                               ;; ask for sector to be read
@@ -254,7 +286,7 @@ sd_readsector_retry:                               ;; ask for sector to be read
         sta $d680
         jsr sd_rws_checksuccess
         bcs +
-        jmp sd_readsector_retry
+        bra sd_readsector_retry
 +       rts
 
 ;;      ========================
@@ -270,7 +302,7 @@ sd_writesector_retry:                              ;; ask for sector to be writt
         jsr write_non_mbr_sector
         jsr sd_rws_checksuccess
         bcs +
-        jmp sd_writesector_retry
+        bra sd_writesector_retry
 +       rts
 
 ;;      ========================

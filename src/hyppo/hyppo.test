@@ -183,3 +183,103 @@ check registers
 dump instructions 1587000 to 1588000
 test end
 
+
+####################################################################
+#
+# trap_dos_mkfile searches for free space by stepping through the FAT
+# 128 clusters at a time. It used to do so with no upper bound - the
+# source carried an "XXX Check that we haven't hit the end of the file
+# system" where the test should have been - so on a card without a big
+# enough run of free space it walked off the end of the FAT, read
+# whatever followed, accepted the first sectors that happened to be
+# blank, and allocated clusters that do not exist. The file came out at
+# its full length with a chain that cannot be attached, and writing to
+# it put data outside the file system.
+#
+# The test enters at the bounds check itself with the search cursor
+# already past the last cluster. Hyppo keeps its zero page at $BFxx,
+# hence the B register.
+#
+# Note "ignore all regs": check registers compares every register, so
+# without it the unmentioned ones mismatch and the test fails. And the
+# check line is required - with expect but no check, the expectations are
+# never compared and the test passes whatever happens. Both were verified
+# by giving this test a deliberately wrong expectation and confirming it
+# then fails.
+#
+####################################################################
+test "mkfile stops its cluster search at the end of the file system"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+# First disk in the table, cluster count $00001000
+poke dos_disk_table_offset $00
+poke $FFFBB12 $00 $10 $00 $00
+# Cursor has stepped past the last cluster
+poke zptempv32 $80 $10 $00 $00
+breakpoint mkfile_fail_with_a
+breakpoint find_empty_fat_page_loop
+jmp mkfile_check_end_of_fs
+ignore all regs
+expect pc = mkfile_fail_with_a
+# A carries the error code into mkfile_fail_with_a
+expect a = $8c
+check registers
+test end
+
+####################################################################
+#
+# trap_dos_mkfile allocates by whole FAT sectors - 128 clusters, half a
+# megabyte on a card with 4KB clusters - but the chain it then writes
+# has to stop at exactly the length the caller asked for. It used to run
+# the chain out to the end of the last allocated sector, so a file's
+# cluster chain was always longer than its recorded length: malformed
+# FAT32, and dos_checkimage rejects it outright, so a .D81 created
+# through the trap could never be attached.
+#
+# This checks the cluster count the chain is now cut to. 819200 bytes (a
+# D81) on a card with 8 sectors per cluster is 200 clusters exactly,
+# which needs 2 FAT sectors to be found free.
+#
+# The run stops at sd_map_sectorbuffer, the first thing after the sum
+# that would need a card to talk to.
+#
+# Note the $FFF..... addresses: symbols out of HICKUP.sym already
+# resolve to hyppo RAM ($FFF8000 up), but a bare $BB16 does not - it is
+# taken as chipram and the poke goes somewhere harmless instead, so the
+# test would run against a zeroed disk table without saying so.
+#
+####################################################################
+test "mkfile works out the exact number of clusters a file needs"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+# First disk in the table, 8 sectors (4KB) per cluster
+poke dos_disk_table_offset $00
+poke $FFFBB16 $08
+# Size in $ZZYYXX: 819200 bytes
+poke $FFD3641 $00
+poke $FFD3642 $80
+poke $FFD3643 $0C
+breakpoint sd_map_sectorbuffer
+jmp mkfile_count_clusters
+ignore all regs
+expect pc = sd_map_sectorbuffer
+# Incidental writes: the JSR's return address, the search cursor being
+# set up, and the colour RAM the emulator paints at load time. Without
+# these, check ram drowns the three values below in noise.
+ignore from HyppoStack_Start to HyppoStack_Start+255
+ignore from zptempv32 to zptempv32+3
+ignore from $ff80000 to $ff87fff
+# ...and the size we poked in ourselves
+ignore from $ffd3641 to $ffd3643
+# 819200 / 4096 = 200 clusters ($00C8)...
+expect $C8 at mkfile_clusters_left
+expect $00 at mkfile_clusters_left+1
+# ...which fit in 2 FAT sectors of 128 clusters each
+expect $02 at dos_scratch_byte_1
+check registers
+check ram
+test end

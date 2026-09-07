@@ -40,6 +40,7 @@ src/tests/*.list
 src/tests/*.map
 src/tests/*.label
 src/tests/*.lbl
+src/tests/*.sym
 src/tools/*.list
 src/tools/*.map
 src/tools/*.label
@@ -145,3 +146,7 @@ PASS.*
 # jenkins build artifacts
 JENKINS_BUILD_ID
 JENKINS_BUILD_VERSION
+
+# local hyppo DOS-trap exercisers, not part of the build
+src/tests/hyppo_dos_traps_test.a65
+src/tests/hyppo_dos_util.a65

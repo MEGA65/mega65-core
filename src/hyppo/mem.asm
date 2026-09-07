@@ -24,7 +24,7 @@ page_fault:
         jsr printhex
 
 pf1:    inc $d020
-        jmp pf1
+        bra pf1
 
 msg_pagefault:
         !text "PAGE FAULT: PC=$$$$, MAP=$$.$$$$.00     "

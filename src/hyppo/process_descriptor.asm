@@ -46,16 +46,25 @@ currenttask_d81_image0_name:
 currenttask_d81_image1_name:
         !text "                                "
 
-        ;; DOS work area is full, so some things over-flow here:
-
         ;; Used to temporarily stash the currently read SD card sector.
         ;; (mostly to hide when we have to read a FAT sector during file
         ;; access)
 dos_stashed_sd_sector_number:
         !8 0,0,0,0
 
+        ;; Where the task's current directory was when it froze. The DOS
+        ;; work area at $BC00 is not part of the frozen region set and is
+        ;; shared with the freezer menu, which browses around while it is
+        ;; up, so the cwd has to be carried across in here instead.
+currenttask_cwd_disk:
+        !8 0
+currenttask_cwd_cluster:
+        !8 0,0,0,0
 
-        ;; Make sure we don't over-flow the available space
+        ;; Fixes the file descriptor array's start (and hence its fixed
+        ;; 16-byte stride) at a known offset from "start", regardless of
+        ;; how much of the 128 bytes above is actually used - ACME warns
+        ;; ("Segment starts inside another one") if this ever overflows.
         * = start + $80
 
         ;; Now we have file control blocks for the open files/directories.
