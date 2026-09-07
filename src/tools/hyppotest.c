@@ -1036,6 +1036,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     fprintf(f, "CMP  ");
     disassemble_zp(f, log);
     break;
+  case 0xC3:
+    fprintf(f, "DEW  ");
+    disassemble_zp(f, log);
+    break;
   case 0xC6:
     fprintf(f, "DEC  ");
     disassemble_zp(f, log);
@@ -1133,6 +1137,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     break;
   case 0xE5:
     fprintf(f, "SBC  ");
+    disassemble_zp(f, log);
+    break;
+  case 0xE3:
+    fprintf(f, "INW  ");
     disassemble_zp(f, log);
     break;
   case 0xE6:
@@ -1396,9 +1404,14 @@ void cpu_log_reset(void)
 
 void cpu_stash_ram(void)
 {
-  // Remember the RAM contents before calling a routine
+  // Remember the RAM contents before calling a routine. Colour RAM and
+  // $FFDxxxx go in too: compare_ram_contents() checks them, so leaving
+  // them out of the snapshot meant every "check ram" reported the whole
+  // of colour RAM as changed, whatever the test had actually done.
   bcopy(chipram, chipram_expected, CHIPRAM_SIZE);
   bcopy(hypporam, hypporam_expected, HYPPORAM_SIZE);
+  bcopy(colourram, colourram_expected, COLOURRAM_SIZE);
+  bcopy(ffdram, ffdram_expected, sizeof(ffdram));
 }
 
 unsigned int addr_to_28bit(struct cpu *cpu, unsigned int addr, int writeP)
@@ -2455,7 +2468,12 @@ unsigned char stack_pop_ext(struct cpu *cpu, unsigned short amount, struct instr
       cpu->stack_underflow = true;
     cpu->regs.sp = new_sp;
   }
-  log->pop_blame[log->pops++] = memory_blame(cpu, cpu->regs.sp);
+  // Only the first two entries are ever read back (to blame whoever
+  // pushed the value), and log->pops is never reset, so a log entry
+  // reused by a long-running loop would run off the end of the array
+  // and corrupt the heap.
+  if (log->pops < MAX_POPS)
+    log->pop_blame[log->pops++] = memory_blame(cpu, cpu->regs.sp);
   return read_memory(cpu, cpu->regs.sp);
 }
 
@@ -3724,6 +3742,23 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     update_cmp_flags(v);
     log->len = 2;
     cpu->regs.pc += 2;
+    break;
+  case 0xC3: // DEW $nn
+  case 0xE3: // INW $nn
+    // 16-bit read-modify-write of a zero page word. N and Z come from
+    // the whole 16-bit result rather than from either byte, which is
+    // what makes "dew" followed by "beq" a 16-bit countdown.
+    log->len = 2;
+    cpu->regs.pc += 2;
+    {
+      unsigned int zpw = addr_zp(cpu, log);
+      unsigned int w = read_memory(cpu, zpw) | (read_memory(cpu, zpw + 1) << 8);
+      w = (w + (log->bytes[0] == 0xE3 ? 1 : -1)) & 0xffff;
+      MEM_WRITE16(cpu, zpw, w & 0xff);
+      MEM_WRITE16(cpu, zpw + 1, w >> 8);
+      cpu->regs.flag_n = (w & 0x8000) ? 1 : 0;
+      cpu->regs.flag_z = (w == 0);
+    }
     break;
   case 0xC6: // DEC $xx
     log->len = 2;

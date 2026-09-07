@@ -3579,6 +3579,27 @@ dos_dfdcbc_target:
 dos_dirent_lfn_checksum:
         !8 0
 
+;; trap_dos_mkfile's allocation state: the first cluster of the run of
+;; free space its search found, how many clusters of the file are still
+;; to be linked into the chain, where in the sector buffer the next FAT
+;; entry goes, and the directory sector the new dirent belongs in - held
+;; across the FAT loop, which reuses that same sector buffer.
+;;
+;; The last two have their own bytes rather than borrowing zptempv2 and
+;; zptempp. A sector address is four bytes and zptempv2 is two, so
+;; saving it there ran on into zptempp; a FAT pointer kept in zptempp
+;; then quietly rewrote half of the saved address, and the dirent was
+;; written to a nonsense sector instead of into the directory - the
+;; file was created but could not be found afterwards.
+mkfile_start_cluster:
+        !8 0,0,0,0
+mkfile_clusters_left:
+        !16 0
+mkfile_fat_ptr:
+        !16 0
+mkfile_dirent_sector:
+        !8 0,0,0,0
+
 dos_filedescriptor_stride = 16
 
 dos_sectorsread:
