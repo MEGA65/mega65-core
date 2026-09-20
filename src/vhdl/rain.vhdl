@@ -248,6 +248,8 @@ begin  -- rtl
   process(pixelclock)
     variable screenram_busy : std_logic := '0';
     variable yoffset : integer := 0;
+    variable char_k : integer range 0 to 7 := 0;
+    variable char_px : std_logic := '0';
   begin
     if rising_edge(pixelclock) then
 
@@ -670,7 +672,23 @@ begin  -- rtl
               line_screen_address <= line_screen_address + te_line_length;
             end if;
           end if;
-        elsif char_bit_count = 0 then
+        elsif ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='0'))
+            or ((last_xcounter_t1 /= last_xcounter_in) and (pal_mode='1'))
+        then
+          -- One branch per 640H pixel tick: either reload the next character
+          -- (exactly replacing the 0-decrement, so every cell is 16 ticks)
+          -- or advance the tick counter. The displayed bit is INDEXED from
+          -- char_bit_count (see char_px below) instead of rotating char_bits.
+          -- The old rotate+stretch scheme had three defects: (1) the stretch
+          -- phase free-ran across raster lines and, with an odd toggle count
+          -- per line, flipped every scanline - displacing alternate scanlines
+          -- of each glyph row one 640H pixel sideways (zig-zag glyph edges);
+          -- (2) it could not fit 8 font pixels x 2 ticks into the 16-tick
+          -- cell without a seam (an extra pixel on the right of some glyphs,
+          -- or a ghost of the first column at the cell end); (3) it displayed
+          -- bit 0 first, shifting every glyph one pixel right and wrapping
+          -- the rightmost font column to the left edge of the cell.
+          if char_bit_count = 0 then
           -- Request next character
           if xcounter_in >= debug_x and xcounter_in < (debug_x+10) then
             report
@@ -706,22 +724,8 @@ begin  -- rtl
           fetch_next_char <= '1';
           char_bit_count <= 15;
           column_counter <= column_counter + 1;
-        else
-          -- rotate bits for terminal chargen every 2 640H pixels
-          -- Delayed by 2 cycles to match pixel edge with real pixel edge.
-          -- (Actually we need to tweak the delay for PAL and NTSC differently
-          -- still for some reason?)
-          if ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='0'))
-            or ((last_xcounter_t1 /= last_xcounter_in) and (pal_mode='1'))
-          then
-            char_bit_stretch <= not char_bit_stretch;
-            if char_bit_stretch = '1' and char_bit_count /= 1 then
-              char_bits(7 downto 1) <= char_bits(6 downto 0);
-              char_bits(0) <= char_bits(7);
-            end if;
-            if char_bit_count /= 0 then
-              char_bit_count <= char_bit_count - 1;
-            end if;
+          else
+            char_bit_count <= char_bit_count - 1;
           end if;
         end if; 
 
@@ -847,6 +851,13 @@ begin  -- rtl
         feed <= Rain;
       end if;
 
+      -- Select the displayed font bit by indexing the latched character
+      -- byte with the tick counter: font rows are stored msb-left (see
+      -- assets/ascii00-7f.png), so display order is b7 down to b0, two
+      -- ticks per font pixel. Replaces the old rotate-based shifter.
+      char_k := (15 - char_bit_count) / 2;
+      char_px := char_bits(7 - char_k);
+
       -- Now that we know what we want to display, actually display it.
       if xcounter_in >= debug_x and xcounter_in < (debug_x+10) then
         report
@@ -877,7 +888,7 @@ begin  -- rtl
               vgablue_out <= x"00";
             end if;
           elsif (row_counter = 3 or row_counter = 4) then
-            if secure_mode_flag='0' or char_bits(0)='0' or column_visible='0' or te_blink_state='1' then
+            if secure_mode_flag='0' or char_px='0' or column_visible='0' or te_blink_state='1' then
               -- Hide the secure compartment instructions when not in secure mode
               -- (and otherwise show as solid orange slab when in secure mode
               -- for the off-phase blink.)
@@ -886,9 +897,9 @@ begin  -- rtl
                 vgagreen_out(6 downto 0) <= (others => '0');
                 vgagreen_out(7) <= '0';
               else
-                vgared_out <= (others => te_blink_state xor (char_bits(0) and column_visible));
-                vgagreen_out(6 downto 0) <= (others => te_blink_state xor (char_bits(0) and column_visible));
-                vgagreen_out(7) <= te_blink_state xor (char_bits(0) and column_visible);
+                vgared_out <= (others => te_blink_state xor (char_px and column_visible));
+                vgagreen_out(6 downto 0) <= (others => te_blink_state xor (char_px and column_visible));
+                vgagreen_out(7) <= te_blink_state xor (char_px and column_visible);
               end if;
               vgablue_out <= x"00";
             else
@@ -914,7 +925,7 @@ begin  -- rtl
 
           elsif row_counter >= te_header_line_count then
             -- In normal text area
-            if (char_bits(0) = '1') and column_visible='1' then
+            if (char_px = '1') and column_visible='1' then
               if is_cursor='1' and te_blink_state='1' then
                 -- Display visual beep by making background of monitor
                 -- terminal area flash red.
@@ -962,7 +973,7 @@ begin  -- rtl
           else
             -- In header of matrix mode
             -- Note that cursor is not visible in header area
-            if char_bits(0) = '0' or (column_visible='0') then
+            if char_px = '0' or (column_visible='0') then
               vgared_out <= (others => '0');
               vgagreen_out <= (others => '0');
               vgablue_out <= (others => '0');
