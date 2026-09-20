@@ -287,6 +287,12 @@ gcwd_havearea:
 
         jsr gcwd_cwd_to_zptempv32   ;; cur_cluster, walked up to root
 
+;; Test seam: gcwd_cwd_to_zptempv32's indexed base-page store
+;; (STA <zptempv32,x) can't be exercised from hyppotest - that tool's
+;; 4510 emulation ignores the B register for indexed zero-page
+;; addressing, so the write lands at plain $00xx instead of zptempv32.
+;; Tests enter here instead, with zptempv32 pre-poked directly.
+gcwd_after_cwd_copy:
         ldy #255
         lda #0
         sta (<hypervisor_userspace_copy_vector),y  ;; nul terminator
@@ -3625,6 +3631,10 @@ dos_find_parent_of_cluster:
         jsr sd_map_sectorbuffer
         jsr sd_readsector
 
+;; Test seam: sd_readsector can't be exercised from hyppotest (see
+;; dos_fstat_have_dirent). Tests enter here instead, with sd_sectorbuffer
+;; pre-poked directly.
+dos_ffpoc_have_sector:
         ldy #32+fs_fat32_dirent_offset_clusters_low
         lda sd_sectorbuffer,y
         sta dos_disk_cwd_cluster+0
@@ -5697,6 +5707,11 @@ dos_fstat:
         ;; rewind to start of directory entry
         jsr dos_goto_direntstart
 
+;; Test seam: dos_goto_direntstart's own sd_readsector can't be exercised
+;; from hyppotest (nothing there ever clears the busy bits sd_readsector
+;; sets on itself, so its poll loop never completes) - tests enter here
+;; instead, with the sector buffer and FD offsetinsector pre-poked.
+dos_fstat_have_dirent:
         ldy #32
         lda dos_current_file_descriptor_offset
         ora #dos_filedescriptor_offset_offsetinsector

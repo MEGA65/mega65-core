@@ -1028,6 +1028,10 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     fprintf(f, "CMP  ");
     disassemble_izpx(f, log);
     break;
+  case 0xC2:
+    fprintf(f, "CPZ  ");
+    disassemble_imm(f, log);
+    break;
   case 0xC4:
     fprintf(f, "CPY  ");
     disassemble_zp(f, log);
@@ -3904,6 +3908,12 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     break;
   case 0xE0: // CPX #$nn
     v = cpu->regs.x - log->bytes[1];
+    update_cmp_flags(v);
+    log->len = 2;
+    cpu->regs.pc += 2;
+    break;
+  case 0xC2: // CPZ #$nn
+    v = cpu->regs.z - log->bytes[1];
     update_cmp_flags(v);
     log->len = 2;
     cpu->regs.pc += 2;
