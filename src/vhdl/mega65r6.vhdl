@@ -55,7 +55,7 @@ entity container is
          kb_tms : out std_logic := '0';
          kb_tdi : out std_logic := '0';
          
--         kb_jtagen : out std_logic := '0';
+         kb_jtagen : out std_logic := '0';
          -- Direct joystick lines
          fa_left : in std_logic;
          fa_right : in std_logic;
