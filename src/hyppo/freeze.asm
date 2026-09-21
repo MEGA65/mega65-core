@@ -6,6 +6,30 @@
 version_sentinel_str = "VRS"
 version = 1
 
+;; dos_scratch_vector = $0FFD6200 (the freeze-slot's stashed SD/DMAgic
+;; register save area).
+freeze_point_at_stashed_regs:
+        lda #<$6200
+        sta <dos_scratch_vector+0
+        lda #>$6200
+        sta <dos_scratch_vector+1
+        lda #<$0ffd
+        sta <dos_scratch_vector+2
+        lda #>$0ffd
+        sta <dos_scratch_vector+3
+        rts
+
+;; Executes the DMA job described at freeze_region_dmalist.
+freeze_execute_dmalist:
+        lda #$ff
+        sta $d702
+        sta $d704
+        lda #>freeze_region_dmalist
+        sta $d701
+        lda #<freeze_region_dmalist
+        sta $d705
+        rts
+
 freeze_to_slot:
         ;; Freeze current running process to the specified slot
 
@@ -194,10 +218,9 @@ unfreeze_read_sector_and_wait:
         ;; success
 
         ;; Increment freeze slot sector number
+freeze_incsector_and_succeed:
         jsr sd_inc_sectornumber
-
         sec
-
         rts
 
 freeze_write_first_sector_and_wait:
@@ -232,10 +255,7 @@ freeze_write_first_sector_and_wait:
         dec $d020
 
         ;; Increment freeze slot sector number
-        jsr sd_inc_sectornumber
-
-        sec
-        rts
+        bra freeze_incsector_and_succeed
 
 freeze_write_sector_and_wait:
 
@@ -269,18 +289,14 @@ freeze_write_sector_and_wait:
         dec $d020
 
         ;; Increment freeze slot sector number
-        jsr sd_inc_sectornumber
-
-        sec
-        rts
+        bra freeze_incsector_and_succeed
 
 freeze_end_multi_block_write:
         jsr sd_wait_for_ready
 	jsr sd_open_write_gate
         lda #$06
         sta $d680
-        jsr sd_wait_for_ready
-        rts
+        jmp sd_wait_for_ready
 
 freeze_write_tries:
         !16 $0
@@ -381,13 +397,7 @@ freeze_region_dma_loop:
 @freezeExecuteDMA:
 
         ;; Execute DMA job
-        lda #$ff
-        sta $d702
-        sta $d704
-        lda #>freeze_region_dmalist
-        sta $d701
-        lda #<freeze_region_dmalist
-        sta $d705
+        jsr freeze_execute_dmalist
 
         ;; Write SD-card direct sector buffer to freeze slot
         ;; Flash a different colour while actually writing sector
@@ -416,7 +426,7 @@ freeze_region_dma_loop:
         adc #$00
         sta freeze_region_dmalist_source_bank
 
-        jmp freeze_region_dma_loop
+        bra freeze_region_dma_loop
 
 freeze_region_dma_done:
         rts
@@ -468,15 +478,14 @@ set_dma_length_based_on_freeze_dma_length_remaining:
 unfreeze_load_region:
         ;; X = offset into freeze_mem_list
 
-        ;; Check if end of list, if so, do nothing and return
+        ;; Check if end of list, if so, do nothing and return.
+        ;; Don't add other early returns here: skipping a region without
+        ;; reading its sectors leaves the SD sector number un-advanced and
+        ;; desyncs every region after it. Regions that must not be written
+        ;; back set bit 7 of their bank-count byte instead.
         lda freeze_mem_list+7,x
         cmp #$ff
-        beq @dontUnfreeze
-        ;; If it is the thumbnail, also don't unfreeze, as it doesn't make sense,
-        ;; and the way we freeze the thumbnail means unfreezing would corrupt $1000-$1FFF
-        cmp freeze_prep_thumbnail
         bne @doUnfreeze
-@dontUnfreeze:
         rts
 @doUnfreeze:
 
@@ -577,13 +586,7 @@ unfreeze_region_dma_loop:
 
 @unfreezeExecuteDMA:
         ;; Execute DMA job
-        lda #$ff
-        sta $d702
-        sta $d704
-        lda #>freeze_region_dmalist
-        sta $d701
-        lda #<freeze_region_dmalist
-        sta $d705
+        jsr freeze_execute_dmalist
 
 @skipDMA:
         ;; Check if remaining length is negative or zero. If so, stop
@@ -605,7 +608,7 @@ unfreeze_region_dma_loop:
         adc #$00
         sta freeze_region_dmalist_dest_bank
 
-        jmp unfreeze_region_dma_loop
+        bra unfreeze_region_dma_loop
 
 unfreeze_region_dma_done:
 
@@ -645,6 +648,9 @@ dispatch_unfreeze_post:
 
         jmp (unfreeze_post_jump_table,x)
 
+;; UNUSED: kept for reference only. Its entry in unfreeze_post_jump_table
+;; is commented out (see the note there about the SD sector address), so
+;; nothing reaches this and the assembler reports it as unused.
 do_unfreeze_post_restore_sd_buffer_and_regs:
         ;; Copy back the registers from $D680 - $D70F *excluding*
         ;; $D700 and $D705 (which would trigger a DMA)
@@ -654,14 +660,7 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
         ;; The contents of the SD sector buffer for restoration should
         ;; be at $FFD6000-$FFD61FF
 
-        lda #<$6200
-        sta <dos_scratch_vector+0
-        lda #>$6200
-        sta <dos_scratch_vector+1
-        lda #<$0FFD
-        sta <dos_scratch_vector+2
-        lda #>$0FFD
-        sta <dos_scratch_vector+3
+        jsr freeze_point_at_stashed_regs
 
         ;; Copy $D680 - $D70F, which covers both regions of interest
         ldz #$8F
@@ -689,64 +688,12 @@ do_unfreeze_prep_restore_sd_buffer_and_regs:
         ;; such a region, so just tie it to an RTS
         rts
 
-do_freeze_prep_thumbnail:
-        ;; Read the 4KB hardware thumbnail from $D640 and write it to $1000-$1FFF
-        ;; We can in principle use a fixed-source DMA to do this.
-
-        ;; set up our pointer for writing
-        lda #<$1000
-        sta <dos_scratch_vector+0
-        lda #>$1000
-        sta <dos_scratch_vector+1
-        ldy #$00
-        ldx #$10
-
-        ;; Set pointer to $FFD2640 to access thumbnail generator.
-        ;; This is because the thumbnail generator lives at $D640 which overlaps
-        ;; with the hypervisor trap registers when in hypervisor mode.
-        ;; We previously had the thumbnail generator mapped at $D63x, but that
-        ;; was causing CS glitching that was messing up reading from the C65 UART
-        ;; registers.  So now we have moved it to this magic space
-        lda #<$2640
-        sta zptempv32+0
-        lda #>$2640
-        sta zptempv32+1
-        lda #<$0FFD
-        sta zptempv32+2
-        lda #>$0FFD
-        sta zptempv32+3
-
-        ;; First, make sure the read pointer is at the start of the thumbnail
-        ldz #$00
-        ;; Then advance pointer address to $D641
-        lda [<zptempv32],z
-        lda #<$2641
-        sta zptempv32+0
-
-@thumbfetchloop:
-        lda [<zptempv32],z
-        sta (<dos_scratch_vector),y
-        iny
-        bne @thumbfetchloop
-        inc <dos_scratch_vector+1
-        dex
-        bne @thumbfetchloop
-
-        rts
-
 do_freeze_prep_stash_sd_buffer_and_regs:
         ;; Stash the SD and DMAgic registers we use to actually save
         ;; the machine state.
         ;; DMAgic registers have to get copied without using DMA, so
         ;; that we don't corrupt the registers.
-        lda #<$6200
-        sta <dos_scratch_vector+0
-        lda #>$6200
-        sta <dos_scratch_vector+1
-        lda #<$0ffd
-        sta <dos_scratch_vector+2
-        lda #>$0ffd
-        sta <dos_scratch_vector+3
+        jsr freeze_point_at_stashed_regs
 
         ;; Copy $D680 - $D70F, which covers both regions of interest
         ldz #$8f
@@ -783,13 +730,7 @@ do_freeze_prep_stash_sd_buffer_and_regs:
         sta freeze_region_dmalist_count+1
 
         ;; Execute DMA job
-        lda #$ff
-        sta $d702
-        sta $d704
-        lda #>freeze_region_dmalist
-        sta $d701
-        lda #<freeze_region_dmalist
-        sta $d705
+        jsr freeze_execute_dmalist
 
 do_freeze_prep_none:
         rts
@@ -844,8 +785,7 @@ unfreeze_post_jump_table:
         !16 do_unfreeze_post_none
         !16 do_unfreeze_post_none
         !16 do_unfreeze_post_none
-	;; No prior preparation required for handling hyperregs
-	!16 do_unfreeze_post_hyperregs
+	!16 do_unfreeze_post_none
 	;; Nothing required after restoring CHAR ROM
 	!16 do_unfreeze_post_none
 
@@ -885,34 +825,6 @@ do_unfreeze_post_scratch_to_sdcard_regs:
         lda freeze_vic_errata
         sta $d08f
 @rts    rts
-
-do_unfreeze_post_hyperregs:
-	;; XXX For reasons unknown, the DMA restoration of the hypervisor registers
-	;; messes up $D651.
-	;; At the point that this fix-up routine is called, the SD card sector
-	;; containing the data is available, and so we can simply fix the problem
-	;; by copying $ffd6e11 to $ffd3651
-	;; If problems later occur for other regs in this range, we can just
-	;; make a 32-bit ZP indirect copy loop, since there is some claim that
-	;; DMA writing to those registers is problematic.
-
-        ;; that we don't corrupt the registers.
-        lda #<$6e11
-        sta <dos_scratch_vector+0
-        lda #>$6e11
-        sta <dos_scratch_vector+1
-        lda #<$0ffd
-        sta <dos_scratch_vector+2
-        lda #>$0ffd
-        sta <dos_scratch_vector+3
-
-        ldz #$00
-        lda [<dos_scratch_vector],z
-	sta $d651
-
-	rts
-
-
 
 
 copy_sdcard_regs_to_scratch:

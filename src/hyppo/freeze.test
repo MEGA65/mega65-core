@@ -1,0 +1,43 @@
+# Hypervisor freeze/unfreeze test script
+#
+# Run with:  src/tools/hyppotest src/hyppo/freeze.test
+
+####################################################################
+#
+# unfreeze_load_region must decide whether to skip a region from the
+# region list alone, never from zero page. Drives region 0 with
+# $BF0C set to freeze_prep_none and checks the region is still
+# processed rather than returned from early - an early return would
+# leave the SD sector number un-advanced and desync the rest of the
+# slot.
+#
+####################################################################
+
+test "unfreeze_load_region does not skip a region based on zero-page contents"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+
+# Stop as soon as the region is actually being processed.
+breakpoint unfreeze_region_dma_loop
+
+# Base page register, as set up by the hypervisor entry code.
+let b = $bf
+
+# The state trap_dos_getcwd leaves in zptempp: bits 16-23 of the cwd
+# cluster number, which is $00 for any cluster below 65536.
+poke $fffbf0c $00
+
+# X = offset into freeze_mem_list; 0 is the first region, whose
+# freeze-prep ID is freeze_prep_none ($00).
+let x = $00
+
+jsr unfreeze_load_region
+
+# If the region were skipped, PC would end up at the RTS instead.
+# Only PC is interesting here - the region loop's A/X/Y/Z are incidental.
+ignore all regs
+expect pc = unfreeze_region_dma_loop
+check registers
+
+test end

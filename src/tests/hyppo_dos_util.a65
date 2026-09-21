@@ -1,0 +1,1284 @@
+; ------------------------------------------------------------------------
+; hyppo_dos_util.a65
+;
+; Interactive menu-driven utility for manually exercising each of the new
+; Hyppo DOS-trap services (getdrivesize, getcwd, mkdir, rmdir, rename,
+; fstat) from the keyboard, independent of the
+; automated hyppo_dos_traps_test.a65 regression suite.
+;
+; Build with ACME (--cpu m65 --format cbm).
+; ------------------------------------------------------------------------
+
+!cpu m65
+
+; --- BASIC stub: "10 BANK 0:SYS<start>" ---
+* = $2001
+        !word basic_end, $000a
+        !byte $fe, $02, $30, $3a, $9e, $30+start/$3e8, $30+(start/$64)%$0a, $30+(start/$0a)%$0a, $30+start%$0a, $00
+basic_end:
+        !word $0000
+
+!addr ptr = $fb
+
+start:
+        ;; Force cwd to root before anything else - cwd persists across RUNs.
+        lda #$04 : sta $d640 : clv     ; getcurrentdrive
+        bcs @haveroot
+        ldx #<msg_start_fail_cdroot : ldy #>msg_start_fail_cdroot : jsr print_str
+        rts
+@haveroot:
+        tax
+        lda #$3c : sta $d640 : clv     ; cdrootdir
+        bcs @atroot
+        ldx #<msg_start_fail_cdroot : ldy #>msg_start_fail_cdroot : jsr print_str
+        rts
+@atroot:
+
+menu:
+        lda #$93 : jsr $ffd2    ; clear screen
+        ldx #<msg_menu
+        ldy #>msg_menu
+        jsr print_str
+
+        jsr read_key
+        pha
+        jsr flush_keys   ; discard any stray buffered keystrokes (e.g. a
+                          ; RETURN pressed out of habit after the digit)
+                          ; before any handler prompts for further input
+        pla
+        cmp #$31 : bne +  : jmp do_getdrivesize    : + ; '1'
+        cmp #$32 : bne +  : jmp do_getcwd          : + ; '2'
+        cmp #$33 : bne +  : jmp do_mkdir           : + ; '3'
+        cmp #$34 : bne +  : jmp do_rmdir           : + ; '4'
+        cmp #$35 : bne +  : jmp do_rename          : + ; '5'
+        cmp #$38 : bne +  : jmp do_fstat           : + ; '8'
+        cmp #$39 : bne +  : jmp do_mkfile          : + ; '9'
+        cmp #$41 : bne +  : jmp do_rmfile          : + ; 'A'
+        cmp #$42 : bne +  : jmp do_openfile        : + ; 'B'
+        cmp #$43 : bne +  : jmp do_closefile       : + ; 'C'
+        cmp #$44 : bne +  : jmp do_closeall        : + ; 'D'
+        cmp #$45 : bne +  : jmp do_chdir           : + ; 'E'
+        cmp #$46 : bne +  : jmp do_selectdrive     : + ; 'F'
+        cmp #$47 : bne +  : jmp do_getdefaultdrive : + ; 'G'
+        cmp #$48 : bne +  : jmp do_getcurrentdrive : + ; 'H'
+        cmp #$49 : bne +  : jmp do_listdir         : + ; 'I'
+        cmp #$4a : bne +  : jmp do_getversion      : + ; 'J'
+        cmp #$4b : bne +  : jmp do_renamedir       : + ; 'K'
+        cmp #$51 : bne +  : jmp do_quit            : + ; 'Q'
+        cmp #$71 : bne +  : jmp do_quit            : + ; 'q'
+        jmp menu
+
+do_quit:
+        rts
+
+;; return_to_menu: pauses so the just-printed result stays readable,
+;; then clears the screen and redraws the menu (menu: does the clear).
+return_to_menu:
+        ldx #<msg_presskey : ldy #>msg_presskey : jsr print_str
+        jsr read_key
+        jmp menu
+
+;; ============================================================
+;; 1: getdrivesize (A=$08)
+;; ============================================================
+do_getdrivesize:
+        ldy #>gds_area
+        lda #$08 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        ldx #<msg_gds_sectors : ldy #>msg_gds_sectors : jsr print_str
+        lda gds_area+3 : jsr print_hex_byte
+        lda gds_area+2 : jsr print_hex_byte
+        lda gds_area+1 : jsr print_hex_byte
+        lda gds_area+0 : jsr print_hex_byte
+        jsr print_nl
+        ldx #<msg_gds_secpercluster : ldy #>msg_gds_secpercluster : jsr print_str
+        lda gds_area+4 : jsr print_hex_byte
+        jsr print_nl
+        ldx #<msg_gds_clusters : ldy #>msg_gds_clusters : jsr print_str
+        lda gds_area+8 : jsr print_hex_byte
+        lda gds_area+7 : jsr print_hex_byte
+        lda gds_area+6 : jsr print_hex_byte
+        lda gds_area+5 : jsr print_hex_byte
+        jsr print_nl
+        jmp return_to_menu
+
+;; ============================================================
+;; 2: getcwd (A=$0A)
+;; ============================================================
+do_getcwd:
+        ldy #>gcwd_area
+        lda #$0a : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        ldx #<msg_gcwd_disk : ldy #>msg_gcwd_disk : jsr print_str
+        lda gcwd_area+0 : jsr print_hex_byte
+        jsr print_nl
+        ldx #<msg_gcwd_path : ldy #>msg_gcwd_path : jsr print_str
+        ldx gcwd_area+1 : ldy #>gcwd_area : jsr print_str
+        jsr print_nl
+        jmp return_to_menu
+
+;; ============================================================
+;; 3: mkdir (A=$0E)
+;; ============================================================
+do_mkdir:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcc @setname_fail
+        lda #$0e : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; 4: rmdir (A=$10)
+;; ============================================================
+do_rmdir:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcc @setname_fail
+        lda #$10 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; 5: rename (A=$2A) - opens the named file, then renames it via its
+;; FD (X) plus a page of the new name (Y). This entry only handles
+;; files (hyppo_openfile refuses a directory with dos_errorcode_
+;; is_a_directory, $86) - see 'K' below for renaming a directory.
+;; ============================================================
+do_rename:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv     ; setname (old name)
+        bcs @sn_ok
+        jmp @setname_fail
+@sn_ok:
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        lda #$18 : sta $d640 : clv     ; openfile -> FD in A
+        bcs @of_ok
+        jsr print_err
+        jmp return_to_menu
+@of_ok:
+        sta rename_fd
+
+        ldx #<msg_prompt_newname : ldy #>msg_prompt_newname : jsr print_str
+        ldx #<newnamebuf : ldy #>newnamebuf : jsr read_line
+
+        ldx rename_fd
+        ldy #>newnamebuf
+        lda #$2a : sta $d640 : clv     ; rename
+        php                              ; preserve carry across closefile
+        ldx rename_fd
+        lda #$20 : sta $d640 : clv     ; closefile (always close)
+        plp
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; K: rename a directory - finds it, chdirs into it, opens it via
+;; hyppo_opendir (which gives an FD for the directory itself, since
+;; hyppo_opendir always operates on cwd), renames that FD, then always
+;; returns to root - this utility has no path stack to chdir back to
+;; wherever it started, so root is the only place it can reliably
+;; return to.
+;; ============================================================
+do_renamedir:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv     ; setname
+        bcs @sn_ok
+        jmp @setname_fail
+@sn_ok:
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        lda #$0c : sta $d640 : clv     ; chdir into it
+        bcs @cd_ok
+        jsr print_err
+        jmp return_to_menu
+@cd_ok:
+        lda #$12 : sta $d640 : clv     ; opendir -> FD for the dir itself, in A
+        bcs @od_ok
+        jsr print_err
+        ldx #0
+        lda #$3c : sta $d640 : clv     ; cdrootdir (best-effort recovery)
+        jmp return_to_menu
+@od_ok:
+        sta rename_fd
+
+        ldx #<msg_prompt_newname : ldy #>msg_prompt_newname : jsr print_str
+        ldx #<newnamebuf : ldy #>newnamebuf : jsr read_line
+
+        ldx rename_fd
+        ldy #>newnamebuf
+        lda #$2a : sta $d640 : clv     ; rename
+        bcs @rename_ok
+        pha                              ; save the error code - cdrootdir's
+                                         ; success below would otherwise wipe
+                                         ; dos_error_code (dos_return_success
+                                         ; clears it on any later success)
+        ldx rename_fd
+        lda #$16 : sta $d640 : clv     ; closedir (always close)
+        ldx #0
+        lda #$3c : sta $d640 : clv     ; cdrootdir (always return to root)
+        pla
+        jsr print_errcode
+        jmp return_to_menu
+@rename_ok:
+        ldx rename_fd
+        lda #$16 : sta $d640 : clv     ; closedir (always close)
+        ldx #0
+        lda #$3c : sta $d640 : clv     ; cdrootdir (always return to root)
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; 8: fstat (A=$28) - prints short name, attributes, length of a found file
+;; ============================================================
+do_fstat:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @setname_fail
++
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        ldy #>fstat_area
+        lda #$28 : sta $d640 : clv     ; fstat
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        ldx #<msg_fstat_name : ldy #>msg_fstat_name : jsr print_str
+        ldx #0
+@nameloop:
+        lda fstat_area,x
+        jsr $ffd2
+        inx
+        cpx #11
+        bne @nameloop
+        jsr print_nl
+
+        ldx #<msg_fstat_attrib : ldy #>msg_fstat_attrib : jsr print_str
+        jsr print_attributes
+        jsr print_nl
+
+        ldx #<msg_fstat_size : ldy #>msg_fstat_size : jsr print_str
+        lda fstat_area+31 : jsr print_hex_byte
+        lda fstat_area+30 : jsr print_hex_byte
+        lda fstat_area+29 : jsr print_hex_byte
+        lda fstat_area+28 : jsr print_hex_byte
+        jsr print_nl
+
+        ldx #<msg_fstat_created : ldy #>msg_fstat_created : jsr print_str
+        ldx #16 : jsr print_fat_date    ; create_date
+        lda #$20 : jsr $ffd2
+        ldx #14 : jsr print_fat_time    ; create_time
+        jsr print_nl
+
+        ldx #<msg_fstat_modified : ldy #>msg_fstat_modified : jsr print_str
+        ldx #24 : jsr print_fat_date    ; modify_date
+        lda #$20 : jsr $ffd2
+        ldx #22 : jsr print_fat_time    ; modify_time
+        jsr print_nl
+
+        ldx #<msg_fstat_accessed : ldy #>msg_fstat_accessed : jsr print_str
+        ldx #18 : jsr print_fat_date    ; access_date
+        jsr print_nl
+
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; 9: mkfile (A=$1E) - creates a zero-length file
+;; ============================================================
+do_mkfile:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @setname_fail
++
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv     ; mkfile (zero-length)
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; A: rmfile (A=$26)
+;; ============================================================
+do_rmfile:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @setname_fail
++
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        lda #$26 : sta $d640 : clv     ; rmfile
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; B: openfile (A=$18) - leaves the file open as "current" for a
+;; subsequent closefile
+;; ============================================================
+do_openfile:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @setname_fail
++
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        lda #$18 : sta $d640 : clv     ; openfile
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; C: closefile (A=$20) - closes whichever file is currently open
+;; ============================================================
+do_closefile:
+        lda #$20 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+
+;; ============================================================
+;; D: closeall (A=$22)
+;; ============================================================
+do_closeall:
+        lda #$22 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+
+;; ============================================================
+;; E: chdir (A=$0C) - precondition: findfile has located the target
+;; ============================================================
+do_chdir:
+        ldx #<msg_prompt_name : ldy #>msg_prompt_name : jsr print_str
+        ldx #<namebuf : ldy #>namebuf : jsr read_line
+        ldy #>namebuf
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @setname_fail
++
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ff_ok
+        jsr print_err
+        jmp return_to_menu
+@ff_ok:
+        lda #$0c : sta $d640 : clv     ; chdir
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+@setname_fail:
+        jsr print_setname_fail
+        jmp return_to_menu
+
+;; ============================================================
+;; F: selectdrive (A=$06)
+;; ============================================================
+do_selectdrive:
+        ldx #<msg_prompt_drive : ldy #>msg_prompt_drive : jsr print_str
+        jsr read_decimal_byte
+        tax
+        lda #$06 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        jsr print_ok
+        jmp return_to_menu
+
+;; ============================================================
+;; G: getdefaultdrive (A=$02)
+;; ============================================================
+do_getdefaultdrive:
+        lda #$02 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        ldx #<msg_drive_result : ldy #>msg_drive_result : jsr print_str
+        jsr print_hex_byte
+        jsr print_nl
+        jmp return_to_menu
+
+;; ============================================================
+;; H: getcurrentdrive (A=$04)
+;; ============================================================
+do_getcurrentdrive:
+        lda #$04 : sta $d640 : clv
+        bcs @ok
+        jsr print_err
+        jmp return_to_menu
+@ok:
+        ldx #<msg_drive_result : ldy #>msg_drive_result : jsr print_str
+        jsr print_hex_byte
+        jsr print_nl
+        jmp return_to_menu
+
+;; ============================================================
+;; I: listdir (A=$12/$14/$16/$28/$34/$2e) - lists the current
+;; directory: short name, long name, and create/modify/access
+;; dates (as many as fit on the row).
+;;
+;; Per entry: readdir fills the 85-byte dirent struct, then we
+;; re-locate the entry by short name (setname+findfile) and fstat
+;; it to grab the raw 32-byte on-disk dirent, which carries the
+;; packed FAT dates (create time/date, access date, modify
+;; time/date). We do NOT call fstat on the directory fd itself -
+;; that rewinds the fd and would make the next readdir re-read
+;; the same entry.
+;;
+;; Row layout (80 cols):
+;;   short(12) sp long[33] sp CREATED(10) sp MODIFIED(10) sp ACCESSED(10)
+;; Long names longer than 33 chars drop ACCESSED first, then
+;; MODIFIED, then get truncated at 55 chars keeping CREATED only.
+;; ============================================================
+do_listdir:
+        lda #$12 : sta $d640 : clv     ; opendir
+        bcs @od_ok
+        jsr print_err
+        jmp return_to_menu
+@od_ok:
+        sta listdir_fd
+        ldx #<msg_listdir_hdr : ldy #>msg_listdir_hdr : jsr print_str
+@readloop:
+        ldx listdir_fd
+        ldy #>listdir_area
+        lda #$14 : sta $d640 : clv     ; readdir
+        bcs @havemore
+        jmp @readdone
+@havemore:
+
+        ;; --- fetch this entry's raw dirent (for the dates) ---
+        ;; short filename sits at struct offset 65 as an 11-byte,
+        ;; space-padded, non-dotted field (struct is zero-cleared,
+        ;; readdir writes it there). setname needs a NUL-terminated,
+        ;; dotted string in a PAGE-ALIGNED buffer - hypervisor_setup_
+        ;; copy_region ignores the low byte of whatever address it's
+        ;; given, silently forcing offset 0 of the page, so passing
+        ;; listdir_area+65 directly here was actually reading from
+        ;; listdir_area+0 (the long name) instead.
+        jsr build_dotted_shortname
+        ldx #<shortname_scratch
+        ldy #>shortname_scratch
+        lda #$2e : sta $d640 : clv     ; setname
+        bcc @nostat
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcc @nostat
+        ldy #>fstat_area
+        lda #$28 : sta $d640 : clv     ; fstat -> raw dirent
+        bcc @nostat
+        lda #1
+        bra @havedates
+@nostat:
+        lda #0
+@havedates:
+        sta listdir_have_dates
+
+        ;; --- measure long name ---
+        ldy #0
+        lda listdir_area,y
+        beq @lendone
+@lenloop:
+        iny
+        cpy #64
+        beq @lendone
+        lda listdir_area,y
+        bne @lenloop
+@lendone:
+        tya
+        sta listdir_len
+
+        ;; --- pick display mode from long-name length ---
+        ;; 0: <=33 all three dates, long padded to 33
+        ;; 1: <=43 created+modified
+        ;; 2: >43 created only (long truncated at 55)
+        lda #2
+        ldy listdir_len
+        cpy #44
+        bcs @modeok                     ; >=44 -> mode 2
+        lda #1
+        cpy #34
+        bcs @modeok                     ; 34-43 -> mode 1
+        lda #0                          ; <=33 -> mode 0
+@modeok:
+        sta listdir_mode
+
+        ;; --- short name: 8.3, trailing spaces trimmed, padded to 12 ---
+        ;; last non-space position within stem bytes 0-7 ($ff = none)
+        ldy #7
+@sn_find8:
+        lda listdir_area+65,y
+        cmp #$20
+        bne @sn_have8
+        dey
+        bpl @sn_find8
+        ldy #$ff
+@sn_have8:
+        sty listdir_sn_last
+        ldx #0
+        ldy listdir_sn_last
+        bmi @sn_ext                     ; $ff sentinel: stem is all spaces
+        ldy #0
+@sn_p8:
+        lda listdir_area+65,y
+        jsr $ffd2
+        inx
+        cpy listdir_sn_last
+        beq @sn_ext                     ; just printed last stem char
+        iny
+        jmp @sn_p8
+@sn_ext:
+        ;; any non-space in extension bytes 8-10?
+        lda listdir_area+73
+        cmp #$20
+        bne @sn_hasext
+        lda listdir_area+74
+        cmp #$20
+        bne @sn_hasext
+        lda listdir_area+75
+        cmp #$20
+        beq @sn_pad
+@sn_hasext:
+        lda #'.' : jsr $ffd2
+        inx
+        ldy #10                         ; last non-space in ext (guaranteed exists)
+@sn_f3:
+        lda listdir_area+65,y
+        cmp #$20
+        bne @sn_h3
+        dey
+        bra @sn_f3
+@sn_h3:
+        sty listdir_sn_last
+        ldy #8
+@sn_p3:
+        lda listdir_area+65,y
+        jsr $ffd2
+        inx
+        cpy listdir_sn_last
+        beq @sn_pad                     ; just printed last ext char
+        iny
+        jmp @sn_p3
+@sn_pad:                                ; pad short field to 12 cols
+        cpx #12
+        bcs @sn_done
+        lda #$20 : jsr $ffd2
+        inx
+        bra @sn_pad
+@sn_done:
+
+        ;; --- long name ---
+        lda #$20 : jsr $ffd2            ; separator column
+        ldx #0                          ; chars emitted
+        ldy #0
+@ln_loop:
+        lda listdir_mode
+        cmp #2
+        bne +
+        cpx #55                         ; truncate at 55
+        bcs @ln_tail
++
+        lda listdir_area,y
+        beq @ln_tail
+        jsr $ffd2
+        inx
+        iny
+        cpy #64
+        bne @ln_loop
+@ln_tail:
+        lda listdir_mode
+        bne @ln_after                   ; modes 1/2: no padding
+@ln_pad:                                ; mode 0: pad long to 33
+        cpx #33
+        bcs @ln_after
+        lda #$20 : jsr $ffd2
+        inx
+        bra @ln_pad
+@ln_after:
+
+        ;; --- dates (only if fstat path succeeded) ---
+        lda listdir_have_dates
+        beq @row_end
+        lda #$20 : jsr $ffd2
+        ldx #16 : jsr print_fat_date    ; created
+        lda listdir_mode
+        bne @row_end
+        lda #$20 : jsr $ffd2
+        ldx #24 : jsr print_fat_date    ; modified
+        lda #$20 : jsr $ffd2
+        ldx #18 : jsr print_fat_date    ; accessed
+@row_end:
+        jsr print_nl
+        jmp @readloop
+@readdone:
+        ldx listdir_fd
+        lda #$16 : sta $d640 : clv      ; closedir
+        jmp return_to_menu
+
+listdir_fd:
+        !byte 0
+listdir_len:
+        !byte 0
+listdir_mode:
+        !byte 0
+listdir_have_dates:
+        !byte 0
+listdir_sn_last:
+        !byte 0                          ; last non-space idx within a name part
+
+;; Builds a NUL-terminated "NAME.EXT" string (dot omitted if no
+;; extension, trailing stem/ext spaces trimmed) from the raw 11-byte
+;; short name field at listdir_area+65, into shortname_scratch.
+;; Needed because setname requires a PAGE-ALIGNED source buffer -
+;; hypervisor_setup_copy_region silently forces offset 0 of whatever
+;; page it's given, ignoring the low byte - and findfile's short-name
+;; fallback match expects this dotted format, not the raw
+;; space-padded field.
+build_dotted_shortname:
+        ldy #7
+@bds_find8:
+        lda listdir_area+65,y
+        cmp #$20
+        bne @bds_have8
+        dey
+        bpl @bds_find8
+        ldy #$ff
+@bds_have8:
+        sty bds_last
+        ldx #0
+        ldy bds_last
+        bmi @bds_ext                     ; stem all spaces (shouldn't happen)
+        ldy #0
+@bds_p8:
+        lda listdir_area+65,y
+        sta shortname_scratch,x
+        inx
+        cpy bds_last
+        beq @bds_ext
+        iny
+        jmp @bds_p8
+@bds_ext:
+        lda listdir_area+73
+        cmp #$20
+        bne @bds_hasext
+        lda listdir_area+74
+        cmp #$20
+        bne @bds_hasext
+        lda listdir_area+75
+        cmp #$20
+        beq @bds_done
+@bds_hasext:
+        lda #'.'
+        sta shortname_scratch,x
+        inx
+        ldy #10
+@bds_f3:
+        lda listdir_area+65,y
+        cmp #$20
+        bne @bds_h3
+        dey
+        bra @bds_f3
+@bds_h3:
+        sty bds_last
+        ldy #8
+@bds_p3:
+        lda listdir_area+65,y
+        sta shortname_scratch,x
+        inx
+        cpy bds_last
+        beq @bds_done
+        iny
+        jmp @bds_p3
+@bds_done:
+        lda #0
+        sta shortname_scratch,x
+        rts
+bds_last:
+        !byte 0
+
+;; ============================================================
+;; J: getversion (A=$00) - returns OS version in A.X, DOS version in Y.Z
+;; ============================================================
+do_getversion:
+        lda #$00 : sta $d640 : clv
+        sta gv_a
+        stx gv_x
+        sty gv_y
+        stz gv_z
+        ldx #<msg_gv_os : ldy #>msg_gv_os : jsr print_str
+        lda gv_a : jsr print_hex_byte
+        lda #$2e : jsr $ffd2
+        lda gv_x : jsr print_hex_byte
+        jsr print_nl
+        ldx #<msg_gv_dos : ldy #>msg_gv_dos : jsr print_str
+        lda gv_y : jsr print_hex_byte
+        lda #$2e : jsr $ffd2
+        lda gv_z : jsr print_hex_byte
+        jsr print_nl
+        jmp return_to_menu
+
+gv_a:
+        !byte 0
+gv_x:
+        !byte 0
+gv_y:
+        !byte 0
+gv_z:
+        !byte 0
+
+;; ============================================================
+;; helpers
+;; ============================================================
+
+;; read_key: waits for and returns a single keypress in A (via GETIN).
+read_key:
+@wait:
+        jsr $ffe4
+        cmp #0
+        beq @wait
+        rts
+
+;; flush_keys: discards any further already-buffered keystrokes without
+;; waiting (stops as soon as GETIN reports nothing pending).
+flush_keys:
+@loop:
+        jsr $ffe4
+        cmp #0
+        bne @loop
+        rts
+
+;; read_line: reads a CR-terminated line from the keyboard (via GETIN,
+;; echoing manually) into (X,Y), null-terminated.
+read_line:
+        stx ptr
+        sty ptr+1
+        lda #0
+        sta rl_idx
+@loop:
+        jsr $ffe4
+        cmp #0
+        beq @loop
+        cmp #$0d
+        beq @done
+        cmp #$14                ;; DEL/backspace
+        beq @backspace
+        pha
+        jsr $ffd2                ;; echo the original keycode
+        pla
+        cmp #$de                  ;; this keyboard's '~' key produces PETSCII $DE
+        bne @notilde
+        lda #$7e                  ;; translate the stored byte to ASCII '~'
+@notilde:
+        ldy rl_idx
+        sta (ptr),y
+        inc rl_idx
+        lda rl_idx
+        bne @loop
+        bra @done                ;; buffer full (rl_idx wrapped to 0) - stop here
+@backspace:
+        lda rl_idx
+        beq @loop                ;; nothing typed yet - ignore
+        dec rl_idx
+        lda #$14
+        jsr $ffd2                ;; echo the delete (erases on screen)
+        bra @loop
+@done:
+        ldy rl_idx
+        lda #0
+        sta (ptr),y
+        jsr print_nl
+        rts
+rl_idx:
+        !byte 0
+
+;; read_decimal_byte: reads digit characters (echoing each) until a
+;; non-digit or CR, returns the accumulated value (mod 256) in A.
+read_decimal_byte:
+        lda #0
+        sta rdb_val
+@loop:
+        jsr $ffe4
+        cmp #0
+        beq @loop
+        cmp #$0d
+        beq @done
+        cmp #$30
+        bcc @done
+        cmp #$3a
+        bcs @done
+        jsr $ffd2
+        pha
+        lda rdb_val
+        asl
+        asl
+        clc
+        adc rdb_val
+        asl
+        sta rdb_val
+        pla
+        and #$0f
+        clc
+        adc rdb_val
+        sta rdb_val
+        bra @loop
+@done:
+        jsr print_nl
+        lda rdb_val
+        rts
+rdb_val:
+        !byte 0
+
+
+;; print_str: X=lo, Y=hi of a null-terminated string; prints via CHROUT.
+print_str:
+        stx ptr
+        sty ptr+1
+@loop:
+        ldy #0
+        lda (ptr),y
+        beq @done
+        jsr $ffd2
+        inc ptr
+        bne @loop
+        inc ptr+1
+        bra @loop
+@done:
+        rts
+
+;; print_hex_byte: A = byte to print as two hex digits.
+print_hex_byte:
+        pha
+        lsr
+        lsr
+        lsr
+        lsr
+        tax
+        lda hexdigits,x
+        jsr $ffd2
+        pla
+        and #$0f
+        tax
+        lda hexdigits,x
+        jsr $ffd2
+        rts
+
+print_nl:
+        lda #$0d
+        jsr $ffd2
+        rts
+
+;; print_err: fetches the error code fresh via geterrorcode. Only safe
+;; to call immediately after the failing trap - any later trap call
+;; (even a successful, unrelated one, e.g. cleanup) resets
+;; dos_error_code to 0 via dos_return_success. If cleanup calls must
+;; run first, save A right after the failing trap instead and call
+;; print_errcode with the saved value once cleanup is done.
+print_err:
+        lda #$38 : sta $d640 : clv
+        ;; fall through
+print_errcode:
+        pha
+        ldx #<msg_errorcode : ldy #>msg_errorcode : jsr print_str
+        pla
+        jsr print_hex_byte
+        jsr print_nl
+        rts
+
+print_ok:
+        ldx #<msg_ok : ldy #>msg_ok : jsr print_str
+        rts
+
+print_setname_fail:
+        ldx #<msg_setname_fail : ldy #>msg_setname_fail : jsr print_str
+        rts
+
+;; print_attributes: prints the raw dirent attribute byte (fstat_area+11)
+;; as flag letters (R/H/S/V/D/A), '-' where a flag isn't set.
+print_attributes:
+        lda fstat_area+11
+        and #$01 : bne +  : lda #$2d : bra ++ : + : lda #$52 : ++ : jsr $ffd2
+        lda fstat_area+11
+        and #$02 : bne +  : lda #$2d : bra ++ : + : lda #$48 : ++ : jsr $ffd2
+        lda fstat_area+11
+        and #$04 : bne +  : lda #$2d : bra ++ : + : lda #$53 : ++ : jsr $ffd2
+        lda fstat_area+11
+        and #$08 : bne +  : lda #$2d : bra ++ : + : lda #$56 : ++ : jsr $ffd2
+        lda fstat_area+11
+        and #$10 : bne +  : lda #$2d : bra ++ : + : lda #$44 : ++ : jsr $ffd2
+        lda fstat_area+11
+        and #$20 : bne +  : lda #$2d : bra ++ : + : lda #$41 : ++ : jsr $ffd2
+        rts
+
+;; print_fat_date: X = offset within fstat_area of a 2-byte packed FAT
+;; date field. Prints "YYYY-MM-DD".
+print_fat_date:
+        ;; Cache the raw bytes first - print_decimal_byte/word clobber X.
+        lda fstat_area,x
+        sta raw_lo
+        lda fstat_area+1,x
+        sta raw_hi
+
+        ;; year = bits 15-9, +1980
+        lda raw_lo : sta fdt_lo
+        lda raw_hi : sta fdt_hi
+        ldy #9
+@shy:
+        lsr fdt_hi
+        ror fdt_lo
+        dey
+        bne @shy
+        lda fdt_lo
+        and #$7f
+        clc
+        adc #<1980
+        sta yr_lo
+        lda #0
+        adc #>1980
+        sta yr_hi
+        jsr print_decimal_word
+        lda #$2d : jsr $ffd2
+
+        ;; month = bits 8-5
+        lda raw_lo : sta fdt_lo
+        lda raw_hi : sta fdt_hi
+        ldy #5
+@shm:
+        lsr fdt_hi
+        ror fdt_lo
+        dey
+        bne @shm
+        lda fdt_lo
+        and #$0f
+        jsr print_decimal_byte
+        lda #$2d : jsr $ffd2
+
+        ;; day = bits 4-0 of the low byte
+        lda raw_lo
+        and #$1f
+        jsr print_decimal_byte
+        rts
+
+;; print_fat_time: X = offset within fstat_area of a 2-byte packed FAT
+;; time field. Prints "HH:MM:SS".
+print_fat_time:
+        ;; Cache the raw bytes once, up front, since print_decimal_byte
+        ;; (called repeatedly below) clobbers X, which we need to keep
+        ;; indexing fstat_area with.
+        lda fstat_area,x
+        sta raw_lo
+        lda fstat_area+1,x
+        sta raw_hi
+
+        ;; hours = bits 15-11
+        lda raw_lo : sta fdt_lo
+        lda raw_hi : sta fdt_hi
+        ldy #11
+@shh:
+        lsr fdt_hi
+        ror fdt_lo
+        dey
+        bne @shh
+        lda fdt_lo
+        and #$1f
+        jsr print_decimal_byte
+        lda #$3a : jsr $ffd2
+
+        ;; minutes = bits 10-5
+        lda raw_lo : sta fdt_lo
+        lda raw_hi : sta fdt_hi
+        ldy #5
+@shmin:
+        lsr fdt_hi
+        ror fdt_lo
+        dey
+        bne @shmin
+        lda fdt_lo
+        and #$3f
+        jsr print_decimal_byte
+        lda #$3a : jsr $ffd2
+
+        ;; seconds = (bits 4-0) * 2
+        lda raw_lo
+        and #$1f
+        asl
+        jsr print_decimal_byte
+        rts
+
+fdt_lo:
+        !byte 0
+fdt_hi:
+        !byte 0
+raw_lo:
+        !byte 0
+raw_hi:
+        !byte 0
+yr_lo:
+        !byte 0
+yr_hi:
+        !byte 0
+
+;; print_decimal_byte: prints A (0-99) as two decimal digits.
+print_decimal_byte:
+        ldx #0
+@tens:
+        cmp #10
+        bcc @donetens
+        sec
+        sbc #10
+        inx
+        bra @tens
+@donetens:
+        pha
+        txa
+        clc
+        adc #$30
+        jsr $ffd2
+        pla
+        clc
+        adc #$30
+        jsr $ffd2
+        rts
+
+;; print_decimal_word: prints the 16-bit value in (yr_lo,yr_hi) as 4
+;; decimal digits (used for years, always in range 1980-2107).
+print_decimal_word:
+        ldx #0
+@th:
+        lda yr_lo : sec : sbc #<1000 : tay
+        lda yr_hi : sbc #>1000
+        bcc @doneth
+        sty yr_lo
+        sta yr_hi
+        inx
+        bra @th
+@doneth:
+        txa : clc : adc #$30 : jsr $ffd2
+
+        ldx #0
+@hu:
+        lda yr_lo : sec : sbc #<100 : tay
+        lda yr_hi : sbc #>100
+        bcc @donehu
+        sty yr_lo
+        sta yr_hi
+        inx
+        bra @hu
+@donehu:
+        txa : clc : adc #$30 : jsr $ffd2
+
+        ldx #0
+@te:
+        lda yr_lo
+        cmp #10
+        bcc @donete
+        sec
+        sbc #10
+        sta yr_lo
+        inx
+        bra @te
+@donete:
+        txa : clc : adc #$30 : jsr $ffd2
+        lda yr_lo : clc : adc #$30 : jsr $ffd2
+        rts
+
+hexdigits:
+        !text "0123456789ABCDEF"
+
+;; ============================================================
+;; data
+;; ============================================================
+
+!align 255, 0
+namebuf:
+        !fill 256, 0
+
+!align 255, 0
+newnamebuf:
+        !fill 256, 0
+
+!align 255, 0
+shortname_scratch:
+        !fill 256, 0
+
+rename_fd:
+        !byte 0
+
+!align 255, 0
+gds_area:
+        !fill 256, 0
+
+!align 255, 0
+gcwd_area:
+        !fill 256, 0
+
+!align 255, 0
+fstat_area:
+        !fill 256, 0
+
+!align 255, 0
+listdir_area:
+        !fill 256, 0
+
+msg_menu:
+        !text "HYPPO DOS UTILITY", 13
+        !text "1 GETDRIVESIZE   9 MKFILE", 13
+        !text "2 GETCWD         A RMFILE", 13
+        !text "3 MKDIR          B OPENFILE", 13
+        !text "4 RMDIR          C CLOSEFILE", 13
+        !text "5 RENAME         D CLOSEALL", 13
+        !text "                 E CHDIR", 13
+        !text "                 F SELECTDRIVE", 13
+        !text "8 FSTAT          G GETDEFAULTDRIVE", 13
+        !text "                 H GETCURRENTDRIVE", 13
+        !text "Q QUIT           I LISTDIR", 13
+        !text "                 J GETVERSION", 13
+        !text "                 K RENAMEDIR", 13
+        !text "> ", 0
+
+msg_prompt_name:
+        !text "NAME? ", 0
+msg_prompt_newname:
+        !text "NEW NAME? ", 0
+msg_prompt_drive:
+        !text "DRIVE NUMBER? ", 0
+msg_drive_result:
+        !text "DRIVE: $", 0
+msg_gv_os:
+        !text "OS VERSION: $", 0
+msg_gv_dos:
+        !text "DOS VERSION: $", 0
+msg_listdir_hdr:
+        ;; SHORT@0  LONGNAME@13  CREATED@47  MODIFIED@58  ACCESSED@69
+        !text "SHORT        LONG NAME                         CREATED   MODIFIED  ACCESSED",13,0
+msg_presskey:
+        !text "PRESS ANY KEY FOR MENU", 13, 0
+
+msg_start_fail_cdroot:
+        !text "FATAL: COULD NOT CD TO ROOT AT STARTUP", 13, 0
+
+msg_ok:
+        !text "OK", 13, 0
+msg_errorcode:
+        !text "ERROR: $", 0
+msg_setname_fail:
+        !text "SETNAME FAILED", 13, 0
+
+msg_gds_sectors:
+        !text "TOTAL SECTORS: $", 0
+msg_gds_secpercluster:
+        !text "SECTORS/CLUSTER: $", 0
+msg_gds_clusters:
+        !text "TOTAL CLUSTERS: $", 0
+
+msg_gcwd_path:
+        !text "CWD PATH: ", 0
+msg_gcwd_disk:
+        !text "DISK ID: $", 0
+
+msg_fstat_name:
+        !text "SHORT NAME: ", 0
+msg_fstat_attrib:
+        !text "ATTRIBUTES: ", 0
+msg_fstat_size:
+        !text "SIZE: $", 0
+msg_fstat_created:
+        !text "CREATED:  ", 0
+msg_fstat_modified:
+        !text "MODIFIED: ", 0
+msg_fstat_accessed:
+        !text "ACCESSED: ", 0
