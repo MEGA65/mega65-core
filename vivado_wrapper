@@ -42,8 +42,11 @@ if [ -z "$VIVADODIR" ]; then
 fi
 
 if [ ! -f "$VIVADODIR/settings64.sh" ]; then
-    echo "ERROR: settings64.sh not found in $VIVADODIR" >&2
-    exit 1
+    if [[ -v VIVADODIR ]]; then
+        echo "ERROR: settings64.sh not found in $VIVADODIR" >&2
+    else
+        echo "ERROR: You must set VIVADODIR so that we know where your Vivado instance is installed" >&2
+    fi
 fi
 
 echo "Using Vivado from: $VIVADODIR" >&2
