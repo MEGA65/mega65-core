@@ -237,6 +237,8 @@ syspart_configsector_apply_trap:
         sta hypervisor_enterexit_trigger
 
 syspart_unfreeze_from_slot_trap:
+        ;; Only X needs restoring: the dispatch above clobbers it with tax,
+        ;; while Y arrives from the caller untouched.
         ldx hypervisor_x
         jsr syspart_locate_freezeslot
         jsr unfreeze_load_from_sdcard_immediate
@@ -278,8 +280,13 @@ syspart_locate_freezeslot_trap:
 
 syspart_locate_freezeslot:
         ;; Get the first sector of a given freeze slot
-        ;; X = low byte of slot #
-        ;; Y = high byte of slot #
+        ;; X = high byte of slot #
+        ;; Y = low byte of slot #
+        ;;
+        ;; The slot number is pushed here and popped back below in the same
+        ;; order, which swaps the pair: plx takes what phy pushed.  So the
+        ;; multiply reads its low byte from Y, and freeze_to_slot in freeze.asm
+        ;; documents the same order ("Slot in XXYY").
 
         phx
         phy
@@ -288,21 +295,25 @@ syspart_locate_freezeslot:
         lda syspart_present
         bne splf1
         lda #syspart_error_nosyspart
-        sta syspart_error_code
-        clc
-        rts
+        bra slotfail
 splf1:
-        ;; Check that freeze slot number is not invalid
-        cpy syspart_freeze_slot_count+1
-        beq sc1
+        ;; Check that freeze slot number is not invalid.
+        ;; High byte first; only when it matches does the low byte decide.
+        cpx syspart_freeze_slot_count+1
         bcc slotnumok
-sc1:        cpx syspart_freeze_slot_count+0
-        beq slotbad
+        bne slotbad
+        cpy syspart_freeze_slot_count+0
         bcc slotnumok
 slotbad:
         ;; Report error status for out of bounds slot number
         lda #syspart_error_badslotnum
+slotfail:
+        ;; Both error paths leave through here, because the slot number is
+        ;; still on the stack from the phx/phy above and returning without it
+        ;; would take the caller's return address with it.
         sta syspart_error_code
+        plx
+        plx
         clc
         rts
 
