@@ -1,5 +1,5 @@
 
-# Assume that if the Makefile runs this step we have to start all over.
+# Incremental builds seem to work not as expected, so we start over!
 reimport_files
 reset_project
 
