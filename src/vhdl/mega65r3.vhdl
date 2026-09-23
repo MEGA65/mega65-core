@@ -205,7 +205,7 @@ entity container is
 
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
-         p1hi : inout std_logic_vector(3 downto 0);
+         p1hi : inout std_logic_vector(3 downto 0) := (others => 'Z');
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
 
@@ -616,7 +616,9 @@ begin
       clock270 => clock270,
 
       p1lo => p1lo,
-      p1hi => p1hi,
+-- Until we pull in the full r3 expansion board stuff from 768-/932-,
+-- we provide the accessory UART interface directly elsewhere in this file.
+--      p1hi => p1hi,
       p2lo => p2lo,
       p2hi => p2hi,
 
@@ -951,6 +953,12 @@ begin
 
 --      buffereduart_rx => '1',
           buffereduart_ringindicate => (others => '0'),
+          buffereduart_rx(7 downto 2) => (others => '1'),
+          buffereduart_rx(1) => kb_tdo,
+          buffereduart_rx(0) => p1hi(2),
+          buffereduart_tx(7 downto 2) => open,
+          buffereduart_tx(1) => kb_tdi,
+          buffereduart_tx(0) => p1hi(1),
 
           porta_pins => column(7 downto 0),
           portb_pins => row(7 downto 0),

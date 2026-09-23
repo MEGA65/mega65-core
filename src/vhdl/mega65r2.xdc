@@ -372,10 +372,10 @@ set_property -dict {PACKAGE_PIN C22  IOSTANDARD LVCMOS33 PULLUP FALSE} [get_port
 #set_property -dict { PACKAGE_PIN D1  IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]
 #set_property -dict { PACKAGE_PIN B2  IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}]
 #set_property -dict { PACKAGE_PIN A1  IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}]
-#set_property -dict { PACKAGE_PIN G1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
-#set_property -dict { PACKAGE_PIN E1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
-#set_property -dict { PACKAGE_PIN C2  IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
-#set_property -dict { PACKAGE_PIN B1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
+set_property -dict { PACKAGE_PIN G1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
+set_property -dict { PACKAGE_PIN E1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
+set_property -dict { PACKAGE_PIN C2  IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
+set_property -dict { PACKAGE_PIN B1  IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
 
 ## Pmod Header P2
 #set_property -dict { PACKAGE_PIN F3  IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}]
