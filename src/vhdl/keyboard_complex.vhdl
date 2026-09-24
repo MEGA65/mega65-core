@@ -5,6 +5,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity keyboard_complex is
+  generic (
+    clock_frequency : integer := 50000000
+    );
   port (
     cpuclock : in std_logic;
     reset_in : in std_logic;
@@ -291,7 +294,7 @@ begin
 
   ascii0: entity work.matrix_to_ascii
     generic map(
-      clock_frequency => 50000000
+      clock_frequency => clock_frequency
       )
     port map(
       Clk => cpuclock,
