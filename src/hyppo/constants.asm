@@ -39,6 +39,8 @@
         dos_errorcode_file_exists = $8D
         dos_errorcode_directory_full = $8E
         dos_errorcode_double_attach = $8F
+        dos_errorcode_directory_not_empty = $90
+        dos_errorcode_path_too_long = $91
         dos_errorcode_eof = $FF
 
         ;; FAT directory entry constants

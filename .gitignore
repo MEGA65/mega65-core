@@ -40,6 +40,7 @@ src/tests/*.list
 src/tests/*.map
 src/tests/*.label
 src/tests/*.lbl
+src/tests/*.sym
 src/tools/*.list
 src/tools/*.map
 src/tools/*.label

@@ -1,0 +1,2406 @@
+; ------------------------------------------------------------------------
+; hyppo_dos_traps_test.a65
+;
+; Standalone MEGA65 test program exercising Hyppo's DOS-trap file/drive
+; services, including the previously-unimplemented ones added alongside
+; this file. Prints "PASS: <name>" / "FAIL: <name> err=$XX" per test over
+; the hypervisor serial-debug channel (hyppo_serial_monitor_write), so a
+; host-side wrapper can grep the captured output (e.g. Xemu's
+; -hyperserialfile) for a verdict without needing any live monitor
+; interaction.
+;
+; Build with ACME (--cpu m65 --format cbm). Run under Xemu headless with
+; -prg/-prgexit and -hyperserialfile to capture results.
+; ------------------------------------------------------------------------
+
+!cpu m65
+
+; --- BASIC stub: "10 BANK 0:SYS<start>" ---
+* = $2001
+        !word basic_end, $000a
+        !byte $fe, $02, $30, $3a, $9e, $30+start/$3e8, $30+(start/$64)%$0a, $30+(start/$0a)%$0a, $30+start%$0a, $00
+basic_end:
+        !word $0000
+
+; --- Zero page pointer used by print_str for indirect addressing ---
+!addr strptr = $fb
+
+; --- Zero page pointer used by verify_lfn_readback for indirect addressing ---
+!addr lfn_readback_expect = $fd
+
+start:
+        ;; Force cwd to root before anything else - cwd persists across RUNs.
+        lda #$04 : sta $d640 : clv     ; getcurrentdrive
+        bcs @start_haveroot
+        ldx #<msg_start_fail_cdroot : ldy #>msg_start_fail_cdroot : jsr print_str
+        rts
+@start_haveroot:
+        tax
+        lda #$3c : sta $d640 : clv     ; cdrootdir
+        bcs @start_atroot
+        ldx #<msg_start_fail_cdroot : ldy #>msg_start_fail_cdroot : jsr print_str
+        rts
+@start_atroot:
+
+        ;; Run the whole suite twice - catches state a test leaves behind.
+        lda #0
+        sta fail_count
+
+        lda #1
+        sta test_pass_num
+@passloop:
+        ldx #<msg_pass_marker
+        ldy #>msg_pass_marker
+        jsr print_str
+        lda test_pass_num
+        jsr print_hex_byte
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+
+        jsr test_getversion
+        jsr test_fstat
+        jsr test_getdrivesize
+        jsr test_getcwd
+        jsr test_filedate
+        jsr test_mkdir
+        jsr test_mkdir_nested
+        jsr test_mkdir_sibling_file
+        jsr test_rmdir
+        jsr test_rename
+        jsr test_shortname_collision
+        jsr test_root_listing_after
+
+        inc test_pass_num
+        lda test_pass_num
+        cmp #3
+        bne @passloop
+
+        lda fail_count
+        beq @all_passed
+        jsr print_fail_summary
+        bra @done
+@all_passed:
+        ldx #<msg_all_passed
+        ldy #>msg_all_passed
+        jsr print_str
+@done:
+        rts
+
+test_pass_num:
+        !byte 0
+msg_pass_marker:
+        !text "=== TEST PASS #"
+        !byte 0
+
+;; ============================================================
+;; test: hyppo_getversion (A=$00) - basic sanity that traps work at all
+;; ============================================================
+test_getversion:
+        lda #$00
+        sta $d640
+        clv
+        bcc @fail
+
+        ldx #<msg_getversion_pass
+        ldy #>msg_getversion_pass
+        jsr print_str
+        rts
+@fail:
+        inc fail_count
+        ldx #<msg_getversion_fail
+        ldy #>msg_getversion_fail
+        jsr print_str
+        rts
+
+;; ============================================================
+;; test: hyppo_fstat (A=$28)
+;;
+;; Regression test for the fix to dos_fstat: it previously never called
+;; hypervisor_setup_copy_region, so it wrote its result through whatever
+;; stale copy-region vector a prior unrelated trap had left behind. This
+;; creates a small test file, finds it, points the transfer area
+;; somewhere deliberately "poisoned" first (by using the transfer area
+;; for an unrelated setname call), then calls fstat and checks that the
+;; returned short filename in the transfer area is actually correct -
+;; not stale/wrong data from the poisoning step.
+;; ============================================================
+test_fstat:
+        ;; Set the current filename to our test file
+        ldy #>fstat_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        bcc @fstat_setname_failed
+
+        ;; Create it (zero length is fine - fstat only needs a valid dirent)
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e
+        sta $d640
+        clv
+        bcc @fstat_mkfile_failed
+
+        ;; "Poison" the copy-region vector with an unrelated setup_transfer_area
+        ;; call pointing at a different page, then find our file (setname again,
+        ;; since mkfile's own findfile check already consumed the search).
+        ldy #>poison_area
+        lda #$3a
+        sta $d640
+        clv
+        bcc @fstat_poison_failed
+
+        ldy #>fstat_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        bcc @fstat_setname2_failed
+
+        lda #$34
+        sta $d640
+        clv
+        bcc @fstat_findfile_failed
+
+        ;; Call fstat with Y = destination page DIRECTLY (this is the actual
+        ;; bug we're regression-testing: fstat must call
+        ;; hypervisor_setup_copy_region itself using this Y, not rely on
+        ;; whatever hypervisor_userspace_copy_vector a prior trap left
+        ;; behind - which right now still points at poison_area from above).
+        ldy #>fstat_transfer_area
+        lda #$28
+        sta $d640
+        clv
+        bcc @fstat_call_failed
+
+        ;; Verify the returned short name (offset $00 - fstat returns the raw
+        ;; 32-byte on-disk FAT dirent, whose short name field is the first
+        ;; 11 bytes; this differs from readdir's parsed 85-byte structure,
+        ;; where the short name lives at offset $41) is "FSTAT   TXT", not
+        ;; leftover poison-area data.
+        ldy #0
+@checkloop:
+        lda fstat_transfer_area,y
+        cmp expected_shortname,y
+        bne @fstat_mismatch
+        iny
+        cpy #11
+        bne @checkloop
+
+        ;; Clean up
+        jsr fstat_cleanup
+
+        ldx #<msg_fstat_pass
+        ldy #>msg_fstat_pass
+        jsr print_str
+        rts
+
+@fstat_setname_failed:
+        ldx #<msg_fstat_fail_setname : ldy #>msg_fstat_fail_setname : jmp fstat_fail
+@fstat_mkfile_failed:
+        ldx #<msg_fstat_fail_mkfile : ldy #>msg_fstat_fail_mkfile : jmp fstat_fail
+@fstat_poison_failed:
+        ldx #<msg_fstat_fail_poison : ldy #>msg_fstat_fail_poison : jmp fstat_fail
+@fstat_setname2_failed:
+        ldx #<msg_fstat_fail_setname : ldy #>msg_fstat_fail_setname : jmp fstat_fail
+@fstat_findfile_failed:
+        jsr print_errorcode_diag
+        ldx #<msg_fstat_fail_findfile : ldy #>msg_fstat_fail_findfile : jmp fstat_fail
+@fstat_call_failed:
+        jsr print_errorcode_diag
+        ldx #<msg_fstat_fail_call : ldy #>msg_fstat_fail_call : jmp fstat_fail
+@fstat_mismatch:
+        ldx #<dbg_got : ldy #>dbg_got : jsr print_str
+        ldx #0
+@dbgloop:
+        lda fstat_transfer_area,x
+        jsr print_hex_byte
+        inx
+        cpx #11
+        bne @dbgloop
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+        jsr fstat_cleanup
+        ldx #<msg_fstat_fail_mismatch : ldy #>msg_fstat_fail_mismatch : jmp fstat_fail
+
+fstat_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+fstat_cleanup:
+        ldy #>fstat_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        lda #$34
+        sta $d640
+        clv
+        lda #$26  ; rmfile
+        sta $d640
+        clv
+        rts
+
+;; ============================================================
+;; test: hyppo_getdrivesize (A=$08)
+;;
+;; Sanity check only (the real values depend on whatever SD image the
+;; test is run against): total sector count and sectors-per-cluster must
+;; both be non-zero for any real, mounted FAT32 partition.
+;; ============================================================
+test_getdrivesize:
+        ldy #>drivesize_transfer_area
+        lda #$08
+        sta $d640
+        clv
+        bcc @gds_fail_call
+
+        ;; sectors-per-cluster (offset 4) must be non-zero
+        lda drivesize_transfer_area+4
+        beq @gds_fail_zero
+
+        ;; total sector count (offset 0-3) must be non-zero
+        lda drivesize_transfer_area+0
+        ora drivesize_transfer_area+1
+        ora drivesize_transfer_area+2
+        ora drivesize_transfer_area+3
+        beq @gds_fail_zero
+
+        ldx #<msg_getdrivesize_pass
+        ldy #>msg_getdrivesize_pass
+        jsr print_str
+        rts
+
+@gds_fail_call:
+        jsr print_errorcode_diag
+        ldx #<msg_getdrivesize_fail_call
+        ldy #>msg_getdrivesize_fail_call
+        bra @gds_report_fail
+@gds_fail_zero:
+        ldx #<msg_getdrivesize_fail_zero
+        ldy #>msg_getdrivesize_fail_zero
+@gds_report_fail:
+        jsr print_str
+        inc fail_count
+        rts
+
+;; ============================================================
+;; test: hyppo_getcwd (A=$0A)
+;;
+;; getcwd now returns a disk id byte + the offset of a null-terminated
+;; path string (both within the same transfer area) - see the comment
+;; on trap_dos_getcwd. Cross-check the disk id against
+;; hyppo_getcurrentdrive's own separate result, and check the path
+;; string starts with '/' and is terminated within a sane distance.
+;; ============================================================
+test_getcwd:
+        lda #$04
+        sta $d640
+        clv
+        bcc @gcwd_fail_getcurrentdrive
+        sta getcwd_expected_disk
+
+        ldy #>getcwd_transfer_area
+        lda #$0a
+        sta $d640
+        clv
+        bcc @gcwd_fail_call
+
+        lda getcwd_transfer_area+0
+        cmp getcwd_expected_disk
+        bne @gcwd_fail_mismatch
+
+        ldx getcwd_transfer_area+1
+        lda getcwd_transfer_area,x
+        cmp #'/'
+        bne @gcwd_fail_mismatch
+
+        ldy #0
+@gcwd_scanterm:
+        lda getcwd_transfer_area,x
+        beq @gcwd_haveterm
+        inx
+        iny
+        cpy #200
+        bne @gcwd_scanterm
+        bra @gcwd_fail_mismatch    ;; never found a nul - bad
+@gcwd_haveterm:
+
+        ldx #<msg_getcwd_pass
+        ldy #>msg_getcwd_pass
+        jsr print_str
+        rts
+
+@gcwd_fail_getcurrentdrive:
+        ldx #<msg_getcwd_fail_getcurrentdrive
+        ldy #>msg_getcwd_fail_getcurrentdrive
+        bra @gcwd_report_fail
+@gcwd_fail_call:
+        jsr print_errorcode_diag
+        ldx #<msg_getcwd_fail_call
+        ldy #>msg_getcwd_fail_call
+        bra @gcwd_report_fail
+@gcwd_fail_mismatch:
+        ldx #<msg_getcwd_fail_mismatch
+        ldy #>msg_getcwd_fail_mismatch
+@gcwd_report_fail:
+        jsr print_str
+        inc fail_count
+        rts
+
+;; ============================================================
+;; test: hyppo_filedate (A=$2C) - documented but not implemented
+;;
+;; Automatic FAT32 date/time stamping (create-date on mkfile/mkdir,
+;; modify-date on rename) was implemented, then removed entirely to
+;; recover ROM budget - none of it exists in upstream, since mkdir/
+;; rename themselves didn't exist upstream before this branch. The
+;; standalone filedate trap was never re-implemented either; it's
+;; kept in the dispatch table (sharing the same stub as several other
+;; reserved traps) purely so the documented API surface still exists.
+;; This just confirms it still correctly fails rather than silently
+;; succeeding.
+;; ============================================================
+test_filedate:
+        ldy #>filedate_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        bcs +
+        jmp @fdate_fail_setname
++
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e
+        sta $d640
+        clv
+        bcs +
+        jmp @fdate_fail_mkfile
++
+        ldy #>filedate_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        bcs +
+        jmp @fdate_fail_setname
++
+        lda #$34
+        sta $d640
+        clv
+        bcs +
+        jmp @fdate_fail_findfile
++
+        lda #$2c
+        sta $d640
+        clv
+        bcc +
+        jmp @fdate_fail_stillimplemented
++
+        jsr filedate_cleanup
+        ldx #<msg_filedate_pass
+        ldy #>msg_filedate_pass
+        jsr print_str
+        rts
+
+@fdate_fail_setname:
+        ldx #<msg_filedate_fail_setname : ldy #>msg_filedate_fail_setname : jmp filedate_fail
+@fdate_fail_mkfile:
+        ldx #<msg_filedate_fail_mkfile : ldy #>msg_filedate_fail_mkfile : jmp filedate_fail
+@fdate_fail_findfile:
+        ldx #<msg_filedate_fail_findfile : ldy #>msg_filedate_fail_findfile : jmp filedate_fail
+@fdate_fail_stillimplemented:
+        jsr filedate_cleanup
+        ldx #<msg_filedate_fail_stillimplemented : ldy #>msg_filedate_fail_stillimplemented : jmp filedate_fail
+
+filedate_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+filedate_cleanup:
+        ldy #>filedate_testfilename
+        lda #$2e
+        sta $d640
+        clv
+        lda #$34
+        sta $d640
+        clv
+        lda #$26  ; rmfile
+        sta $d640
+        clv
+        rts
+
+;; ============================================================
+;; test: hyppo_mkdir (A=$0E)
+;;
+;; Creates a directory, chdirs into it, confirms it contains exactly the
+;; '.' and '..' entries (nothing else - regression test for the "must
+;; zero the new cluster" correctness requirement, since leftover garbage
+;; would show up as phantom readdir entries), cds back to root, then
+;; confirms mkdir on the same name a second time correctly fails with
+;; "file exists" ($8D).
+;; ============================================================
+test_mkdir:
+        ldy #>mkdir_dirname
+        lda #$2e
+        sta $d640
+        clv
+        bcs @mkdir_ok1
+        ldx #<msg_mkdir_fail_setname : ldy #>msg_mkdir_fail_setname : jmp mkdir_fail
+@mkdir_ok1:
+
+        lda #$0e
+        sta $d640
+        clv
+        bcs @mkdir_ok2
+        jsr print_errorcode_diag
+        ldx #<msg_mkdir_fail_call : ldy #>msg_mkdir_fail_call : jmp mkdir_fail
+@mkdir_ok2:
+
+        ldy #>mkdir_dirname
+        lda #$2e
+        sta $d640
+        clv
+        bcs @mkdir_ok3
+        ldx #<msg_mkdir_fail_setname : ldy #>msg_mkdir_fail_setname : jmp mkdir_fail
+@mkdir_ok3:
+
+        lda #$34
+        sta $d640
+        clv
+        bcs @mkdir_ok4
+        ldx #<msg_mkdir_fail_findfile : ldy #>msg_mkdir_fail_findfile : jmp mkdir_fail
+@mkdir_ok4:
+
+        lda #$0c
+        sta $d640
+        clv
+        bcs @mkdir_ok5
+        ldx #<msg_mkdir_fail_chdir : ldy #>msg_mkdir_fail_chdir : jmp mkdir_fail
+@mkdir_ok5:
+
+        lda #$12
+        sta $d640
+        clv
+        bcs @mkdir_ok6
+        ldx #<msg_mkdir_fail_opendir : ldy #>msg_mkdir_fail_opendir : jmp mkdir_fail
+@mkdir_ok6:
+        sta mkdir_fd
+
+        lda #0
+        sta mkdir_entry_count
+@mkdir_readloop:
+        ldx mkdir_fd
+        ldy #>mkdir_readdir_area
+        lda #$14
+        sta $d640
+        clv
+        bcc @mkdir_readdone
+        inc mkdir_entry_count
+        bra @mkdir_readloop
+
+@mkdir_readdone:
+        ldx mkdir_fd
+        lda #$16        ; closedir
+        sta $d640
+        clv
+
+        lda mkdir_entry_count
+        cmp #2
+        beq @mkdir_ok7
+        ldx #<dbg_count : ldy #>dbg_count : jsr print_str
+        lda mkdir_entry_count
+        jsr print_hex_byte
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+        ldx #<msg_mkdir_fail_count : ldy #>msg_mkdir_fail_count : jmp mkdir_fail
+@mkdir_ok7:
+
+        lda #$04        ; getcurrentdrive
+        sta $d640
+        clv
+        bcs @mkdir_ok8
+        ldx #<msg_mkdir_fail_getcurrentdrive : ldy #>msg_mkdir_fail_getcurrentdrive : jmp mkdir_fail
+@mkdir_ok8:
+        tax
+        lda #$3c        ; cdrootdir
+        sta $d640
+        clv
+        bcs @mkdir_ok9
+        ldx #<msg_mkdir_fail_cdroot : ldy #>msg_mkdir_fail_cdroot : jmp mkdir_fail
+@mkdir_ok9:
+
+        ;; Second mkdir with the same name must fail with file-exists.
+        ldy #>mkdir_dirname
+        lda #$2e
+        sta $d640
+        clv
+        bcs @mkdir_ok10
+        ldx #<msg_mkdir_fail_setname : ldy #>msg_mkdir_fail_setname : jmp mkdir_fail
+@mkdir_ok10:
+
+        lda #$0e
+        sta $d640
+        clv
+        bcc @mkdir_ok11
+        ldx #<msg_mkdir_fail_existcheck : ldy #>msg_mkdir_fail_existcheck : jmp mkdir_fail
+@mkdir_ok11:
+
+        lda #$38        ; geterrorcode
+        sta $d640
+        clv
+        cmp #$8d        ; dos_errorcode_file_exists
+        beq @mkdir_ok12
+        ldx #<msg_mkdir_fail_wrongerror : ldy #>msg_mkdir_fail_wrongerror : jmp mkdir_fail
+@mkdir_ok12:
+
+        ;; cleanup: remove the directory so a repeat run starts clean
+        ldy #>mkdir_dirname
+        lda #$2e        ; setname
+        sta $d640
+        clv
+        bcs @mkdir_ok13
+        ldx #<msg_mkdir_fail_setname : ldy #>msg_mkdir_fail_setname : jmp mkdir_fail
+@mkdir_ok13:
+        lda #$10        ; rmdir
+        sta $d640
+        clv
+        bcs @mkdir_ok14
+        ldx #<msg_mkdir_fail_cleanup : ldy #>msg_mkdir_fail_cleanup : jmp mkdir_fail
+@mkdir_ok14:
+
+        ldx #<msg_mkdir_pass
+        ldy #>msg_mkdir_pass
+        jsr print_str
+        rts
+
+mkdir_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; ============================================================
+;; test: mkdir nested inside another mkdir-created directory.
+;;
+;; Regression test for a real bug found via hardware testing: mkdir's
+;; free-single-cluster search started at cluster 2 (not sector-aligned)
+;; and added the scan's in-sector delta directly onto it, mislabeling
+;; every found cluster as 2 higher than the one actually checked/
+;; allocated - so a directory created while cwd was itself a
+;; mkdir-created directory could alias the SAME physical cluster as its
+;; parent, corrupting both. Creates OUTER in root, then INNER inside
+;; OUTER, and confirms they land on distinct clusters and that INNER is
+;; a genuinely empty (not self-referencing) directory.
+;; ============================================================
+test_mkdir_nested:
+        ldy #>mkdirnest_outer_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok1
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok1:
+        lda #$0e : sta $d640 : clv
+        bcs @mn_ok2
+        ldx #<msg_mn_fail_mkouter : ldy #>msg_mn_fail_mkouter : jmp mkdir_nested_fail
+@mn_ok2:
+
+        ;; findfile + fstat OUTER (still in root) to capture its cluster.
+        ldy #>mkdirnest_outer_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok3
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok3:
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok4
+        ldx #<msg_mn_fail_findouter : ldy #>msg_mn_fail_findouter : jmp mkdir_nested_fail
+@mn_ok4:
+        ldy #>mkdirnest_fstat_area
+        lda #$28 : sta $d640 : clv
+        bcs @mn_ok5
+        ldx #<msg_mn_fail_fstat : ldy #>msg_mn_fail_fstat : jmp mkdir_nested_fail
+@mn_ok5:
+        lda mkdirnest_fstat_area+20 : sta mkdirnest_outer_cluster+0
+        lda mkdirnest_fstat_area+21 : sta mkdirnest_outer_cluster+1
+        lda mkdirnest_fstat_area+26 : sta mkdirnest_outer_cluster+2
+        lda mkdirnest_fstat_area+27 : sta mkdirnest_outer_cluster+3
+
+        ;; chdir into OUTER (chdir needs the dirent freshly found via
+        ;; findfile - it does not call findfile itself).
+        ldy #>mkdirnest_outer_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok6
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok6:
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok6b
+        ldx #<msg_mn_fail_findouter : ldy #>msg_mn_fail_findouter : jmp mkdir_nested_fail
+@mn_ok6b:
+        lda #$0c : sta $d640 : clv
+        bcs @mn_ok7
+        ldx #<msg_mn_fail_chdirouter : ldy #>msg_mn_fail_chdirouter : jmp mkdir_nested_fail
+@mn_ok7:
+
+        ;; mkdir INNER while cwd=OUTER - this is what used to alias.
+        ldy #>mkdirnest_inner_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok8
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok8:
+        lda #$0e : sta $d640 : clv
+        bcs @mn_ok9
+        ldx #<msg_mn_fail_mkinner : ldy #>msg_mn_fail_mkinner : jmp mkdir_nested_fail
+@mn_ok9:
+
+        ;; findfile + fstat INNER (still cwd=OUTER) to capture its cluster.
+        ldy #>mkdirnest_inner_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok10
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok10:
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok11
+        ldx #<msg_mn_fail_findinner : ldy #>msg_mn_fail_findinner : jmp mkdir_nested_fail
+@mn_ok11:
+        ldy #>mkdirnest_fstat_area
+        lda #$28 : sta $d640 : clv
+        bcs @mn_ok12
+        ldx #<msg_mn_fail_fstat : ldy #>msg_mn_fail_fstat : jmp mkdir_nested_fail
+@mn_ok12:
+
+        ;; The bug: INNER's cluster must differ from OUTER's.
+        lda mkdirnest_fstat_area+20 : cmp mkdirnest_outer_cluster+0 : bne @mn_distinct
+        lda mkdirnest_fstat_area+21 : cmp mkdirnest_outer_cluster+1 : bne @mn_distinct
+        lda mkdirnest_fstat_area+26 : cmp mkdirnest_outer_cluster+2 : bne @mn_distinct
+        lda mkdirnest_fstat_area+27 : cmp mkdirnest_outer_cluster+3 : bne @mn_distinct
+        ldx #<msg_mn_fail_aliased : ldy #>msg_mn_fail_aliased : jmp mkdir_nested_fail
+@mn_distinct:
+
+        ;; chdir into INNER, confirm getcwd resolves the full nested path.
+        ldy #>mkdirnest_inner_name
+        lda #$2e : sta $d640 : clv
+        bcs @mn_ok13
+        ldx #<msg_mn_fail_setname : ldy #>msg_mn_fail_setname : jmp mkdir_nested_fail
+@mn_ok13:
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok13b
+        ldx #<msg_mn_fail_findinner : ldy #>msg_mn_fail_findinner : jmp mkdir_nested_fail
+@mn_ok13b:
+        lda #$0c : sta $d640 : clv
+        bcs @mn_ok14
+        ldx #<msg_mn_fail_chdirinner : ldy #>msg_mn_fail_chdirinner : jmp mkdir_nested_fail
+@mn_ok14:
+
+        ldy #>mkdirnest_getcwd_area
+        lda #$0a : sta $d640 : clv
+        bcs @mn_ok15
+        ldx #<msg_mn_fail_getcwd : ldy #>msg_mn_fail_getcwd : jmp mkdir_nested_fail
+@mn_ok15:
+        ldx mkdirnest_getcwd_area+1
+        ldy #0
+@mn_pathcmp:
+        lda mkdirnest_getcwd_area,x
+        cmp mkdirnest_expected_path,y
+        bne @mn_fail_pathmismatch
+        cmp #0
+        beq @mn_pathok
+        inx
+        iny
+        cpy #24
+        bne @mn_pathcmp
+@mn_fail_pathmismatch:
+        ldx #<msg_mn_fail_pathmismatch : ldy #>msg_mn_fail_pathmismatch : jmp mkdir_nested_fail
+@mn_pathok:
+
+        ;; INNER must be a genuinely fresh, empty directory: exactly 2
+        ;; entries ("." and ".."), not a self-referencing alias of OUTER.
+        lda #$12 : sta $d640 : clv
+        bcs @mn_ok16
+        ldx #<msg_mn_fail_opendir : ldy #>msg_mn_fail_opendir : jmp mkdir_nested_fail
+@mn_ok16:
+        sta mkdirnest_fd
+        lda #0 : sta mkdirnest_entry_count
+@mn_readloop:
+        ldx mkdirnest_fd
+        ldy #>mkdirnest_readdir_area
+        lda #$14 : sta $d640 : clv
+        bcc @mn_readdone
+        inc mkdirnest_entry_count
+        bra @mn_readloop
+@mn_readdone:
+        ldx mkdirnest_fd
+        lda #$16 : sta $d640 : clv
+
+        lda mkdirnest_entry_count
+        cmp #2
+        beq @mn_ok17
+        ldx #<msg_mn_fail_innercount : ldy #>msg_mn_fail_innercount : jmp mkdir_nested_fail
+@mn_ok17:
+
+        ;; Cleanup: back to OUTER, rmdir INNER; back to root, rmdir OUTER.
+        ;; chdir needs its own findfile immediately before it (rmdir does
+        ;; not - it calls dos_findfile itself).
+        ldy #>mkdirnest_dotdot : lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok17b
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok17b:
+        lda #$0c : sta $d640 : clv
+        bcs @mn_ok18
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok18:
+        ldy #>mkdirnest_inner_name : lda #$2e : sta $d640 : clv
+        lda #$10 : sta $d640 : clv
+        bcs @mn_ok19
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok19:
+        ldy #>mkdirnest_dotdot : lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        bcs @mn_ok19b
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok19b:
+        lda #$0c : sta $d640 : clv
+        bcs @mn_ok20
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok20:
+        ldy #>mkdirnest_outer_name : lda #$2e : sta $d640 : clv
+        lda #$10 : sta $d640 : clv
+        bcs @mn_ok21
+        ldx #<msg_mn_fail_cleanup : ldy #>msg_mn_fail_cleanup : jmp mkdir_nested_fail
+@mn_ok21:
+
+        ldx #<msg_mn_pass
+        ldy #>msg_mn_pass
+        jsr print_str
+        rts
+
+mkdir_nested_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; ============================================================
+;; test: mkdir inside a directory that already has a plain FILE
+;; sibling (not just other directories) - mirrors a real user repro:
+;; mkdir SIBDIR1, chdir in, mkfile a file, verify it, then mkdir
+;; SIBDIR2 alongside that file, then getcwd.
+;; ============================================================
+test_mkdir_sibling_file:
+        ldy #>sibdir1_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok1
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok1:
+        lda #$0e : sta $d640 : clv
+        bcs @sf_ok2
+        ldx #<msg_sf_fail_mkdir1 : ldy #>msg_sf_fail_mkdir1 : jmp mkdir_sibling_fail
+@sf_ok2:
+        ;; findfile + fstat sibdir1 to capture its cluster (compared
+        ;; against sibdir2's below - the actual repro check).
+        ldy #>sibdir1_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok2b
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok2b:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok2c
+        ldx #<msg_sf_fail_findfile : ldy #>msg_sf_fail_findfile : jmp mkdir_sibling_fail
+@sf_ok2c:
+        ldy #>sf_fstat_area
+        lda #$28 : sta $d640 : clv
+        bcs @sf_ok2d
+        ldx #<msg_sf_fail_fstat : ldy #>msg_sf_fail_fstat : jmp mkdir_sibling_fail
+@sf_ok2d:
+        lda sf_fstat_area+20 : sta sf_sibdir1_cluster+0
+        lda sf_fstat_area+21 : sta sf_sibdir1_cluster+1
+        lda sf_fstat_area+26 : sta sf_sibdir1_cluster+2
+        lda sf_fstat_area+27 : sta sf_sibdir1_cluster+3
+
+        ldy #>sibdir1_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok3
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok3:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok4
+        ldx #<msg_sf_fail_findfile : ldy #>msg_sf_fail_findfile : jmp mkdir_sibling_fail
+@sf_ok4:
+        lda #$0c : sta $d640 : clv
+        bcs @sf_ok5
+        ldx #<msg_sf_fail_chdir : ldy #>msg_sf_fail_chdir : jmp mkdir_sibling_fail
+@sf_ok5:
+
+        ;; mkfile a plain file inside sibdir1.
+        ldy #>sibfile_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok6
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok6:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv
+        bcs @sf_ok7
+        ldx #<msg_sf_fail_mkfile : ldy #>msg_sf_fail_mkfile : jmp mkdir_sibling_fail
+@sf_ok7:
+
+        ;; verify it's findable.
+        ldy #>sibfile_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok8
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok8:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok9
+        ldx #<msg_sf_fail_verifyfile : ldy #>msg_sf_fail_verifyfile : jmp mkdir_sibling_fail
+@sf_ok9:
+
+        ;; mkdir a second directory alongside the file - the actual repro.
+        ldy #>sibdir2_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok10
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok10:
+        lda #$0e : sta $d640 : clv
+        bcs @sf_ok11
+        ldx #<msg_sf_fail_mkdir2 : ldy #>msg_sf_fail_mkdir2 : jmp mkdir_sibling_fail
+@sf_ok11:
+
+        ;; findfile + fstat sibdir2 (still cwd=sibdir1) - its cluster
+        ;; must differ from sibdir1's (the actual repro check: mkdir
+        ;; right after an existing file in the same directory).
+        ldy #>sibdir2_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok11b
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok11b:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok11c
+        ldx #<msg_sf_fail_findfile2 : ldy #>msg_sf_fail_findfile2 : jmp mkdir_sibling_fail
+@sf_ok11c:
+        ldy #>sf_fstat_area
+        lda #$28 : sta $d640 : clv
+        bcs @sf_ok11d
+        ldx #<msg_sf_fail_fstat : ldy #>msg_sf_fail_fstat : jmp mkdir_sibling_fail
+@sf_ok11d:
+        lda sf_fstat_area+20 : cmp sf_sibdir1_cluster+0 : bne @sf_distinct
+        lda sf_fstat_area+21 : cmp sf_sibdir1_cluster+1 : bne @sf_distinct
+        lda sf_fstat_area+26 : cmp sf_sibdir1_cluster+2 : bne @sf_distinct
+        lda sf_fstat_area+27 : cmp sf_sibdir1_cluster+3 : bne @sf_distinct
+        ldx #<msg_sf_fail_aliased : ldy #>msg_sf_fail_aliased : jmp mkdir_sibling_fail
+@sf_distinct:
+
+        ;; chdir into sibdir2 and confirm it's a genuinely fresh, empty
+        ;; directory at the expected nested path - not self-referencing.
+        ldy #>sibdir2_name
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok11e
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok11e:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok11f
+        ldx #<msg_sf_fail_findfile2 : ldy #>msg_sf_fail_findfile2 : jmp mkdir_sibling_fail
+@sf_ok11f:
+        lda #$0c : sta $d640 : clv
+        bcs @sf_ok11g
+        ldx #<msg_sf_fail_chdir2 : ldy #>msg_sf_fail_chdir2 : jmp mkdir_sibling_fail
+@sf_ok11g:
+
+        ldy #>sibdir_getcwd_area
+        lda #$0a : sta $d640 : clv
+        bcs @sf_ok11h
+        ldx #<msg_sf_fail_getcwd : ldy #>msg_sf_fail_getcwd : jmp mkdir_sibling_fail
+@sf_ok11h:
+        ldx sibdir_getcwd_area+1
+        ldy #0
+@sf_pathcmp2:
+        lda sibdir_getcwd_area,x
+        cmp sf_sibdir2_expected_path,y
+        bne @sf_fail_pathmismatch2
+        cmp #0
+        beq @sf_pathok2
+        inx
+        iny
+        cpy #24
+        bne @sf_pathcmp2
+@sf_fail_pathmismatch2:
+        ldx #<msg_sf_fail_pathmismatch : ldy #>msg_sf_fail_pathmismatch : jmp mkdir_sibling_fail
+@sf_pathok2:
+
+        lda #$12 : sta $d640 : clv
+        bcs @sf_ok11i
+        ldx #<msg_sf_fail_opendir2 : ldy #>msg_sf_fail_opendir2 : jmp mkdir_sibling_fail
+@sf_ok11i:
+        sta sf_diag_fd
+        lda #0 : sta sf_entry_count
+@sf_readloop2:
+        ldx sf_diag_fd
+        ldy #>sf_diag_area
+        lda #$14 : sta $d640 : clv
+        bcc @sf_readdone2
+        inc sf_entry_count
+        bra @sf_readloop2
+@sf_readdone2:
+        ldx sf_diag_fd
+        lda #$16 : sta $d640 : clv
+        lda sf_entry_count
+        cmp #2
+        beq @sf_ok11j
+        ldx #<msg_sf_fail_innercount : ldy #>msg_sf_fail_innercount : jmp mkdir_sibling_fail
+@sf_ok11j:
+
+        ;; back to sibdir1 for the rest of cleanup.
+        ldy #>sibdir_dotdot
+        lda #$2e : sta $d640 : clv
+        bcs @sf_ok11k
+        ldx #<msg_sf_fail_setname : ldy #>msg_sf_fail_setname : jmp mkdir_sibling_fail
+@sf_ok11k:
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok11l
+        ldx #<msg_sf_fail_findfile2 : ldy #>msg_sf_fail_findfile2 : jmp mkdir_sibling_fail
+@sf_ok11l:
+        lda #$0c : sta $d640 : clv
+        bcs @sf_ok12
+        ldx #<msg_sf_fail_chdir2 : ldy #>msg_sf_fail_chdir2 : jmp mkdir_sibling_fail
+@sf_ok12:
+
+        ;; getcwd - back inside sibdir1.
+        ldy #>sibdir_getcwd_area
+        lda #$0a : sta $d640 : clv
+        bcs @sf_ok12b
+        ldx #<msg_sf_fail_getcwd : ldy #>msg_sf_fail_getcwd : jmp mkdir_sibling_fail
+@sf_ok12b:
+        ldx sibdir_getcwd_area+1
+        ldy #0
+@sf_pathcmp:
+        lda sibdir_getcwd_area,x
+        cmp sibdir_expected_path,y
+        bne @sf_fail_pathmismatch
+        cmp #0
+        beq @sf_pathok
+        inx
+        iny
+        cpy #24
+        bne @sf_pathcmp
+@sf_fail_pathmismatch:
+        ldx #<msg_sf_fail_pathmismatch : ldy #>msg_sf_fail_pathmismatch : jmp mkdir_sibling_fail
+@sf_pathok:
+
+        ;; cleanup: rmdir sibdir2, rmfile sibfile, chdir out, rmdir sibdir1.
+        ldy #>sibdir2_name : lda #$2e : sta $d640 : clv
+        lda #$10 : sta $d640 : clv
+        bcs @sf_ok13
+        ldx #<dbg_cleanup13 : ldy #>dbg_cleanup13 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok13:
+        ;; rmfile needs a fresh findfile immediately before it (unlike
+        ;; rmdir/mkfile, it does not call dos_findfile itself).
+        ldy #>sibfile_name : lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok13b
+        ldx #<dbg_cleanup14 : ldy #>dbg_cleanup14 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok13b:
+        lda #$26 : sta $d640 : clv
+        bcs @sf_ok14
+        ldx #<dbg_cleanup14 : ldy #>dbg_cleanup14 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok14:
+
+        ldy #>sibdir_dotdot : lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        bcs @sf_ok15
+        ldx #<dbg_cleanup15 : ldy #>dbg_cleanup15 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok15:
+        lda #$0c : sta $d640 : clv
+        bcs @sf_ok16
+        ldx #<dbg_cleanup16 : ldy #>dbg_cleanup16 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok16:
+        ldy #>sibdir1_name : lda #$2e : sta $d640 : clv
+        lda #$10 : sta $d640 : clv
+        bcs @sf_ok17
+        ldx #<dbg_cleanup17 : ldy #>dbg_cleanup17 : jsr print_str
+        jsr print_errorcode_diag
+        ldx #<msg_sf_fail_cleanup : ldy #>msg_sf_fail_cleanup : jmp mkdir_sibling_fail
+@sf_ok17:
+
+        ldx #<msg_sf_pass
+        ldy #>msg_sf_pass
+        jsr print_str
+        rts
+
+mkdir_sibling_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; ============================================================
+;; test: hyppo_rmdir (A=$10)
+;;
+;; Removes an empty directory (success), confirms it's really gone,
+;; then confirms rmdir on a non-empty directory correctly fails with
+;; directory_not_empty ($90) - only after emptying it out does a second
+;; rmdir attempt succeed.
+;; ============================================================
+test_rmdir:
+        ;; --- empty-directory removal ---
+        ldy #>rmdir_dirname1
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok1
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok1:
+        lda #$0e : sta $d640 : clv
+        bcs @rmdir_ok2
+        ldx #<msg_rmdir_fail_mkdir : ldy #>msg_rmdir_fail_mkdir : jmp rmdir_fail
+@rmdir_ok2:
+
+        ldy #>rmdir_dirname1
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok3
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok3:
+        lda #$10 : sta $d640 : clv
+        bcs @rmdir_ok4
+        lda #$38 : sta $d640 : clv     ; geterrorcode
+        pha
+        ldx #<dbg_errorcode : ldy #>dbg_errorcode : jsr print_str
+        pla
+        jsr print_hex_byte
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+        ldx #<msg_rmdir_fail_call : ldy #>msg_rmdir_fail_call : jmp rmdir_fail
+@rmdir_ok4:
+
+        ldy #>rmdir_dirname1
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok5
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok5:
+        lda #$34 : sta $d640 : clv
+        bcc @rmdir_ok6
+        ldx #<msg_rmdir_fail_stillexists : ldy #>msg_rmdir_fail_stillexists : jmp rmdir_fail
+@rmdir_ok6:
+
+        ;; --- non-empty directory ---
+        ldy #>rmdir_dirname2
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok7
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok7:
+        lda #$0e : sta $d640 : clv
+        bcs @rmdir_ok8
+        ldx #<msg_rmdir_fail_mkdir : ldy #>msg_rmdir_fail_mkdir : jmp rmdir_fail
+@rmdir_ok8:
+
+        jsr rmdir_enter_dirname2
+        bcs @rmdir_ok9
+        ldx #<msg_rmdir_fail_chdir : ldy #>msg_rmdir_fail_chdir : jmp rmdir_fail
+@rmdir_ok9:
+
+        ldy #>rmdir_innerfilename
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok10
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok10:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv
+        bcs @rmdir_ok11
+        ldx #<msg_rmdir_fail_innermkfile : ldy #>msg_rmdir_fail_innermkfile : jmp rmdir_fail
+@rmdir_ok11:
+
+        jsr rmdir_goto_root
+        bcs @rmdir_ok12
+        ldx #<msg_rmdir_fail_cdroot : ldy #>msg_rmdir_fail_cdroot : jmp rmdir_fail
+@rmdir_ok12:
+
+        ldy #>rmdir_dirname2
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok13
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok13:
+        lda #$10 : sta $d640 : clv
+        bcc @rmdir_ok14
+        ldx #<msg_rmdir_fail_shouldbenonempty : ldy #>msg_rmdir_fail_shouldbenonempty : jmp rmdir_fail
+@rmdir_ok14:
+        lda #$38 : sta $d640 : clv
+        cmp #$90        ; dos_errorcode_directory_not_empty
+        beq @rmdir_ok15
+        ldx #<msg_rmdir_fail_wrongerror : ldy #>msg_rmdir_fail_wrongerror : jmp rmdir_fail
+@rmdir_ok15:
+
+        ;; --- empty it out, then rmdir should succeed ---
+        jsr rmdir_enter_dirname2
+        bcs @rmdir_ok16
+        ldx #<msg_rmdir_fail_chdir : ldy #>msg_rmdir_fail_chdir : jmp rmdir_fail
+@rmdir_ok16:
+
+        ldy #>rmdir_innerfilename
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok17
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok17:
+        lda #$34 : sta $d640 : clv
+        bcs @rmdir_ok18
+        ldx #<msg_rmdir_fail_innerfindfile : ldy #>msg_rmdir_fail_innerfindfile : jmp rmdir_fail
+@rmdir_ok18:
+        lda #$26 : sta $d640 : clv     ; rmfile
+        bcs @rmdir_ok19
+        ldx #<msg_rmdir_fail_innerrmfile : ldy #>msg_rmdir_fail_innerrmfile : jmp rmdir_fail
+@rmdir_ok19:
+
+        jsr rmdir_goto_root
+        bcs @rmdir_ok20
+        ldx #<msg_rmdir_fail_cdroot : ldy #>msg_rmdir_fail_cdroot : jmp rmdir_fail
+@rmdir_ok20:
+
+        ldy #>rmdir_dirname2
+        lda #$2e : sta $d640 : clv
+        bcs @rmdir_ok21
+        ldx #<msg_rmdir_fail_setname : ldy #>msg_rmdir_fail_setname : jmp rmdir_fail
+@rmdir_ok21:
+        lda #$10 : sta $d640 : clv
+        bcs @rmdir_ok22
+        ldx #<msg_rmdir_fail_finalcall : ldy #>msg_rmdir_fail_finalcall : jmp rmdir_fail
+@rmdir_ok22:
+
+        ldx #<msg_rmdir_pass
+        ldy #>msg_rmdir_pass
+        jsr print_str
+        rts
+
+rmdir_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; find rmdir_dirname2 and chdir into it (used twice above)
+rmdir_enter_dirname2:
+        ldy #>rmdir_dirname2
+        lda #$2e : sta $d640 : clv
+        bcc @ren_fail
+        lda #$34 : sta $d640 : clv
+        bcc @ren_fail
+        lda #$0c : sta $d640 : clv
+        rts
+@ren_fail:
+        clc
+        rts
+
+;; getcurrentdrive + cdrootdir back to root (used twice above)
+rmdir_goto_root:
+        lda #$04 : sta $d640 : clv
+        bcc @rgr_fail
+        tax
+        lda #$3c : sta $d640 : clv
+        rts
+@rgr_fail:
+        clc
+        rts
+
+;; ============================================================
+;; test: hyppo_rename (A=$2A)
+;;
+;; Calling convention: operates on an already-open FD - X = the FD
+;; (from openfile for a file, or opendir for the currently-open
+;; directory), with the new name passed via Y = page of a
+;; null-terminated buffer (same convention hyppo_setname uses for its
+;; input; see trap_dos_rename's own comment). The old "OLD/NEW"
+;; combined-string form with the '/' separator is gone.
+;; Covers: successful rename of an open file (old name gone, new name
+;; found), rejecting a rename onto an existing name (file_exists,
+;; $8D), and successful rename of the currently-open directory via
+;; its opendir FD.
+;; ============================================================
+test_rename:
+        ;; --- successful rename: like hyppo_writefile, operates on an
+        ;; already-open FD (X), with the new name passed via Y (page
+        ;; of a null-terminated buffer, same convention hyppo_setname
+        ;; itself uses). No more combined "OLD/NEW" string.
+        ldy #>rename_oldname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok1
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok1:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv
+        bcs @ren_ok2
+        ldx #<msg_rename_fail_mkfile : ldy #>msg_rename_fail_mkfile : jmp rename_fail
+@ren_ok2:
+
+        ldy #>rename_oldname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok3
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok3:
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ren_ok4
+        ldx #<msg_rename_fail_findfile : ldy #>msg_rename_fail_findfile : jmp rename_fail
+@ren_ok4:
+        lda #$18 : sta $d640 : clv     ; openfile
+        bcs @ren_ok5
+        ldx #<msg_rename_fail_openfile : ldy #>msg_rename_fail_openfile : jmp rename_fail
+@ren_ok5:
+        sta rename_fd
+
+        ldx rename_fd
+        ldy #>rename_newname
+        lda #$2a : sta $d640 : clv     ; rename
+        bcs @ren_ok6
+        jsr print_errorcode_diag
+        ldx #<msg_rename_fail_call : ldy #>msg_rename_fail_call : jmp rename_fail
+@ren_ok6:
+
+        ldx rename_fd
+        lda #$20 : sta $d640 : clv     ; closefile
+
+        ldy #>rename_oldname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok7
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok7:
+        lda #$34 : sta $d640 : clv
+        bcc @ren_ok8
+        ldx #<msg_rename_fail_oldstillexists : ldy #>msg_rename_fail_oldstillexists : jmp rename_fail
+@ren_ok8:
+
+        ldy #>rename_newname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok9
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok9:
+        lda #$34 : sta $d640 : clv
+        bcs @ren_ok10
+        ldx #<msg_rename_fail_newnotfound : ldy #>msg_rename_fail_newnotfound : jmp rename_fail
+@ren_ok10:
+        lda #$26 : sta $d640 : clv     ; rmfile (cleanup)
+
+        ;; --- rename onto an existing name must fail ---
+        ldy #>rename_aname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok11
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok11:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv
+        bcs @ren_ok12
+        ldx #<msg_rename_fail_mkfile : ldy #>msg_rename_fail_mkfile : jmp rename_fail
+@ren_ok12:
+
+        ldy #>rename_bname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok13
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok13:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv
+        bcs @ren_ok14
+        ldx #<msg_rename_fail_mkfile : ldy #>msg_rename_fail_mkfile : jmp rename_fail
+@ren_ok14:
+
+        ldy #>rename_aname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok15
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok15:
+        lda #$34 : sta $d640 : clv
+        bcs @ren_ok16
+        ldx #<msg_rename_fail_findfile : ldy #>msg_rename_fail_findfile : jmp rename_fail
+@ren_ok16:
+        lda #$18 : sta $d640 : clv
+        bcs @ren_ok17
+        ldx #<msg_rename_fail_openfile : ldy #>msg_rename_fail_openfile : jmp rename_fail
+@ren_ok17:
+        sta rename_fd
+
+        ldx rename_fd
+        ldy #>rename_bname
+        lda #$2a : sta $d640 : clv
+        bcc @ren_ok18
+        ldx #<msg_rename_fail_shouldhavecollided : ldy #>msg_rename_fail_shouldhavecollided : jmp rename_fail
+@ren_ok18:
+        lda #$38 : sta $d640 : clv
+        cmp #$8d        ; dos_errorcode_file_exists
+        beq @ren_ok19
+        ldx #<msg_rename_fail_wrongerror : ldy #>msg_rename_fail_wrongerror : jmp rename_fail
+@ren_ok19:
+
+        ldx rename_fd
+        lda #$20 : sta $d640 : clv     ; closefile
+
+        ;; cleanup A.TXT and B.TXT
+        ldy #>rename_aname
+        lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        lda #$26 : sta $d640 : clv
+        ldy #>rename_bname
+        lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        lda #$26 : sta $d640 : clv
+
+        ;; --- rename a directory: mkdir it, chdir into it, get an FD
+        ;; for cwd itself via hyppo_opendir (A=$12), then rename that
+        ;; FD. hyppo_rename derives the directory's parent live via
+        ;; its own ".." entry, so no by-name subdirectory lookup is
+        ;; needed for this case - only the currently-open directory
+        ;; can be renamed this way.
+        ldy #>rename_olddirname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok20
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok20:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$0e : sta $d640 : clv     ; mkdir
+        bcs @ren_ok21
+        ldx #<msg_rename_fail_mkdir : ldy #>msg_rename_fail_mkdir : jmp rename_fail
+@ren_ok21:
+
+        ldy #>rename_olddirname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok22
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok22:
+        lda #$34 : sta $d640 : clv     ; findfile (chdir needs this first)
+        bcs @ren_ok23
+        ldx #<msg_rename_fail_findfile : ldy #>msg_rename_fail_findfile : jmp rename_fail
+@ren_ok23:
+        lda #$0c : sta $d640 : clv     ; chdir
+        bcs @ren_ok24
+        ldx #<msg_rename_fail_chdir : ldy #>msg_rename_fail_chdir : jmp rename_fail
+@ren_ok24:
+
+        lda #$12 : sta $d640 : clv     ; opendir (FD for cwd itself)
+        bcs @ren_ok25
+        jsr print_errorcode_diag
+        ldx #<msg_rename_fail_opendir : ldy #>msg_rename_fail_opendir : jmp rename_fail
+@ren_ok25:
+        sta rename_fd
+
+        ldx rename_fd
+        ldy #>rename_newdirname
+        lda #$2a : sta $d640 : clv     ; rename
+        bcs @ren_ok26
+        jsr print_errorcode_diag
+        ldx #<msg_rename_fail_call : ldy #>msg_rename_fail_call : jmp rename_fail
+@ren_ok26:
+
+        ldx rename_fd
+        lda #$16 : sta $d640 : clv     ; closedir
+
+        ldx #0
+        lda #$3c : sta $d640 : clv     ; cdrootdir (X=disk 0) - back out to verify
+        bcs @ren_ok27
+        ldx #<msg_rename_fail_cdroot : ldy #>msg_rename_fail_cdroot : jmp rename_fail
+@ren_ok27:
+
+        ldy #>rename_olddirname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok28
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok28:
+        lda #$34 : sta $d640 : clv
+        bcc @ren_ok29
+        ldx #<msg_rename_fail_oldstillexists_dir : ldy #>msg_rename_fail_oldstillexists_dir : jmp rename_fail
+@ren_ok29:
+
+        ldy #>rename_newdirname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok30
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok30:
+        lda #$34 : sta $d640 : clv
+        bcs @ren_ok31
+        ldx #<msg_rename_fail_newnotfound : ldy #>msg_rename_fail_newnotfound : jmp rename_fail
+@ren_ok31:
+        lda #$10 : sta $d640 : clv     ; rmdir (cleanup)
+
+        ;; --- rename to a name needing LFN pieces (over 8.3): relocates
+        ;; to fresh dirent slots instead of failing name_too_long.
+        ;; "LONGFILENAME.TXT" is 16 characters, needing 2 LFN pieces
+        ;; (ceil(16/13)) - also exercises the multi-piece path.
+        ldy #>rename_cname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok32
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok32:
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv     ; mkfile
+        bcs @ren_ok33
+        ldx #<msg_rename_fail_mkfile : ldy #>msg_rename_fail_mkfile : jmp rename_fail
+@ren_ok33:
+
+        ldy #>rename_cname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok34
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok34:
+        lda #$34 : sta $d640 : clv     ; findfile
+        bcs @ren_ok35
+        ldx #<msg_rename_fail_findfile : ldy #>msg_rename_fail_findfile : jmp rename_fail
+@ren_ok35:
+        lda #$18 : sta $d640 : clv     ; openfile
+        bcs @ren_ok36
+        ldx #<msg_rename_fail_openfile : ldy #>msg_rename_fail_openfile : jmp rename_fail
+@ren_ok36:
+        sta rename_fd
+
+        ldx rename_fd
+        ldy #>rename_lfnname
+        lda #$2a : sta $d640 : clv     ; rename to the LFN name
+        bcs @ren_ok37
+        jsr print_errorcode_diag
+        ldx #<msg_rename_fail_lfncall : ldy #>msg_rename_fail_lfncall : jmp rename_fail
+@ren_ok37:
+
+        ldx rename_fd
+        lda #$20 : sta $d640 : clv     ; closefile
+
+        ldy #>rename_cname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok38
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok38:
+        lda #$34 : sta $d640 : clv     ; old short name must be gone
+        bcc @ren_ok39
+        ldx #<msg_rename_fail_oldstillexists_lfn : ldy #>msg_rename_fail_oldstillexists_lfn : jmp rename_fail
+@ren_ok39:
+
+        ldy #>rename_lfnname
+        lda #$2e : sta $d640 : clv
+        bcs @ren_ok40
+        ldx #<msg_rename_fail_setname : ldy #>msg_rename_fail_setname : jmp rename_fail
+@ren_ok40:
+        lda #$34 : sta $d640 : clv     ; new LFN name must be found -
+        bcs @ren_ok41                   ; only possible if the LFN pieces
+        ldx #<msg_rename_fail_lfnnotfound : ldy #>msg_rename_fail_lfnnotfound : jmp rename_fail
+@ren_ok41:                              ; + checksum were written correctly
+
+        ;; Independent readback check: readdir must *reconstruct* the
+        ;; exact same characters, not just have findfile agree with
+        ;; itself (findfile shares its comparison code with the
+        ;; reconstruction it's checking).
+        ldx #<rename_lfnname : ldy #>rename_lfnname
+        jsr verify_lfn_readback
+        bcs @ren_ok42
+        ldx #<msg_rename_fail_lfnreadback : ldy #>msg_rename_fail_lfnreadback : jmp rename_fail
+@ren_ok42:
+
+        lda #$26 : sta $d640 : clv     ; rmfile (cleanup)
+
+        ldx #<msg_rename_pass
+        ldy #>msg_rename_pass
+        jsr print_str
+        rts
+
+rename_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; ============================================================
+;; test: short-name tilde-numbering collision avoidance
+;;
+;; TESTFILE1.TXT and TESTFILE2.TXT both truncate their base name to
+;; the same 6 characters ("TESTFI"), so a correct 8.3 short-name
+;; generator must disambiguate them (~1 vs ~2, the way real FAT32 LFN
+;; implementations avoid short-name collisions) rather than both
+;; landing on "TESTFI~1.TXT".
+;; ============================================================
+test_shortname_collision:
+        ldy #>shortname_name1
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_setname
++
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv     ; mkfile
+        bcs +
+        jmp @sc_fail_mkfile1
++
+        ldy #>shortname_name2
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_setname
++
+        ldx #0 : ldy #0 : ldz #0
+        lda #$1e : sta $d640 : clv     ; mkfile
+        bcs +
+        jmp @sc_fail_mkfile2
++
+
+        ;; fstat file 1's raw dirent to capture its short name
+        ldy #>shortname_name1
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_setname
++
+        lda #$34 : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_findfile
++
+        ldy #>shortname_area1
+        lda #$28 : sta $d640 : clv     ; fstat
+        bcs +
+        jmp @sc_fail_fstat
++
+
+        ;; fstat file 2's raw dirent
+        ldy #>shortname_name2
+        lda #$2e : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_setname
++
+        lda #$34 : sta $d640 : clv
+        bcs +
+        jmp @sc_fail_findfile
++
+        ldy #>shortname_area2
+        lda #$28 : sta $d640 : clv     ; fstat
+        bcs +
+        jmp @sc_fail_fstat
++
+
+        ;; short name field is the first 11 bytes of the raw dirent -
+        ;; the two must NOT be identical.
+        ldx #0
+@sc_cmploop:
+        lda shortname_area1,x
+        cmp shortname_area2,x
+        bne @sc_distinct
+        inx
+        cpx #11
+        bne @sc_cmploop
+        jmp @sc_fail_collision
+@sc_distinct:
+
+        ;; Not just distinct - each must be the exact tilde-numbered
+        ;; short name expected from truncating "TESTFILE1"/"TESTFILE2"
+        ;; to 6 chars: TESTFI~1TXT / TESTFI~2TXT (raw 11-byte field,
+        ;; no dot). Independent of dos_findfile's own name-matching
+        ;; logic, which shares code with the writer and so wouldn't
+        ;; catch a bug present in both.
+        ldx #0
+@sc_expect1:
+        lda shortname_area1,x
+        cmp shortname_expect1,x
+        bne @sc_fail_expect1
+        inx
+        cpx #11
+        bne @sc_expect1
+
+        ldx #0
+@sc_expect2:
+        lda shortname_area2,x
+        cmp shortname_expect2,x
+        bne @sc_fail_expect2
+        inx
+        cpx #11
+        bne @sc_expect2
+
+        jsr shortname_cleanup
+        ldx #<msg_shortname_pass
+        ldy #>msg_shortname_pass
+        jsr print_str
+        rts
+
+@sc_fail_expect1:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_expect1 : ldy #>msg_shortname_fail_expect1 : jmp shortname_fail
+@sc_fail_expect2:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_expect2 : ldy #>msg_shortname_fail_expect2 : jmp shortname_fail
+@sc_fail_setname:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_setname : ldy #>msg_shortname_fail_setname : jmp shortname_fail
+@sc_fail_mkfile1:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_mkfile1 : ldy #>msg_shortname_fail_mkfile1 : jmp shortname_fail
+@sc_fail_mkfile2:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_mkfile2 : ldy #>msg_shortname_fail_mkfile2 : jmp shortname_fail
+@sc_fail_findfile:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_findfile : ldy #>msg_shortname_fail_findfile : jmp shortname_fail
+@sc_fail_fstat:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_fstat : ldy #>msg_shortname_fail_fstat : jmp shortname_fail
+@sc_fail_collision:
+        jsr shortname_cleanup
+        ldx #<msg_shortname_fail_collision : ldy #>msg_shortname_fail_collision : jmp shortname_fail
+
+shortname_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+shortname_cleanup:
+        ldy #>shortname_name1
+        lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        lda #$26 : sta $d640 : clv
+        ldy #>shortname_name2
+        lda #$2e : sta $d640 : clv
+        lda #$34 : sta $d640 : clv
+        lda #$26 : sta $d640 : clv
+        rts
+
+;; ============================================================
+;; test: root directory listing after all other tests
+;;
+;; Regression check that the root directory is still correctly
+;; enumerable after every other test has run: cds to root, then
+;; opens/reads it directly and confirms at least one entry is found.
+;; ============================================================
+test_root_listing_after:
+        lda #$04 : sta $d640 : clv     ; getcurrentdrive
+        bcs @trla_ok1
+        ldx #<msg_trla_fail_getcurrentdrive : ldy #>msg_trla_fail_getcurrentdrive : jmp trla_fail
+@trla_ok1:
+        tax
+        lda #$3c : sta $d640 : clv     ; cdrootdir
+        bcs @trla_ok2
+        ldx #<msg_trla_fail_cdroot : ldy #>msg_trla_fail_cdroot : jmp trla_fail
+@trla_ok2:
+
+        lda #$12 : sta $d640 : clv     ; opendir
+        bcs @trla_ok3
+        ldx #<msg_trla_fail_opendir : ldy #>msg_trla_fail_opendir : jmp trla_fail
+@trla_ok3:
+        sta trla_fd
+
+        lda #0
+        sta trla_count
+@trla_readloop:
+        ldx trla_fd
+        ldy #>trla_readdir_area
+        lda #$14 : sta $d640 : clv     ; readdir
+        bcc @trla_readdone
+        inc trla_count
+        lda trla_count
+        cmp #250                        ; safety cap - just need "non-zero"
+        beq @trla_readdone
+        bra @trla_readloop
+@trla_readdone:
+        ldx trla_fd
+        lda #$16 : sta $d640 : clv     ; closedir
+
+        ldx #<dbg_count : ldy #>dbg_count : jsr print_str
+        lda trla_count
+        jsr print_hex_byte
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+
+        lda trla_count
+        beq @trla_fail_empty
+
+        ldx #<msg_trla_pass
+        ldy #>msg_trla_pass
+        jsr print_str
+        rts
+
+@trla_fail_empty:
+        ldx #<msg_trla_fail_empty : ldy #>msg_trla_fail_empty : jmp trla_fail
+
+trla_fail:
+        inc fail_count
+        jsr print_str
+        rts
+
+;; ============================================================
+;; helpers
+;; ============================================================
+
+;; print_str: X=lo, Y=hi of a null-terminated string; writes each byte via
+;; hyppo_serial_monitor_write (A=$7C, Y=byte, STA $D640, CLV).
+print_str:
+        stx strptr
+        sty strptr+1
+@loop:
+        ldy #0
+        lda (strptr),y
+        beq @done
+        pha
+        tay
+        lda #$7c
+        sta $d640
+        clv
+        pla
+        jsr $ffd2       ; KERNAL CHROUT - also show it on screen, not just
+                         ; the (otherwise invisible without a serial
+                         ; cable) hypervisor serial-debug port above
+        inc strptr
+        bne @loop
+        inc strptr+1
+        bra @loop
+@done:
+        rts
+
+;; print_hex_byte: A = byte to print as two hex digits
+print_hex_byte:
+        phx
+        sta hexbyte_tmp
+        lsr : lsr : lsr : lsr
+        tax
+        lda hexdigits,x
+        tay
+        pha
+        lda #$7c
+        sta $d640
+        clv
+        pla
+        jsr $ffd2
+
+        lda hexbyte_tmp
+        and #$0f
+        tax
+        lda hexdigits,x
+        tay
+        pha
+        lda #$7c
+        sta $d640
+        clv
+        pla
+        jsr $ffd2
+        plx
+        rts
+
+;; print_errorcode_diag: prints "  ERRORCODE: $XX" + newline, using
+;; whatever hyppo_geterrorcode (A=$38) currently reports. Call right
+;; before jumping to a "(TRAP CALL)"-style failure handler.
+print_errorcode_diag:
+        lda #$38 : sta $d640 : clv
+        pha
+        ldx #<dbg_errorcode : ldy #>dbg_errorcode : jsr print_str
+        pla
+        jsr print_hex_byte
+        ldx #<dbg_nl : ldy #>dbg_nl : jsr print_str
+        rts
+
+hexbyte_tmp:
+        !byte 0
+hexdigits:
+        !text "0123456789ABCDEF"
+
+;; verify_lfn_readback: scans the current directory via opendir/readdir
+;; and confirms some entry's *reconstructed* long name matches the
+;; given expected string, byte for byte - independent of
+;; dos_findfile's own name-matching, which shares the same
+;; reconstruction code and so wouldn't catch a bug present in both.
+;; X/Y = lo/hi of a null-terminated expected name string (max 64
+;; chars). Returns carry SET if found, CLEAR otherwise.
+verify_lfn_readback:
+        stx lfn_readback_expect
+        sty lfn_readback_expect+1
+
+        lda #$12 : sta $d640 : clv     ; opendir (current directory)
+        bcs +
+        clc
+        rts
++
+        sta lfn_readback_fd
+
+@loop:
+        ldx lfn_readback_fd
+        ldy #>lfn_readback_area
+        lda #$14 : sta $d640 : clv     ; readdir
+        bcc @notfound
+
+        ldy #0
+@cmp:
+        lda lfn_readback_area,y
+        cmp (lfn_readback_expect),y
+        bne @loop
+        cmp #0
+        beq @found
+        iny
+        cpy #64
+        bne @cmp
+        bra @loop
+
+@found:
+        ldx lfn_readback_fd
+        lda #$16 : sta $d640 : clv     ; closedir
+        sec
+        rts
+
+@notfound:
+        ldx lfn_readback_fd
+        lda #$16 : sta $d640 : clv     ; closedir
+        clc
+        rts
+
+lfn_readback_fd:
+        !byte 0
+
+print_fail_summary:
+        ldx #<msg_some_failed
+        ldy #>msg_some_failed
+        jsr print_str
+        rts
+
+;; ============================================================
+;; data (page-aligned buffers used as trap inputs)
+;; ============================================================
+
+!align 255, 0
+fstat_testfilename:
+        !text "FSTAT.TXT", 0
+
+!align 255, 0
+fstat_transfer_area:
+        !fill 256, 0
+
+!align 255, 0
+poison_area:
+        !fill 256, $AA
+
+expected_shortname:
+        !text "FSTAT   TXT"
+
+!align 255, 0
+drivesize_transfer_area:
+        !fill 256, 0
+
+!align 255, 0
+getcwd_transfer_area:
+        !fill 256, 0
+
+getcwd_expected_disk:
+        !byte 0
+
+!align 255, 0
+filedate_testfilename:
+        !text "FDATE.TXT", 0
+
+!align 255, 0
+mkdir_dirname:
+        !text "MKDTEST", 0
+
+!align 255, 0
+mkdir_readdir_area:
+        !fill 256, 0
+
+mkdir_fd:
+        !byte 0
+mkdir_entry_count:
+        !byte 0
+
+!align 255, 0
+mkdirnest_outer_name:
+        !text "NESTOUTR", 0
+
+!align 255, 0
+mkdirnest_inner_name:
+        !text "NESTINNR", 0
+
+!align 255, 0
+mkdirnest_dotdot:
+        !text "..", 0
+
+!align 255, 0
+mkdirnest_fstat_area:
+        !fill 256, 0
+
+!align 255, 0
+mkdirnest_getcwd_area:
+        !fill 256, 0
+
+!align 255, 0
+mkdirnest_readdir_area:
+        !fill 256, 0
+
+mkdirnest_outer_cluster:
+        !fill 4, 0
+mkdirnest_fd:
+        !byte 0
+mkdirnest_entry_count:
+        !byte 0
+mkdirnest_expected_path:
+        !text "/NESTOUTR/NESTINNR", 0
+
+!align 255, 0
+sibdir1_name:
+        !text "SIBDIR1", 0
+
+!align 255, 0
+sibdir2_name:
+        !text "SIBDIR2", 0
+
+!align 255, 0
+sibfile_name:
+        !text "SIBFILE.TXT", 0
+
+!align 255, 0
+sibdir_dotdot:
+        !text "..", 0
+
+!align 255, 0
+sibdir_getcwd_area:
+        !fill 256, 0
+
+sibdir_expected_path:
+        !text "/SIBDIR1", 0
+
+sf_sibdir2_expected_path:
+        !text "/SIBDIR1/SIBDIR2", 0
+
+!align 255, 0
+sf_fstat_area:
+        !fill 256, 0
+
+sf_sibdir1_cluster:
+        !fill 4, 0
+sf_entry_count:
+        !byte 0
+
+!align 255, 0
+sf_diag_area:
+        !fill 256, 0
+sf_diag_fd:
+        !byte 0
+sf_diag_idx:
+        !byte 0
+
+!align 255, 0
+rmdir_dirname1:
+        !text "RMDTEST", 0
+
+!align 255, 0
+rmdir_dirname2:
+        !text "RMDTEST2", 0
+
+!align 255, 0
+rmdir_innerfilename:
+        !text "INSIDE.TXT", 0
+
+!align 255, 0
+rename_oldname:
+        !text "RENOLD.TXT", 0
+!align 255, 0
+rename_newname:
+        !text "RENNEW.TXT", 0
+!align 255, 0
+rename_aname:
+        !text "RENA.TXT", 0
+!align 255, 0
+rename_bname:
+        !text "RENB.TXT", 0
+!align 255, 0
+rename_olddirname:
+        !text "RENOLDD", 0
+!align 255, 0
+rename_newdirname:
+        !text "RENNEWD", 0
+!align 255, 0
+rename_cname:
+        !text "RENC.TXT", 0
+!align 255, 0
+rename_lfnname:
+        !text "LONGFILENAME.TXT", 0
+
+rename_fd:
+        !byte 0
+
+!align 255, 0
+shortname_name1:
+        !text "TESTFILE1.TXT", 0
+!align 255, 0
+shortname_name2:
+        !text "TESTFILE2.TXT", 0
+!align 255, 0
+shortname_area1:
+        !fill 256, 0
+!align 255, 0
+shortname_area2:
+        !fill 256, 0
+
+;; Raw 11-byte short-name field (no dot) expected from truncating
+;; "TESTFILE1"/"TESTFILE2" to 6 chars each - see the readback check in
+;; test_shortname_collision above.
+shortname_expect1:
+        !text "TESTFI~1TXT"
+shortname_expect2:
+        !text "TESTFI~2TXT"
+
+!align 255, 0
+trla_readdir_area:
+        !fill 256, 0
+
+trla_fd:
+        !byte 0
+
+!align 255, 0
+lfn_readback_area:
+        !fill 256, 0
+trla_count:
+        !byte 0
+
+fail_count:
+        !byte 0
+
+dbg_got:
+        !text "  GOT BYTES: "
+        !byte 0
+dbg_count:
+        !text "  COUNT: "
+        !byte 0
+dbg_errorcode:
+        !text "  ERRORCODE: "
+        !byte 0
+dbg_nl:
+        !byte 13,0
+dbg_cleanup13:
+        !text "  SF CLEANUP STEP 13 (RMDIR SIBDIR2): "
+        !byte 0
+dbg_cleanup14:
+        !text "  SF CLEANUP STEP 14 (RMFILE SIBFILE): "
+        !byte 0
+dbg_cleanup15:
+        !text "  SF CLEANUP STEP 15 (FINDFILE ..): "
+        !byte 0
+dbg_cleanup16:
+        !text "  SF CLEANUP STEP 16 (CHDIR ..): "
+        !byte 0
+dbg_cleanup17:
+        !text "  SF CLEANUP STEP 17 (RMDIR SIBDIR1): "
+        !byte 0
+dbg_diag_entry:
+        !text "  SF DIAG ENTRY: ["
+        !byte 0
+
+msg_start_fail_cdroot:
+        !text "FATAL: COULD NOT CD TO ROOT AT STARTUP"
+        !byte 13,0
+
+msg_getversion_pass:
+        !text "PASS: GETVERSION"
+        !byte 13,0
+msg_getversion_fail:
+        !text "FAIL: GETVERSION"
+        !byte 13,0
+msg_fstat_pass:
+        !text "PASS: FSTAT"
+        !byte 13,0
+msg_fstat_fail_setname:
+        !text "FAIL: FSTAT (SETNAME)"
+        !byte 13,0
+msg_fstat_fail_mkfile:
+        !text "FAIL: FSTAT (MKFILE PRECONDITION)"
+        !byte 13,0
+msg_fstat_fail_poison:
+        !text "FAIL: FSTAT (SETUP_TRANSFER_AREA POISON STEP)"
+        !byte 13,0
+msg_fstat_fail_findfile:
+        !text "FAIL: FSTAT (FINDFILE PRECONDITION)"
+        !byte 13,0
+msg_fstat_fail_call:
+        !text "FAIL: FSTAT (TRAP CALL)"
+        !byte 13,0
+msg_fstat_fail_mismatch:
+        !text "FAIL: FSTAT (RETURNED SHORT NAME DID NOT MATCH - STALE/POISONED DATA)"
+        !byte 13,0
+msg_getdrivesize_pass:
+        !text "PASS: GETDRIVESIZE"
+        !byte 13,0
+msg_getdrivesize_fail_call:
+        !text "FAIL: GETDRIVESIZE (TRAP CALL)"
+        !byte 13,0
+msg_getdrivesize_fail_zero:
+        !text "FAIL: GETDRIVESIZE (SECTOR COUNT OR SECTORS-PER-CLUSTER WAS ZERO)"
+        !byte 13,0
+msg_getcwd_pass:
+        !text "PASS: GETCWD"
+        !byte 13,0
+msg_getcwd_fail_getcurrentdrive:
+        !text "FAIL: GETCWD (GETCURRENTDRIVE PRECONDITION)"
+        !byte 13,0
+msg_getcwd_fail_call:
+        !text "FAIL: GETCWD (TRAP CALL)"
+        !byte 13,0
+msg_getcwd_fail_mismatch:
+        !text "FAIL: GETCWD (DISK ID DID NOT MATCH GETCURRENTDRIVE)"
+        !byte 13,0
+msg_filedate_pass:
+        !text "PASS: FILEDATE"
+        !byte 13,0
+msg_filedate_fail_setname:
+        !text "FAIL: FILEDATE (SETNAME)"
+        !byte 13,0
+msg_filedate_fail_mkfile:
+        !text "FAIL: FILEDATE (MKFILE PRECONDITION)"
+        !byte 13,0
+msg_filedate_fail_findfile:
+        !text "FAIL: FILEDATE (FINDFILE PRECONDITION)"
+        !byte 13,0
+msg_filedate_fail_stillimplemented:
+        !text "FAIL: FILEDATE (STANDALONE TRAP SHOULD NOT HAVE SUCCEEDED)"
+        !byte 13,0
+msg_mkdir_pass:
+        !text "PASS: MKDIR"
+        !byte 13,0
+msg_mkdir_fail_setname:
+        !text "FAIL: MKDIR (SETNAME)"
+        !byte 13,0
+msg_mkdir_fail_call:
+        !text "FAIL: MKDIR (TRAP CALL)"
+        !byte 13,0
+msg_mkdir_fail_findfile:
+        !text "FAIL: MKDIR (FINDFILE PRECONDITION)"
+        !byte 13,0
+msg_mkdir_fail_chdir:
+        !text "FAIL: MKDIR (CHDIR INTO NEW DIRECTORY)"
+        !byte 13,0
+msg_mkdir_fail_opendir:
+        !text "FAIL: MKDIR (OPENDIR ON NEW DIRECTORY)"
+        !byte 13,0
+msg_mkdir_fail_count:
+        !text "FAIL: MKDIR (EXPECTED EXACTLY 2 ENTRIES - '.' AND '..')"
+        !byte 13,0
+msg_mkdir_fail_getcurrentdrive:
+        !text "FAIL: MKDIR (GETCURRENTDRIVE)"
+        !byte 13,0
+msg_mkdir_fail_cdroot:
+        !text "FAIL: MKDIR (CDROOTDIR)"
+        !byte 13,0
+msg_mkdir_fail_existcheck:
+        !text "FAIL: MKDIR (SECOND MKDIR WITH SAME NAME SHOULD HAVE FAILED)"
+        !byte 13,0
+msg_mkdir_fail_wrongerror:
+        !text "FAIL: MKDIR (SECOND MKDIR FAILED WITH WRONG ERROR CODE, EXPECTED FILE_EXISTS)"
+        !byte 13,0
+msg_mkdir_fail_cleanup:
+        !text "FAIL: MKDIR (CLEANUP RMDIR)"
+        !byte 13,0
+msg_mn_pass:
+        !text "PASS: MKDIR NESTED"
+        !byte 13,0
+msg_mn_fail_setname:
+        !text "FAIL: MKDIR NESTED (SETNAME)"
+        !byte 13,0
+msg_mn_fail_mkouter:
+        !text "FAIL: MKDIR NESTED (MKDIR OUTER)"
+        !byte 13,0
+msg_mn_fail_findouter:
+        !text "FAIL: MKDIR NESTED (FINDFILE OUTER)"
+        !byte 13,0
+msg_mn_fail_fstat:
+        !text "FAIL: MKDIR NESTED (FSTAT)"
+        !byte 13,0
+msg_mn_fail_chdirouter:
+        !text "FAIL: MKDIR NESTED (CHDIR INTO OUTER)"
+        !byte 13,0
+msg_mn_fail_mkinner:
+        !text "FAIL: MKDIR NESTED (MKDIR INNER)"
+        !byte 13,0
+msg_mn_fail_findinner:
+        !text "FAIL: MKDIR NESTED (FINDFILE INNER)"
+        !byte 13,0
+msg_mn_fail_aliased:
+        !text "FAIL: MKDIR NESTED (INNER ALIASED OUTER'S CLUSTER)"
+        !byte 13,0
+msg_mn_fail_chdirinner:
+        !text "FAIL: MKDIR NESTED (CHDIR INTO INNER)"
+        !byte 13,0
+msg_mn_fail_getcwd:
+        !text "FAIL: MKDIR NESTED (GETCWD)"
+        !byte 13,0
+msg_mn_fail_pathmismatch:
+        !text "FAIL: MKDIR NESTED (GETCWD PATH MISMATCH)"
+        !byte 13,0
+msg_mn_fail_opendir:
+        !text "FAIL: MKDIR NESTED (OPENDIR ON INNER)"
+        !byte 13,0
+msg_mn_fail_innercount:
+        !text "FAIL: MKDIR NESTED (INNER SHOULD HAVE EXACTLY 2 ENTRIES)"
+        !byte 13,0
+msg_mn_fail_cleanup:
+        !text "FAIL: MKDIR NESTED (CLEANUP)"
+        !byte 13,0
+msg_sf_pass:
+        !text "PASS: MKDIR SIBLING FILE"
+        !byte 13,0
+msg_sf_fail_setname:
+        !text "FAIL: MKDIR SIBLING FILE (SETNAME)"
+        !byte 13,0
+msg_sf_fail_mkdir1:
+        !text "FAIL: MKDIR SIBLING FILE (MKDIR SIBDIR1)"
+        !byte 13,0
+msg_sf_fail_findfile:
+        !text "FAIL: MKDIR SIBLING FILE (FINDFILE SIBDIR1)"
+        !byte 13,0
+msg_sf_fail_chdir:
+        !text "FAIL: MKDIR SIBLING FILE (CHDIR INTO SIBDIR1)"
+        !byte 13,0
+msg_sf_fail_mkfile:
+        !text "FAIL: MKDIR SIBLING FILE (MKFILE)"
+        !byte 13,0
+msg_sf_fail_verifyfile:
+        !text "FAIL: MKDIR SIBLING FILE (VERIFY FILE FINDABLE)"
+        !byte 13,0
+msg_sf_fail_mkdir2:
+        !text "FAIL: MKDIR SIBLING FILE (MKDIR SIBDIR2 ALONGSIDE FILE)"
+        !byte 13,0
+msg_sf_fail_fstat:
+        !text "FAIL: MKDIR SIBLING FILE (FSTAT)"
+        !byte 13,0
+msg_sf_fail_findfile2:
+        !text "FAIL: MKDIR SIBLING FILE (FINDFILE SIBDIR2)"
+        !byte 13,0
+msg_sf_fail_aliased:
+        !text "FAIL: MKDIR SIBLING FILE (SIBDIR2 ALIASED SIBDIR1'S CLUSTER)"
+        !byte 13,0
+msg_sf_fail_chdir2:
+        !text "FAIL: MKDIR SIBLING FILE (CHDIR INTO/OUT OF SIBDIR2)"
+        !byte 13,0
+msg_sf_fail_opendir2:
+        !text "FAIL: MKDIR SIBLING FILE (OPENDIR ON SIBDIR2)"
+        !byte 13,0
+msg_sf_fail_innercount:
+        !text "FAIL: MKDIR SIBLING FILE (SIBDIR2 SHOULD HAVE EXACTLY 2 ENTRIES)"
+        !byte 13,0
+msg_sf_fail_getcwd:
+        !text "FAIL: MKDIR SIBLING FILE (GETCWD)"
+        !byte 13,0
+msg_sf_fail_pathmismatch:
+        !text "FAIL: MKDIR SIBLING FILE (GETCWD PATH MISMATCH)"
+        !byte 13,0
+msg_sf_fail_cleanup:
+        !text "FAIL: MKDIR SIBLING FILE (CLEANUP)"
+        !byte 13,0
+msg_rmdir_pass:
+        !text "PASS: RMDIR"
+        !byte 13,0
+msg_rmdir_fail_setname:
+        !text "FAIL: RMDIR (SETNAME)"
+        !byte 13,0
+msg_rmdir_fail_mkdir:
+        !text "FAIL: RMDIR (MKDIR PRECONDITION)"
+        !byte 13,0
+msg_rmdir_fail_call:
+        !text "FAIL: RMDIR (TRAP CALL ON EMPTY DIRECTORY)"
+        !byte 13,0
+msg_rmdir_fail_stillexists:
+        !text "FAIL: RMDIR (REMOVED DIRECTORY STILL FINDABLE)"
+        !byte 13,0
+msg_rmdir_fail_chdir:
+        !text "FAIL: RMDIR (FIND+CHDIR INTO TEST DIRECTORY)"
+        !byte 13,0
+msg_rmdir_fail_innermkfile:
+        !text "FAIL: RMDIR (MKFILE INSIDE TEST DIRECTORY)"
+        !byte 13,0
+msg_rmdir_fail_cdroot:
+        !text "FAIL: RMDIR (GETCURRENTDRIVE/CDROOTDIR)"
+        !byte 13,0
+msg_rmdir_fail_shouldbenonempty:
+        !text "FAIL: RMDIR (NON-EMPTY DIRECTORY SHOULD HAVE FAILED TO REMOVE)"
+        !byte 13,0
+msg_rmdir_fail_wrongerror:
+        !text "FAIL: RMDIR (NON-EMPTY REMOVAL FAILED WITH WRONG ERROR CODE)"
+        !byte 13,0
+msg_rmdir_fail_innerfindfile:
+        !text "FAIL: RMDIR (FINDFILE ON INNER FILE DURING CLEANUP)"
+        !byte 13,0
+msg_rmdir_fail_innerrmfile:
+        !text "FAIL: RMDIR (RMFILE ON INNER FILE DURING CLEANUP)"
+        !byte 13,0
+msg_rmdir_fail_finalcall:
+        !text "FAIL: RMDIR (TRAP CALL AFTER EMPTYING DIRECTORY)"
+        !byte 13,0
+msg_rename_pass:
+        !text "PASS: RENAME"
+        !byte 13,0
+msg_rename_fail_setname:
+        !text "FAIL: RENAME (SETNAME)"
+        !byte 13,0
+msg_rename_fail_mkfile:
+        !text "FAIL: RENAME (MKFILE PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_mkdir:
+        !text "FAIL: RENAME (MKDIR PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_findfile:
+        !text "FAIL: RENAME (FINDFILE PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_openfile:
+        !text "FAIL: RENAME (OPENFILE PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_chdir:
+        !text "FAIL: RENAME (CHDIR PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_opendir:
+        !text "FAIL: RENAME (OPENDIR PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_cdroot:
+        !text "FAIL: RENAME (CDROOTDIR PRECONDITION)"
+        !byte 13,0
+msg_rename_fail_call:
+        !text "FAIL: RENAME (TRAP CALL)"
+        !byte 13,0
+msg_rename_fail_oldstillexists:
+        !text "FAIL: RENAME (OLD NAME STILL FINDABLE AFTER RENAME) [BASIC]"
+        !byte 13,0
+msg_rename_fail_oldstillexists_dir:
+        !text "FAIL: RENAME (OLD NAME STILL FINDABLE AFTER RENAME) [DIR]"
+        !byte 13,0
+msg_rename_fail_oldstillexists_lfn:
+        !text "FAIL: RENAME (OLD NAME STILL FINDABLE AFTER RENAME) [LFN]"
+        !byte 13,0
+msg_rename_fail_newnotfound:
+        !text "FAIL: RENAME (NEW NAME NOT FINDABLE AFTER RENAME)"
+        !byte 13,0
+msg_rename_fail_lfncall:
+        !text "FAIL: RENAME (LFN TRAP CALL)"
+        !byte 13,0
+msg_rename_fail_lfnnotfound:
+        !text "FAIL: RENAME (LFN NAME NOT FINDABLE AFTER RENAME)"
+        !byte 13,0
+msg_rename_fail_lfnreadback:
+        !text "FAIL: RENAME (READDIR DID NOT RECONSTRUCT THE LFN NAME)"
+        !byte 13,0
+msg_rename_fail_shouldhavecollided:
+        !text "FAIL: RENAME (RENAME ONTO EXISTING NAME SHOULD HAVE FAILED)"
+        !byte 13,0
+msg_rename_fail_wrongerror:
+        !text "FAIL: RENAME (COLLISION FAILED WITH WRONG ERROR CODE)"
+        !byte 13,0
+msg_shortname_pass:
+        !text "PASS: SHORTNAME COLLISION"
+        !byte 13,0
+msg_shortname_fail_setname:
+        !text "FAIL: SHORTNAME COLLISION (SETNAME)"
+        !byte 13,0
+msg_shortname_fail_mkfile1:
+        !text "FAIL: SHORTNAME COLLISION (MKFILE TESTFILE1)"
+        !byte 13,0
+msg_shortname_fail_mkfile2:
+        !text "FAIL: SHORTNAME COLLISION (MKFILE TESTFILE2)"
+        !byte 13,0
+msg_shortname_fail_findfile:
+        !text "FAIL: SHORTNAME COLLISION (FINDFILE)"
+        !byte 13,0
+msg_shortname_fail_fstat:
+        !text "FAIL: SHORTNAME COLLISION (FSTAT)"
+        !byte 13,0
+msg_shortname_fail_collision:
+        !text "FAIL: SHORTNAME COLLISION (BOTH FILES GOT THE SAME SHORT NAME)"
+        !byte 13,0
+msg_shortname_fail_expect1:
+        !text "FAIL: SHORTNAME COLLISION (TESTFILE1 SHORT NAME != TESTFI~1TXT)"
+        !byte 13,0
+msg_shortname_fail_expect2:
+        !text "FAIL: SHORTNAME COLLISION (TESTFILE2 SHORT NAME != TESTFI~2TXT)"
+        !byte 13,0
+msg_trla_pass:
+        !text "PASS: ROOT LISTING AFTER TESTS"
+        !byte 13,0
+msg_trla_fail_getcurrentdrive:
+        !text "FAIL: ROOT LISTING (GETCURRENTDRIVE)"
+        !byte 13,0
+msg_trla_fail_cdroot:
+        !text "FAIL: ROOT LISTING (CDROOTDIR)"
+        !byte 13,0
+msg_trla_fail_opendir:
+        !text "FAIL: ROOT LISTING (OPENDIR)"
+        !byte 13,0
+msg_trla_fail_empty:
+        !text "FAIL: ROOT LISTING SHOWS EMPTY AFTER RUNNING THE TESTS ABOVE"
+        !byte 13,0
+msg_all_passed:
+        !text "ALL TESTS PASSED"
+        !byte 13,0
+msg_some_failed:
+        !text "SOME TESTS FAILED"
+        !byte 13,0
