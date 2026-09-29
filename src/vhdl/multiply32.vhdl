@@ -28,16 +28,20 @@ use Std.TextIO.all;
 use work.debugtools.all;
   
 entity multiply32 is
+  generic (
+    unit : integer range 0 to 15
+    );
   port (
     clock : in std_logic;
-    unit : in integer range 0 to 15;
     do_add : in std_logic;
+    invert_b : in std_logic;
     input_a : in integer range 0 to 15;
     input_b : in integer range 0 to 15;
     input_value_number : in integer range 0 to 15;
-    input_value : unsigned(31 downto 0);
-    output_select : in integer range 0 to 15;
-    output_value : out unsigned(63 downto 0)
+    input_value : in unsigned(31 downto 0);
+    -- output_select : in integer range 0 to 15;
+    output_shift : in unsigned(2 downto 0); 
+    output_value : out unsigned(63 downto 0) := (others => '0')
     );
 end entity;
 
@@ -73,7 +77,11 @@ begin
       if input_value_number = input_b then
 --        report "MATH: Unit #" & integer'image(unit)
 --          & ": Setting b=$" & to_hstring(input_value);
-        b <= signed(input_value);
+        if invert_b = '1' then
+          b <= -signed(input_value);
+        else
+          b <= signed(input_value);
+        end if;
       end if;
 
       -- Calculate the result
@@ -82,28 +90,22 @@ begin
       p3 <= p2;
       p4 <= p3;
       p <= p4;
-      -- Even units do addition, odd ones do subtraction
-      if (unit mod 2) = 0 then
-        s <= to_unsigned(to_integer(a)+to_integer(b),33);
-      else
-        s <= to_unsigned(to_integer(a)-to_integer(b),33);
-      end if;
 
-      -- Display output value when requested, and tri-state outputs otherwise
-      if output_select = unit then
-        if do_add='1' then
-          -- Output sign-extended 33 bit addition result
-          output_value(63 downto 33) <= (others => s(32));
-          output_value(32 downto 0) <= s;
-          report "MATH: Unit #" & integer'image(unit)
-            & " outputting addition sum $" & to_hstring(s);
-        else
-          output_value <= unsigned(p);
---          report "MATH: Unit #" & integer'image(unit)
---            & " outputting multiplication product $" & to_hstring(unsigned(p));
-        end if;
+      -- Calculate sum of inputs
+      s <= unsigned((a(31) & a)+(b(31) & b));
+
+      -- Output result, stored in output register on the CPU side
+      if do_add='1' then
+        -- Output sign-extended 33 bit addition result
+        output_value(63 downto 33) <= (others => s(32));
+        output_value(32 downto 0) <= s;
+        -- report "MATH: Unit #" & integer'image(unit)
+        --   & " outputting addition sum $" & to_hstring(s);
       else
-        output_value <= (others => 'Z');
+        -- Output product shifted by the output shift
+        output_value <= shift_right(unsigned(p), to_integer(output_shift & "000"));
+        -- report "MATH: Unit #" & integer'image(unit)
+        --   & " outputting multiplication product $" & to_hstring(unsigned(p));
       end if;
     end if;
   end process;
