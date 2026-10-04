@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.lumptypes.all;
 
 ------------------------------------------------------------------------------------------------
 -- PGS 12MAR2023:
@@ -78,7 +79,25 @@ entity hyperram is
 
 
          hr_cs0 : out std_logic := '1';
-         hr_cs1 : out std_logic := '1'
+         hr_cs1 : out std_logic := '1';
+
+         -- LUMP (Linear Uncomplicated Memory Port) for SSNAIL.
+         -- Clocked by clock163.  See lump_queue.vhdl for the contract.
+         -- Addresses are local to the HyperRAM (bit 23 selects the second
+         -- chip, as for all other accesses).
+         lump_cmd_valid   : in  std_logic             := '0';
+         lump_cmd_ready   : out std_logic             := '1';
+         lump_cmd_op      : in  unsigned(1 downto 0)  := "00";
+         lump_cmd_addr    : in  unsigned(26 downto 0) := (others => '0');
+         lump_cmd_len     : in  unsigned(8 downto 0)  := (others => '0');
+         lump_rdata       : out unsigned(15 downto 0) := x"0000";
+         lump_rdata_valid : out std_logic             := '0';
+         lump_wdata_req   : out std_logic             := '0';
+         lump_wdata       : in  unsigned(15 downto 0) := x"0000";
+         lump_wdata_be    : in  std_logic_vector(1 downto 0) := "11";
+         lump_cmd_done    : out std_logic             := '0';
+         lump_error       : out std_logic             := '0';
+         lump_idle        : out std_logic             := '1'
          );
 end hyperram;
 
@@ -97,7 +116,10 @@ architecture gothic of hyperram is
     HyperRAMDoWriteSlow,
     HyperRAMFinishWriting,
     HyperRAMReadWaitSlow,
-    HyperRAMReadWait
+    HyperRAMReadWait,
+    -- LUMP burst states (fast mode timing only)
+    LumpReadWait,
+    LumpDoWrite
     );
 
   -- How many clock ticks need to expire between transactions to satisfy T_RWR
@@ -402,6 +424,22 @@ architecture gothic of hyperram is
   signal viciv_next_byte : integer range 0 to 8 := 0;
   signal viciv_request_count : unsigned(31 downto 0) := to_unsigned(0,32);
   signal is_vic_fetch : boolean := false;
+
+  -- LUMP port state
+  signal lump_q_valid    : std_logic := '0';
+  signal lump_q_op       : unsigned(1 downto 0) := "00";
+  signal lump_q_addr     : unsigned(26 downto 0) := (others => '0');
+  signal lump_q_len      : unsigned(8 downto 0) := (others => '0');
+  signal lump_q_pop      : std_logic := '0';
+  signal is_lump         : std_logic := '0';
+  signal lump_inval_req  : std_logic := '0';
+  -- Words still to transfer in the current burst, minus one
+  signal lump_words_left : unsigned(7 downto 0) := (others => '0');
+  signal lump_byte_odd   : std_logic := '0';
+  signal lump_rbuf_lo    : unsigned(7 downto 0) := x"00";
+  signal lump_wbuf_hi    : unsigned(7 downto 0) := x"00";
+  signal lump_wbe_hi     : std_logic := '0';
+  signal lump_flushing   : std_logic := '0';
   signal viciv_data_debug : std_logic := '0';
   signal viciv_debug_priority : std_logic := '0';
 
@@ -424,6 +462,21 @@ architecture gothic of hyperram is
   signal data_ready_toggle_drive : std_logic := '0';
 
 begin
+
+  lump_queue0 : entity work.lump_queue
+    port map (
+      clock      => clock163,
+      in_valid   => lump_cmd_valid,
+      in_ready   => lump_cmd_ready,
+      in_op      => lump_cmd_op,
+      in_addr    => lump_cmd_addr,
+      in_len     => lump_cmd_len,
+      head_valid => lump_q_valid,
+      head_op    => lump_q_op,
+      head_addr  => lump_q_addr,
+      head_len   => lump_q_len,
+      pop        => lump_q_pop
+      );
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
     variable clock_status_vector : unsigned(4 downto 0);
     variable tempaddr : unsigned(26 downto 0);
@@ -1363,6 +1416,14 @@ begin
     if rising_edge(clock163) then
       hr_clock_phase165 <= hr_clock_phase165 + 1;
 
+      -- LUMP: single-cycle strobes default low
+      lump_q_pop       <= '0';
+      lump_rdata_valid <= '0';
+      lump_wdata_req   <= '0';
+      lump_cmd_done    <= '0';
+      lump_error       <= '0';
+      lump_idle        <= not (lump_q_valid or is_lump or lump_inval_req or lump_q_pop);
+
       cycle_count <= cycle_count + 1;
 
       if read_request_delatch='1' and read_request_latch='0' then
@@ -1726,6 +1787,18 @@ begin
         end if;
       end if;
 
+      if lump_inval_req = '1' then
+        -- LUMP INVALIDATE command: everything queued before it has completed,
+        -- so drop all CPU-side read caches.
+        report "LUMP: Invalidating read caches";
+        lump_inval_req <= '0';
+        lump_cmd_done <= '1';
+        cache_row0_valids <= (others => '0');
+        cache_row1_valids <= (others => '0');
+        block_valid <= '0';
+        current_cache_line_valid_drive <= '0';
+      end if;
+
       if invalidate_read_cache='1' then
         report "CACHE: Invalidating read cache due to write congestion.";
         cache_row0_valids <= (others => '0');
@@ -1751,6 +1824,13 @@ begin
 
           read_request_held <= '0';
           write_request_held <= '0';
+
+          -- LUMP INVALIDATE needs no bus cycle, so take it whenever it
+          -- reaches the head of the queue.
+          if lump_q_valid = '1' and lump_q_pop = '0' and lump_q_op = LUMP_OP_INVALIDATE then
+            lump_q_pop <= '1';
+            lump_inval_req <= '1';
+          end if;
 
           if not cache_enabled then
             busy_internal <= '0';
@@ -2044,6 +2124,59 @@ begin
 
               report "clk_queue <= '00'";
 
+            elsif lump_q_valid = '1' and lump_q_pop = '0' and lump_q_op /= LUMP_OP_INVALIDATE then
+              -- LUMP burst: lowest priority of everything.
+              -- busy_internal is deliberately left alone, so CPU requests
+              -- continue to queue (and hit the caches) as usual.
+              report "LUMP: Starting burst @ $" & to_hstring(lump_q_addr)
+                & ", len=" & integer'image(to_integer(lump_q_len));
+              lump_q_pop <= '1';
+              is_lump <= '1';
+              lump_words_left <= resize(lump_q_len(8 downto 1), 8) - 1;
+              lump_byte_odd <= '0';
+              lump_flushing <= '0';
+
+              is_prefetch <= false;
+              is_expected_to_respond <= false;
+              is_vic_fetch <= false;
+              is_block_read <= false;
+              background_write <= '0';
+              config_reg_write <= '0';
+
+              -- Linear burst in memory space.  Address is 8-byte aligned.
+              if lump_q_op = LUMP_OP_READ then
+                hr_command(47) <= '1';
+              else
+                hr_command(47) <= '0';
+              end if;
+              hr_command(46) <= '0'; -- memory, not registers
+              hr_command(45) <= '1'; -- linear
+              hr_command(44 downto 35) <= (others => '0');
+              hr_command(34 downto 16) <= lump_q_addr(22 downto 4);
+              hr_command(15 downto 3) <= (others => '0');
+              hr_command(2) <= lump_q_addr(3);
+              hr_command(1 downto 0) <= "00";
+              hr_reset <= '1';
+
+              hyperram0_select <= not lump_q_addr(23);
+              hyperram1_select <= lump_q_addr(23);
+              hyperram_access_address(26 downto 3) <= lump_q_addr(26 downto 3);
+              hyperram_access_address(2 downto 0) <= "000";
+
+              pause_phase <= '0';
+              countdown <= 6;
+              countdown_is_zero <= '0';
+
+              if lump_q_op = LUMP_OP_READ then
+                ram_reading_held <= '1';
+                state <= HyperRAMOutputCommand;
+                hr_clk_fast <= '1';
+                hr_clk_phaseshift <= write_phase_shift;
+              else
+                ram_reading_held <= '0';
+                -- Same clock-phase synchronisation step as background writes
+                state <= StartBackgroundWrite;
+              end if;
             else
               report "Clearing busy_internal";
               busy_internal <= '0';
@@ -2058,7 +2191,7 @@ begin
         when StartBackgroundWrite =>
           report "in StartBackgroundWrite to synchronise with clock";
           pause_phase <= '0';
-          if fast_cmd_mode='1' and fast_cmd_for_write_enabled then
+          if (fast_cmd_mode='1' and fast_cmd_for_write_enabled) or is_lump='1' then
             state <= HyperRAMOutputCommand;
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '1';
@@ -2182,7 +2315,7 @@ begin
           -- Prepare for reading block data
           is_block_read <= false;
           if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
-            and (is_vic_fetch = false) then
+            and (is_vic_fetch = false) and is_lump='0' then
             block_valid <= '0';
             block_address <= hyperram_access_address(26 downto 5);
             is_block_read <= true;
@@ -2342,7 +2475,7 @@ begin
           -- Prepare for reading block data
           is_block_read <= false;
           if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
-            and (is_vic_fetch = false) then
+            and (is_vic_fetch = false) and is_lump='0' then
             block_valid <= '0';
             block_address <= hyperram_access_address(26 downto 5);
             is_block_read <= true;
@@ -2361,7 +2494,10 @@ begin
               countdown_is_zero <= '0';
               hr_rwds_high_seen <= '0';
               countdown_timeout <= '0';
-              if fast_read_mode='1' then
+              if is_lump='1' then
+                hr_clk_fast <= '1';
+                state <= LumpReadWait;
+              elsif fast_read_mode='1' then
                 hr_clk_fast <= '1';
                 state <= HyperRAMReadWait;
               else
@@ -2424,7 +2560,14 @@ begin
                 end if;
               end if;
               countdown_timeout <= '0';
-              if fast_write_mode='1' then
+              if is_lump='1' then
+                -- Request the first write word now: it is sampled two
+                -- edges later, which is no earlier than the first data
+                -- byte (requires write latency >= 1, as for normal writes)
+                lump_wdata_req <= '1';
+                hr_clk_fast <= '1';
+                state <= LumpDoWrite;
+              elsif fast_write_mode='1' then
                 hr_clk_fast <= '1';
                 state <= HyperRAMDoWrite;
               else
@@ -3058,6 +3201,10 @@ begin
             end if;
           end if;
         when HyperRAMFinishWriting =>
+          if is_lump = '1' then
+            is_lump <= '0';
+            lump_cmd_done <= '1';
+          end if;
           -- Mask writing from here on.
           hr_cs0 <= '1';
           hr_cs1 <= '1';
@@ -3071,6 +3218,163 @@ begin
           rwr_waiting <= '1';
           report "returning to idle";
           state <= Idle;
+        when LumpReadWait =>
+          -- Linear burst read for LUMP.  Like HyperRAMReadWait, but with no
+          -- cache, VIC-IV or abort logic: every byte goes to lump_rdata.
+          hr_rwds <= 'Z';
+          hr2_rwds <= 'Z';
+          hr_d <= (others => 'Z');
+          hr2_d <= (others => 'Z');
+          hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
+
+          if lump_flushing = '1' then
+            -- The device stopped responding.  CS is already released; emit
+            -- the rest of the words as garbage so the requester's word count
+            -- stays consistent.
+            lump_rdata <= x"DDDD";
+            lump_rdata_valid <= '1';
+            if lump_words_left = 0 then
+              lump_flushing <= '0';
+              is_lump <= '0';
+              lump_cmd_done <= '1';
+              rwr_counter <= rwr_delay;
+              rwr_waiting <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
+              state <= Idle;
+            else
+              lump_words_left <= lump_words_left - 1;
+            end if;
+          else
+            -- Watchdog: reloaded on every byte, so it only fires if the
+            -- device stops delivering data.
+            if countdown_is_zero = '0' then
+              countdown <= countdown - 1;
+            end if;
+            if countdown = 1 then
+              countdown_is_zero <= '1';
+            end if;
+            if countdown_is_zero = '1' then
+              report "LUMP: Timed out waiting for read data";
+              hr_cs0 <= '1';
+              hr_cs1 <= '1';
+              lump_error <= '1';
+              -- Flush out the remaining words.  A half-received word is
+              -- simply sent as part of the flush.
+              lump_byte_odd <= '0';
+              lump_flushing <= '1';
+            end if;
+
+            if hyperram0_select='1' then
+              last_rwds <= hr_rwds;
+            else
+              last_rwds <= hr2_rwds;
+            end if;
+            if ((hr_rwds='1') and (hyperram0_select='1'))
+              or ((hr2_rwds='1') and (hyperram1_select='1'))
+            then
+              hr_rwds_high_seen <= '1';
+            else
+              hr_rwds_high_seen <= '0';
+            end if;
+            if countdown_is_zero = '0' and
+              ((((hr_rwds='1') and (hyperram0_select='1'))
+                or ((hr2_rwds='1') and (hyperram1_select='1')))
+               or (hr_rwds_high_seen='1')) then
+              -- Data byte has arrived
+              countdown <= 63;
+              countdown_is_zero <= '0';
+              if lump_byte_odd = '0' then
+                if hyperram0_select='1' then
+                  lump_rbuf_lo <= hr_d;
+                else
+                  lump_rbuf_lo <= hr2_d;
+                end if;
+                lump_byte_odd <= '1';
+              else
+                if hyperram0_select='1' then
+                  lump_rdata <= hr_d & lump_rbuf_lo;
+                else
+                  lump_rdata <= hr2_d & lump_rbuf_lo;
+                end if;
+                lump_rdata_valid <= '1';
+                lump_byte_odd <= '0';
+                if lump_words_left = 0 then
+                  report "LUMP: Read burst complete";
+                  hr_cs0 <= '1';
+                  hr_cs1 <= '1';
+                  is_lump <= '0';
+                  lump_cmd_done <= '1';
+                  rwr_counter <= rwr_delay;
+                  rwr_waiting <= '1';
+                  hr_clk_phaseshift <= write_phase_shift;
+                  state <= Idle;
+                else
+                  lump_words_left <= lump_words_left - 1;
+                end if;
+              end if;
+            end if;
+          end if;
+
+        when LumpDoWrite =>
+          -- Linear burst write for LUMP, modelled on the non-background
+          -- path of HyperRAMDoWrite.  Bursts are whole multiples of 8 bytes,
+          -- which also satisfies the revD parts' 32-bit write requirement.
+          hr_clk_phaseshift <= write_phase_shift;
+
+          -- Write mask pre-amble
+          if countdown = 2 then
+            hr_rwds <= '0';
+            hr2_rwds <= '0';
+            hr_d <= x"BE";
+            hr2_d <= x"BE";
+          end if;
+
+          if countdown /= 0 then
+            countdown <= countdown - 1;
+          end if;
+          if countdown = 1 then
+            countdown_is_zero <= '1';
+          end if;
+          if countdown_is_zero = '1' then
+            if extra_latency='1' then
+              report "LUMP: Waiting for extra write latency";
+              extra_latency <= '0';
+              if hyperram0_select='1' then
+                countdown <= to_integer(extra_write_latency);
+              else
+                countdown <= to_integer(extra_write_latency2);
+              end if;
+              countdown_is_zero <= '0';
+            else
+              -- RWDS high masks the byte
+              if lump_byte_odd = '0' then
+                hr_d <= lump_wdata(7 downto 0);
+                hr2_d <= lump_wdata(7 downto 0);
+                hr_rwds <= not lump_wdata_be(0);
+                hr2_rwds <= not lump_wdata_be(0);
+                lump_wbuf_hi <= lump_wdata(15 downto 8);
+                lump_wbe_hi <= lump_wdata_be(1);
+                if lump_words_left /= 0 then
+                  -- Next word is sampled two edges from now, i.e., for the
+                  -- next low byte.
+                  lump_wdata_req <= '1';
+                end if;
+                lump_byte_odd <= '1';
+              else
+                hr_d <= lump_wbuf_hi;
+                hr2_d <= lump_wbuf_hi;
+                hr_rwds <= not lump_wbe_hi;
+                hr2_rwds <= not lump_wbe_hi;
+                lump_byte_odd <= '0';
+                if lump_words_left = 0 then
+                  state <= HyperRAMFinishWriting;
+                else
+                  lump_words_left <= lump_words_left - 1;
+                end if;
+              end if;
+            end if;
+          end if;
+
         when HyperRAMReadWait =>
           hr_rwds <= 'Z';
           hr2_rwds <= 'Z';

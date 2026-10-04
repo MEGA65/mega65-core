@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.lumptypes.all;
 
 entity sdram_controller is
   generic (in_simulation : in boolean := false);
@@ -62,6 +63,23 @@ entity sdram_controller is
         viciv_request_toggle : in  std_logic             := '0';
         viciv_data_out       : out unsigned(7 downto 0)  := x"00";
         viciv_data_strobe    : out std_logic             := '0';
+
+        -- LUMP (Linear Uncomplicated Memory Port) for SSNAIL.
+        -- Clocked by clock162.  See lump_queue.vhdl for the contract.
+        -- Addresses are local to this SDRAM (bit 26 is ignored).
+        lump_cmd_valid   : in  std_logic             := '0';
+        lump_cmd_ready   : out std_logic             := '1';
+        lump_cmd_op      : in  unsigned(1 downto 0)  := "00";
+        lump_cmd_addr    : in  unsigned(26 downto 0) := (others => '0');
+        lump_cmd_len     : in  unsigned(8 downto 0)  := (others => '0');
+        lump_rdata       : out unsigned(15 downto 0) := x"0000";
+        lump_rdata_valid : out std_logic             := '0';
+        lump_wdata_req   : out std_logic             := '0';
+        lump_wdata       : in  unsigned(15 downto 0) := x"0000";
+        lump_wdata_be    : in  std_logic_vector(1 downto 0) := "11";
+        lump_cmd_done    : out std_logic             := '0';
+        lump_error       : out std_logic             := '0';
+        lump_idle        : out std_logic             := '1';
 
         -- SDRAM interface (e.g. AS4C16M16SA-6TCN, IS42S16400F, etc.)
         sdram_a     : out   unsigned(12 downto 0);
@@ -145,6 +163,15 @@ architecture tacoma_narrows of sdram_controller is
                          REFRESH_8,
                          REFRESH_9,
                          NON_RAM_READ,
+                         -- LUMP states.  These always set sdram_state
+                         -- explicitly, so their position here only matters
+                         -- in that they must come before IDLE.
+                         LUMP_PRECHARGE,
+                         LUMP_ACTIVATE,
+                         LUMP_READ,
+                         LUMP_READ_DRAIN,
+                         LUMP_WRITE,
+                         LUMP_WRITE_RECOVER,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
 
@@ -196,12 +223,49 @@ architecture tacoma_narrows of sdram_controller is
   signal sdram_dq_out : unsigned(15 downto 0);
   signal sdram_dq_oe_n : std_logic_vector(15 downto 0);
 
+  -- LUMP port state
+  signal lump_q_valid  : std_logic := '0';
+  signal lump_q_op     : unsigned(1 downto 0) := "00";
+  signal lump_q_addr   : unsigned(26 downto 0) := (others => '0');
+  signal lump_q_len    : unsigned(8 downto 0) := (others => '0');
+  signal lump_q_pop    : std_logic := '0';
+  signal lump_active   : std_logic := '0';
+  signal lump_is_write : std_logic := '0';
+  signal lump_bank     : unsigned(1 downto 0) := "00";
+  signal lump_row      : unsigned(12 downto 0) := (others => '0');
+  -- Word column (address bits 10 downto 1) of the next READ/WRITE command
+  signal lump_col      : unsigned(9 downto 0) := (others => '0');
+  -- Number of READ (4-word) or WRITE (1-word) commands still to issue, -1
+  signal lump_left     : unsigned(7 downto 0) := (others => '0');
+  signal lump_wait     : integer range 0 to 7 := 0;
+  signal lump_phase    : unsigned(1 downto 0) := "00";
+  -- Write data requests still to make
+  signal lump_wreq_left : unsigned(7 downto 0) := (others => '0');
+  -- Read data capture pipeline: bit k set => a READ was issued k+1 cycles ago
+  signal lump_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
+  signal lump_rd_issue : std_logic := '0';
+
   attribute iob : string;
   attribute iob of sdram_dq_out : signal is "true";
   attribute iob of sdram_dq_oe_n : signal is "true";
   attribute iob of sdram_dq_latched : signal is "true";
 
 begin
+
+  lump_queue0 : entity work.lump_queue
+    port map (
+      clock      => clock162,
+      in_valid   => lump_cmd_valid,
+      in_ready   => lump_cmd_ready,
+      in_op      => lump_cmd_op,
+      in_addr    => lump_cmd_addr,
+      in_len     => lump_cmd_len,
+      head_valid => lump_q_valid,
+      head_op    => lump_q_op,
+      head_addr  => lump_q_addr,
+      head_len   => lump_q_len,
+      pop        => lump_q_pop
+      );
 
   sdram_dq_gen : for i in sdram_dq'range generate
      sdram_dq(i) <= sdram_dq_out(i) when sdram_dq_oe_n(i) = '0' else 'Z';
@@ -266,6 +330,35 @@ begin
       sdram_dq_oe_n <= (others => '1');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
+
+      -- LUMP: single-cycle strobes default low
+      lump_q_pop       <= '0';
+      lump_rdata_valid <= '0';
+      lump_wdata_req   <= '0';
+      lump_cmd_done    <= '0';
+      lump_error       <= '0';
+      lump_rd_issue    <= '0';
+      lump_idle        <= not (lump_q_valid or lump_active or lump_q_pop);
+
+      -- LUMP write data request stream: one request per cycle once started.
+      -- (Each word is then used two cycles later, see LUMP_WRITE)
+      if lump_wreq_left /= 0 then
+        lump_wdata_req <= '1';
+        lump_wreq_left <= lump_wreq_left - 1;
+      end if;
+
+      -- LUMP read data capture.  A READ (burst length 4) emitted at edge T
+      -- delivers words at edges T+6..T+9 (T+5..T+8 with identical_clocks),
+      -- matching READ_1..READ_4 of the CPU read path.  lump_rd_issue is set
+      -- at edge T, so at edge T+k we see lump_rd_pipe(k-2).
+      lump_rd_pipe(0) <= lump_rd_issue;
+      lump_rd_pipe(1 to 8) <= lump_rd_pipe(0 to 7);
+      if (identical_clocks = '0' and (lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7)) = '1')
+        or (identical_clocks = '1' and (lump_rd_pipe(3) or lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6)) = '1')
+      then
+        lump_rdata       <= sdram_dq_latched;
+        lump_rdata_valid <= '1';
+      end if;
 
       if refresh_due_countdown /= 0 then
         refresh_due_countdown <= refresh_due_countdown - 1;
@@ -589,8 +682,162 @@ begin
                   end if;
                 end if;
               end if;
+            elsif lump_q_valid = '1' and lump_q_pop = '0' then
+              -- LUMP has the lowest priority: refresh and CPU requests
+              -- are always served first.
+              lump_q_pop <= '1';
+              if lump_q_op = LUMP_OP_INVALIDATE then
+                report "LUMP: Invalidating read cache";
+                current_cache_line_valid     <= '0';
+                current_cache_line_valid_int <= '0';
+                reactive_cache_line_if_safe  <= '0';
+                lump_cmd_done                <= '1';
+                sdram_emit_command(CMD_NOP);
+              else
+                report "LUMP: Starting burst " & to_hexstring(lump_q_op)
+                  & " @ $" & to_hexstring(lump_q_addr) & ", len=" & integer'image(to_integer(lump_q_len));
+                lump_active   <= '1';
+                -- Note: busy is deliberately left alone.  CPU requests
+                -- arriving now are latched as usual and served after the
+                -- burst; the latching logic manages busy for them.
+                lump_bank     <= lump_q_addr(25 downto 24);
+                lump_row      <= lump_q_addr(23 downto 11);
+                lump_col      <= lump_q_addr(10 downto 1);
+                lump_phase    <= "00";
+                if lump_q_op = LUMP_OP_WRITE then
+                  lump_is_write <= '1';
+                  -- One WRITE command per 16-bit word
+                  lump_left     <= resize(lump_q_len(8 downto 1), 8) - 1;
+                  lump_wreq_left <= (others => '0');
+                else
+                  lump_is_write <= '0';
+                  -- One READ command per 4 words (8 bytes)
+                  lump_left     <= resize(lump_q_len(8 downto 3), 8) - 1;
+                end if;
+                if active_row = '0' then
+                  sdram_emit_command(CMD_ACTIVATE_ROW);
+                  sdram_ba    <= lump_q_addr(25 downto 24);
+                  sdram_a     <= lump_q_addr(23 downto 11);
+                  sdram_state <= LUMP_ACTIVATE;
+                  lump_wait   <= 1;
+                elsif lump_q_addr(25 downto 11) /= active_row_addr(25 downto 11) then
+                  sdram_emit_command(CMD_PRECHARGE);
+                  sdram_state <= LUMP_PRECHARGE;
+                  lump_wait   <= 3;
+                else
+                  -- Correct row already open
+                  sdram_emit_command(CMD_NOP);
+                  sdram_state <= LUMP_ACTIVATE;
+                  lump_wait   <= 1;
+                end if;
+              end if;
             else
               sdram_emit_command(CMD_NOP);
+            end if;
+          when LUMP_PRECHARGE =>
+            -- PRECHARGE (all banks) was issued from IDLE.  Same tRP as the
+            -- CLOSE_AND_SWITCH_ROW path: ACTIVATE 4 cycles after PRECHARGE.
+            sdram_state <= LUMP_PRECHARGE;
+            if lump_wait /= 0 then
+              lump_wait <= lump_wait - 1;
+              sdram_emit_command(CMD_NOP);
+            else
+              sdram_emit_command(CMD_ACTIVATE_ROW);
+              sdram_ba    <= lump_bank;
+              sdram_a     <= lump_row;
+              sdram_state <= LUMP_ACTIVATE;
+              lump_wait   <= 1;
+            end if;
+          when LUMP_ACTIVATE =>
+            -- Wait out tRCD: first READ/WRITE is issued 3 cycles after
+            -- ACTIVATE, as in the CPU path.
+            sdram_emit_command(CMD_NOP);
+            active_row                    <= '1';
+            active_row_addr(25 downto 24) <= lump_bank;
+            active_row_addr(23 downto 11) <= lump_row;
+            sdram_state <= LUMP_ACTIVATE;
+            if lump_wait = 1 and lump_is_write = '1' then
+              -- Request the first write word now: it is sampled two edges
+              -- later, which is exactly when the first WRITE is emitted.
+              -- The remaining requests then follow one per cycle.
+              lump_wdata_req <= '1';
+              lump_wreq_left <= lump_left;
+            end if;
+            if lump_wait /= 0 then
+              lump_wait <= lump_wait - 1;
+            else
+              if lump_is_write = '1' then
+                sdram_state <= LUMP_WRITE;
+              else
+                sdram_state <= LUMP_READ;
+              end if;
+            end if;
+          when LUMP_READ =>
+            -- Issue one READ (burst of 4 words) every 4 cycles.  This gives
+            -- a gap-free stream of data from the open row.
+            sdram_state <= LUMP_READ;
+            sdram_dqml  <= '0'; sdram_dqmh <= '0';
+            lump_phase  <= lump_phase + 1;
+            if lump_phase = "00" then
+              sdram_emit_command(CMD_READ);
+              sdram_ba            <= lump_bank;
+              sdram_a(12 downto 11) <= "00";
+              sdram_a(10)         <= '0';  -- No auto precharge
+              sdram_a(9 downto 2) <= lump_col(9 downto 2);
+              sdram_a(1 downto 0) <= "00";
+              lump_col(9 downto 2) <= lump_col(9 downto 2) + 1;
+              lump_rd_issue       <= '1';
+              read_jobs           <= read_jobs + 1;
+              if lump_left = 0 then
+                sdram_state <= LUMP_READ_DRAIN;
+              else
+                lump_left <= lump_left - 1;
+              end if;
+            else
+              sdram_emit_command(CMD_NOP);
+            end if;
+          when LUMP_READ_DRAIN =>
+            -- Wait for the last read data to be captured
+            sdram_emit_command(CMD_NOP);
+            sdram_dqml  <= '0'; sdram_dqmh <= '0';
+            sdram_state <= LUMP_READ_DRAIN;
+            if lump_rd_issue = '0' and lump_rd_pipe = "000000000" then
+              lump_active   <= '0';
+              lump_cmd_done <= '1';
+              sdram_state   <= IDLE;
+            end if;
+          when LUMP_WRITE =>
+            -- Write burst length is 1 (mode register A9=1), so we issue one
+            -- WRITE per cycle with its data, gap-free within the open row.
+            sdram_state <= LUMP_WRITE;
+            sdram_emit_command(CMD_WRITE);
+            sdram_ba            <= lump_bank;
+            sdram_a(12 downto 11) <= "00";
+            sdram_a(10)         <= '0';  -- No auto precharge
+            sdram_a(9 downto 0) <= lump_col;
+            lump_col            <= lump_col + 1;
+            sdram_dq_out        <= lump_wdata;
+            sdram_dq_oe_n       <= (others => '0');
+            -- DQM high = byte masked
+            sdram_dqml          <= not lump_wdata_be(0);
+            sdram_dqmh          <= not lump_wdata_be(1);
+            write_jobs          <= write_jobs + 1;
+            if lump_left = 0 then
+              sdram_state <= LUMP_WRITE_RECOVER;
+              lump_wait   <= 1;
+            else
+              lump_left <= lump_left - 1;
+            end if;
+          when LUMP_WRITE_RECOVER =>
+            -- tWR before anything (e.g. a refresh PRECHARGE) can follow
+            sdram_emit_command(CMD_NOP);
+            sdram_state <= LUMP_WRITE_RECOVER;
+            if lump_wait /= 0 then
+              lump_wait <= lump_wait - 1;
+            else
+              lump_active   <= '0';
+              lump_cmd_done <= '1';
+              sdram_state   <= IDLE;
             end if;
           when NON_RAM_READ =>
             read_latched              <= '0';
