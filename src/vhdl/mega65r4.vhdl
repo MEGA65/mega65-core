@@ -53,9 +53,9 @@ entity container is
          -- provide access to one of the buffered UARTs. This is used in
          -- the MEGAphone prototypes to talk to the power management unit.
          kb_tck : out std_logic := '0';
-         kb_tdo : in std_logic;
+         kb_tdo : out std_logic := '0';
          kb_tms : out std_logic := '0';
-         kb_tdi : out std_logic := '0';
+         kb_tdi : in std_logic;
          kb_jtagen : out std_logic := '0';
 
          -- Direct joystick lines

@@ -48,9 +48,9 @@ entity container is
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
          kb_tck : out std_logic := '0';
-         kb_tdo : in std_logic;
+         kb_tdo : out std_logic := '0';
          kb_tms : out std_logic := '0';
-         kb_tdi : out std_logic := '0';
+         kb_tdi : in std_logic;
          kb_jtagen : out std_logic := '0';
 
          -- Direct joystick lines
