@@ -17,40 +17,51 @@ end container;
 
 architecture Behavioral of container is
 
-  constant probe_slot_clocks : integer := 200000;
+  constant probe_clock_divider : integer := 5000;
   signal cpuclock : std_logic;
-  signal probe_pins : std_logic_vector(1 to 82);
-  signal probe_pin_number : integer range 1 to 4 := 1;
-  signal probe_slot_counter : integer range 0 to probe_slot_clocks := 0;
+  signal probe_clock : std_logic := '0';
+  signal probe_clock_counter : integer range 0 to probe_clock_divider - 1 := 0;
 
 begin
 
   kb_jtagen <= '1';
 
-  probe0: entity work.pinprober
+  tck_probe: entity work.pin_id
     port map (
-      Clk => cpuclock,
-      pins => probe_pins,
-      pin_number => probe_pin_number
+      clock => probe_clock,
+      pin_number => to_unsigned(1, 8),
+      pin => kb_tck
     );
 
-  kb_tck <= probe_pins(1) when probe_pin_number = 1 else '0';
-  kb_tdo <= probe_pins(2) when probe_pin_number = 2 else '0';
-  kb_tms <= probe_pins(3) when probe_pin_number = 3 else '0';
-  kb_tdi <= probe_pins(4) when probe_pin_number = 4 else '0';
+  tdo_probe: entity work.pin_id
+    port map (
+      clock => probe_clock,
+      pin_number => to_unsigned(2, 8),
+      pin => kb_tdo
+    );
+
+  tms_probe: entity work.pin_id
+    port map (
+      clock => probe_clock,
+      pin_number => to_unsigned(3, 8),
+      pin => kb_tms
+    );
+
+  tdi_probe: entity work.pin_id
+    port map (
+      clock => probe_clock,
+      pin_number => to_unsigned(4, 8),
+      pin => kb_tdi
+    );
 
   process(cpuclock) is
   begin
     if rising_edge(cpuclock) then
-      if probe_slot_counter = probe_slot_clocks then
-        probe_slot_counter <= 0;
-        if probe_pin_number = 4 then
-          probe_pin_number <= 1;
-        else
-          probe_pin_number <= probe_pin_number + 1;
-        end if;
+      if probe_clock_counter = probe_clock_divider - 1 then
+        probe_clock_counter <= 0;
+        probe_clock <= not probe_clock;
       else
-        probe_slot_counter <= probe_slot_counter + 1;
+        probe_clock_counter <= probe_clock_counter + 1;
       end if;
     end if;
   end process;

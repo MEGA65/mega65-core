@@ -49,8 +49,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 set source_files [list \
   "[file normalize "$origin_dir/src/vhdl/clocking.vhdl"]" \
-  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]" \
-  "[file normalize "$origin_dir/src/vhdl/pinprober.vhdl"]" \
+  "[file normalize "$origin_dir/src/vhdl/pin_id.vhdl"]" \
   "[file normalize "$origin_dir/src/vhdl/mega65r3_kbd_jtag_probe.vhdl"]" \
 ]
 set source_objs [add_files -fileset sources_1 $source_files]
