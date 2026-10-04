@@ -19,8 +19,8 @@ entity container is
     -- Ethernet PHY LED exposed in the R3 constraints.
     eth_led : out std_logic_vector(1 downto 1) := "0";
 
-    -- Debug LED near the main FPGA.
-    DBG_LED3 : out std_logic := '0';
+    -- General purpose motherboard LED exposed in the R3 constraints.
+    led : out std_logic := '0';
 
     -- TE0725 USB UART status output.
     UART_TXD : out std_logic := '1'
@@ -69,9 +69,9 @@ begin
 
   kb_jtagen <= jtagen_state;
   kb_tdi <= loop_drive;
-  fpga_done <= loopback_connected and done_blink_phase;
+  fpga_done <= debug_led_drive;
   eth_led(1) <= loopback_connected and not done_blink_phase;
-  DBG_LED3 <= debug_led_drive;
+  led <= debug_led_drive;
 
   STARTUPE2_inst: STARTUPE2
     generic map (
