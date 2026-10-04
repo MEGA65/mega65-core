@@ -18,6 +18,34 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
+        -- SSNAIL LUMP master ports (clock162 domain).  Defaults let targets
+        -- without the RAM-side wiring build unchanged.
+        clock162          : in  std_logic := '0';
+        ssnail_hr_cmd_valid   : out std_logic := '0';
+        ssnail_hr_cmd_ready   : in  std_logic := '0';
+        ssnail_hr_cmd_op      : out unsigned(1 downto 0) := "00";
+        ssnail_hr_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
+        ssnail_hr_cmd_len     : out unsigned(8 downto 0) := (others => '0');
+        ssnail_hr_rdata       : in  unsigned(15 downto 0) := x"0000";
+        ssnail_hr_rdata_valid : in  std_logic := '0';
+        ssnail_hr_wdata_req   : in  std_logic := '0';
+        ssnail_hr_wdata       : out unsigned(15 downto 0) := x"0000";
+        ssnail_hr_wdata_be    : out std_logic_vector(1 downto 0) := "11";
+        ssnail_hr_cmd_done    : in  std_logic := '0';
+        ssnail_hr_error       : in  std_logic := '0';
+        ssnail_sd_cmd_valid   : out std_logic := '0';
+        ssnail_sd_cmd_ready   : in  std_logic := '0';
+        ssnail_sd_cmd_op      : out unsigned(1 downto 0) := "00";
+        ssnail_sd_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
+        ssnail_sd_cmd_len     : out unsigned(8 downto 0) := (others => '0');
+        ssnail_sd_rdata       : in  unsigned(15 downto 0) := x"0000";
+        ssnail_sd_rdata_valid : in  std_logic := '0';
+        ssnail_sd_wdata_req   : in  std_logic := '0';
+        ssnail_sd_wdata       : out unsigned(15 downto 0) := x"0000";
+        ssnail_sd_wdata_be    : out std_logic_vector(1 downto 0) := "11";
+        ssnail_sd_cmd_done    : in  std_logic := '0';
+        ssnail_sd_error       : in  std_logic := '0';
+
         dipsw_read : out std_logic_vector(7 downto 0);
         board_major : out unsigned(3 downto 0);
         board_minor : out unsigned(3 downto 0);
@@ -609,6 +637,8 @@ architecture behavioral of iomapper is
   signal cia1_irq : std_logic;
   signal ethernet_irq : std_logic := '1';
   signal uart_irq : std_logic;
+  signal ssnail_irq : std_logic := '1';
+  signal ssnail_cs : std_logic := '0';
   signal iec_irq : std_logic := '1';
 
   signal audio_mix_reg : unsigned(7 downto 0) := x"FF";
@@ -702,7 +732,7 @@ begin
 
 
   -- IRQ line is wire-anded together as if it had a pullup.
-  irq <= cia1_irq and ethernet_irq and uart_irq and iec_irq;
+  irq <= cia1_irq and ethernet_irq and uart_irq and iec_irq and ssnail_irq;
 
   block2: block
   begin
@@ -1245,6 +1275,44 @@ begin
         fastio_wdata => unsigned(data_i)
         );
   end generate;
+
+  -- SSNAIL LLM inference accelerator: registers at $FFD7500-$FFD751F
+  ssnail0 : entity work.ssnail port map (
+    cpuclock => cpuclock,
+    reset => reset,
+    irq => ssnail_irq,
+    ssnail_cs => ssnail_cs,
+    fastio_addr => unsigned(address),
+    fastio_write => w,
+    fastio_read => r,
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_wdata => unsigned(data_i),
+    clock162 => clock162,
+    hr_cmd_valid => ssnail_hr_cmd_valid,
+    hr_cmd_ready => ssnail_hr_cmd_ready,
+    hr_cmd_op => ssnail_hr_cmd_op,
+    hr_cmd_addr => ssnail_hr_cmd_addr,
+    hr_cmd_len => ssnail_hr_cmd_len,
+    hr_rdata => ssnail_hr_rdata,
+    hr_rdata_valid => ssnail_hr_rdata_valid,
+    hr_wdata_req => ssnail_hr_wdata_req,
+    hr_wdata => ssnail_hr_wdata,
+    hr_wdata_be => ssnail_hr_wdata_be,
+    hr_cmd_done => ssnail_hr_cmd_done,
+    hr_error => ssnail_hr_error,
+    sd_cmd_valid => ssnail_sd_cmd_valid,
+    sd_cmd_ready => ssnail_sd_cmd_ready,
+    sd_cmd_op => ssnail_sd_cmd_op,
+    sd_cmd_addr => ssnail_sd_cmd_addr,
+    sd_cmd_len => ssnail_sd_cmd_len,
+    sd_rdata => ssnail_sd_rdata,
+    sd_rdata_valid => ssnail_sd_rdata_valid,
+    sd_wdata_req => ssnail_sd_wdata_req,
+    sd_wdata => ssnail_sd_wdata,
+    sd_wdata_be => ssnail_sd_wdata_be,
+    sd_cmd_done => ssnail_sd_cmd_done,
+    sd_error => ssnail_sd_error
+    );
 
   buffered_uart0 : entity work.buffereduart port map (
     clock => cpuclock,
@@ -2310,6 +2378,13 @@ begin
         when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
       end case;
+
+      -- @IO:GS $FFD7500-$FFD751F SSNAIL LLM inference accelerator registers
+      if address(19 downto 8) = x"D75" and address(7 downto 5) = "000" then
+        ssnail_cs <= '1';
+      else
+        ssnail_cs <= '0';
+      end if;
 
       -- Buffered UART registers at $D0Ex
       temp(15 downto 0) := unsigned(address(19 downto 4));

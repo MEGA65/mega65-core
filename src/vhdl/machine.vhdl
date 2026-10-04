@@ -64,6 +64,32 @@ entity machine is
          clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
+
+         -- without the RAM-side wiring build unchanged.
+        ssnail_hr_cmd_valid   : out std_logic := '0';
+        ssnail_hr_cmd_ready   : in  std_logic := '0';
+        ssnail_hr_cmd_op      : out unsigned(1 downto 0) := "00";
+        ssnail_hr_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
+        ssnail_hr_cmd_len     : out unsigned(8 downto 0) := (others => '0');
+        ssnail_hr_rdata       : in  unsigned(15 downto 0) := x"0000";
+        ssnail_hr_rdata_valid : in  std_logic := '0';
+        ssnail_hr_wdata_req   : in  std_logic := '0';
+        ssnail_hr_wdata       : out unsigned(15 downto 0) := x"0000";
+        ssnail_hr_wdata_be    : out std_logic_vector(1 downto 0) := "11";
+        ssnail_hr_cmd_done    : in  std_logic := '0';
+        ssnail_hr_error       : in  std_logic := '0';
+        ssnail_sd_cmd_valid   : out std_logic := '0';
+        ssnail_sd_cmd_ready   : in  std_logic := '0';
+        ssnail_sd_cmd_op      : out unsigned(1 downto 0) := "00";
+        ssnail_sd_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
+        ssnail_sd_cmd_len     : out unsigned(8 downto 0) := (others => '0');
+        ssnail_sd_rdata       : in  unsigned(15 downto 0) := x"0000";
+        ssnail_sd_rdata_valid : in  std_logic := '0';
+        ssnail_sd_wdata_req   : in  std_logic := '0';
+        ssnail_sd_wdata       : out unsigned(15 downto 0) := x"0000";
+        ssnail_sd_wdata_be    : out std_logic_vector(1 downto 0) := "11";
+        ssnail_sd_cmd_done    : in  std_logic := '0';
+        ssnail_sd_error       : in  std_logic := '0';
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          reset_out : out std_logic := '1';
@@ -1632,6 +1658,31 @@ begin
 )
     port map (
       cpuclock => cpuclock,
+      clock162 => clock162,
+      ssnail_hr_cmd_valid => ssnail_hr_cmd_valid,
+      ssnail_hr_cmd_ready => ssnail_hr_cmd_ready,
+      ssnail_hr_cmd_op => ssnail_hr_cmd_op,
+      ssnail_hr_cmd_addr => ssnail_hr_cmd_addr,
+      ssnail_hr_cmd_len => ssnail_hr_cmd_len,
+      ssnail_hr_rdata => ssnail_hr_rdata,
+      ssnail_hr_rdata_valid => ssnail_hr_rdata_valid,
+      ssnail_hr_wdata_req => ssnail_hr_wdata_req,
+      ssnail_hr_wdata => ssnail_hr_wdata,
+      ssnail_hr_wdata_be => ssnail_hr_wdata_be,
+      ssnail_hr_cmd_done => ssnail_hr_cmd_done,
+      ssnail_hr_error => ssnail_hr_error,
+      ssnail_sd_cmd_valid => ssnail_sd_cmd_valid,
+      ssnail_sd_cmd_ready => ssnail_sd_cmd_ready,
+      ssnail_sd_cmd_op => ssnail_sd_cmd_op,
+      ssnail_sd_cmd_addr => ssnail_sd_cmd_addr,
+      ssnail_sd_cmd_len => ssnail_sd_cmd_len,
+      ssnail_sd_rdata => ssnail_sd_rdata,
+      ssnail_sd_rdata_valid => ssnail_sd_rdata_valid,
+      ssnail_sd_wdata_req => ssnail_sd_wdata_req,
+      ssnail_sd_wdata => ssnail_sd_wdata,
+      ssnail_sd_wdata_be => ssnail_sd_wdata_be,
+      ssnail_sd_cmd_done => ssnail_sd_cmd_done,
+      ssnail_sd_error => ssnail_sd_error,
       clock200mhz => clock200,
       cpuspeed => cpuspeed,
       pixelclk => pixelclock,

@@ -572,6 +572,32 @@ architecture Behavioral of container is
 
   signal sdram_slow_clock : std_logic;
 
+  -- SSNAIL <-> RAM controller LUMP ports
+  signal ssnail_hr_cmd_valid : std_logic;
+  signal ssnail_hr_cmd_ready : std_logic;
+  signal ssnail_hr_cmd_op : unsigned(1 downto 0);
+  signal ssnail_hr_cmd_addr : unsigned(26 downto 0);
+  signal ssnail_hr_cmd_len : unsigned(8 downto 0);
+  signal ssnail_hr_rdata : unsigned(15 downto 0);
+  signal ssnail_hr_rdata_valid : std_logic;
+  signal ssnail_hr_wdata_req : std_logic;
+  signal ssnail_hr_wdata : unsigned(15 downto 0);
+  signal ssnail_hr_wdata_be : std_logic_vector(1 downto 0);
+  signal ssnail_hr_cmd_done : std_logic;
+  signal ssnail_hr_error : std_logic;
+  signal ssnail_sd_cmd_valid : std_logic;
+  signal ssnail_sd_cmd_ready : std_logic;
+  signal ssnail_sd_cmd_op : unsigned(1 downto 0);
+  signal ssnail_sd_cmd_addr : unsigned(26 downto 0);
+  signal ssnail_sd_cmd_len : unsigned(8 downto 0);
+  signal ssnail_sd_rdata : unsigned(15 downto 0);
+  signal ssnail_sd_rdata_valid : std_logic;
+  signal ssnail_sd_wdata_req : std_logic;
+  signal ssnail_sd_wdata : unsigned(15 downto 0);
+  signal ssnail_sd_wdata_be : std_logic_vector(1 downto 0);
+  signal ssnail_sd_cmd_done : std_logic;
+  signal ssnail_sd_error : std_logic;
+
 begin
 
   -- Drive VGA SDA low for 15kHz detection (concurrent assignment)
@@ -857,6 +883,20 @@ begin
       pixelclock => pixelclock,
       clock163 => clock162,
       clock325 => clock325,
+      -- LUMP port for SSNAIL
+      lump_cmd_valid => ssnail_hr_cmd_valid,
+      lump_cmd_ready => ssnail_hr_cmd_ready,
+      lump_cmd_op => ssnail_hr_cmd_op,
+      lump_cmd_addr => ssnail_hr_cmd_addr,
+      lump_cmd_len => ssnail_hr_cmd_len,
+      lump_rdata => ssnail_hr_rdata,
+      lump_rdata_valid => ssnail_hr_rdata_valid,
+      lump_wdata_req => ssnail_hr_wdata_req,
+      lump_wdata => ssnail_hr_wdata,
+      lump_wdata_be => ssnail_hr_wdata_be,
+      lump_cmd_done => ssnail_hr_cmd_done,
+      lump_error => ssnail_hr_error,
+      lump_idle => open,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
@@ -916,6 +956,20 @@ begin
       identical_clocks => sdram_slow_clock,
       clock162 => clock162,
       clock162r => clock162m,
+      -- LUMP port for SSNAIL
+      lump_cmd_valid => ssnail_sd_cmd_valid,
+      lump_cmd_ready => ssnail_sd_cmd_ready,
+      lump_cmd_op => ssnail_sd_cmd_op,
+      lump_cmd_addr => ssnail_sd_cmd_addr,
+      lump_cmd_len => ssnail_sd_cmd_len,
+      lump_rdata => ssnail_sd_rdata,
+      lump_rdata_valid => ssnail_sd_rdata_valid,
+      lump_wdata_req => ssnail_sd_wdata_req,
+      lump_wdata => ssnail_sd_wdata,
+      lump_wdata_be => ssnail_sd_wdata_be,
+      lump_cmd_done => ssnail_sd_cmd_done,
+      lump_error => ssnail_sd_error,
+      lump_idle => open,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
@@ -1060,6 +1114,30 @@ begin
           cpuclock        => cpuclock,
           uartclock       => cpuclock, -- Match CPU clock
           clock162 => clock162,
+          ssnail_hr_cmd_valid => ssnail_hr_cmd_valid,
+          ssnail_hr_cmd_ready => ssnail_hr_cmd_ready,
+          ssnail_hr_cmd_op => ssnail_hr_cmd_op,
+          ssnail_hr_cmd_addr => ssnail_hr_cmd_addr,
+          ssnail_hr_cmd_len => ssnail_hr_cmd_len,
+          ssnail_hr_rdata => ssnail_hr_rdata,
+          ssnail_hr_rdata_valid => ssnail_hr_rdata_valid,
+          ssnail_hr_wdata_req => ssnail_hr_wdata_req,
+          ssnail_hr_wdata => ssnail_hr_wdata,
+          ssnail_hr_wdata_be => ssnail_hr_wdata_be,
+          ssnail_hr_cmd_done => ssnail_hr_cmd_done,
+          ssnail_hr_error => ssnail_hr_error,
+          ssnail_sd_cmd_valid => ssnail_sd_cmd_valid,
+          ssnail_sd_cmd_ready => ssnail_sd_cmd_ready,
+          ssnail_sd_cmd_op => ssnail_sd_cmd_op,
+          ssnail_sd_cmd_addr => ssnail_sd_cmd_addr,
+          ssnail_sd_cmd_len => ssnail_sd_cmd_len,
+          ssnail_sd_rdata => ssnail_sd_rdata,
+          ssnail_sd_rdata_valid => ssnail_sd_rdata_valid,
+          ssnail_sd_wdata_req => ssnail_sd_wdata_req,
+          ssnail_sd_wdata => ssnail_sd_wdata,
+          ssnail_sd_wdata_be => ssnail_sd_wdata_be,
+          ssnail_sd_cmd_done => ssnail_sd_cmd_done,
+          ssnail_sd_error => ssnail_sd_error,
           clock200 => clock200,
           clock27 => clock27,
           clock50mhz      => ethclock,
