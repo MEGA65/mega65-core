@@ -194,6 +194,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/neotrng.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fast_divide.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/lump_queue.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fakehyperram.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/hyper_xface.v"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/overlay_IP.vhdl"]"\
@@ -670,6 +671,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/hyperram.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/lump_queue.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
