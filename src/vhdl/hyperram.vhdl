@@ -433,8 +433,19 @@ architecture gothic of hyperram is
   signal lump_q_pop      : std_logic := '0';
   signal is_lump         : std_logic := '0';
   signal lump_inval_req  : std_logic := '0';
-  -- Words still to transfer in the current burst, minus one
-  signal lump_words_left : unsigned(7 downto 0) := (others => '0');
+  -- Words still to transfer in the current burst, minus two.  It goes
+  -- negative exactly on the last word, so the sign bit IS the "last word"
+  -- flag: no compare logic on the control paths.
+  signal lump_cnt        : signed(8 downto 0) := (others => '1');
+  -- Pre-registered dispatch decisions and burst set-up values, so that the
+  -- Idle-state decision and data muxes see only flip-flop outputs.
+  signal lump_go         : std_logic := '0';  -- READ/WRITE at queue head
+  signal lump_inv_go     : std_logic := '0';  -- INVALIDATE at queue head
+  signal lump_bus_free   : std_logic := '0';  -- nothing else wanted the bus
+  signal lump_is_read    : std_logic := '0';
+  signal lump_cnt_init   : signed(8 downto 0) := (others => '1');
+  signal lump_cmd_pre    : unsigned(47 downto 0) := (others => '0');
+  signal lump_addr_pre   : unsigned(26 downto 3) := (others => '0');
   signal lump_byte_odd   : std_logic := '0';
   signal lump_rbuf_lo    : unsigned(7 downto 0) := x"00";
   signal lump_wbuf_hi    : unsigned(7 downto 0) := x"00";
@@ -1424,6 +1435,42 @@ begin
       lump_error       <= '0';
       lump_idle        <= not (lump_q_valid or is_lump or lump_inval_req or lump_q_pop);
 
+      -- Pre-compute everything the Idle-state LUMP dispatch needs, one cycle
+      -- ahead.  The cycle after a pop, lump_q_pop='1' forces these low, and
+      -- the head is updated by the time they are next computed, so the
+      -- registered view is always consistent with the queue.  Branches that
+      -- consume a command also clear the relevant flag explicitly.
+      lump_go     <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
+      lump_inv_go <= lump_q_valid and lump_q_op(1) and (not lump_q_pop);
+      if lump_q_op = LUMP_OP_READ then
+        lump_is_read <= '1';
+      else
+        lump_is_read <= '0';
+      end if;
+      lump_cnt_init <= signed(resize(lump_q_len(8 downto 1), 9)) - 2;
+      lump_addr_pre <= lump_q_addr(26 downto 3);
+      -- Linear burst command in memory space (address is 8-byte aligned)
+      lump_cmd_pre(47) <= not lump_q_op(0);  -- READ=1 (op "00"), WRITE=0 ("01")
+      lump_cmd_pre(46) <= '0';               -- memory, not registers
+      lump_cmd_pre(45) <= '1';               -- linear
+      lump_cmd_pre(44 downto 35) <= (others => '0');
+      lump_cmd_pre(34 downto 16) <= lump_q_addr(22 downto 4);
+      lump_cmd_pre(15 downto 3) <= (others => '0');
+      lump_cmd_pre(2) <= lump_q_addr(3);
+      lump_cmd_pre(1 downto 0) <= "00";
+      -- LUMP is the lowest-priority requester: only dispatch if nobody else
+      -- wanted the bus last cycle.  (Something arriving in the very cycle we
+      -- dispatch simply waits for one burst.)
+      if request_toggle = last_request_toggle
+        and viciv_request_toggle = viciv_last_request_toggle
+        and (not prefetch_when_idle)
+        and write_collect0_dispatchable = '0'
+        and write_collect1_dispatchable = '0' then
+        lump_bus_free <= '1';
+      else
+        lump_bus_free <= '0';
+      end if;
+
       cycle_count <= cycle_count + 1;
 
       if read_request_delatch='1' and read_request_latch='0' then
@@ -1827,8 +1874,9 @@ begin
 
           -- LUMP INVALIDATE needs no bus cycle, so take it whenever it
           -- reaches the head of the queue.
-          if lump_q_valid = '1' and lump_q_pop = '0' and lump_q_op = LUMP_OP_INVALIDATE then
+          if lump_inv_go = '1' then
             lump_q_pop <= '1';
+            lump_inv_go <= '0';
             lump_inval_req <= '1';
           end if;
 
@@ -1884,7 +1932,51 @@ begin
           -- Phase 101 guarantees that the clock base change will happen
           -- within the comming clock cycle
           if rwr_waiting='0' and  hr_clock_phase165 = "10" then
-            if (viciv_request_toggle /= viciv_last_request_toggle)
+            if lump_go = '1' and lump_bus_free = '1' then
+              -- LUMP burst.  This branch is first in the chain so that its
+              -- enable is just {state=Idle, rwr_waiting, phase(2), lump_go,
+              -- lump_bus_free}: all flip-flops, one LUT6.  It is still the
+              -- lowest priority requester, via lump_bus_free.
+              -- busy_internal is deliberately left alone, so CPU requests
+              -- continue to queue (and hit the caches) as usual.
+              report "LUMP: Starting burst @ $" & to_hstring(lump_addr_pre & "000");
+              lump_q_pop <= '1';
+              lump_go <= '0';
+              is_lump <= '1';
+              lump_cnt <= lump_cnt_init;
+              lump_byte_odd <= '0';
+              lump_flushing <= '0';
+
+              is_prefetch <= false;
+              is_expected_to_respond <= false;
+              is_vic_fetch <= false;
+              is_block_read <= false;
+              background_write <= '0';
+              config_reg_write <= '0';
+
+              hr_command <= lump_cmd_pre;
+              hr_reset <= '1';
+
+              hyperram0_select <= not lump_addr_pre(23);
+              hyperram1_select <= lump_addr_pre(23);
+              hyperram_access_address(26 downto 3) <= lump_addr_pre;
+              hyperram_access_address(2 downto 0) <= "000";
+
+              pause_phase <= '0';
+              countdown <= 6;
+              countdown_is_zero <= '0';
+
+              if lump_is_read = '1' then
+                ram_reading_held <= '1';
+                state <= HyperRAMOutputCommand;
+                hr_clk_fast <= '1';
+                hr_clk_phaseshift <= write_phase_shift;
+              else
+                ram_reading_held <= '0';
+                -- Same clock-phase synchronisation step as background writes
+                state <= StartBackgroundWrite;
+              end if;
+            elsif (viciv_request_toggle /= viciv_last_request_toggle)
               -- Only start VIC-IV fetches if we don't have a transaction
               -- already waiting to go.
               and ((request_toggle = last_request_toggle) or viciv_debug_priority='1')
@@ -2124,59 +2216,6 @@ begin
 
               report "clk_queue <= '00'";
 
-            elsif lump_q_valid = '1' and lump_q_pop = '0' and lump_q_op /= LUMP_OP_INVALIDATE then
-              -- LUMP burst: lowest priority of everything.
-              -- busy_internal is deliberately left alone, so CPU requests
-              -- continue to queue (and hit the caches) as usual.
-              report "LUMP: Starting burst @ $" & to_hstring(lump_q_addr)
-                & ", len=" & integer'image(to_integer(lump_q_len));
-              lump_q_pop <= '1';
-              is_lump <= '1';
-              lump_words_left <= resize(lump_q_len(8 downto 1), 8) - 1;
-              lump_byte_odd <= '0';
-              lump_flushing <= '0';
-
-              is_prefetch <= false;
-              is_expected_to_respond <= false;
-              is_vic_fetch <= false;
-              is_block_read <= false;
-              background_write <= '0';
-              config_reg_write <= '0';
-
-              -- Linear burst in memory space.  Address is 8-byte aligned.
-              if lump_q_op = LUMP_OP_READ then
-                hr_command(47) <= '1';
-              else
-                hr_command(47) <= '0';
-              end if;
-              hr_command(46) <= '0'; -- memory, not registers
-              hr_command(45) <= '1'; -- linear
-              hr_command(44 downto 35) <= (others => '0');
-              hr_command(34 downto 16) <= lump_q_addr(22 downto 4);
-              hr_command(15 downto 3) <= (others => '0');
-              hr_command(2) <= lump_q_addr(3);
-              hr_command(1 downto 0) <= "00";
-              hr_reset <= '1';
-
-              hyperram0_select <= not lump_q_addr(23);
-              hyperram1_select <= lump_q_addr(23);
-              hyperram_access_address(26 downto 3) <= lump_q_addr(26 downto 3);
-              hyperram_access_address(2 downto 0) <= "000";
-
-              pause_phase <= '0';
-              countdown <= 6;
-              countdown_is_zero <= '0';
-
-              if lump_q_op = LUMP_OP_READ then
-                ram_reading_held <= '1';
-                state <= HyperRAMOutputCommand;
-                hr_clk_fast <= '1';
-                hr_clk_phaseshift <= write_phase_shift;
-              else
-                ram_reading_held <= '0';
-                -- Same clock-phase synchronisation step as background writes
-                state <= StartBackgroundWrite;
-              end if;
             else
               report "Clearing busy_internal";
               busy_internal <= '0';
@@ -3233,7 +3272,7 @@ begin
             -- stays consistent.
             lump_rdata <= x"DDDD";
             lump_rdata_valid <= '1';
-            if lump_words_left = 0 then
+            if lump_cnt(8) = '1' then
               lump_flushing <= '0';
               is_lump <= '0';
               lump_cmd_done <= '1';
@@ -3242,7 +3281,7 @@ begin
               hr_clk_phaseshift <= write_phase_shift;
               state <= Idle;
             else
-              lump_words_left <= lump_words_left - 1;
+              lump_cnt <= lump_cnt - 1;
             end if;
           else
             -- Watchdog: reloaded on every byte, so it only fires if the
@@ -3298,7 +3337,7 @@ begin
                 end if;
                 lump_rdata_valid <= '1';
                 lump_byte_odd <= '0';
-                if lump_words_left = 0 then
+                if lump_cnt(8) = '1' then
                   report "LUMP: Read burst complete";
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
@@ -3309,7 +3348,7 @@ begin
                   hr_clk_phaseshift <= write_phase_shift;
                   state <= Idle;
                 else
-                  lump_words_left <= lump_words_left - 1;
+                  lump_cnt <= lump_cnt - 1;
                 end if;
               end if;
             end if;
@@ -3354,7 +3393,7 @@ begin
                 hr2_rwds <= not lump_wdata_be(0);
                 lump_wbuf_hi <= lump_wdata(15 downto 8);
                 lump_wbe_hi <= lump_wdata_be(1);
-                if lump_words_left /= 0 then
+                if lump_cnt(8) = '0' then
                   -- Next word is sampled two edges from now, i.e., for the
                   -- next low byte.
                   lump_wdata_req <= '1';
@@ -3366,10 +3405,10 @@ begin
                 hr_rwds <= not lump_wbe_hi;
                 hr2_rwds <= not lump_wbe_hi;
                 lump_byte_odd <= '0';
-                if lump_words_left = 0 then
+                if lump_cnt(8) = '1' then
                   state <= HyperRAMFinishWriting;
                 else
-                  lump_words_left <= lump_words_left - 1;
+                  lump_cnt <= lump_cnt - 1;
                 end if;
               end if;
             end if;
