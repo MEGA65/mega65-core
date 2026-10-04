@@ -35,6 +35,9 @@ architecture Behavioral of container is
   constant jtagen_toggle_clocks : integer := 81000000;
   constant uart_status_clocks : integer := 4050000;
   constant done_blink_clocks : integer := 10125000;
+  constant debug_led_short_clocks : integer := 4050000;
+  constant debug_led_long_clocks : integer := 16200000;
+  constant debug_led_pause_clocks : integer := 20250000;
   constant loop_pattern : std_logic_vector(0 to 15) := "1011001010010110";
 
   signal cpuclock : std_logic;
@@ -58,6 +61,9 @@ architecture Behavioral of container is
   signal done_blink_counter : integer range 0 to done_blink_clocks - 1 := 0;
   signal done_blink_phase : std_logic := '0';
   signal fpga_done : std_logic := '0';
+  signal debug_led_phase : integer range 0 to 3 := 0;
+  signal debug_led_counter : integer range 0 to debug_led_pause_clocks - 1 := 0;
+  signal debug_led_drive : std_logic := '0';
 
 begin
 
@@ -65,7 +71,7 @@ begin
   kb_tdi <= loop_drive;
   fpga_done <= loopback_connected and done_blink_phase;
   eth_led(1) <= loopback_connected and not done_blink_phase;
-  DBG_LED3 <= loopback_connected and done_blink_phase;
+  DBG_LED3 <= debug_led_drive;
 
   STARTUPE2_inst: STARTUPE2
     generic map (
@@ -110,6 +116,7 @@ begin
 
   process(cpuclock) is
     variable next_bit_index : integer range 0 to 15;
+    variable debug_led_limit : integer range 1 to debug_led_pause_clocks;
   begin
     if rising_edge(cpuclock) then
       uart_tx_send <= '0';
@@ -165,6 +172,36 @@ begin
         done_blink_phase <= not done_blink_phase;
       else
         done_blink_counter <= done_blink_counter + 1;
+      end if;
+
+      case debug_led_phase is
+        when 0 =>
+          debug_led_drive <= '1';
+          debug_led_limit := debug_led_short_clocks;
+        when 1 =>
+          debug_led_drive <= '0';
+          debug_led_limit := debug_led_short_clocks;
+        when 2 =>
+          debug_led_drive <= '1';
+          if loopback_connected = '1' then
+            debug_led_limit := debug_led_short_clocks;
+          else
+            debug_led_limit := debug_led_long_clocks;
+          end if;
+        when others =>
+          debug_led_drive <= '0';
+          debug_led_limit := debug_led_pause_clocks;
+      end case;
+
+      if debug_led_counter = debug_led_limit - 1 then
+        debug_led_counter <= 0;
+        if debug_led_phase = 3 then
+          debug_led_phase <= 0;
+        else
+          debug_led_phase <= debug_led_phase + 1;
+        end if;
+      else
+        debug_led_counter <= debug_led_counter + 1;
       end if;
 
       if uart_message_pending = '0' then

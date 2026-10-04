@@ -14,6 +14,7 @@ create_generated_clock -name probe_clock -source [get_pins clocks1/mmcm_adv0/CLK
 ## kb_tdi drives a slow 1011001010010110 loopback test pattern.
 ## kb_tdo is sampled.  A 2Mbps UART on the TE0725 USB UART reports:
 ##   Y/N = loopback seen/not seen, 1/0 = current kb_jtagen state
+## DBG_LED3 repeats short-long when no loopback is seen, short-short when seen.
 ## kb_jtagen toggles every 2 seconds.
 ## The pin_id clock is divided from clock41 by 5000, giving about 4.2ms per
 ## pin_id bit slot.
