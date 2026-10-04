@@ -954,10 +954,10 @@ begin
 --      buffereduart_rx => '1',
           buffereduart_ringindicate => (others => '0'),
           buffereduart_rx(7 downto 2) => (others => '1'),
-          buffereduart_tx(1) => kb_tdo,
+          buffereduart_rx(1) => kb_tdi,
           buffereduart_rx(0) => p1hi(2),
           buffereduart_tx(7 downto 2) => open,
-          buffereduart_rx(1) => kb_tdi,
+          buffereduart_tx(1) => kb_tdo,
           buffereduart_tx(0) => p1hi(1),
 
           porta_pins => column(7 downto 0),
