@@ -2,6 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
+library UNISIM;
+use UNISIM.VComponents.all;
+
 entity container is
   Port (
     CLK_IN : in std_logic;
@@ -13,9 +16,14 @@ entity container is
     kb_tdi : out std_logic := '0';
     kb_jtagen : out std_logic := '0';
 
-    -- Direct mainboard LEDs.
-    led_g : out std_logic := '0';
-    led_r : out std_logic := '0'
+    -- Ethernet PHY LED exposed in the R3 constraints.
+    eth_led : out std_logic_vector(1 downto 1) := "0";
+
+    -- Debug LED near the main FPGA.
+    DBG_LED3 : out std_logic := '0';
+
+    -- TE0725 USB UART status output.
+    UART_TXD : out std_logic := '1'
   );
 end container;
 
@@ -24,8 +32,9 @@ architecture Behavioral of container is
   constant probe_clock_divider : integer := 5000;
   constant loop_bit_clocks : integer := 200000;
   constant loop_match_threshold : integer := 32;
-  constant led_blink_clocks : integer := 10125000;
   constant jtagen_toggle_clocks : integer := 81000000;
+  constant uart_status_clocks : integer := 4050000;
+  constant done_blink_clocks : integer := 10125000;
   constant loop_pattern : std_logic_vector(0 to 15) := "1011001010010110";
 
   signal cpuclock : std_logic;
@@ -38,15 +47,42 @@ architecture Behavioral of container is
   signal tdo_sync : std_logic := '0';
   signal loop_match_count : integer range 0 to loop_match_threshold := 0;
   signal loopback_connected : std_logic := '0';
-  signal led_blink_counter : integer range 0 to led_blink_clocks - 1 := 0;
-  signal led_phase : std_logic := '0';
   signal jtagen_counter : integer range 0 to jtagen_toggle_clocks - 1 := 0;
   signal jtagen_state : std_logic := '1';
+  signal uart_status_counter : integer range 0 to uart_status_clocks - 1 := 0;
+  signal uart_message_pending : std_logic := '0';
+  signal uart_msg_offset : integer range 0 to 3 := 0;
+  signal uart_tx_send : std_logic := '0';
+  signal uart_tx_ready : std_logic;
+  signal uart_tx_data : unsigned(7 downto 0) := x"00";
+  signal done_blink_counter : integer range 0 to done_blink_clocks - 1 := 0;
+  signal done_blink_phase : std_logic := '0';
+  signal fpga_done : std_logic := '0';
 
 begin
 
   kb_jtagen <= jtagen_state;
   kb_tdi <= loop_drive;
+  fpga_done <= loopback_connected and done_blink_phase;
+  eth_led(1) <= loopback_connected and not done_blink_phase;
+  DBG_LED3 <= loopback_connected and done_blink_phase;
+
+  STARTUPE2_inst: STARTUPE2
+    generic map (
+      PROG_USR => "FALSE",
+      SIM_CCLK_FREQ => 10.0
+    )
+    port map (
+      CLK => '0',
+      GSR => '0',
+      GTS => '0',
+      KEYCLEARB => '0',
+      PACK => '0',
+      USRCCLKO => '0',
+      USRCCLKTS => '1',
+      USRDONEO => fpga_done,
+      USRDONETS => '0'
+    );
 
   tck_probe: entity work.pin_id
     port map (
@@ -62,10 +98,22 @@ begin
       pin => kb_tms
     );
 
+  uart_tx0: entity work.UART_TX_CTRL
+    port map (
+      send => uart_tx_send,
+      BIT_TMR_MAX => to_unsigned((40500000 / 2000000) - 1, 24),
+      clk => cpuclock,
+      data => uart_tx_data,
+      ready => uart_tx_ready,
+      uart_tx => UART_TXD
+    );
+
   process(cpuclock) is
     variable next_bit_index : integer range 0 to 15;
   begin
     if rising_edge(cpuclock) then
+      uart_tx_send <= '0';
+
       tdo_meta <= kb_tdo;
       tdo_sync <= tdo_meta;
 
@@ -105,13 +153,6 @@ begin
         loop_bit_counter <= loop_bit_counter + 1;
       end if;
 
-      if led_blink_counter = led_blink_clocks - 1 then
-        led_blink_counter <= 0;
-        led_phase <= not led_phase;
-      else
-        led_blink_counter <= led_blink_counter + 1;
-      end if;
-
       if jtagen_counter = jtagen_toggle_clocks - 1 then
         jtagen_counter <= 0;
         jtagen_state <= not jtagen_state;
@@ -119,12 +160,46 @@ begin
         jtagen_counter <= jtagen_counter + 1;
       end if;
 
-      if loopback_connected = '1' then
-        led_g <= led_phase;
-        led_r <= not led_phase;
+      if done_blink_counter = done_blink_clocks - 1 then
+        done_blink_counter <= 0;
+        done_blink_phase <= not done_blink_phase;
       else
-        led_g <= '0';
-        led_r <= '0';
+        done_blink_counter <= done_blink_counter + 1;
+      end if;
+
+      if uart_message_pending = '0' then
+        if uart_status_counter = uart_status_clocks - 1 then
+          uart_status_counter <= 0;
+          uart_message_pending <= '1';
+          uart_msg_offset <= 0;
+        else
+          uart_status_counter <= uart_status_counter + 1;
+        end if;
+      elsif uart_tx_ready = '1' then
+        uart_tx_send <= '1';
+        case uart_msg_offset is
+          when 0 =>
+            if loopback_connected = '1' then
+              uart_tx_data <= x"59"; -- Y
+            else
+              uart_tx_data <= x"4e"; -- N
+            end if;
+            uart_msg_offset <= 1;
+          when 1 =>
+            if jtagen_state = '1' then
+              uart_tx_data <= x"31"; -- 1
+            else
+              uart_tx_data <= x"30"; -- 0
+            end if;
+            uart_msg_offset <= 2;
+          when 2 =>
+            uart_tx_data <= x"0d";
+            uart_msg_offset <= 3;
+          when others =>
+            uart_tx_data <= x"0a";
+            uart_message_pending <= '0';
+            uart_msg_offset <= 0;
+        end case;
       end if;
     end if;
   end process;
