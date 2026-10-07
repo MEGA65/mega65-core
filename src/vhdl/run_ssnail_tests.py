@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Run every SSNAIL and LUMP testbench (and optionally the PC-tool tests).
+
+    ./run_ssnail_tests.py                       # all VHDL testbenches
+    ./run_ssnail_tests.py --tools ../ssnail_tools   # ... plus the Python tool tests
+    ./run_ssnail_tests.py tb_ssnail_step1        # just the named benches
+    ./run_ssnail_tests.py --list
+
+Builds in a scratch directory with GHDL (VHDL-93, as mega65-core), so the
+source tree is never touched.  Exits non-zero if anything fails.
+
+Needs: ghdl, python3.  For tb_ssnail_step1 the ssnail_tools directory is also
+needed (it generates the test program and its expected results with the
+reference emulator); give it with --tools or SSNAIL_TOOLS.
+
+Testbenches:
+    tb_sdram_lump     LUMP port on sdram_controller (identical_clocks=1)
+    tb_ssnail         SSNAIL shell: COPY/SYNC/HALT, faults, STEP, IRQ
+    tb_ssnail_load    load port: segments, unaligned blocks, masking, ERROR
+    tb_ssnail_step1   scalar/control instructions vs the reference emulator
+
+Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
+VITAL libraries, which most GHDL builds lack).
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+GHDL_FLAGS = ["--std=93c", "-fexplicit", "-fsynopsys"]
+COMMON = ["debugtools.vhdl", "cputypes.vhdl", "lump_queue.vhdl"]
+
+# name: (sources after COMMON, top entity, [generic sets], success marker)
+BENCHES = {
+    # identical_clocks=1 only: the bench's identical_clocks=0 mode fakes
+    # clock162r as an inverted clock, which shifts the controller's existing
+    # CPU read path and the LUMP path alike by one word -- not representative
+    # of the hardware's real phase-shifted clock.
+    "tb_sdram_lump": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_lump.vhdl"],
+                      "tb_sdram_lump", [["-gidentical=1"]],
+                      r"ALL SDRAM LUMP TESTS PASSED"),
+    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
+                   "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),
+    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
+                        "tb_ssnail_load.vhdl"], "tb_ssnail_load", [[]],
+                       r"TB_SSNAIL_LOAD: ALL PASSED"),
+    "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
+                         "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"], "tb_ssnail_step1", [[]],
+                        r"TB_SSNAIL_STEP1: ALL PASSED"),
+}
+# Things a passing run must not print
+BAD = re.compile(r"\(report error\)|\(assertion error\)|\(report failure\)|"
+                 r"\(assertion failure\)|^FAIL|bound check failure|"
+                 r"cannot find entity", re.M)
+
+# The SDRAM model needs two local changes for GHDL/VHDL-93: to_string() of
+# unsigned values, and a smaller memory array (the full 32M-word array of
+# signals exhausts GHDL's memory).  Applied to the scratch copy only.
+MODEL_PATCHES = [
+    ("is42s16320f_model.vhdl", "to_string(addr)", "to_string(std_logic_vector(addr))"),
+    ("is42s16320f_model.vhdl", "to_string(cmd)", "to_string(std_logic_vector(cmd))"),
+    ("is42s16320f_model.vhdl", "array(0 to (1*1024*1024-1))", "array(0 to (64*1024-1))"),
+]
+
+
+def find(name, dirs):
+    for d in dirs:
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("benches", nargs="*", help="testbenches to run (default: all)")
+    here = os.path.dirname(os.path.abspath(__file__))
+    ap.add_argument("--vhdl", action="append", default=[],
+                    help=f"directory with the VHDL sources (repeatable; default: {here})")
+    ap.add_argument("--tools", default=os.environ.get("SSNAIL_TOOLS"),
+                    help="ssnail_tools directory: needed for tb_ssnail_step1, and runs "
+                         "its Python tests too")
+    ap.add_argument("--keep", action="store_true", help="keep the build directory")
+    ap.add_argument("--list", action="store_true")
+    args = ap.parse_args()
+    if args.list:
+        print("\n".join(BENCHES))
+        return 0
+    if not shutil.which("ghdl"):
+        sys.exit("ghdl not found")
+    srcdirs = [os.path.abspath(d) for d in (args.vhdl or [here])]
+    names = args.benches or list(BENCHES)
+    for n in names:
+        if n not in BENCHES:
+            sys.exit(f"unknown testbench {n}; --list shows them")
+
+    build = tempfile.mkdtemp(prefix="ssnail-tests-")
+    results = []
+    try:
+        # Gather sources into the build directory
+        needed = set(COMMON)
+        for n in names:
+            needed.update(BENCHES[n][0])
+        missing = []
+        for f in sorted(needed):
+            if f == "step1_pkg.vhdl":
+                continue
+            p = find(f, srcdirs)
+            if p is None:
+                missing.append(f)
+            else:
+                shutil.copy(p, build)
+        for f, old, new in MODEL_PATCHES:
+            p = os.path.join(build, f)
+            if os.path.exists(p):
+                s = open(p).read().replace(old, new)
+                open(p, "w").write(s)
+        if "tb_ssnail_step1" in names:
+            gen = find("gen_step1.py", srcdirs)
+            if not args.tools or not gen:
+                missing.append("gen_step1.py and --tools (for tb_ssnail_step1)")
+            else:
+                env = dict(os.environ, SSNAIL_TOOLS=os.path.abspath(args.tools))
+                r = subprocess.run([sys.executable, gen], cwd=build, env=env,
+                                   capture_output=True, text=True)
+                if r.returncode:
+                    sys.exit("gen_step1.py failed:\n" + r.stdout + r.stderr)
+        if missing:
+            sys.exit("missing: " + ", ".join(missing))
+
+        def ghdl(cmd, *rest):
+            return subprocess.run(["ghdl", cmd, *GHDL_FLAGS, *rest],
+                                  cwd=build, capture_output=True, text=True)
+
+        for n in names:
+            srcs, top, gensets, marker = BENCHES[n]
+            for f in COMMON + srcs:
+                r = ghdl("-a", f)
+                if r.returncode:
+                    results.append((n, False, f"analysis of {f} failed:\n{r.stderr[-2000:]}"))
+                    break
+            else:
+                r = ghdl("-e", top)
+                if r.returncode:
+                    results.append((n, False, "elaboration failed:\n" + r.stderr[-2000:]))
+                    continue
+                for g in gensets:
+                    label = n + (" " + " ".join(g) if g else "")
+                    t0 = time.time()
+                    r = subprocess.run(["ghdl", "-r", *GHDL_FLAGS, top, *g,
+                                        "--ieee-asserts=disable"],
+                                       cwd=build, capture_output=True, text=True,
+                                       timeout=1800)
+                    log = r.stdout + r.stderr
+                    open(os.path.join(build, label.replace(" ", "_") + ".log"), "w").write(log)
+                    ok = r.returncode == 0 and re.search(marker, log) and not BAD.search(log)
+                    detail = f"{time.time() - t0:.0f}s"
+                    if not ok:
+                        bad = [l for l in log.splitlines() if BAD.search(l)][:8]
+                        detail += "\n    " + "\n    ".join(bad or ["(completion marker missing)"])
+                    results.append((label, bool(ok), detail))
+
+        if args.tools:
+            r = subprocess.run(["make", "-s", "-C", args.tools, "test"],
+                               capture_output=True, text=True)
+            out = r.stdout + r.stderr
+            ok = r.returncode == 0 and "FAIL" not in out
+            results.append(("ssnail_tools: make test", ok,
+                            "" if ok else out[-2000:]))
+    finally:
+        if args.keep:
+            print(f"build directory kept: {build}")
+        else:
+            shutil.rmtree(build, ignore_errors=True)
+
+    print()
+    for label, ok, detail in results:
+        print(f"{'PASS' if ok else 'FAIL'}  {label:36s} {detail}")
+    allok = all(ok for _, ok, _ in results)
+    print("\nALL PASSED" if allok else "\nFAILURES")
+    return 0 if allok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
