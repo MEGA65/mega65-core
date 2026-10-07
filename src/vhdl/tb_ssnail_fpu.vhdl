@@ -13,7 +13,7 @@ end entity;
 architecture test of tb_ssnail_fpu is
   signal clock : std_logic := '0';
   signal start, done : std_logic := '0';
-  signal op : unsigned(2 downto 0) := "000";
+  signal op : unsigned(3 downto 0) := "0000";
   signal a, b, result : unsigned(31 downto 0) := (others => '0');
   signal finished : boolean := false;
 begin
@@ -28,14 +28,14 @@ begin
     variable got, expv : unsigned(31 downto 0);
     variable n, bad : integer := 0;
     variable nan_e, nan_g : boolean;
-    type counts_t is array (0 to 5) of integer;
+    type counts_t is array (0 to 9) of integer;
     variable per_op, bad_op : counts_t := (others => 0);
   begin
     while not endfile(f) loop
       readline(f, l);
       read(l, vop); hread(l, va); hread(l, vb); hread(l, ve);
       wait until rising_edge(clock);
-      op <= to_unsigned(vop, 3); a <= unsigned(va); b <= unsigned(vb); start <= '1';
+      op <= to_unsigned(vop, 4); a <= unsigned(va); b <= unsigned(vb); start <= '1';
       wait until rising_edge(clock);
       start <= '0';
       loop
@@ -44,7 +44,9 @@ begin
       end loop;
       got := result;
       expv := unsigned(ve);
-      if vop = 3 then
+      if vop = 7 or vop = 9 then
+        nan_e := false; nan_g := false;
+      elsif vop = 3 then
         nan_e := expv(14 downto 10) = "11111" and expv(9 downto 0) /= 0;
         nan_g := got(14 downto 10) = "11111" and got(9 downto 0) /= 0;
       else
@@ -63,7 +65,7 @@ begin
         end if;
       end if;
     end loop;
-    for i in 0 to 5 loop
+    for i in 0 to 9 loop
       report "op " & integer'image(i) & ": " & integer'image(per_op(i) - bad_op(i)) & "/"
         & integer'image(per_op(i)) & " exact";
     end loop;

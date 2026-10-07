@@ -23,6 +23,8 @@ Testbenches:
     tb_ssnail_fpu     the FP unit, bit-exact against numpy (83k vectors)
     tb_ssnail_step2   DEQROW (all formats), VADD, VMUL, CVT16 vs the emulator's
                       hardware-numerics mode
+    tb_ssnail_step3   GEMV (Q8_0, Q4_0, accumulate, F16 output) vs the same
+    tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
 
 Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
 VITAL libraries, which most GHDL builds lack).
@@ -49,9 +51,9 @@ BENCHES = {
     "tb_sdram_lump": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_lump.vhdl"],
                       "tb_sdram_lump", [["-gidentical=1"]],
                       r"ALL SDRAM LUMP TESTS PASSED"),
-    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail.vhdl",
+    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                    "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),
-    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail.vhdl",
+    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "tb_ssnail_load.vhdl"], "tb_ssnail_load", [[]],
                        r"TB_SSNAIL_LOAD: ALL PASSED"),
     "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
@@ -62,11 +64,20 @@ BENCHES = {
     "tb_ssnail_step2": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
                          "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
                         "tb_ssnail_step2", [[]], r"TB_SSNAIL_STEP2: ALL PASSED"),
+    "tb_ssnail_step3": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail.vhdl", "step3_pkg.vhdl", "tb_ssnail_step3.vhdl"],
+                        "tb_ssnail_step3", [[]], r"TB_SSNAIL_STEP3: ALL PASSED"),
+    "tb_ssnail_step4": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step4_pkg.vhdl",
+                         "tb_ssnail_step4.vhdl"],
+                        "tb_ssnail_step4", [[]], r"TB_SSNAIL_STEP4: ALL PASSED"),
 }
 # Generated inputs: file -> (generator script, needs the SSNAIL tools)
 GENERATED = {
     "step1_pkg.vhdl": ("gen_step1.py", True),
     "step2_pkg.vhdl": ("gen_step2.py", True),
+    "step3_pkg.vhdl": ("gen_step3.py", True),
+    "step4_pkg.vhdl": ("gen_step4.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
 }
 NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"]}
@@ -113,6 +124,25 @@ def find_tools(here, repo, update):
         print(f"updated {co}" if r.returncode == 0 else
               f"warning: git pull in {co} failed:\n{r.stderr.strip()}")
     return tools_in(co)
+
+
+# What the testbenches need from the SSNAIL tools: (module, attribute or None)
+TOOLS_NEEDED = [("ssnail_isa", "CVT16"), ("ssnail_isa", "GEMV_F16OUT"), ("ssnail_hw", None)]
+
+
+def tools_too_old(tools):
+    """None if the tools have what the benches need, else a description."""
+    r = subprocess.run([sys.executable, "-c",
+                        "import importlib, sys; sys.path.insert(0, sys.argv[1]); missing = []\n"
+                        "for mod, attr in " + repr(TOOLS_NEEDED) + ":\n"
+                        "    try:\n"
+                        "        m = importlib.import_module(mod)\n"
+                        "        if attr and not hasattr(m, attr): missing.append(mod + '.' + attr)\n"
+                        "    except Exception: missing.append(mod)\n"
+                        "print(' '.join(missing))", tools],
+                       capture_output=True, text=True)
+    missing = r.stdout.strip()
+    return missing or None
 
 
 def find(name, dirs):
@@ -178,6 +208,12 @@ def main():
             if os.path.exists(p):
                 s = open(p).read().replace(old, new)
                 open(p, "w").write(s)
+        if args.tools and any(GENERATED[f][1] for f in needed & set(GENERATED)):
+            old = tools_too_old(args.tools)
+            if old:
+                sys.exit(f"The SSNAIL tools at {args.tools} are older than these testbenches "
+                         f"(missing: {old}).\nUpdate the SSNAIL repository with the current "
+                         f"tools, then run with --update (or git pull in {args.tools}).")
         for f in sorted(needed & set(GENERATED)):
             gscript, needs_tools = GENERATED[f]
             gen = find(gscript, srcdirs)
@@ -231,6 +267,14 @@ def main():
                         detail += "\n    " + "\n    ".join(bad or ["(completion marker missing)"])
                     results.append((label, bool(ok), detail))
 
+        tabs = find("ssnail_tables_pkg.vhdl", srcdirs)
+        gtab = find("gen_tables.py", srcdirs)
+        if args.tools and tabs and gtab:
+            r = subprocess.run([sys.executable, gtab, "--check"], cwd=os.path.dirname(tabs),
+                               env=dict(os.environ, SSNAIL_TOOLS=os.path.abspath(args.tools)),
+                               capture_output=True, text=True)
+            results.append(("ssnail_tables_pkg.vhdl in sync with tools", r.returncode == 0,
+                            "" if r.returncode == 0 else (r.stdout + r.stderr).strip()))
         if args.tools:
             r = subprocess.run(["make", "-s", "-C", args.tools, "test"],
                                capture_output=True, text=True)

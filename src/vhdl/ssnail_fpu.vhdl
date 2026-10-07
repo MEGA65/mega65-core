@@ -3,7 +3,7 @@
 -- A small multi-cycle IEEE 754 unit, bit-exact with numpy's float32/float16
 -- (round to nearest, ties to even; subnormals in and out).  One operation at
 -- a time: assert start for one cycle with op/a/b; done pulses with the
--- result about seven cycles later.  Throughput is not the point: the vector
+-- result about seven cycles later (division and square root: about 55).  Throughput is not the point: the vector
 -- operations it serves are a small share of the run time next to GEMV.
 --
 -- Every operation reduces to (sign, exponent, 48-bit significand) and goes
@@ -21,12 +21,18 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 package ssnail_fpu_pkg is
-  constant FOP_ADD      : unsigned(2 downto 0) := "000";  -- a + b
-  constant FOP_MUL      : unsigned(2 downto 0) := "001";  -- a * b
-  constant FOP_F16TOF32 : unsigned(2 downto 0) := "010";  -- a(15:0) F16 -> F32 (exact)
-  constant FOP_F32TOF16 : unsigned(2 downto 0) := "011";  -- a -> F16 in result(15:0)
-  constant FOP_BF16TOF32: unsigned(2 downto 0) := "100";  -- a(15:0) BF16 -> F32 (exact)
-  constant FOP_I2F      : unsigned(2 downto 0) := "101";  -- a signed 32-bit -> F32
+  constant FOP_ADD : unsigned(3 downto 0) := "0000";  -- a + b
+  constant FOP_MUL : unsigned(3 downto 0) := "0001";  -- a * b
+  constant FOP_F16TOF32 : unsigned(3 downto 0) := "0010";  -- a(15:0) F16 -> F32 (exact)
+  constant FOP_F32TOF16 : unsigned(3 downto 0) := "0011";  -- a -> F16 in result(15:0)
+  constant FOP_BF16TOF32 : unsigned(3 downto 0) := "0100";  -- a(15:0) BF16 -> F32 (exact)
+  constant FOP_I2F : unsigned(3 downto 0) := "0101";  -- a signed 32-bit -> F32
+  constant FOP_DIV : unsigned(3 downto 0) := "0110";  -- a / b (correctly rounded)
+  constant FOP_ROUNDF : unsigned(3 downto 0) := "0111";  -- C roundf(a) -> signed 32-bit
+                                                          -- (saturating; NaN -> 0)
+  constant FOP_SQRT     : unsigned(3 downto 0) := "1000";  -- sqrt(a) (correctly rounded)
+  constant FOP_TRUNC    : unsigned(3 downto 0) := "1001";  -- a -> signed 32-bit, toward
+                                                           -- zero (saturating; NaN -> 0)
 end package;
 
 library ieee;
@@ -38,7 +44,7 @@ entity ssnail_fpu is
   port (
     clock  : in  std_logic;
     start  : in  std_logic;
-    op     : in  unsigned(2 downto 0);
+    op     : in  unsigned(3 downto 0);
     a, b   : in  unsigned(31 downto 0);
     done   : out std_logic := '0';
     result : out unsigned(31 downto 0) := (others => '0')
@@ -47,7 +53,8 @@ end ssnail_fpu;
 
 architecture multicycle of ssnail_fpu is
 
-  type state_t is (S_IDLE, S_ALIGN, S_ADD, S_LZC, S_SHIFT, S_DENORM, S_ROUND);
+  type state_t is (S_IDLE, S_ALIGN, S_ADD, S_LZC, S_SHIFT, S_DENORM, S_ROUND,
+                   S_DNORM, S_DIV, S_SQNORM, S_SQRT);
   signal state : state_t := S_IDLE;
 
   signal to_f16  : std_logic := '0';        -- round to F16 instead of F32
@@ -68,6 +75,17 @@ architecture multicycle of ssnail_fpu is
   signal rm : unsigned(47 downto 0) := (others => '0');
   signal lz_pos : integer range -1 to 47 := -1;
   signal zero_sign : std_logic := '0';
+  -- Division
+  signal dv_ma, dv_mb : unsigned(23 downto 0) := (others => '0');
+  signal dv_ea, dv_eb : integer range -1024 to 1023 := 0;
+  signal dv_r  : unsigned(25 downto 0) := (others => '0');
+  signal dv_q  : unsigned(46 downto 0) := (others => '0');
+  signal dv_i  : integer range -1 to 46 := 0;
+  -- Square root: integer square root of a 94-bit radicand, 2 bits per step
+  signal sq_rad  : unsigned(93 downto 0) := (others => '0');
+  signal sq_rem  : unsigned(49 downto 0) := (others => '0');
+  signal sq_res  : unsigned(46 downto 0) := (others => '0');
+  signal sq_e    : integer range -1024 to 1023 := 0;
 
   -- Unpack an F32: sign, exponent field (1 for subnormals), 24-bit significand
   procedure unpack32(x : in unsigned(31 downto 0); s : out std_logic;
@@ -120,6 +138,10 @@ begin
     variable efield : integer range -4096 to 4095;
     variable mag    : unsigned(31 downto 0);
     variable h      : unsigned(15 downto 0);
+    variable sh2    : integer range -512 to 511;
+    variable v2     : unsigned(31 downto 0);
+    variable ri     : unsigned(31 downto 0);
+    variable la, lb : integer range 0 to 24;
   begin
     if rising_edge(clock) then
       done <= '0';
@@ -232,6 +254,88 @@ begin
                 re <= ea;
                 state <= S_LZC;
               end if;
+            elsif op = FOP_DIV then
+              -- -------------------------------------------------- divide
+              if is_nan32(a) or is_nan32(b) or (is_inf32(a) and is_inf32(b))
+                or (is_zero32(a) and is_zero32(b)) then
+                special <= '1'; sp_val <= NAN32;
+                state <= S_ROUND;
+              elsif is_inf32(a) or is_zero32(b) then
+                special <= '1'; sp_val <= (a(31) xor b(31)) & "1111111100000000000000000000000";
+                state <= S_ROUND;
+              elsif is_zero32(a) or is_inf32(b) then
+                special <= '1'; sp_val <= (a(31) xor b(31)) & "0000000000000000000000000000000";
+                state <= S_ROUND;
+              else
+                unpack32(a, sa, ea, ma);
+                unpack32(b, sb, eb, mb);
+                rs <= sa xor sb;
+                dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
+                state <= S_DNORM;
+              end if;
+            elsif op = FOP_SQRT then
+              -- -------------------------------------------------- sqrt
+              if is_nan32(a) or (a(31) = '1' and not is_zero32(a)) then
+                special <= '1'; sp_val <= NAN32;      -- NaN, or negative
+                state <= S_ROUND;
+              elsif is_zero32(a) or is_inf32(a) then
+                special <= '1'; sp_val <= a;          -- +-0, +inf
+                state <= S_ROUND;
+              else
+                unpack32(a, sa, ea, ma);
+                rs <= '0';
+                dv_ma <= ma; dv_ea <= ea;
+                state <= S_SQNORM;
+              end if;
+            elsif op = FOP_TRUNC then
+              -- -------------------------------------------------- truncate
+              special <= '1';
+              if is_nan32(a) or a(30 downto 23) < 127 then
+                sp_val <= (others => '0');          -- NaN, or |a| < 1
+              else
+                -- |a| = m * 2^(e - 150)
+                sh2 := to_integer(a(30 downto 23)) - 150;
+                if sh2 >= 8 then                    -- |a| >= 2^31
+                  if a(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
+                else
+                  if sh2 >= 0 then
+                    ri := shift_left(x"00" & '1' & a(22 downto 0), sh2);
+                  else
+                    ri := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
+                  end if;
+                  if a(31) = '1' then
+                    sp_val <= (not ri) + 1;
+                  else
+                    sp_val <= ri;
+                  end if;
+                end if;
+              end if;
+              state <= S_ROUND;
+            elsif op = FOP_ROUNDF then
+              -- -------------------------------------------------- roundf
+              special <= '1';
+              if is_nan32(a) or a(30 downto 23) < 126 then
+                sp_val <= (others => '0');          -- NaN, or |a| < 0.5
+              else
+                -- 2|a| = m * 2^(e - 149); v2 = floor(2|a|); round = (v2 + 1) / 2
+                sh2 := to_integer(a(30 downto 23)) - 149;
+                if sh2 >= 9 then                  -- |a| >= 2^31
+                  if a(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
+                else
+                  if sh2 >= 0 then
+                    v2 := shift_left(x"00" & '1' & a(22 downto 0), sh2);
+                  else
+                    v2 := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
+                  end if;
+                  ri := shift_right(v2 + 1, 1);
+                  if a(31) = '1' then
+                    sp_val <= (not ri) + 1;
+                  else
+                    sp_val <= ri;
+                  end if;
+                end if;
+              end if;
+              state <= S_ROUND;
             else                                  -- FOP_I2F
               rs <= a(31);
               zero_sign <= '0';
@@ -244,6 +348,90 @@ begin
               re <= 127 + 46;
               state <= S_LZC;
             end if;
+          end if;
+
+        when S_DNORM =>
+          -- Normalise subnormal operands so both significands have their
+          -- leading 1 at bit 23
+          la := 0; lb := 0;
+          for i in 0 to 23 loop
+            if dv_ma(i) = '1' then la := 23 - i; end if;
+            if dv_mb(i) = '1' then lb := 23 - i; end if;
+          end loop;
+          dv_ma <= shift_left(dv_ma, la);
+          dv_mb <= shift_left(dv_mb, lb);
+          dv_ea <= dv_ea - la;
+          dv_eb <= dv_eb - lb;
+          dv_r <= "00" & shift_left(dv_ma, la);
+          dv_i <= 46;
+          state <= S_DIV;
+
+        when S_SQNORM =>
+          -- value = m * 2^(e - 150), m normalised to bit 23.  Make the
+          -- exponent even, then sqrt(m' * 2^69) is the result significand
+          -- with its point at bit 46: q = isqrt(m' << 69), in [2^46, 2^47).
+          la := 0;
+          for i in 0 to 23 loop
+            if dv_ma(i) = '1' then la := 23 - i; end if;
+          end loop;
+          -- unbiased exponent of the normalised value
+          if ((dv_ea - la - 127) mod 2) = 0 then
+            sq_rad <= resize(shift_left(dv_ma, la), 25) & "000000000000000000000000000000000000000000000000000000000000000000000";
+            sq_e <= (dv_ea - la - 127) / 2;
+          else
+            sq_rad <= resize(shift_left(dv_ma, la), 25) & "000000000000000000000000000000000000000000000000000000000000000000000";
+            sq_rad <= (shift_left(resize(shift_left(dv_ma, la), 25), 1))
+                      & "000000000000000000000000000000000000000000000000000000000000000000000";
+            sq_e <= (dv_ea - la - 127 - 1) / 2;
+          end if;
+          sq_rem <= (others => '0');
+          sq_res <= (others => '0');
+          dv_i <= 46;
+          state <= S_SQRT;
+
+        when S_SQRT =>
+          if dv_i >= 0 then
+            -- bring down the next two radicand bits; try (res << 2) | 1
+            sq_rem <= (sq_rem(47 downto 0) & sq_rad(93 downto 92));
+            if (sq_rem(47 downto 0) & sq_rad(93 downto 92)) >= (("0" & sq_res & "01")) then
+              sq_rem <= (sq_rem(47 downto 0) & sq_rad(93 downto 92)) - ("0" & sq_res & "01");
+              sq_res <= sq_res(45 downto 0) & '1';
+            else
+              sq_res <= sq_res(45 downto 0) & '0';
+            end if;
+            sq_rad <= sq_rad(91 downto 0) & "00";
+            dv_i <= dv_i - 1;
+          else
+            if sq_rem /= 0 then
+              rm <= '0' & sq_res(46 downto 1) & '1';      -- sticky
+            else
+              rm <= '0' & sq_res;
+            end if;
+            re <= sq_e + 127;
+            state <= S_LZC;
+          end if;
+
+        when S_DIV =>
+          -- Restoring division, one quotient bit per cycle:
+          -- q = floor(ma * 2^46 / mb), in [2^45, 2^47)
+          if dv_i >= 0 then
+            if dv_r >= ("00" & dv_mb) then
+              dv_q(dv_i) <= '1';
+              dv_r <= (dv_r - ("00" & dv_mb)) sll 1;
+            else
+              dv_q(dv_i) <= '0';
+              dv_r <= dv_r sll 1;
+            end if;
+            dv_i <= dv_i - 1;
+          else
+            -- remainder /= 0 -> sticky into bit 0
+            if dv_r /= 0 then
+              rm <= '0' & dv_q(46 downto 1) & '1';
+            else
+              rm <= '0' & dv_q;
+            end if;
+            re <= dv_ea - dv_eb + 127;
+            state <= S_LZC;
           end if;
 
         when S_ALIGN =>

@@ -28,7 +28,7 @@
 --                                bit2 error
 --   $05      Error code (read only): 0 none, 1 illegal opcode,
 --            2 address fault, 3 alignment fault, 4 RAM read error,
---            5 aborted
+--            5 aborted, 6 unsupported format
 --   $06      IRQ enable: bit0 IRQ on job done
 --   $08-$0B  Job pointer (28 bits).  Writable only while idle.
 --   $0C-$0F  PC readback (28 bits)
@@ -85,7 +85,20 @@
 --   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
 --   $11 DEQROW               Z (N0 x F32) = dequantise N0 elements of format a
 --                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16) at addr(X)
+--   $10 GEMV                 Z (N1 rows) = W at addr(X) (N1 x N0, format a:
+--                            Q8_0 or Q4_0 so far) . x at addr(Y) (N0 x F32).
+--                            x is quantised to Q8_0 first, as llama.cpp.
+--                            b bit 0: add to the existing Z (F32);
+--                            b bit 1: write Z as F16.  N0 a multiple of 32,
+--                            at most 4096.
 --   $20 VADD / $21 VMUL      Z = X + Y / X * Y   (N0 x F32)
+--   $22 RMSNORM              Z = X * rsqrt(mean(X^2) + eps) * Y   (eps = N2 bits)
+--   $23 SILUMUL              Z = silu(X) * Y      (silu from a table)
+--   $26 LAYERNORM            Z = (X - mean) * rsqrt(var + eps) * G + B; G at
+--                            addr(Y), B just after it (addr(Y) + 4 N0)
+--   $27 GELU                 Z = gelu(X)          (table)
+--   $28 MEANROWS             Z = mean of R[a] rows of N0 F32 at addr(X)
+--   (arithmetic order exactly as ssnail_hw.py in the SSNAIL tools)
 --   $29 CVT16                Z (N0 x F16) = X (N0 x F32)
 --   F32 operands are 4-byte aligned, F16 2-byte; arithmetic is IEEE, round
 --   to nearest even, bit-exact with the emulator's hardware numerics.
@@ -103,6 +116,7 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 use work.lumptypes.all;
 use work.ssnail_fpu_pkg.all;
+use work.ssnail_tables_pkg.all;
 
 entity ssnail is
   port (
@@ -165,6 +179,35 @@ architecture shell of ssnail is
   constant ERR_ALIGNMENT : unsigned(7 downto 0) := x"03";
   constant ERR_READ      : unsigned(7 downto 0) := x"04";
   constant ERR_ABORTED   : unsigned(7 downto 0) := x"05";
+  constant ERR_FORMAT    : unsigned(7 downto 0) := x"06";   -- format not supported (yet)
+
+  -- Vector engine element operations
+  constant K_ADD     : unsigned(3 downto 0) := x"0";   -- z = x + y
+  constant K_MUL     : unsigned(3 downto 0) := x"1";   -- z = x * y
+  constant K_CVT16   : unsigned(3 downto 0) := x"2";   -- z = f16(x)
+  constant K_COPY    : unsigned(3 downto 0) := x"3";   -- z = x
+  constant K_SCALE   : unsigned(3 downto 0) := x"4";   -- z = x * s_sc
+  constant K_SUMSQ   : unsigned(3 downto 0) := x"5";   -- acc += x * x
+  constant K_SUM     : unsigned(3 downto 0) := x"6";   -- acc += x
+  constant K_LNVAR   : unsigned(3 downto 0) := x"7";   -- acc += (x - mu)^2
+  constant K_RMSOUT  : unsigned(3 downto 0) := x"8";   -- z = (x * r) * y
+  constant K_LNOUT   : unsigned(3 downto 0) := x"9";   -- z = (((x - mu) * r) * y) + b
+  constant K_SILUMUL : unsigned(3 downto 0) := x"A";   -- z = silu(x) * y
+  constant K_GELU    : unsigned(3 downto 0) := x"B";   -- z = gelu(x)
+
+  -- IEEE F32 a < b, for ordinary (non-NaN) values
+  function flt(a, b : unsigned(31 downto 0)) return boolean is
+  begin
+    if a(30 downto 0) = 0 and b(30 downto 0) = 0 then
+      return false;                                    -- -0 = +0
+    elsif a(31) /= b(31) then
+      return a(31) = '1';
+    elsif a(31) = '0' then
+      return a(30 downto 0) < b(30 downto 0);
+    else
+      return a(30 downto 0) > b(30 downto 0);
+    end if;
+  end function;
 
   ---------------------------------------------------------------------------
   -- cpuclock domain
@@ -229,15 +272,23 @@ architecture shell of ssnail is
     C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
     C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
-    V_CHUNK, V_LDY, V_EL0, V_EL, V_ELST, V_ADV,
+    V_CHUNK, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
+    E_K1, E_K2, E_K3, E_ACC, E_ACC2,
+    T_START, T_K, T_I, T_LOOK, T_C0, T_DONE,
+    R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6,
+    L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7,
+    M_NEXT, M_S0, M_S1, M_S2,
     D_GROUP, D_FETCH, D_EMIT, D_SCALE, D_QMUL, D_STORE, D_AFTER,
+    G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
+    G_ROW0, G_ROW, G_BLK, G_DOT0, G_DOT, G_SC, G_SC2, G_T, G_ACC, G_ACC2,
+    G_OUT, G_OUT2, G_OUT3, G_OUT4,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
     C_SYNC_ISSUE, C_SYNC_WAIT,
     C_LP_DECODE, C_LP_ISSUE, C_LP_WAIT, C_LP_INVAL, C_LP_DONE,
     C_NEXT, C_END);
   signal cstate : core_state_t := C_IDLE;
-  signal rd_ret, wr_ret, fpu_ret : core_state_t := C_IDLE;
+  signal rd_ret, wr_ret, fpu_ret, ve_ret, tab_ret : core_state_t := C_IDLE;
 
   signal pc        : unsigned(27 downto 0) := (others => '0');
   signal instr     : unsigned(127 downto 0) := (others => '0');
@@ -276,7 +327,7 @@ architecture shell of ssnail is
 
   -- FP unit
   signal fpu_start, fpu_done : std_logic := '0';
-  signal fpu_op : unsigned(2 downto 0) := "000";
+  signal fpu_op : unsigned(3 downto 0) := "0000";
   signal fpu_a, fpu_b, fpu_res, fpu_r : unsigned(31 downto 0) := (others => '0');
 
   -- Vector engine
@@ -284,7 +335,20 @@ architecture shell of ssnail is
   signal px, py, pz, ps, ostart : unsigned(27 downto 0) := (others => '0');
   signal v_e, v_i  : unsigned(7 downto 0) := (others => '0');   -- chunk size, index
   signal o16       : std_logic := '0';                          -- F16 output
-  signal two_ops   : std_logic := '0';
+  signal two_ops   : std_logic := '0';                          -- Y input stream
+  signal has_b     : std_logic := '0';                          -- B input stream
+  signal has_out   : std_logic := '0';                          -- writes Z
+  signal ve_kind   : unsigned(3 downto 0) := (others => '0');   -- element operation
+  signal pb        : unsigned(27 downto 0) := (others => '0');
+  signal bx, by, bz : unsigned(27 downto 0) := (others => '0'); -- instruction bases
+  signal ve_acc    : unsigned(31 downto 0) := (others => '0');  -- pass accumulator
+  signal ve_first  : std_logic := '0';
+  signal ex, ey, eb, ev : unsigned(31 downto 0) := (others => '0');  -- element values
+  signal s_mu, s_r, s_sc, s_rn : unsigned(31 downto 0) := (others => '0');
+  signal mr_r, mr_rows : unsigned(31 downto 0) := (others => '0');  -- MEANROWS
+  -- table lookup subroutine
+  signal tab_id    : unsigned(1 downto 0) := "00";              -- 0 SiLU, 1 GELU, 2 exp
+  signal tx, tval, tc0 : unsigned(31 downto 0) := (others => '0');
   -- read / write subroutines
   signal rd_addr, wr_addr : unsigned(27 downto 0) := (others => '0');
   signal rd_len, wr_len   : unsigned(8 downto 0) := (others => '0');
@@ -303,6 +367,25 @@ architecture shell of ssnail is
   signal ld_valid  : std_logic := '0';
   signal ld_block  : unsigned(27 downto 8) := (others => '0');
   signal ea_z      : unsigned(27 downto 0) := (others => '0');
+  signal fetch_ret : core_state_t := C_IDLE;
+
+  -- GEMV
+  type f32x32_t is array (0 to 31) of unsigned(31 downto 0);
+  type qx_t is array (0 to 4095) of signed(7 downto 0);
+  type dx_t is array (0 to 127) of unsigned(31 downto 0);
+  signal xb        : f32x32_t := (others => (others => '0'));  -- one block of x
+  signal qx        : qx_t := (others => (others => '0'));      -- quantised x
+  signal dxs       : dx_t := (others => (others => '0'));      -- its scales, as F32
+  attribute ram_style of qx, dxs : signal is "distributed";
+  signal g_rows, g_r : unsigned(31 downto 0) := (others => '0');
+  signal g_nb, gblk : unsigned(7 downto 0) := (others => '0');
+  signal g_j, g_k  : unsigned(5 downto 0) := (others => '0');
+  signal g_amax    : unsigned(30 downto 0) := (others => '0');
+  signal g_d, g_id, g_scale, g_accv, g_val : unsigned(31 downto 0) := (others => '0');
+  signal g_isum    : signed(31 downto 0) := (others => '0');
+  signal g_addz, g_f16 : std_logic := '0';
+  signal out_loaded : std_logic := '0';
+  signal out_block : unsigned(27 downto 8) := (others => '0');
 
   -- Register files and resolved operands
   type rfile32_t is array (0 to 15) of unsigned(31 downto 0);
@@ -355,13 +438,13 @@ architecture shell of ssnail is
   signal buf : buf_t := (others => x"0000");
   signal buf_widx : unsigned(6 downto 0) := (others => '0');  -- fill index
   -- Vector engine operand buffers, indexed by address mod 256
-  signal bufx, bufy : buf_t := (others => x"0000");
+  signal bufx, bufy, bufb : buf_t := (others => x"0000");
   signal cap_sel : unsigned(1 downto 0) := "00";   -- read data goes to: buf, bufx, bufy
   signal buf_ridx : unsigned(6 downto 0) := (others => '0');  -- drain index
   signal wdata_r  : unsigned(15 downto 0) := x"0000";
 
   attribute ram_style of buf : signal is "distributed";
-  attribute ram_style of bufx, bufy : signal is "distributed";
+  attribute ram_style of bufx, bufy, bufb : signal is "distributed";
 
   attribute async_reg : string;
   attribute async_reg of go_s1, go_s2, abort_s1, abort_s2 : signal is "true";
@@ -566,9 +649,13 @@ begin
     variable st_al, en_al : unsigned(27 downto 0);
     variable room, vlen : unsigned(31 downto 0);
     variable a0, a1, a2 : unsigned(27 downto 0);
-    variable ix, iy, iz : unsigned(7 downto 0);
+    variable ix, iy, iz, ib : unsigned(7 downto 0);
+    variable xv, lo, hi : unsigned(31 downto 0);
+    variable ti : integer range 0 to 1023;
     variable wd : unsigned(15 downto 0);
     variable q : signed(31 downto 0);
+    variable qw : signed(8 downto 0);
+    variable fv : unsigned(31 downto 0);
   begin
     if rising_edge(clock162) then
       hr_issue := '0';
@@ -701,6 +788,8 @@ begin
             bufx(to_integer(buf_widx)) <= rdata_r;
           elsif cap_sel = "10" then
             bufy(to_integer(buf_widx)) <= rdata_r;
+          elsif cap_sel = "11" then
+            bufb(to_integer(buf_widx)) <= rdata_r;
           else
             buf(to_integer(buf_widx)) <= rdata_r;
           end if;
@@ -904,21 +993,69 @@ begin
                 br_taken <= '1';
               end if;
               cstate <= C_NEXT;
-            when x"20" | x"21" | x"29" =>   -- VADD / VMUL / CVT16
-              if instr(7 downto 0) = x"29" then
-                o16 <= '1'; two_ops <= '0';
-              else
-                o16 <= '0'; two_ops <= '1';
-              end if;
-              if ea_x(1 downto 0) /= "00" or (instr(7 downto 0) /= x"29" and ea_y(1 downto 0) /= "00")
+            when x"20" | x"21" | x"29" | x"23" | x"27" | x"22" | x"26" | x"28" =>
+              -- Vector engine instructions.  All F32 vectors 4-byte aligned;
+              -- CVT16 output 2-byte aligned.
+              if ea_x(1 downto 0) /= "00"
+                or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
+                     or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26") and ea_y(1 downto 0) /= "00")
                 or (instr(7 downto 0) = x"29" and ea_z(0) /= '0')
                 or (instr(7 downto 0) /= x"29" and ea_z(1 downto 0) /= "00") then
                 err <= ERR_ALIGNMENT;
                 cstate <= C_END;
+              elsif n0 = 0 or (instr(7 downto 0) = x"28" and opr_a = 0) then
+                cstate <= C_NEXT;                       -- nothing to do
               else
-                v_n <= n0;
+                bx <= ea_x; by <= ea_y; bz <= ea_z;
                 px <= ea_x; py <= ea_y; pz <= ea_z;
-                cstate <= V_CHUNK;
+                v_n <= n0;
+                o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
+                ve_first <= '1';
+                ve_ret <= C_NEXT;
+                case instr(7 downto 0) is
+                  when x"20" => ve_kind <= K_ADD; two_ops <= '1'; cstate <= V_CHUNK;
+                  when x"21" => ve_kind <= K_MUL; two_ops <= '1'; cstate <= V_CHUNK;
+                  when x"29" => ve_kind <= K_CVT16; o16 <= '1'; cstate <= V_CHUNK;
+                  when x"23" => ve_kind <= K_SILUMUL; two_ops <= '1'; cstate <= V_CHUNK;
+                  when x"27" => ve_kind <= K_GELU; cstate <= V_CHUNK;
+                  when x"22" =>                     -- RMSNORM pass 1: sum of squares
+                    ve_kind <= K_SUMSQ; has_out <= '0'; ve_ret <= R_S0; cstate <= V_CHUNK;
+                  when x"26" =>                     -- LAYERNORM pass 1: sum
+                    ve_kind <= K_SUM; has_out <= '0'; ve_ret <= L_S0; cstate <= V_CHUNK;
+                  when others =>                    -- MEANROWS: row 0 copied to Z
+                    mr_rows <= opr_a;
+                    mr_r <= to_unsigned(1, 32);
+                    ve_kind <= K_COPY; ve_ret <= M_NEXT; cstate <= V_CHUNK;
+                end case;
+              end if;
+            when x"10" =>             -- GEMV
+              d_fmt <= instr(15 downto 8);
+              g_addz <= instr(16);
+              g_f16 <= instr(17);
+              if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8) then
+                err <= ERR_FORMAT;                -- float weights: not yet
+                cstate <= C_END;
+              elsif n0(4 downto 0) /= 0 or n0 = 0 or n0 > 4096 or (instr(16) and instr(17)) = '1' then
+                err <= ERR_OPCODE;
+                cstate <= C_END;
+              elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
+                or (instr(17) = '0' and ea_z(1 downto 0) /= "00") then
+                err <= ERR_ALIGNMENT;
+                cstate <= C_END;
+              elsif n1 = 0 then
+                cstate <= C_NEXT;
+              else
+                g_rows <= n1;
+                g_nb <= n0(12 downto 5);
+                gblk <= (others => '0');
+                if instr(15 downto 8) = 8 then
+                  gbytes <= to_unsigned(34, 6);
+                else
+                  gbytes <= to_unsigned(18, 6);
+                end if;
+                ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
+                ld_valid <= '0';
+                cstate <= G_QFILL0;
               end if;
             when x"11" =>             -- DEQROW
               d_fmt <= instr(15 downto 8);
@@ -1245,8 +1382,9 @@ begin
         -- Y or Z; read X (and Y), run each element through the FPU into buf,
         -- write Z with byte masks.
         when V_CHUNK =>
+          -- A chunk of elements crossing no 256-byte boundary in any stream
           if v_n = 0 then
-            cstate <= C_NEXT;
+            cstate <= ve_ret;
           else
             room := resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 32);
             vlen := v_n;
@@ -1255,14 +1393,19 @@ begin
               room := resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 32);
               if room < vlen then vlen := room; end if;
             end if;
-            if o16 = '1' then
-              room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 32);
-            else
-              room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 32);
+            if has_b = '1' then
+              room := resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 32);
+              if room < vlen then vlen := room; end if;
             end if;
-            if room < vlen then vlen := room; end if;
+            if has_out = '1' then
+              if o16 = '1' then
+                room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 32);
+              else
+                room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 32);
+              end if;
+              if room < vlen then vlen := room; end if;
+            end if;
             v_e <= vlen(7 downto 0);
-            -- read X: [px & ~7, roundup8(px + 4e))
             a0 := px(27 downto 3) & "000";
             a1 := px + (vlen(25 downto 0) & "00") + 7;
             a1(2 downto 0) := "000";
@@ -1272,6 +1415,8 @@ begin
             dec_addr <= a0;
             if two_ops = '1' then
               rd_ret <= V_LDY;
+            elsif has_b = '1' then
+              rd_ret <= V_LDB;
             else
               rd_ret <= V_EL0;
             end if;
@@ -1286,6 +1431,21 @@ begin
           rd_len <= resize(a1 - a0, 9);
           rd_sel <= "10";
           dec_addr <= a0;
+          if has_b = '1' then
+            rd_ret <= V_LDB;
+          else
+            rd_ret <= V_EL0;
+          end if;
+          cstate <= C_RD_DEC;
+
+        when V_LDB =>
+          a0 := pb(27 downto 3) & "000";
+          a1 := pb + (resize(v_e, 26) & "00") + 7;
+          a1(2 downto 0) := "000";
+          rd_addr <= a0;
+          rd_len <= resize(a1 - a0, 9);
+          rd_sel <= "11";
+          dec_addr <= a0;
           rd_ret <= V_EL0;
           cstate <= C_RD_DEC;
 
@@ -1295,39 +1455,116 @@ begin
 
         when V_EL =>
           if v_i = v_e then
-            -- write Z: bytes [pz, pz + e * size)
-            a0 := pz(27 downto 3) & "000";
-            if o16 = '1' then
-              a2 := pz + (resize(v_e, 27) & "0");
+            if has_out = '1' then
+              a0 := pz(27 downto 3) & "000";
+              if o16 = '1' then
+                a2 := pz + (resize(v_e, 27) & "0");
+              else
+                a2 := pz + (resize(v_e, 26) & "00");
+              end if;
+              a1 := a2 + 7;
+              a1(2 downto 0) := "000";
+              wr_addr <= a0;
+              wr_len <= resize(a1 - a0, 9);
+              mw_lead <= resize(pz - a0, 9);
+              mw_vend <= resize(a2 - a0, 9);
+              mw_idx <= a0(7 downto 1);
+              dec_addr <= a0;
+              wr_ret <= V_ADV;
+              cstate <= C_WR_DEC;
             else
-              a2 := pz + (resize(v_e, 26) & "00");
+              cstate <= V_ADV;
             end if;
-            a1 := a2 + 7;
-            a1(2 downto 0) := "000";
-            wr_addr <= a0;
-            wr_len <= resize(a1 - a0, 9);
-            mw_lead <= resize(pz - a0, 9);
-            mw_vend <= resize(a2 - a0, 9);
-            mw_idx <= a0(7 downto 1);
-            dec_addr <= a0;
-            wr_ret <= V_ADV;
-            cstate <= C_WR_DEC;
           else
             ix := px(7 downto 0) + (v_i(5 downto 0) & "00");
             iy := py(7 downto 0) + (v_i(5 downto 0) & "00");
-            fpu_a <= bufx(to_integer(ix(7 downto 1) + 1)) & bufx(to_integer(ix(7 downto 1)));
-            fpu_b <= bufy(to_integer(iy(7 downto 1) + 1)) & bufy(to_integer(iy(7 downto 1)));
-            if instr(7 downto 0) = x"20" then
-              fpu_op <= FOP_ADD;
-            elsif instr(7 downto 0) = x"21" then
-              fpu_op <= FOP_MUL;
-            else
-              fpu_op <= FOP_F32TOF16;
-            end if;
-            fpu_start <= '1';
-            fpu_ret <= V_ELST;
-            cstate <= C_FPU_WAIT;
+            ib := pb(7 downto 0) + (v_i(5 downto 0) & "00");
+            xv := bufx(to_integer(ix(7 downto 1) + 1)) & bufx(to_integer(ix(7 downto 1)));
+            ex <= xv;
+            ey <= bufy(to_integer(iy(7 downto 1) + 1)) & bufy(to_integer(iy(7 downto 1)));
+            eb <= bufb(to_integer(ib(7 downto 1) + 1)) & bufb(to_integer(ib(7 downto 1)));
+            -- first step of each element operation
+            case ve_kind is
+              when K_COPY | K_SUM =>
+                fpu_r <= xv;
+                if ve_kind = K_SUM then cstate <= E_ACC; else cstate <= V_ELST; end if;
+              when K_SILUMUL | K_GELU =>
+                tx <= xv;
+                if ve_kind = K_SILUMUL then tab_id <= "00"; else tab_id <= "01"; end if;
+                tab_ret <= E_K1;
+                cstate <= T_START;
+              when others =>
+                fpu_a <= xv;
+                case ve_kind is
+                  when K_ADD =>
+                    fpu_op <= FOP_ADD;
+                    fpu_b <= bufy(to_integer(iy(7 downto 1) + 1)) & bufy(to_integer(iy(7 downto 1)));
+                    fpu_ret <= V_ELST;
+                  when K_MUL =>
+                    fpu_op <= FOP_MUL;
+                    fpu_b <= bufy(to_integer(iy(7 downto 1) + 1)) & bufy(to_integer(iy(7 downto 1)));
+                    fpu_ret <= V_ELST;
+                  when K_CVT16 =>
+                    fpu_op <= FOP_F32TOF16;
+                    fpu_ret <= V_ELST;
+                  when K_SCALE =>
+                    fpu_op <= FOP_MUL; fpu_b <= s_sc; fpu_ret <= V_ELST;
+                  when K_SUMSQ =>
+                    fpu_op <= FOP_MUL; fpu_b <= xv; fpu_ret <= E_ACC;
+                  when K_RMSOUT =>
+                    fpu_op <= FOP_MUL; fpu_b <= s_r; fpu_ret <= E_K1;
+                  when others =>                    -- K_LNVAR, K_LNOUT: d = x - mu
+                    fpu_op <= FOP_ADD; fpu_b <= (not s_mu(31)) & s_mu(30 downto 0);
+                    fpu_ret <= E_K1;
+                end case;
+                fpu_start <= '1';
+                cstate <= C_FPU_WAIT;
+            end case;
           end if;
+
+        -- second and later steps of the element operations
+        when E_K1 =>
+          case ve_kind is
+            when K_SILUMUL =>                       -- silu(x) * y
+              fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; fpu_ret <= V_ELST;
+              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+            when K_GELU =>
+              fpu_r <= tval; cstate <= V_ELST;
+            when K_RMSOUT =>                        -- (x * r) * g
+              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; fpu_ret <= V_ELST;
+              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+            when K_LNVAR =>                         -- d * d
+              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= fpu_r; fpu_ret <= E_ACC;
+              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+            when others =>                          -- K_LNOUT: d * r
+              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_r; fpu_ret <= E_K2;
+              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+          end case;
+
+        when E_K2 =>                                -- K_LNOUT: (d * r) * g
+          fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; fpu_ret <= E_K3;
+          fpu_start <= '1'; cstate <= C_FPU_WAIT;
+
+        when E_K3 =>                                -- K_LNOUT: ... + b
+          fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; fpu_ret <= V_ELST;
+          fpu_start <= '1'; cstate <= C_FPU_WAIT;
+
+        when E_ACC =>
+          -- sequential sum: the first value as it is, then acc = acc + v
+          if ve_first = '1' then
+            ve_acc <= fpu_r;
+            ve_first <= '0';
+            v_i <= v_i + 1;
+            cstate <= V_EL;
+          else
+            fpu_op <= FOP_ADD; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_ret <= E_ACC2;
+            fpu_start <= '1'; cstate <= C_FPU_WAIT;
+          end if;
+
+        when E_ACC2 =>
+          ve_acc <= fpu_r;
+          v_i <= v_i + 1;
+          cstate <= V_EL;
 
         when V_ELST =>
           if o16 = '1' then
@@ -1344,12 +1581,182 @@ begin
         when V_ADV =>
           px <= px + (resize(v_e, 26) & "00");
           py <= py + (resize(v_e, 26) & "00");
+          pb <= pb + (resize(v_e, 26) & "00");
           if o16 = '1' then
             pz <= pz + (resize(v_e, 27) & "0");
           else
             pz <= pz + (resize(v_e, 26) & "00");
           end if;
           v_n <= v_n - resize(v_e, 32);
+          cstate <= V_CHUNK;
+
+        -- ------------------------------------------------------------------
+        -- Table lookup (ssnail_hw.Table): tval = f(tx), then tab_ret.
+        when T_START =>
+          if tab_id = "00" then
+            lo := SILU_LO; hi := SILU_HI;
+          elsif tab_id = "01" then
+            lo := GELU_LO; hi := GELU_HI;
+          else
+            lo := EXPT_LO; hi := EXPT_HI;
+          end if;
+          if flt(tx, lo) then
+            tval <= (others => '0');                   -- below: 0
+            cstate <= tab_ret;
+          elsif not flt(tx, hi) then
+            if tab_id = "10" then
+              tval <= x"3F800000";                     -- exp above: 1
+            else
+              tval <= tx;                              -- silu, gelu above: x
+            end if;
+            cstate <= tab_ret;
+          else
+            fpu_op <= FOP_ADD;                         -- x - lo
+            fpu_a <= tx;
+            fpu_b <= (not lo(31)) & lo(30 downto 0);
+            fpu_start <= '1';
+            fpu_ret <= T_K;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when T_K =>
+          fpu_op <= FOP_MUL;                           -- (x - lo) * k
+          fpu_a <= fpu_r;
+          if tab_id = "00" then fpu_b <= SILU_K;
+          elsif tab_id = "01" then fpu_b <= GELU_K;
+          else fpu_b <= EXPT_K; end if;
+          fpu_start <= '1';
+          fpu_ret <= T_I;
+          cstate <= C_FPU_WAIT;
+
+        when T_I =>
+          fpu_op <= FOP_TRUNC;                         -- floor (it is >= 0)
+          fpu_a <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= T_LOOK;
+          cstate <= C_FPU_WAIT;
+
+        when T_LOOK =>
+          if fpu_r(31) = '1' then
+            ti := 0;
+          elsif fpu_r > TAB_SEGMENTS - 1 then
+            ti := TAB_SEGMENTS - 1;
+          else
+            ti := to_integer(fpu_r(15 downto 0));
+          end if;
+          fpu_op <= FOP_MUL;                           -- c1[i] * x
+          if tab_id = "00" then
+            fpu_a <= SILU_C1(ti); tc0 <= SILU_C0(ti);
+          elsif tab_id = "01" then
+            fpu_a <= GELU_C1(ti); tc0 <= GELU_C0(ti);
+          else
+            fpu_a <= EXPT_C1(ti); tc0 <= EXPT_C0(ti);
+          end if;
+          fpu_b <= tx;
+          fpu_start <= '1';
+          fpu_ret <= T_C0;
+          cstate <= C_FPU_WAIT;
+
+        when T_C0 =>
+          fpu_op <= FOP_ADD;                           -- c0[i] + c1[i] * x
+          fpu_a <= tc0;
+          fpu_b <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= T_DONE;
+          cstate <= C_FPU_WAIT;
+
+        when T_DONE =>
+          tval <= fpu_r;
+          cstate <= tab_ret;
+
+        -- ------------------------------------------------------------------
+        -- RMSNORM after pass 1 (ve_acc = sum of squares):
+        -- rn = 1/N; m = ss * rn; r = 1 / sqrt(m + eps); then pass 2
+        when R_S0 =>
+          fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
+          fpu_ret <= R_S1; cstate <= C_FPU_WAIT;
+        when R_S1 =>
+          fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= R_S2; cstate <= C_FPU_WAIT;
+        when R_S2 =>
+          fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= R_S3; cstate <= C_FPU_WAIT;
+        when R_S3 =>
+          fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
+          fpu_ret <= R_S4; cstate <= C_FPU_WAIT;
+        when R_S4 =>
+          fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
+          fpu_ret <= R_S5; cstate <= C_FPU_WAIT;
+        when R_S5 =>
+          fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= R_S6; cstate <= C_FPU_WAIT;
+        when R_S6 =>
+          s_r <= fpu_r;
+          px <= bx; py <= by; pz <= bz; v_n <= n0;
+          ve_kind <= K_RMSOUT; two_ops <= '1'; has_out <= '1'; ve_ret <= C_NEXT;
+          cstate <= V_CHUNK;
+
+        -- LAYERNORM: after pass 1 (sum): rn = 1/N, mu = sum * rn, pass 2
+        -- (sum of (x - mu)^2), var = that * rn, r = 1 / sqrt(var + eps),
+        -- pass 3 with G at Y and B after it
+        when L_S0 =>
+          fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
+          fpu_ret <= L_S1; cstate <= C_FPU_WAIT;
+        when L_S1 =>
+          fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= L_S2; cstate <= C_FPU_WAIT;
+        when L_S2 =>
+          s_rn <= fpu_r;
+          fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= L_S3; cstate <= C_FPU_WAIT;
+        when L_S3 =>
+          s_mu <= fpu_r;
+          px <= bx; v_n <= n0; ve_first <= '1';
+          ve_kind <= K_LNVAR; has_out <= '0'; ve_ret <= L_S4;
+          cstate <= V_CHUNK;
+        when L_S4 =>
+          fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= s_rn; fpu_start <= '1';
+          fpu_ret <= L_S5; cstate <= C_FPU_WAIT;
+        when L_S5 =>
+          fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
+          fpu_ret <= L_S6; cstate <= C_FPU_WAIT;
+        when L_S6 =>
+          fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
+          fpu_ret <= L_S7; cstate <= C_FPU_WAIT;
+        when L_S7 =>
+          if ve_kind = K_LNVAR then
+            -- r = 1 / sqrt(...), then pass 3
+            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+            ve_kind <= K_LNOUT;
+            fpu_ret <= L_S7; cstate <= C_FPU_WAIT;
+          else
+            s_r <= fpu_r;
+            px <= bx; py <= by; pb <= by + (n0(25 downto 0) & "00"); pz <= bz; v_n <= n0;
+            two_ops <= '1'; has_b <= '1'; has_out <= '1'; ve_ret <= C_NEXT;
+            cstate <= V_CHUNK;
+          end if;
+
+        -- MEANROWS: Z = row 0; Z = Z + row r for r = 1 .. R-1; Z = Z * (1/R)
+        when M_NEXT =>
+          if mr_r = mr_rows then
+            cstate <= M_S0;
+          else
+            px <= bx + resize(mr_r(25 downto 0) * (n0(25 downto 0) & "00"), 28);
+            py <= bz; pz <= bz; v_n <= n0;
+            ve_kind <= K_ADD; two_ops <= '1'; has_out <= '1'; ve_ret <= M_NEXT;
+            mr_r <= mr_r + 1;
+            cstate <= V_CHUNK;
+          end if;
+        when M_S0 =>
+          fpu_op <= FOP_I2F; fpu_a <= mr_rows; fpu_start <= '1';
+          fpu_ret <= M_S1; cstate <= C_FPU_WAIT;
+        when M_S1 =>
+          fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+          fpu_ret <= M_S2; cstate <= C_FPU_WAIT;
+        when M_S2 =>
+          s_sc <= fpu_r;
+          px <= bz; pz <= bz; v_n <= n0;
+          ve_kind <= K_SCALE; two_ops <= '0'; has_out <= '1'; ve_ret <= C_NEXT;
           cstate <= V_CHUNK;
 
         -- ------------------------------------------------------------------
@@ -1379,6 +1786,7 @@ begin
             gi <= (others => '0');
             d_j <= (others => '0');
             d_have_scale <= '0';
+            fetch_ret <= D_EMIT;
             case to_integer(d_fmt) is
               when 0 => gbytes <= to_unsigned(4, 6);  epg <= to_unsigned(1, 6);
               when 1 | 30 => gbytes <= to_unsigned(2, 6); epg <= to_unsigned(1, 6);
@@ -1390,7 +1798,7 @@ begin
 
         when D_FETCH =>
           if gi = gbytes then
-            cstate <= D_EMIT;
+            cstate <= fetch_ret;
           elsif ld_valid = '0' or ps(27 downto 8) /= ld_block then
             -- load the rest of this 256-byte block
             a0 := ps(27 downto 3) & "000";
@@ -1504,6 +1912,268 @@ begin
             cstate <= D_GROUP;
           else
             cstate <= D_EMIT;
+          end if;
+
+        -- ------------------------------------------------------------------
+        -- GEMV, phase 1: quantise x to Q8_0 (ssnail_hw.quantize_q8_0)
+        when G_QFILL0 =>
+          g_j <= (others => '0');
+          g_amax <= (others => '0');
+          cstate <= G_QFILL;
+
+        when G_QFILL =>
+          if g_j = 32 then
+            fpu_op <= FOP_DIV;                         -- d = amax / 127
+            fpu_a <= '0' & g_amax;
+            fpu_b <= x"42FE0000";
+            fpu_start <= '1';
+            fpu_ret <= G_QID;
+            cstate <= C_FPU_WAIT;
+          elsif ld_valid = '0' or px(27 downto 8) /= ld_block then
+            a0 := px(27 downto 3) & "000";
+            a1 := (px(27 downto 8) + 1) & x"00";
+            rd_addr <= a0;
+            rd_len <= resize(a1 - a0, 9);
+            rd_sel <= "01";
+            dec_addr <= a0;
+            ld_block <= px(27 downto 8);
+            ld_valid <= '1';
+            rd_ret <= G_QFILL;
+            cstate <= C_RD_DEC;
+          else
+            fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
+            xb(to_integer(g_j)) <= fv;
+            -- |x| ordering = integer ordering of the low 31 bits
+            if fv(30 downto 0) > g_amax then
+              g_amax <= fv(30 downto 0);
+            end if;
+            px <= px + 4;
+            g_j <= g_j + 1;
+          end if;
+
+        when G_QID =>
+          g_d <= fpu_r;
+          if fpu_r(30 downto 0) = 0 then
+            g_id <= (others => '0');                   -- id = d ? 1/d : 0
+            cstate <= G_QD16;
+          else
+            fpu_op <= FOP_DIV;
+            fpu_a <= x"3F800000";
+            fpu_b <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= G_QID2;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when G_QID2 =>
+          g_id <= fpu_r;
+          cstate <= G_QD16;
+
+        when G_QD16 =>
+          fpu_op <= FOP_F32TOF16;                      -- the stored scale is F16
+          fpu_a <= g_d;
+          fpu_start <= '1';
+          fpu_ret <= G_QDX;
+          cstate <= C_FPU_WAIT;
+
+        when G_QDX =>
+          fpu_op <= FOP_F16TOF32;
+          fpu_a <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= G_QDX2;
+          cstate <= C_FPU_WAIT;
+
+        when G_QDX2 =>
+          dxs(to_integer(gblk)) <= fpu_r;
+          g_j <= (others => '0');
+          cstate <= G_QQ;
+
+        when G_QQ =>
+          if g_j = 32 then
+            gblk <= gblk + 1;
+            if gblk + 1 = g_nb then
+              cstate <= G_ROW0;
+            else
+              cstate <= G_QFILL0;
+            end if;
+          else
+            fpu_op <= FOP_MUL;                         -- x * id
+            fpu_a <= xb(to_integer(g_j));
+            fpu_b <= g_id;
+            fpu_start <= '1';
+            fpu_ret <= G_QQR;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when G_QQR =>
+          fpu_op <= FOP_ROUNDF;
+          fpu_a <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= G_QQS;
+          cstate <= C_FPU_WAIT;
+
+        when G_QQS =>
+          qx(to_integer(gblk & g_j(4 downto 0))) <= signed(fpu_r(7 downto 0));
+          g_j <= g_j + 1;
+          cstate <= G_QQ;
+
+        -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
+        when G_ROW0 =>
+          ld_valid <= '0';                             -- bufx now holds weights
+          out_loaded <= '0';
+          g_r <= (others => '0');
+          cstate <= G_ROW;
+
+        when G_ROW =>
+          if g_r = g_rows then
+            cstate <= C_NEXT;                          -- (last row flushed already)
+          else
+            gblk <= (others => '0');
+            cstate <= G_BLK;
+          end if;
+
+        when G_BLK =>
+          if gblk = g_nb then
+            cstate <= G_OUT;
+          else
+            gi <= (others => '0');
+            fetch_ret <= G_DOT0;
+            cstate <= D_FETCH;
+          end if;
+
+        when G_DOT0 =>
+          g_isum <= (others => '0');
+          g_k <= (others => '0');
+          cstate <= G_DOT;
+
+        when G_DOT =>
+          if g_k = 32 then
+            fpu_op <= FOP_F16TOF32;                    -- d_w
+            fpu_a <= x"0000" & grp(1) & grp(0);
+            fpu_start <= '1';
+            fpu_ret <= G_SC;
+            cstate <= C_FPU_WAIT;
+          else
+            if d_fmt = 8 then
+              qw := resize(signed(grp(2 + to_integer(g_k))), 9);
+            elsif g_k < 16 then
+              qw := resize(signed('0' & grp(2 + to_integer(g_k))(3 downto 0)), 9) - 8;
+            else
+              qw := resize(signed('0' & grp(2 + to_integer(g_k) - 16)(7 downto 4)), 9) - 8;
+            end if;
+            g_isum <= g_isum + resize(qw * qx(to_integer(gblk(6 downto 0) & g_k(4 downto 0))), 32);
+            g_k <= g_k + 1;
+          end if;
+
+        when G_SC =>
+          fpu_op <= FOP_MUL;                           -- scale = d_w * d_x
+          fpu_a <= fpu_r;
+          fpu_b <= dxs(to_integer(gblk));
+          fpu_start <= '1';
+          fpu_ret <= G_SC2;
+          cstate <= C_FPU_WAIT;
+
+        when G_SC2 =>
+          g_scale <= fpu_r;
+          fpu_op <= FOP_I2F;                           -- F32(isum)
+          fpu_a <= unsigned(g_isum);
+          fpu_start <= '1';
+          fpu_ret <= G_T;
+          cstate <= C_FPU_WAIT;
+
+        when G_T =>
+          fpu_op <= FOP_MUL;                           -- term = F32(isum) * scale
+          fpu_a <= fpu_r;
+          fpu_b <= g_scale;
+          fpu_start <= '1';
+          fpu_ret <= G_ACC;
+          cstate <= C_FPU_WAIT;
+
+        when G_ACC =>
+          if gblk = 0 then
+            g_accv <= fpu_r;                           -- first term as it is
+            gblk <= gblk + 1;
+            cstate <= G_BLK;
+          else
+            fpu_op <= FOP_ADD;                         -- acc = acc + term
+            fpu_a <= g_accv;
+            fpu_b <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= G_ACC2;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when G_ACC2 =>
+          g_accv <= fpu_r;
+          gblk <= gblk + 1;
+          cstate <= G_BLK;
+
+        when G_OUT =>
+          if g_addz = '1' and (out_loaded = '0' or pz(27 downto 8) /= out_block) then
+            -- bring in the existing outputs of this 256-byte block
+            a0 := pz(27 downto 3) & "000";
+            a1 := (pz(27 downto 8) + 1) & x"00";
+            rd_addr <= a0;
+            rd_len <= resize(a1 - a0, 9);
+            rd_sel <= "00";
+            dec_addr <= a0;
+            out_block <= pz(27 downto 8);
+            out_loaded <= '1';
+            rd_ret <= G_OUT;
+            cstate <= C_RD_DEC;
+          elsif g_addz = '1' then
+            fpu_op <= FOP_ADD;                         -- y = acc + y_old
+            fpu_a <= g_accv;
+            fpu_b <= buf(to_integer(pz(7 downto 1) + 1)) & buf(to_integer(pz(7 downto 1)));
+            fpu_start <= '1';
+            fpu_ret <= G_OUT2;
+            cstate <= C_FPU_WAIT;
+          else
+            fpu_r <= g_accv;
+            cstate <= G_OUT2;
+          end if;
+
+        when G_OUT2 =>
+          if g_f16 = '1' then
+            fpu_op <= FOP_F32TOF16;
+            fpu_a <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= G_OUT3;
+            cstate <= C_FPU_WAIT;
+          else
+            cstate <= G_OUT3;
+          end if;
+
+        when G_OUT3 =>
+          g_val <= fpu_r;
+          cstate <= G_OUT4;
+
+        when G_OUT4 =>
+          if g_f16 = '1' then
+            buf(to_integer(pz(7 downto 1))) <= g_val(15 downto 0);
+            a2 := pz + 2;
+          else
+            buf(to_integer(pz(7 downto 1))) <= g_val(15 downto 0);
+            buf(to_integer(pz(7 downto 1) + 1)) <= g_val(31 downto 16);
+            a2 := pz + 4;
+          end if;
+          pz <= a2;
+          g_r <= g_r + 1;
+          if a2(7 downto 0) = 0 or g_r + 1 = g_rows then
+            a0 := ostart(27 downto 3) & "000";
+            a1 := a2 + 7;
+            a1(2 downto 0) := "000";
+            wr_addr <= a0;
+            wr_len <= resize(a1 - a0, 9);
+            mw_lead <= resize(ostart - a0, 9);
+            mw_vend <= resize(a2 - a0, 9);
+            mw_idx <= a0(7 downto 1);
+            dec_addr <= a0;
+            ostart <= a2;
+            wr_ret <= G_ROW;
+            cstate <= C_WR_DEC;
+          else
+            cstate <= G_ROW;
           end if;
 
         when C_NEXT =>

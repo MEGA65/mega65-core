@@ -71,5 +71,60 @@ with np.errstate(all="ignore"):
     for i in ints:
         add(5, int(i) & 0xFFFFFFFF, 0, f32b(F32(int(i))))
 
+    # division: same operand pairs, plus tiny/huge and exact cases
+    divs = pairs[:4000] + [(f32b(F32(rng.standard_normal() * 2.0 ** rng.integers(-140, 128))),
+                            f32b(F32(rng.standard_normal() * 2.0 ** rng.integers(-140, 128))))
+                           for _ in range(1500)]
+    divs += [(f32b(F32(v)), 0x42FE0000) for v in rng.standard_normal(300) * 50]   # x / 127
+    divs += [(0x3F800000, f32b(F32(v))) for v in rng.standard_normal(300)]        # 1 / x
+    for a, b in divs:
+        fa = np.array([a], dtype=np.uint32).view(F32)[0]
+        fb = np.array([b], dtype=np.uint32).view(F32)[0]
+        add(6, a, b, f32b(fa / fb))
+    # roundf, exactly as gguf-py / llama.cpp (half away from zero), saturating
+    def roundf_ref(v):
+        if np.isnan(v):
+            return 0
+        if np.isinf(v):
+            return 2 ** 31 - 1 if v > 0 else -2 ** 31
+        a_ = abs(float(v))
+        r = int(np.floor(a_)) + (1 if a_ - np.floor(a_) >= 0.5 else 0)
+        r = -r if v < 0 else r
+        return max(-2 ** 31, min(2 ** 31 - 1, r))
+    rvals = [f32b(F32(v)) for v in rng.standard_normal(2000) * 100]
+    rvals += [f32b(F32(k + 0.5)) for k in range(-130, 130)]                 # exact halves
+    rvals += [f32b(np.nextafter(F32(k + 0.5), F32(k))) for k in range(-130, 130)]
+    rvals += [f32b(np.nextafter(F32(k + 0.5), F32(k + 1))) for k in range(-130, 130)]
+    rvals += edges + rand_bits[:1000]
+    for a in rvals:
+        fa = np.array([a & 0xFFFFFFFF], dtype=np.uint32).view(F32)[0]
+        add(7, a, 0, roundf_ref(fa) & 0xFFFFFFFF)
+
+    # square root: random bits (negatives, NaN, inf included), every scale,
+    # exact squares, subnormals
+    svals = rand_bits[:2000] + edges
+    svals += [f32b(F32(abs(rng.standard_normal()) * 2.0 ** rng.integers(-149, 128))) for _ in range(2000)]
+    svals += [f32b(F32(k * k)) for k in range(0, 3000, 7)]
+    svals += [f32b(np.nextafter(F32(k * k), F32(1e9))) for k in range(1, 300)]
+    svals += list(range(1, 2000, 13)) + [0x007FFFFF, 0x00000001]
+    for a in svals:
+        fa = np.array([a & 0xFFFFFFFF], dtype=np.uint32).view(F32)[0]
+        add(8, a, 0, f32b(np.sqrt(fa)))
+    # truncate toward zero, saturating (table segment index)
+    def trunc_ref(v):
+        if np.isnan(v):
+            return 0
+        if np.isinf(v):
+            return 2 ** 31 - 1 if v > 0 else -2 ** 31
+        r = int(np.trunc(float(v)))
+        return max(-2 ** 31, min(2 ** 31 - 1, r))
+    tvals = [f32b(F32(v)) for v in rng.standard_normal(2000) * 300]
+    tvals += [f32b(F32(k)) for k in range(-300, 300)]
+    tvals += [f32b(np.nextafter(F32(k), F32(0))) for k in range(-300, 300) if k]
+    tvals += edges + rand_bits[:800]
+    for a in tvals:
+        fa = np.array([a & 0xFFFFFFFF], dtype=np.uint32).view(F32)[0]
+        add(9, a, 0, trunc_ref(fa) & 0xFFFFFFFF)
+
 open("fpu_vectors.txt", "w").write("\n".join(lines) + "\n")
 print(f"{len(lines)} vectors")
