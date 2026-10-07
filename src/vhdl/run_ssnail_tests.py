@@ -139,7 +139,9 @@ def find_tools(here, repo, update):
 
 
 # What the testbenches need from the SSNAIL tools: (module, attribute or None)
-TOOLS_NEEDED = [("ssnail_isa", "CVT16"), ("ssnail_isa", "GEMV_F16OUT"), ("ssnail_hw", None)]
+TOOLS_NEEDED = [("ssnail_isa", "CVT16"), ("ssnail_isa", "GEMV_F16OUT"), ("ssnail_hw", None),
+                ("ssnail_hw", "roundf"),      # exact roundf in Q8_0 quantisation (step 3)
+                ("ssnail_isa", "SD_END")]     # one memory layout, SDRAM first
 
 
 def tools_too_old(tools):
