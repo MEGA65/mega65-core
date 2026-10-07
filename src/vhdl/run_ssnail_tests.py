@@ -26,6 +26,7 @@ Testbenches:
     tb_ssnail_step3   GEMV (Q8_0, Q4_0, accumulate, F16 output) vs the same
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
+    tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
 
 Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
 VITAL libraries, which most GHDL builds lack).
@@ -58,15 +59,15 @@ BENCHES = {
                         "tb_ssnail_load.vhdl"], "tb_ssnail_load", [[]],
                        r"TB_SSNAIL_LOAD: ALL PASSED"),
     "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
-                         "ssnail.vhdl", "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"],
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"],
                         "tb_ssnail_step1", [[]], r"TB_SSNAIL_STEP1: ALL PASSED"),
     "tb_ssnail_fpu": (["ssnail_fpu.vhdl", "tb_ssnail_fpu.vhdl"], "tb_ssnail_fpu", [[]],
                       r"TB_SSNAIL_FPU: ALL PASSED"),
     "tb_ssnail_step2": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
-                         "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
                         "tb_ssnail_step2", [[]], r"TB_SSNAIL_STEP2: ALL PASSED"),
     "tb_ssnail_step3": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
-                         "ssnail.vhdl", "step3_pkg.vhdl", "tb_ssnail_step3.vhdl"],
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step3_pkg.vhdl", "tb_ssnail_step3.vhdl"],
                         "tb_ssnail_step3", [[]], r"TB_SSNAIL_STEP3: ALL PASSED"),
     "tb_ssnail_step4": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step4_pkg.vhdl",
@@ -76,6 +77,10 @@ BENCHES = {
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
                         "tb_ssnail_step5", [[]], r"TB_SSNAIL_STEP5: ALL PASSED"),
+    "tb_ssnail_perf": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                        "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "perf_pkg.vhdl",
+                        "tb_ssnail_perf.vhdl"],
+                       "tb_ssnail_perf", [[]], r"TB_SSNAIL_PERF: ALL PASSED"),
 }
 # Generated inputs: file -> (generator script, needs the SSNAIL tools)
 GENERATED = {
@@ -84,6 +89,7 @@ GENERATED = {
     "step3_pkg.vhdl": ("gen_step3.py", True),
     "step4_pkg.vhdl": ("gen_step4.py", True),
     "step5_pkg.vhdl": ("gen_step5.py", True),
+    "perf_pkg.vhdl": ("gen_perf.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
 }
 NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"]}

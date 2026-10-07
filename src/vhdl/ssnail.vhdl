@@ -32,9 +32,10 @@
 --   $06      IRQ enable: bit0 IRQ on job done
 --   $08-$0B  Job pointer (28 bits).  Writable only while idle.
 --   $0C-$0F  PC readback (28 bits)
---   $10      HyperRAM size in MB (base is fixed at $8000000). Reset: 8
---   $11      SDRAM base in MB (address bits 27-20). Reset: $88 with SDRAM, else 0
+--   $10      HyperRAM size in MB. Reset: 8
+--   $11      SDRAM base in MB (address bits 27-20). Reset: $80 with SDRAM, else 0
 --   $12      SDRAM size in MB. Reset: 64 with SDRAM, else 0
+--   $13      HyperRAM base in MB. Reset: $C0 with SDRAM, else $80
 --            (the region registers return to these on reset, when idle)
 --
 -- Load port: streams a model image into RAM, anywhere in the SSNAIL linear
@@ -130,7 +131,10 @@ use work.ssnail_tables_pkg.all;
 
 entity ssnail is
   generic (
-    -- Board has SDRAM (R4-R6): defaults to the 72 MB map (SDRAM at $8800000)
+    -- Board has SDRAM (R4-R6).  SSNAIL's map then defaults to SDRAM first:
+    -- SDRAM $8000000-$BFFFFFF, HyperRAM $C000000-$C7FFFFF.  Without SDRAM:
+    -- HyperRAM $8000000-$87FFFFF.  Either way a <= 8 MB image is at
+    -- $8000000, so the same image works on every board.
     has_sdram : boolean := false
     );
   port (
@@ -211,6 +215,53 @@ architecture shell of ssnail is
   constant K_ROPE    : unsigned(3 downto 0) := x"C";   -- rotate pairs, in place
   constant K_ARGMAX  : unsigned(3 downto 0) := x"D";   -- index of the first maximum
 
+  -- F16 -> F32, exact (finite inputs; GEMV block scales)
+  function f16_to_f32(h : unsigned(15 downto 0)) return unsigned is
+    variable m : unsigned(9 downto 0);
+    variable e : integer range -32 to 255;
+  begin
+    if h(14 downto 0) = 0 then
+      return h(15) & "000" & x"0000000";
+    elsif h(14 downto 10) = 0 then
+      m := h(9 downto 0);
+      e := 127 - 15 + 1;
+      for i in 1 to 10 loop                         -- normalise a subnormal
+        if m(9) = '0' then
+          m := m(8 downto 0) & '0';
+          e := e - 1;
+        else
+          exit;
+        end if;
+      end loop;
+      -- now the leading 1 is m(9); drop it
+      return h(15) & to_unsigned(e - 1, 8) & m(8 downto 0) & '0' & "0000000000000";
+    else
+      return h(15) & to_unsigned(to_integer(h(14 downto 10)) - 15 + 127, 8)
+        & h(9 downto 0) & "0000000000000";
+    end if;
+  end function;
+
+  -- signed integer (|v| < 2^24) -> F32, exact (GEMV block sums)
+  function i_to_f32(v : signed(31 downto 0)) return unsigned is
+    variable a : unsigned(31 downto 0);
+    variable p : integer range 0 to 31;
+  begin
+    if v = 0 then
+      return x"00000000";
+    end if;
+    if v < 0 then a := unsigned(-v); else a := unsigned(v); end if;
+    p := 0;
+    for i in 0 to 23 loop
+      if a(i) = '1' then p := i; end if;
+    end loop;
+    a := shift_left(a, 23 - p);
+    if v < 0 then
+      return '1' & to_unsigned(127 + p, 8) & a(22 downto 0);
+    else
+      return '0' & to_unsigned(127 + p, 8) & a(22 downto 0);
+    end if;
+  end function;
+
   -- IEEE F32 a < b, for ordinary (non-NaN) values
   function flt(a, b : unsigned(31 downto 0)) return boolean is
   begin
@@ -235,11 +286,16 @@ architecture shell of ssnail is
     if not present then
       return x"00";
     elsif base then
-      return x"88";
+      return x"80";
     else
       return x"40";
     end if;
   end function;
+  function hr_default(present : boolean) return unsigned is
+  begin
+    if present then return x"C0"; else return x"80"; end if;
+  end function;
+  signal hr_base_mb   : unsigned(7 downto 0) := hr_default(has_sdram);
   signal sd_base_mb   : unsigned(7 downto 0) := sd_default(true, has_sdram);
   signal sd_size_mb   : unsigned(7 downto 0) := sd_default(false, has_sdram);
   signal irq_en_done  : std_logic := '0';
@@ -292,6 +348,7 @@ architecture shell of ssnail is
   -- Configuration, captured from the cpu domain when a command arrives
   -- (it is only written while idle, so it is stable by then)
   signal c_hr_size, c_sd_base, c_sd_size : unsigned(7 downto 0) := (others => '0');
+  signal c_hr_base : unsigned(7 downto 0) := x"80";
 
   type core_state_t is (
     C_IDLE,
@@ -312,7 +369,7 @@ architecture shell of ssnail is
     A_O_T, A_O_I, A_O_I2, A_O_I3, A_O_I4, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH, D_EMIT, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
-    G_ROW0, G_ROW, G_BLK, G_DOT0, G_DOT, G_SC, G_SC2, G_T, G_ACC, G_ACC2,
+    G_ROW0, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
     G_OUT, G_OUT2, G_OUT3, G_OUT4,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
@@ -433,9 +490,63 @@ architecture shell of ssnail is
   type qx_t is array (0 to 4095) of signed(7 downto 0);
   type dx_t is array (0 to 127) of unsigned(31 downto 0);
   signal xb        : f32x32_t := (others => (others => '0'));  -- one block of x
-  signal qx        : qx_t := (others => (others => '0'));      -- quantised x
+  -- quantised x, 4 elements wide: element e is in qxk(e mod 4)(e / 4), so the
+  -- 4 MAC lanes read 4 consecutive elements per cycle
+  type qx4_t is array (0 to 1023) of signed(7 downto 0);
+  signal qx0, qx1, qx2, qx3 : qx4_t := (others => (others => '0'));
   signal dxs       : dx_t := (others => (others => '0'));      -- its scales, as F32
-  attribute ram_style of qx, dxs : signal is "distributed";
+  attribute ram_style of qx0, qx1, qx2, qx3, dxs : signal is "distributed";
+
+  -- GEMV v2 row phase: stream reader -> word FIFO -> block assembler
+  -- (fill registers) -> 4 MAC lanes (compute registers) -> tail on the main
+  -- FSM, all running concurrently.
+  signal g2        : std_logic := '0';
+  signal hr_valid_i, sd_valid_i : std_logic := '0';   -- the cmd_valid outputs
+  type wf_t is array (0 to 255) of unsigned(15 downto 0);
+  signal wf        : wf_t := (others => (others => '0'));
+  attribute ram_style of wf : signal is "distributed";
+  signal wf_w, wf_r : unsigned(8 downto 0) := (others => '0');
+  signal sr_next, sr_end, str_base : unsigned(27 downto 0) := (others => '0');
+  signal str_local : unsigned(26 downto 0) := (others => '0');
+  signal str_is_sd : std_logic := '0';
+  signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
+  -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
+  type rq_tag_t is array (0 to 3) of std_logic;
+  type rq_cnt_t is array (0 to 3) of unsigned(7 downto 0);
+  signal rq_tag    : rq_tag_t := (others => '0');
+  signal rq_cnt    : rq_cnt_t := (others => (others => '0'));
+  signal rq_w, rq_r : unsigned(2 downto 0) := (others => '0');
+  -- assembler
+  signal grpf, grpc : grp_t := (others => x"00");
+  signal as_fi     : unsigned(5 downto 0) := (others => '0');
+  signal as_skip   : unsigned(2 downto 0) := (others => '0');
+  signal as_full   : std_logic := '0';
+  signal pb_v      : std_logic := '0';
+  signal pb_b      : unsigned(7 downto 0) := x"00";
+  signal as_blocks : unsigned(31 downto 0) := (others => '0');   -- blocks still to assemble
+  -- MAC lanes
+  signal mc_busy, mc_done : std_logic := '0';
+  signal mc_c      : unsigned(3 downto 0) := (others => '0');
+  signal mc_blk    : unsigned(7 downto 0) := (others => '0');    -- block within the row
+  signal mc_isum   : signed(31 downto 0) := (others => '0');
+  signal mc_scale_ok : std_logic := '0';
+  signal mc_scale  : unsigned(31 downto 0) := (others => '0');
+  -- term stage (second FP unit): term = F32(isum) * scale
+  signal tm_busy   : std_logic := '0';
+  signal tm_blk    : unsigned(7 downto 0) := (others => '0');
+  signal f2_term   : std_logic := '0';      -- (unused)
+  signal th_v      : std_logic := '0';      -- finished term waiting for the tail
+  signal th_val    : unsigned(31 downto 0) := (others => '0');
+  signal th_blk    : unsigned(7 downto 0) := (others => '0');
+  -- tail input (main FSM: the accumulate)
+  signal tl_full   : std_logic := '0';
+  signal tl_term   : unsigned(31 downto 0) := (others => '0');
+  signal tl_blk    : unsigned(7 downto 0) := (others => '0');
+  -- second FP unit: each block's term; third: the next block's scale
+  signal fpu2_start, fpu2_done : std_logic := '0';
+  signal fpu2_a, fpu2_b, fpu2_res : unsigned(31 downto 0) := (others => '0');
+  signal fpu3_start, fpu3_done : std_logic := '0';
+  signal fpu3_a, fpu3_b, fpu3_res : unsigned(31 downto 0) := (others => '0');
   signal g_rows, g_r : unsigned(31 downto 0) := (others => '0');
   signal g_nb, gblk : unsigned(7 downto 0) := (others => '0');
   signal g_j, g_k  : unsigned(5 downto 0) := (others => '0');
@@ -526,7 +637,7 @@ begin
   ---------------------------------------------------------------------------
   process (fastio_read, ssnail_cs, fastio_addr, job_ptr, cpu_pc, cpu_busy,
            cpu_done, cpu_err, start_pending, irq_pend_done, irq_en_done,
-           hr_size_mb, sd_base_mb, sd_size_mb, lp_ptr, lp_ready, lp_err_s2) is
+           hr_size_mb, sd_base_mb, sd_size_mb, hr_base_mb, lp_ptr, lp_ready, lp_err_s2) is
   begin
     if fastio_read = '1' and ssnail_cs = '1' then
       case fastio_addr(4 downto 0) is
@@ -564,6 +675,7 @@ begin
         when "10000" => fastio_rdata <= hr_size_mb;
         when "10001" => fastio_rdata <= sd_base_mb;
         when "10010" => fastio_rdata <= sd_size_mb;
+        when "10011" => fastio_rdata <= hr_base_mb;
         when "10100" => fastio_rdata <= lp_ptr(7 downto 0);
         when "10101" => fastio_rdata <= lp_ptr(15 downto 8);
         when "10110" => fastio_rdata <= lp_ptr(23 downto 16);
@@ -636,6 +748,7 @@ begin
           when "10000" => if idle then hr_size_mb <= fastio_wdata; end if;
           when "10001" => if idle then sd_base_mb <= fastio_wdata; end if;
           when "10010" => if idle then sd_size_mb <= fastio_wdata; end if;
+          when "10011" => if idle then hr_base_mb <= fastio_wdata; end if;
           when "10100" => lp_stage(7 downto 0) <= fastio_wdata;
           when "10101" => lp_stage(15 downto 8) <= fastio_wdata;
           when "10110" => lp_stage(23 downto 16) <= fastio_wdata;
@@ -696,6 +809,7 @@ begin
           hr_size_mb <= to_unsigned(8, 8);
           sd_base_mb <= sd_default(true, has_sdram);
           sd_size_mb <= sd_default(false, has_sdram);
+          hr_base_mb <= hr_default(has_sdram);
         end if;
       end if;
     end if;
@@ -720,6 +834,19 @@ begin
     variable wd : unsigned(15 downto 0);
     variable q : signed(31 downto 0);
     variable qw : signed(8 downto 0);
+    variable qwv : signed(8 downto 0);
+    variable qxv : signed(7 downto 0);
+    variable lsum : signed(31 downto 0);
+    variable jj, bsz, need, nav, fi, sk, used : integer range 0 to 63;
+    variable avb : grp_t;
+    variable popw : boolean;
+    variable wv : unsigned(15 downto 0);
+    variable rq_push : boolean;
+    variable rq_push_tag : std_logic;
+    variable rq_push_cnt : unsigned(7 downto 0);
+    variable sr_inflight_inc : unsigned(8 downto 0);
+    variable sr_inflight_dec, tl_full_clr : std_logic;
+    variable tl_free : boolean;
     variable fv : unsigned(31 downto 0);
   begin
     if rising_edge(clock162) then
@@ -728,6 +855,14 @@ begin
       lp_inc := '0';
       lp_dec := '0';
       fpu_start <= '0';
+      fpu2_start <= '0';
+      fpu3_start <= '0';
+      rq_push := false;
+      rq_push_tag := '0';
+      rq_push_cnt := (others => '0');
+      sr_inflight_inc := (others => '0');
+      sr_inflight_dec := '0';
+      tl_full_clr := '0';
 
       -- Command toggle synchronisers
       go_s1 <= go_tgl;       go_s2 <= go_s1;
@@ -811,10 +946,10 @@ begin
       -- HyperRAM: [$8000000, $8000000 + hr_size MB)
       -- SDRAM:    [sd_base MB, sd_base + sd_size MB)
       mb := dec_addr(27 downto 20);
-      if mb >= x"80" and resize(mb, 9) < to_unsigned(128, 9) + resize(c_hr_size, 9) then
+      if mb >= c_hr_base and resize(mb, 9) < resize(c_hr_base, 9) + resize(c_hr_size, 9) then
         dec_ok    <= '1';
         dec_is_sd <= '0';
-        dec_local <= dec_addr(26 downto 0);
+        dec_local <= resize(mb - c_hr_base, 7) & dec_addr(19 downto 0);
       elsif mb >= c_sd_base and resize(mb, 9) < resize(c_sd_base, 9) + resize(c_sd_size, 9) then
         dec_ok    <= '1';
         dec_is_sd <= '1';
@@ -845,7 +980,25 @@ begin
       end if;
 
       -- Store incoming read data
-      if rvalid_r = '1' then
+      if rvalid_r = '1' and g2 = '1' and rq_tag(to_integer(rq_r(1 downto 0))) = '1' then
+        -- GEMV weight stream: into the word FIFO
+        wf(to_integer(wf_w(7 downto 0))) <= rdata_r;
+        wf_w <= wf_w + 1;
+        sr_inflight_dec := '1';
+        if rq_cnt(to_integer(rq_r(1 downto 0))) = 1 then
+          rq_r <= rq_r + 1;
+        else
+          rq_cnt(to_integer(rq_r(1 downto 0))) <= rq_cnt(to_integer(rq_r(1 downto 0))) - 1;
+        end if;
+      elsif rvalid_r = '1' then
+        if g2 = '1' then
+          -- a non-stream read during GEMV (old outputs): count it off its tag
+          if rq_cnt(to_integer(rq_r(1 downto 0))) = 1 then
+            rq_r <= rq_r + 1;
+          else
+            rq_cnt(to_integer(rq_r(1 downto 0))) <= rq_cnt(to_integer(rq_r(1 downto 0))) - 1;
+          end if;
+        end if;
         if cstate = C_FETCH_WAIT then
           instr <= rdata_r & instr(127 downto 16);
         else
@@ -867,8 +1020,8 @@ begin
       end if;
 
       -- Command acceptance: drop valid on the edge where ready is seen
-      if hr_cmd_ready = '1' then hr_cmd_valid <= '0'; end if;
-      if sd_cmd_ready = '1' then sd_cmd_valid <= '0'; end if;
+      if hr_cmd_ready = '1' then hr_valid_i <= '0'; end if;
+      if sd_cmd_ready = '1' then sd_valid_i <= '0'; end if;
 
       case cstate is
         when C_IDLE =>
@@ -910,13 +1063,13 @@ begin
               ring_rd_idx <= st_al(9 downto 1);
               lp_k <= (others => '0');
               dec_addr <= st_al;
-              c_hr_size <= hr_size_mb;
+              c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
               c_sd_base <= sd_base_mb;
               c_sd_size <= sd_size_mb;
               cstate <= C_LP_DECODE;
             end if;
           elsif go_s2 /= go_last or step_s2 /= step_last then
-            c_hr_size <= hr_size_mb;
+            c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
             c_sd_base <= sd_base_mb;
             c_sd_size <= sd_size_mb;
             if go_s2 /= go_last then
@@ -935,7 +1088,7 @@ begin
             cstate <= C_FETCH_SETUP;
           elsif sync_s2 /= sync_last then
             sync_last <= sync_s2;
-            c_hr_size <= hr_size_mb;
+            c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
             c_sd_size <= sd_size_mb;
             busy <= '1';
             cpu_sync <= '1';
@@ -964,11 +1117,11 @@ begin
             words_expected <= to_unsigned(8, 8);
             t_is_sd <= dec_is_sd;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_READ;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
               sd_cmd_addr <= dec_local; sd_cmd_len <= to_unsigned(16, 9);
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_READ;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_READ;
               hr_cmd_addr <= dec_local; hr_cmd_len <= to_unsigned(16, 9);
               hr_issue := '1';
             end if;
@@ -1226,11 +1379,11 @@ begin
               str_k <= "00";
             end if;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_addr <= dec_local; sd_cmd_len <= to_unsigned(8, 9);
+              sd_valid_i <= '1'; sd_cmd_addr <= dec_local; sd_cmd_len <= to_unsigned(8, 9);
               if mem_is_store = '1' then sd_cmd_op <= LUMP_OP_WRITE; else sd_cmd_op <= LUMP_OP_READ; end if;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_addr <= dec_local; hr_cmd_len <= to_unsigned(8, 9);
+              hr_valid_i <= '1'; hr_cmd_addr <= dec_local; hr_cmd_len <= to_unsigned(8, 9);
               if mem_is_store = '1' then hr_cmd_op <= LUMP_OP_WRITE; else hr_cmd_op <= LUMP_OP_READ; end if;
               hr_issue := '1';
             end if;
@@ -1290,11 +1443,11 @@ begin
             buf_widx <= (others => '0');
             t_is_sd <= dec_is_sd;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_READ;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
               sd_cmd_addr <= dec_local; sd_cmd_len <= cp_chunk;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_READ;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_READ;
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
@@ -1319,11 +1472,11 @@ begin
             buf_ridx <= (others => '0');
             t_is_sd <= dec_is_sd;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
               sd_cmd_addr <= dec_local; sd_cmd_len <= cp_chunk;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
@@ -1344,12 +1497,12 @@ begin
 
         when C_SYNC_ISSUE =>
           if c_hr_size /= 0 then
-            hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_INVALIDATE;
+            hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_INVALIDATE;
             hr_cmd_addr <= (others => '0'); hr_cmd_len <= (others => '0');
             hr_issue := '1';
           end if;
           if c_sd_size /= 0 then
-            sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_INVALIDATE;
+            sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_INVALIDATE;
             sd_cmd_addr <= (others => '0'); sd_cmd_len <= (others => '0');
             sd_issue := '1';
           end if;
@@ -1378,11 +1531,11 @@ begin
             lp_active <= '1';
             t_is_sd <= dec_is_sd;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
               sd_cmd_addr <= dec_local; sd_cmd_len <= cp_chunk;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
@@ -1394,11 +1547,11 @@ begin
             lp_active <= '0';
             -- The write bypassed the CPU's caches on that port
             if t_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_INVALIDATE;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_INVALIDATE;
               sd_cmd_addr <= (others => '0'); sd_cmd_len <= (others => '0');
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_INVALIDATE;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_INVALIDATE;
               hr_cmd_addr <= (others => '0'); hr_cmd_len <= (others => '0');
               hr_issue := '1';
             end if;
@@ -1430,7 +1583,9 @@ begin
         when C_RD_DEC =>
           cstate <= C_RD_ISSUE;
         when C_RD_ISSUE =>
-          if dec_ok = '0' then
+          if (hr_valid_i or sd_valid_i) = '1' then
+            null;                                   -- channel busy (GEMV stream)
+          elsif dec_ok = '0' then
             err <= ERR_ADDRESS;
             cstate <= C_END;
           else
@@ -1438,13 +1593,18 @@ begin
             words_expected <= resize(rd_len(8 downto 1), 8);
             buf_widx <= rd_addr(7 downto 1);
             cap_sel <= rd_sel;
+            if g2 = '1' then
+              rq_push := true;
+              rq_push_tag := '0';
+              rq_push_cnt := resize(rd_len(8 downto 1), 8);
+            end if;
             t_is_sd <= dec_is_sd;
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_READ;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
               sd_cmd_addr <= dec_local; sd_cmd_len <= rd_len;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_READ;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_READ;
               hr_cmd_addr <= dec_local; hr_cmd_len <= rd_len;
               hr_issue := '1';
             end if;
@@ -1459,18 +1619,20 @@ begin
         when C_WR_DEC =>
           cstate <= C_WR_ISSUE;
         when C_WR_ISSUE =>
-          if dec_ok = '0' then
+          if (hr_valid_i or sd_valid_i) = '1' then
+            null;                                   -- channel busy (GEMV stream)
+          elsif dec_ok = '0' then
             err <= ERR_ADDRESS;
             cstate <= C_END;
           else
             mw_active <= '1';
             mw_k <= (others => '0');
             if dec_is_sd = '1' then
-              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
               sd_cmd_addr <= dec_local; sd_cmd_len <= wr_len;
               sd_issue := '1';
             else
-              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
               hr_cmd_addr <= dec_local; hr_cmd_len <= wr_len;
               hr_issue := '1';
             end if;
@@ -2132,100 +2294,109 @@ begin
           cstate <= C_FPU_WAIT;
 
         when G_QQS =>
-          qx(to_integer(gblk & g_j(4 downto 0))) <= signed(fpu_r(7 downto 0));
+          case to_integer(g_j(1 downto 0)) is
+            when 0 => qx0(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
+            when 1 => qx1(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
+            when 2 => qx2(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
+            when others => qx3(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
+          end case;
           g_j <= g_j + 1;
           cstate <= G_QQ;
 
         -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
         when G_ROW0 =>
-          ld_valid <= '0';                             -- bufx now holds weights
+          -- Row phase.  Decode the region of the first and last weight
+          -- bytes once: the stream needs the matrix in a single region.
+          ld_valid <= '0';
           out_loaded <= '0';
           g_r <= (others => '0');
-          cstate <= G_ROW;
+          gblk <= (others => '0');
+          a0 := ps(27 downto 3) & "000";
+          str_base <= a0;
+          sr_next <= a0;
+          -- total bytes = rows * blocks * block size
+          if d_fmt = 8 then
+            a2 := ps + resize(g_rows(19 downto 0) * g_nb * to_unsigned(34, 6), 28);
+          else
+            a2 := ps + resize(g_rows(19 downto 0) * g_nb * to_unsigned(18, 6), 28);
+          end if;
+          a1 := a2 + 7;
+          a1(2 downto 0) := "000";
+          sr_end <= a1;
+          dec_addr <= a0;
+          cstate <= G2_D1;
+        when G2_D1 =>
+          cstate <= G2_D2;                          -- decode of the start
+        when G2_D2 =>
+          if dec_ok = '0' then
+            err <= ERR_ADDRESS;
+            cstate <= C_END;
+          else
+            str_local <= dec_local;
+            str_is_sd <= dec_is_sd;
+            dec_addr <= sr_end - 8;                 -- and of the last group
+            cstate <= G2_D2W;
+          end if;
+        when G2_D2W =>
+          cstate <= G2_D3;                          -- its decode
+        when G2_D3 =>
+          if dec_ok = '0' or dec_is_sd /= str_is_sd then
+            err <= ERR_ADDRESS;                     -- straddles two regions
+            cstate <= C_END;
+          else
+            -- start the pipeline
+            g2 <= '1';
+            wf_w <= (others => '0'); wf_r <= (others => '0');
+            sr_inflight <= (others => '0');
+            rq_w <= (others => '0'); rq_r <= (others => '0');
+            as_fi <= (others => '0');
+            as_skip <= ps(2 downto 0);
+            as_full <= '0'; pb_v <= '0';
+            as_blocks <= resize(g_rows * g_nb, 32);
+            mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
+            mc_scale_ok <= '0';
+            tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
+            tl_full <= '0';
+            g_r <= (others => '0');
+            cstate <= G2_WAIT;
+          end if;
 
-        when G_ROW =>
+        when G2_WAIT =>
+          -- the stream reader may issue here (see below); the tail takes the
+          -- next finished block
           if g_r = g_rows then
-            cstate <= C_NEXT;                          -- (last row flushed already)
-          else
-            gblk <= (others => '0');
-            cstate <= G_BLK;
-          end if;
-
-        when G_BLK =>
-          if gblk = g_nb then
-            cstate <= G_OUT;
-          else
-            gi <= (others => '0');
-            fetch_ret <= G_DOT0;
-            cstate <= D_FETCH;
-          end if;
-
-        when G_DOT0 =>
-          g_isum <= (others => '0');
-          g_k <= (others => '0');
-          cstate <= G_DOT;
-
-        when G_DOT =>
-          if g_k = 32 then
-            fpu_op <= FOP_F16TOF32;                    -- d_w
-            fpu_a <= x"0000" & grp(1) & grp(0);
-            fpu_start <= '1';
-            fpu_ret <= G_SC;
-            cstate <= C_FPU_WAIT;
-          else
-            if d_fmt = 8 then
-              qw := resize(signed(grp(2 + to_integer(g_k))), 9);
-            elsif g_k < 16 then
-              qw := resize(signed('0' & grp(2 + to_integer(g_k))(3 downto 0)), 9) - 8;
+            cstate <= G2_END;
+          elsif tl_full = '1' then
+            if tl_blk = 0 then
+              g_accv <= tl_term;                    -- the first term as it is
+              cstate <= G2_T3;
             else
-              qw := resize(signed('0' & grp(2 + to_integer(g_k) - 16)(7 downto 4)), 9) - 8;
+              fpu_op <= FOP_ADD;                    -- acc = acc + term
+              fpu_a <= g_accv;
+              fpu_b <= tl_term;
+              fpu_start <= '1';
+              fpu_ret <= G2_T2;
+              cstate <= C_FPU_WAIT;
             end if;
-            g_isum <= g_isum + resize(qw * qx(to_integer(gblk(6 downto 0) & g_k(4 downto 0))), 32);
-            g_k <= g_k + 1;
           end if;
-
-        when G_SC =>
-          fpu_op <= FOP_MUL;                           -- scale = d_w * d_x
-          fpu_a <= fpu_r;
-          fpu_b <= dxs(to_integer(gblk));
-          fpu_start <= '1';
-          fpu_ret <= G_SC2;
-          cstate <= C_FPU_WAIT;
-
-        when G_SC2 =>
-          g_scale <= fpu_r;
-          fpu_op <= FOP_I2F;                           -- F32(isum)
-          fpu_a <= unsigned(g_isum);
-          fpu_start <= '1';
-          fpu_ret <= G_T;
-          cstate <= C_FPU_WAIT;
-
-        when G_T =>
-          fpu_op <= FOP_MUL;                           -- term = F32(isum) * scale
-          fpu_a <= fpu_r;
-          fpu_b <= g_scale;
-          fpu_start <= '1';
-          fpu_ret <= G_ACC;
-          cstate <= C_FPU_WAIT;
-
-        when G_ACC =>
-          if gblk = 0 then
-            g_accv <= fpu_r;                           -- first term as it is
-            gblk <= gblk + 1;
-            cstate <= G_BLK;
-          else
-            fpu_op <= FOP_ADD;                         -- acc = acc + term
-            fpu_a <= g_accv;
-            fpu_b <= fpu_r;
-            fpu_start <= '1';
-            fpu_ret <= G_ACC2;
-            cstate <= C_FPU_WAIT;
-          end if;
-
-        when G_ACC2 =>
+        when G2_T1 =>
+          cstate <= G2_WAIT;
+        when G2_T2 =>
           g_accv <= fpu_r;
-          gblk <= gblk + 1;
-          cstate <= G_BLK;
+          cstate <= G2_T3;
+        when G2_T3 =>
+          tl_full_clr := '1';
+          if tl_blk + 1 = g_nb then
+            cstate <= G_OUT;                        -- row done: output it
+          else
+            cstate <= G2_WAIT;
+          end if;
+        when G2_END =>
+          -- all rows out: let any trailing stream reads land, then stop
+          if rq_w = rq_r and sr_inflight = 0 and hr_out = 0 and sd_out = 0 then
+            g2 <= '0';
+            cstate <= C_NEXT;
+          end if;
 
         when G_OUT =>
           if g_addz = '1' and (out_loaded = '0' or pz(27 downto 8) /= out_block) then
@@ -2289,10 +2460,10 @@ begin
             mw_idx <= a0(7 downto 1);
             dec_addr <= a0;
             ostart <= a2;
-            wr_ret <= G_ROW;
+            wr_ret <= G2_WAIT;
             cstate <= C_WR_DEC;
           else
-            cstate <= G_ROW;
+            cstate <= G2_WAIT;
           end if;
 
         -- ------------------------------------------------------------------
@@ -2672,6 +2843,177 @@ begin
           cstate <= C_IDLE;
       end case;
 
+      -- ======================================================================
+      -- GEMV v2 pipeline (runs alongside the main FSM while g2 = '1')
+      if g2 = '1' then
+        -- Stream reader: issue the next burst (to the next 256-byte
+        -- boundary) whenever the FIFO has room, except in the two states
+        -- where the main FSM issues commands itself.
+        if cstate /= C_RD_ISSUE and cstate /= C_WR_ISSUE
+          and sr_next /= sr_end and hr_valid_i = '0' and sd_valid_i = '0'
+          and rq_w - rq_r < 3 then
+          a1 := (sr_next(27 downto 8) + 1) & x"00";
+          if a1 > sr_end then a1 := sr_end; end if;
+          a2 := a1 - sr_next;                       -- bytes
+          if resize(wf_w - wf_r, 10) + resize(sr_inflight, 10) + resize(a2(8 downto 1), 10) <= 256 then
+            if str_is_sd = '1' then
+              sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
+              sd_cmd_addr <= str_local + resize(sr_next - str_base, 27); sd_cmd_len <= a2(8 downto 0);
+              sd_issue := '1';
+            else
+              hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_READ;
+              hr_cmd_addr <= str_local + resize(sr_next - str_base, 27); hr_cmd_len <= a2(8 downto 0);
+              hr_issue := '1';
+            end if;
+            rq_push := true;
+            rq_push_tag := '1';
+            rq_push_cnt := resize(a2(8 downto 1), 8);
+            sr_inflight_inc := resize(a2(8 downto 1), 9);
+            sr_next <= a1;
+          end if;
+        end if;
+
+        -- Block assembler: up to 2 bytes per cycle from the FIFO (and one
+        -- pending byte) into the fill registers; skip the leading bytes of
+        -- the first, 8-aligned, burst.
+        if as_full = '0' and as_blocks /= 0 then
+          if d_fmt = 8 then bsz := 34; else bsz := 18; end if;
+          need := bsz - to_integer(as_fi) + to_integer(as_skip);
+          nav := 0;
+          if pb_v = '1' then
+            avb(0) := pb_b; nav := 1;
+          end if;
+          popw := false;
+          if wf_w /= wf_r and need > nav then
+            wv := wf(to_integer(wf_r(7 downto 0)));
+            avb(nav) := wv(7 downto 0);
+            avb(nav + 1) := wv(15 downto 8);
+            nav := nav + 2;
+            popw := true;
+          end if;
+          fi := to_integer(as_fi);
+          sk := to_integer(as_skip);
+          used := 0;
+          for k in 0 to 2 loop
+            if k < nav and (sk > 0 or fi < bsz) then
+              if sk > 0 then
+                sk := sk - 1;
+              else
+                grpf(fi) <= avb(k);
+                fi := fi + 1;
+              end if;
+              used := used + 1;
+            end if;
+          end loop;
+          if popw then wf_r <= wf_r + 1; end if;
+          if used < nav then
+            pb_v <= '1'; pb_b <= avb(nav - 1);       -- at most one left over
+          else
+            pb_v <= '0';
+          end if;
+          as_skip <= to_unsigned(sk, 3);
+          if fi = bsz then
+            as_full <= '1';
+            as_fi <= (others => '0');
+          else
+            as_fi <= to_unsigned(fi, 6);
+          end if;
+        end if;
+
+        -- Swap: a full fill set goes to the lanes when they are free
+        if as_full = '1' and mc_busy = '0' and mc_done = '0' then
+          grpc <= grpf;
+          as_full <= '0';
+          as_blocks <= as_blocks - 1;
+          mc_busy <= '1';
+          mc_c <= (others => '0');
+          mc_isum <= (others => '0');
+          mc_scale_ok <= '0';
+          -- scale = d_w * d_x on the third FP unit, while the lanes work
+          fpu3_a <= f16_to_f32(grpf(1) & grpf(0));
+          fpu3_b <= dxs(to_integer(mc_blk));
+          fpu3_start <= '1';
+        end if;
+
+        -- 4 MAC lanes: elements 4c .. 4c+3 of the block per cycle
+        if mc_busy = '1' then
+          lsum := (others => '0');
+          for k in 0 to 3 loop
+            jj := to_integer(mc_c) * 4 + k;
+            if d_fmt = 8 then
+              qwv := resize(signed(grpc(2 + jj)), 9);
+            elsif jj < 16 then
+              qwv := resize(signed('0' & grpc(2 + jj)(3 downto 0)), 9) - 8;
+            else
+              qwv := resize(signed('0' & grpc(2 + jj - 16)(7 downto 4)), 9) - 8;
+            end if;
+            case k is
+              when 0 => qxv := qx0(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
+              when 1 => qxv := qx1(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
+              when 2 => qxv := qx2(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
+              when others => qxv := qx3(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
+            end case;
+            lsum := lsum + resize(qwv * qxv, 32);
+          end loop;
+          mc_isum <= mc_isum + lsum;
+          if mc_c = 7 then
+            mc_busy <= '0';
+            mc_done <= '1';
+          end if;
+          mc_c <= mc_c + 1;
+        end if;
+        -- the second FP unit: scale for the block in the lanes, then that
+        -- block's term once its dot product is done
+        if fpu3_done = '1' then
+          mc_scale <= fpu3_res;
+          mc_scale_ok <= '1';
+        end if;
+        if tl_full_clr = '1' then
+          tl_full <= '0';
+        end if;
+        -- finished terms go to the tail, or wait in th_* while it is busy
+        tl_free := tl_full = '0' or tl_full_clr = '1';
+        if th_v = '1' and tl_free then
+          tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk;
+          th_v <= '0';
+          tl_free := false;
+        end if;
+        if fpu2_done = '1' then
+          if tl_free then
+            tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk;
+          else
+            th_v <= '1'; th_val <= fpu2_res; th_blk <= tm_blk;
+          end if;
+          tm_busy <= '0';
+        elsif mc_done = '1' and mc_scale_ok = '1' and tm_busy = '0' and th_v = '0' then
+          fpu2_a <= i_to_f32(mc_isum);
+          fpu2_b <= mc_scale;
+          fpu2_start <= '1';
+          f2_term <= '1';
+          tm_busy <= '1';
+          tm_blk <= mc_blk;
+          mc_done <= '0';
+          mc_scale_ok <= '0';
+          if mc_blk + 1 = g_nb then
+            mc_blk <= (others => '0');
+          else
+            mc_blk <= mc_blk + 1;
+          end if;
+        end if;
+      end if;
+
+      -- read-tag queue and in-flight count bookkeeping
+      if rq_push then
+        rq_tag(to_integer(rq_w(1 downto 0))) <= rq_push_tag;
+        rq_cnt(to_integer(rq_w(1 downto 0))) <= rq_push_cnt;
+        rq_w <= rq_w + 1;
+      end if;
+      if sr_inflight_dec = '1' then
+        sr_inflight <= sr_inflight + sr_inflight_inc - 1;
+      else
+        sr_inflight <= sr_inflight + sr_inflight_inc;
+      end if;
+
       -- Complete blocks waiting to be written
       if lp_inc = '1' and lp_dec = '0' then
         lp_pending <= lp_pending + 1;
@@ -2694,10 +3036,20 @@ begin
     end if;
   end process;
 
+  hr_cmd_valid <= hr_valid_i;
+  sd_cmd_valid <= sd_valid_i;
   hr_wdata    <= wdata_r;
   sd_wdata    <= wdata_r;
   hr_wdata_be <= wbe_r;
   sd_wdata_be <= wbe_r;
+
+  fpu1 : entity work.ssnail_fpu
+    port map (clock => clock162, start => fpu2_start, op => FOP_MUL, a => fpu2_a, b => fpu2_b,
+              done => fpu2_done, result => fpu2_res);
+
+  fpu2 : entity work.ssnail_fpu
+    port map (clock => clock162, start => fpu3_start, op => FOP_MUL, a => fpu3_a, b => fpu3_b,
+              done => fpu3_done, result => fpu3_res);
 
   fpu0 : entity work.ssnail_fpu
     port map (clock => clock162, start => fpu_start, op => fpu_op, a => fpu_a, b => fpu_b,

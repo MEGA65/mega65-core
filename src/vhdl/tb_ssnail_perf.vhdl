@@ -9,11 +9,12 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 use work.cputypes.all;
 use work.lumptypes.all;
+use work.perf_pkg.all;
 
-entity tb_ssnail_load is
+entity tb_ssnail_perf is
 end entity;
 
-architecture test of tb_ssnail_load is
+architecture test of tb_ssnail_perf is
   signal clock162, cpuclock, pixelclock : std_logic := '0';
   -- Same as tb_sdram_lump: clock162r is a (delta-delayed) copy of clock162
   signal clock162r : std_logic := '0';
@@ -57,7 +58,7 @@ architecture test of tb_ssnail_load is
   signal sdram_dqml, sdram_dqmh, init_done : std_logic;
 
   -- Behavioural HyperRAM memory: 4K words
-  type mem_t is array (0 to 4095) of unsigned(15 downto 0);
+  type mem_t is array (0 to 16383) of unsigned(15 downto 0);
   signal hmem : mem_t := (others => x"0000");
   signal tb_hmem_we : std_logic := '0';
   signal tb_hmem_addr : integer := 0;
@@ -146,7 +147,7 @@ begin
             g := 1;                     -- insert a gap
           else
             g := 0;
-            hr_rdata <= hmem((a + k) mod 4096);
+            hr_rdata <= hmem((a + k) mod 16384);
             hr_rdata_valid <= '1';
             k := k + 1;
             if k = n then hr_cmd_done <= '1'; st := IDLE; end if;
@@ -157,10 +158,10 @@ begin
           k := k + 1;
           if k >= 3 and k - 3 < n then
             if hr_wdata_be(0) = '1' then
-              hmem((a + k - 3) mod 4096)(7 downto 0) <= hr_wdata(7 downto 0);
+              hmem((a + k - 3) mod 16384)(7 downto 0) <= hr_wdata(7 downto 0);
             end if;
             if hr_wdata_be(1) = '1' then
-              hmem((a + k - 3) mod 4096)(15 downto 8) <= hr_wdata(15 downto 8);
+              hmem((a + k - 3) mod 16384)(15 downto 8) <= hr_wdata(15 downto 8);
             end if;
           end if;
           if k - 3 = n - 1 then hr_cmd_done <= '1'; st := IDLE; end if;
@@ -229,6 +230,7 @@ begin
     variable v : unsigned(7 downto 0);
     variable bad : integer;
     variable errors : integer := 0;
+    variable t_go : time;
     procedure check(c : boolean; name : string) is
     begin
       if c then
@@ -260,89 +262,35 @@ begin
       exit when init_done = '1' and busy = '0';
     end loop;
 
-    -- Pre-fill attic RAM around the first segment's tail, to check masking
-    for i in 16#80# to 16#9F# loop
-      hpoke(i, x"EEEE");
+    -- Load the program and data (attic RAM, local $0000-$05FF)
+    for i in INIT'range loop
+      hpoke(i, INIT(i));
     end loop;
-    -- R4-R6 map: SDRAM first, 64 MB at $8000000; HyperRAM 8 MB at $C000000
-    poke(16#10#, x"08"); poke(16#11#, x"80"); poke(16#12#, x"40"); poke(16#13#, x"C0");
-
-    -- Segment 1: 300 bytes to HyperRAM at $C000000 (one whole block plus 44)
-    poke(16#14#, x"00"); poke(16#15#, x"00"); poke(16#16#, x"00");
-    poke(16#17#, x"4C");                 -- commit $C000000, bit 6: clear ERROR
-    wait_ready("start");
-    for i in 0 to 299 loop
-      poke(16#18#, to_unsigned((i * 7 + 1) mod 256, 8));
-    end loop;
-    -- Segment 2: 700 bytes to SDRAM at $8000030 (not 256-aligned).  The
-    -- commit flushes segment 1's last 44 bytes first.
-    poke(16#14#, x"30"); poke(16#15#, x"00"); poke(16#16#, x"00");
-    poke(16#17#, x"08");
-    wait_ready("after segment switch");
-    for i in 0 to 699 loop
-      if i = 512 then
-        wait_ready("between sectors");
-      end if;
-      poke(16#18#, to_unsigned((i * 13 + 5) mod 256, 8));
-    end loop;
-    poke(16#14#, x"00"); poke(16#15#, x"00"); poke(16#16#, x"00");
-    poke(16#17#, x"08");                 -- final commit = flush
-    wait_ready("final flush");
-    peek(16#17#, v);
-    check(v(6) = '0', "no ERROR after a valid load");
-    peek(16#14#, v);
-    check(v = x"00", "pointer reads back as committed");
-
-    -- Segment 1 landed in attic RAM, and nothing after it was touched
-    bad := 0;
-    for i in 0 to 299 loop
-      if i mod 2 = 0 then
-        if hmem(i / 2)(7 downto 0) /= to_unsigned((i * 7 + 1) mod 256, 8) then bad := bad + 1; end if;
-      else
-        if hmem(i / 2)(15 downto 8) /= to_unsigned((i * 7 + 1) mod 256, 8) then bad := bad + 1; end if;
-      end if;
-    end loop;
-    check(bad = 0, "segment 1 (300 bytes) in HyperRAM at $C000000, crossing a block");
-    check(hmem(16#96#) = x"EEEE" and hmem(16#97#) = x"EEEE",
-          "bytes after the flushed tail untouched (byte masks)");
-
-    -- Segment 2: copy it back from SDRAM into attic RAM with a job, and check
-    instr(16#200#, 3, 16#8000030#, 16#C001000#, 704);
-    instr(16#210#, 1, 0, 0, 0);
-    poke(8, x"00"); poke(9, x"02"); poke(10, x"00"); poke(11, x"0C");
+    poke(16#10#, x"08"); poke(16#11#, x"88"); poke(16#12#, x"40");
+    poke(8, x"00"); poke(9, x"00"); poke(10, x"00"); poke(11, x"08");
+    t_go := now;
     poke(3, x"01");
-    peek(16#17#, v);
-    check(v(7) = '0', "READY is low while a job runs");
-    wait_done("copy-back job", 0, 16#C000210#);
+    wait_done("perf program", 0, HALT_PC);
+    report "PERF: two 48 x 256 GEMVs took " & integer'image((now - t_go) / 1 ns) & " ns (limit "
+      & integer'image(PERF_LIMIT_NS) & " ns)";
+    check((now - t_go) / 1 ns <= PERF_LIMIT_NS, "GEMV speed within limit");
     bad := 0;
-    for i in 0 to 699 loop
-      if i mod 2 = 0 then
-        if hmem(16#800# + i / 2)(7 downto 0) /= to_unsigned((i * 13 + 5) mod 256, 8) then bad := bad + 1; end if;
-      else
-        if hmem(16#800# + i / 2)(15 downto 8) /= to_unsigned((i * 13 + 5) mod 256, 8) then bad := bad + 1; end if;
+    for i in EXPECT'range loop
+      if hmem(16#3000# + i) /= EXPECT(i) then
+        if bad < 6 then
+          report "  word $" & to_hexstring(to_unsigned(16#1000# + 2 * i, 16)) & " = $"
+            & to_hexstring(hmem(16#3000# + i)) & ", emulator says $" & to_hexstring(EXPECT(i))
+            severity error;
+        end if;
+        bad := bad + 1;
       end if;
     end loop;
-    check(bad = 0, "segment 2 (700 bytes, unaligned, 3 sectors' worth of blocks) in SDRAM at $8000030");
-
-    -- Data aimed outside both regions sets ERROR; a bit-6 commit clears it
-    poke(16#14#, x"00"); poke(16#15#, x"00"); poke(16#16#, x"00");
-    poke(16#17#, x"04");                 -- $4000000: unmapped in this map too
-    wait_ready("unmapped commit");
-    for i in 0 to 255 loop
-      poke(16#18#, x"55");
-    end loop;
-    wait_ready("unmapped block");
-    peek(16#17#, v);
-    check(v(6) = '1', "ERROR set for data outside both regions");
-    poke(16#17#, x"4C");
-    wait_ready("clearing commit");
-    peek(16#17#, v);
-    check(v(6) = '0', "commit with bit 6 clears ERROR");
-
+    check(bad = 0, "outputs match the emulator in hardware-numerics mode (" 
+          & integer'image(EXPECT'length * 2) & " bytes)");
     if errors = 0 then
-      report "TB_SSNAIL_LOAD: ALL PASSED";
+      report "TB_SSNAIL_PERF: ALL PASSED";
     else
-      report "TB_SSNAIL_LOAD: " & integer'image(errors) & " FAILURES" severity error;
+      report "TB_SSNAIL_PERF: " & integer'image(errors) & " FAILURES" severity error;
     end if;
 
     finished <= true;
