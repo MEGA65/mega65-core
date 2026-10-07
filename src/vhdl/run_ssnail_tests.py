@@ -25,6 +25,7 @@ Testbenches:
                       hardware-numerics mode
     tb_ssnail_step3   GEMV (Q8_0, Q4_0, accumulate, F16 output) vs the same
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
+    tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
 
 Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
 VITAL libraries, which most GHDL builds lack).
@@ -71,6 +72,10 @@ BENCHES = {
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step4_pkg.vhdl",
                          "tb_ssnail_step4.vhdl"],
                         "tb_ssnail_step4", [[]], r"TB_SSNAIL_STEP4: ALL PASSED"),
+    "tb_ssnail_step5": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
+                         "tb_ssnail_step5.vhdl"],
+                        "tb_ssnail_step5", [[]], r"TB_SSNAIL_STEP5: ALL PASSED"),
 }
 # Generated inputs: file -> (generator script, needs the SSNAIL tools)
 GENERATED = {
@@ -78,6 +83,7 @@ GENERATED = {
     "step2_pkg.vhdl": ("gen_step2.py", True),
     "step3_pkg.vhdl": ("gen_step3.py", True),
     "step4_pkg.vhdl": ("gen_step4.py", True),
+    "step5_pkg.vhdl": ("gen_step5.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
 }
 NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"]}

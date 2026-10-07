@@ -1277,7 +1277,9 @@ begin
   end generate;
 
   -- SSNAIL LLM inference accelerator: registers at $FFD7500-$FFD751F
-  ssnail0 : entity work.ssnail port map (
+  ssnail0 : entity work.ssnail
+    generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6))
+    port map (
     cpuclock => cpuclock,
     reset => reset,
     irq => ssnail_irq,
@@ -2379,8 +2381,8 @@ begin
         when others => f011_cs <= '0';
       end case;
 
-      -- @IO:GS $FFD7500-$FFD75FF SSNAIL LLM inference accelerator registers
-      if address(19 downto 8) = x"D75" then
+      -- @IO:GS $FFD7500-$FFD751F SSNAIL LLM inference accelerator registers
+      if address(19 downto 8) = x"D75" and address(7 downto 5) = "000" then
         ssnail_cs <= '1';
       else
         ssnail_cs <= '0';
