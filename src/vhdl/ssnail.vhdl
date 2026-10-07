@@ -61,7 +61,12 @@
 -- partial block waits for more data or a commit.  Writes bypass the CPU's
 -- caches, so each one is followed by an INVALIDATE on the same RAM port.
 --
--- Instruction format: 16 bytes, 16-byte aligned, little-endian.
+-- Instruction format: 16 bytes, 16-byte aligned, little-endian (ISA v1, see
+-- ssnail_isa.py):  op, a, b, 0, X:u32, Y:u32, Z:u32.
+-- Address operands (X/Y where an op takes an address): bit 31 clear =
+-- absolute 28-bit address; bit 31 set = A[bits 27-24] + bits 23-0.
+-- Registers: R0-R15 (32-bit, R15 reads 0, writes to it are ignored),
+-- A0-A15 (28-bit addresses), N0-N2 (lengths, for the maths ops).
 --   byte 0 = opcode
 --   $00 NOP
 --   $01 HALT                 job done
@@ -71,6 +76,14 @@
 --                            bytes 12-13 length in bytes
 --                            Addresses 8-byte aligned, length a multiple of 8.
 --                            Overlapping copies are undefined.
+--   $07 SETN                 N0 = X, N1 = Y, N2 = Z
+--   $08 LI                   R[a] = Z
+--   $09 LDR                  R[a] = u32 at addr(X)   (4-byte aligned)
+--   $0A STR                  u32 at addr(X) = R[a]   (4-byte aligned)
+--   $0B ADDI                 R[a] = R[b] + Z (mod 2^32)
+--   $0C LEA                  A[a] = addr(X) + R[b] * Z (mod 2^28)
+--   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
+--   COPY's X and Y may be register-relative too.
 --   anything else            illegal opcode fault
 --
 -- Clocking: hr_* ports are assumed to be on the same clock as clock162 (the
@@ -206,7 +219,8 @@ architecture shell of ssnail is
 
   type core_state_t is (
     C_IDLE,
-    C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_DECODE,
+    C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
+    C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
     C_SYNC_ISSUE, C_SYNC_WAIT,
@@ -248,6 +262,24 @@ architecture shell of ssnail is
   signal hr_out, sd_out : unsigned(2 downto 0) := (others => '0');
   -- Stand-alone SYNC CACHE requested from the CPU (not part of a job)
   signal cpu_sync : std_logic := '0';
+
+  -- Register files and resolved operands
+  type rfile32_t is array (0 to 15) of unsigned(31 downto 0);
+  type rfile28_t is array (0 to 15) of unsigned(27 downto 0);
+  signal rf_r : rfile32_t := (others => (others => '0'));
+  signal rf_a : rfile28_t := (others => (others => '0'));
+  signal n0, n1, n2 : unsigned(31 downto 0) := (others => '0');
+  signal ea_x, ea_y : unsigned(27 downto 0) := (others => '0');
+  signal opr_a, opr_b : unsigned(31 downto 0) := (others => '0');  -- R[a], R[b]
+  signal br_taken  : std_logic := '0';
+  -- LEA: iterative multiply R[b] * Z
+  signal mul_acc   : unsigned(27 downto 0) := (others => '0');
+  signal mul_m     : unsigned(27 downto 0) := (others => '0');
+  signal mul_z     : unsigned(31 downto 0) := (others => '0');
+  -- LDR / STR
+  signal mem_is_store : std_logic := '0';
+  signal str_active   : std_logic := '0';
+  signal str_k        : unsigned(1 downto 0) := "00";
 
   -- COPY state
   signal cp_src, cp_dst : unsigned(27 downto 0) := (others => '0');
@@ -513,7 +545,20 @@ begin
       -- Write data supply, per the LUMP contract: register the next word
       -- on the first edge that sees a request.
       if (hr_wdata_req or sd_wdata_req) = '1' then
-        if lp_active = '1' then
+        if str_active = '1' then
+          -- STR: an 8-byte burst; the register goes in words 0-1 or 2-3
+          if str_k(0) = '0' then
+            wdata_r <= opr_a(15 downto 0);
+          else
+            wdata_r <= opr_a(31 downto 16);
+          end if;
+          if str_k(1) = ea_x(2) then
+            wbe_r <= "11";
+          else
+            wbe_r <= "00";
+          end if;
+          str_k <= str_k + 1;
+        elsif lp_active = '1' then
           -- Word at lp_w: bytes at offsets 2k and 2k+1 into the chunk,
           -- enabled only between the chunk's real start and end.
           wdata_r <= ring_rd_hi & ring_rd_lo;
@@ -706,8 +751,32 @@ begin
 
         when C_FETCH_WAIT =>
           if words_got = words_expected and rvalid_r = '0' then
-            cstate <= C_DECODE;
+            cstate <= C_RESOLVE;
           end if;
+
+        when C_RESOLVE =>
+          -- Effective addresses for X and Y, and the register operands
+          if instr(63) = '1' then
+            ea_x <= rf_a(to_integer(instr(59 downto 56))) + resize(instr(55 downto 32), 28);
+          else
+            ea_x <= instr(59 downto 32);
+          end if;
+          if instr(95) = '1' then
+            ea_y <= rf_a(to_integer(instr(91 downto 88))) + resize(instr(87 downto 64), 28);
+          else
+            ea_y <= instr(91 downto 64);
+          end if;
+          if instr(11 downto 8) = x"F" then
+            opr_a <= (others => '0');
+          else
+            opr_a <= rf_r(to_integer(instr(11 downto 8)));
+          end if;
+          if instr(19 downto 16) = x"F" then
+            opr_b <= (others => '0');
+          else
+            opr_b <= rf_r(to_integer(instr(19 downto 16)));
+          end if;
+          cstate <= C_DECODE;
 
         when C_DECODE =>
           if err /= ERR_NONE then
@@ -721,20 +790,118 @@ begin
             when x"02" =>             -- SYNC
               cstate <= C_SYNC_ISSUE;
             when x"03" =>             -- COPY
-              cp_src <= instr(59 downto 32);
-              cp_dst <= instr(91 downto 64);
+              cp_src <= ea_x;
+              cp_dst <= ea_y;
               cp_remaining <= instr(111 downto 96);
-              if instr(34 downto 32) /= "000" or instr(66 downto 64) /= "000"
+              if ea_x(2 downto 0) /= "000" or ea_y(2 downto 0) /= "000"
                 or instr(98 downto 96) /= "000" then
                 err <= ERR_ALIGNMENT;
                 cstate <= C_END;
               else
                 cstate <= C_COPY_CALC;
               end if;
+            when x"07" =>             -- SETN
+              n0 <= instr(63 downto 32);
+              n1 <= instr(95 downto 64);
+              n2 <= instr(127 downto 96);
+              cstate <= C_NEXT;
+            when x"08" =>             -- LI
+              if instr(11 downto 8) /= x"F" then
+                rf_r(to_integer(instr(11 downto 8))) <= instr(127 downto 96);
+              end if;
+              cstate <= C_NEXT;
+            when x"0B" =>             -- ADDI
+              if instr(11 downto 8) /= x"F" then
+                rf_r(to_integer(instr(11 downto 8))) <= opr_b + instr(127 downto 96);
+              end if;
+              cstate <= C_NEXT;
+            when x"0C" =>             -- LEA: A[a] = addr(X) + R[b] * Z
+              mul_acc <= ea_x;
+              mul_m <= opr_b(27 downto 0);
+              mul_z <= instr(127 downto 96);
+              cstate <= C_LEA_MUL;
+            when x"0D" | x"0E" | x"0F" =>   -- BEQ / BNE / BLT
+              if (instr(7 downto 0) = x"0D" and opr_a = opr_b)
+                or (instr(7 downto 0) = x"0E" and opr_a /= opr_b)
+                or (instr(7 downto 0) = x"0F" and opr_a < opr_b) then
+                br_taken <= '1';
+              end if;
+              cstate <= C_NEXT;
+            when x"09" | x"0A" =>     -- LDR / STR
+              if ea_x(1 downto 0) /= "00" then
+                err <= ERR_ALIGNMENT;
+                cstate <= C_END;
+              else
+                if instr(7 downto 0) = x"0A" then
+                  mem_is_store <= '1';
+                else
+                  mem_is_store <= '0';
+                end if;
+                dec_addr <= ea_x(27 downto 3) & "000";
+                cstate <= C_MEM_DECODE;
+              end if;
             when others =>
               err <= ERR_OPCODE;
               cstate <= C_END;
           end case;
+          end if;
+
+        when C_LEA_MUL =>
+          -- Shift-and-add, one bit of Z per cycle (LEA is rare)
+          if mul_z = 0 then
+            rf_a(to_integer(instr(11 downto 8))) <= mul_acc;
+            cstate <= C_NEXT;
+          else
+            if mul_z(0) = '1' then
+              mul_acc <= mul_acc + mul_m;
+            end if;
+            mul_m <= mul_m(26 downto 0) & '0';
+            mul_z <= '0' & mul_z(31 downto 1);
+          end if;
+
+        when C_MEM_DECODE =>
+          cstate <= C_MEM_ISSUE;        -- decode of the 8-byte group
+
+        when C_MEM_ISSUE =>
+          if dec_ok = '0' then
+            err <= ERR_ADDRESS;
+            cstate <= C_END;
+          else
+            t_is_sd <= dec_is_sd;
+            words_got <= (others => '0');
+            words_expected <= to_unsigned(4, 8);
+            buf_widx <= (others => '0');
+            if mem_is_store = '1' then
+              str_active <= '1';
+              str_k <= "00";
+            end if;
+            if dec_is_sd = '1' then
+              sd_cmd_valid <= '1'; sd_cmd_addr <= dec_local; sd_cmd_len <= to_unsigned(8, 9);
+              if mem_is_store = '1' then sd_cmd_op <= LUMP_OP_WRITE; else sd_cmd_op <= LUMP_OP_READ; end if;
+              sd_issue := '1';
+            else
+              hr_cmd_valid <= '1'; hr_cmd_addr <= dec_local; hr_cmd_len <= to_unsigned(8, 9);
+              if mem_is_store = '1' then hr_cmd_op <= LUMP_OP_WRITE; else hr_cmd_op <= LUMP_OP_READ; end if;
+              hr_issue := '1';
+            end if;
+            cstate <= C_MEM_WAIT;
+          end if;
+
+        when C_MEM_WAIT =>
+          if mem_is_store = '1' then
+            if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+              str_active <= '0';
+              cstate <= C_NEXT;
+            end if;
+          elsif words_got = words_expected and rvalid_r = '0' then
+            if instr(11 downto 8) /= x"F" then
+              if ea_x(2) = '0' then
+                rf_r(to_integer(instr(11 downto 8))) <= buf(1) & buf(0);
+              else
+                rf_r(to_integer(instr(11 downto 8))) <= buf(3) & buf(2);
+              end if;
+            end if;
+            cstate <= C_NEXT;
           end if;
 
         when C_COPY_CALC =>
@@ -902,7 +1069,12 @@ begin
           cstate <= C_IDLE;
 
         when C_NEXT =>
-          pc <= pc + 16;
+          if br_taken = '1' then
+            pc <= ea_x;
+            br_taken <= '0';
+          else
+            pc <= pc + 16;
+          end if;
           if stepping = '1' then
             -- Single step: stop with PC at the next instruction
             done <= '1';
