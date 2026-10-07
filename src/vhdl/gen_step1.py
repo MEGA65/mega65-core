@@ -2,8 +2,14 @@
 emit a VHDL package with the program, initial data and expected results."""
 import os
 import sys
-sys.path.insert(0, os.environ.get("SSNAIL_TOOLS",
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ssnail_tools")))
+_here = os.path.dirname(os.path.abspath(__file__))
+_tools = os.environ.get("SSNAIL_TOOLS")
+if not _tools:
+    for _c in (os.path.join(_here, "SSNAIL"), os.path.join(_here, "SSNAIL", "ssnail_tools")):
+        if os.path.exists(os.path.join(_c, "ssnail_isa.py")):
+            _tools = _c
+            break
+sys.path.insert(0, _tools or os.path.join(_here, "SSNAIL"))
 import ssnail_isa as I
 from ssnail_convert import Asm
 import ssnail_sim as S

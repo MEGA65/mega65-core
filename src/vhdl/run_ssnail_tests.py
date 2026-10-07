@@ -9,9 +9,11 @@
 Builds in a scratch directory with GHDL (VHDL-93, as mega65-core), so the
 source tree is never touched.  Exits non-zero if anything fails.
 
-Needs: ghdl, python3.  For tb_ssnail_step1 the ssnail_tools directory is also
-needed (it generates the test program and its expected results with the
-reference emulator); give it with --tools or SSNAIL_TOOLS.
+Needs: ghdl, python3, git.  tb_ssnail_step1 also needs the SSNAIL tools (they
+generate its test program and expected results with the reference emulator).
+They are taken from ./SSNAIL, a plain clone of github.com/mega65/SSNAIL (not a
+submodule), which is made on first use; --update pulls it, and --tools or
+SSNAIL_TOOLS point at a checkout elsewhere.  Add SSNAIL/ to .gitignore.
 
 Testbenches:
     tb_sdram_lump     LUMP port on sdram_controller (identical_clocks=1)
@@ -68,6 +70,36 @@ MODEL_PATCHES = [
 ]
 
 
+SSNAIL_REPO = "ssh://git@github.com/mega65/SSNAIL.git"
+CHECKOUT = "SSNAIL"          # sub-directory (a plain clone, not a submodule)
+
+
+def tools_in(d):
+    """The tools directory within a checkout: its top level, or ssnail_tools/."""
+    for c in (d, os.path.join(d, "ssnail_tools")):
+        if os.path.exists(os.path.join(c, "ssnail_isa.py")):
+            return c
+    return None
+
+
+def find_tools(here, repo, update):
+    """$SSNAIL_TOOLS / --tools are handled by the caller.  Otherwise use (and
+    clone if needed) the SSNAIL repository in ./SSNAIL next to this script."""
+    co = os.path.join(here, CHECKOUT)
+    if not os.path.isdir(co):
+        print(f"cloning {repo} into {co} ...")
+        r = subprocess.run(["git", "clone", "-q", repo, co], capture_output=True, text=True)
+        if r.returncode:
+            print("git clone failed:\n" + r.stderr.strip())
+            return None
+    elif update and os.path.isdir(os.path.join(co, ".git")):
+        r = subprocess.run(["git", "-C", co, "pull", "-q", "--ff-only"],
+                           capture_output=True, text=True)
+        print(f"updated {co}" if r.returncode == 0 else
+              f"warning: git pull in {co} failed:\n{r.stderr.strip()}")
+    return tools_in(co)
+
+
 def find(name, dirs):
     for d in dirs:
         p = os.path.join(d, name)
@@ -84,8 +116,13 @@ def main():
     ap.add_argument("--vhdl", action="append", default=[],
                     help=f"directory with the VHDL sources (repeatable; default: {here})")
     ap.add_argument("--tools", default=os.environ.get("SSNAIL_TOOLS"),
-                    help="ssnail_tools directory: needed for tb_ssnail_step1, and runs "
-                         "its Python tests too")
+                    help="SSNAIL tools directory (default: ./SSNAIL, cloned from "
+                         "--repo if absent); needed for tb_ssnail_step1, and its Python "
+                         "tests are run too")
+    ap.add_argument("--repo", default=SSNAIL_REPO,
+                    help=f"where to clone the SSNAIL tools from (default {SSNAIL_REPO})")
+    ap.add_argument("--update", action="store_true",
+                    help="git pull the ./SSNAIL checkout before testing")
     ap.add_argument("--keep", action="store_true", help="keep the build directory")
     ap.add_argument("--list", action="store_true")
     args = ap.parse_args()
@@ -95,6 +132,10 @@ def main():
     if not shutil.which("ghdl"):
         sys.exit("ghdl not found")
     srcdirs = [os.path.abspath(d) for d in (args.vhdl or [here])]
+    if not args.tools:
+        args.tools = find_tools(here, args.repo, args.update)
+    if args.tools:
+        print(f"using SSNAIL tools at {args.tools}")
     names = args.benches or list(BENCHES)
     for n in names:
         if n not in BENCHES:
@@ -123,8 +164,12 @@ def main():
                 open(p, "w").write(s)
         if "tb_ssnail_step1" in names:
             gen = find("gen_step1.py", srcdirs)
-            if not args.tools or not gen:
-                missing.append("gen_step1.py and --tools (for tb_ssnail_step1)")
+            if not gen:
+                missing.append("gen_step1.py (for tb_ssnail_step1)")
+            elif not args.tools:
+                missing.append("the SSNAIL tools (for tb_ssnail_step1): ./SSNAIL could not "
+                               "be cloned; check access to the repo, or give a checkout "
+                               "with --tools DIR or SSNAIL_TOOLS")
             else:
                 env = dict(os.environ, SSNAIL_TOOLS=os.path.abspath(args.tools))
                 r = subprocess.run([sys.executable, gen], cwd=build, env=env,
