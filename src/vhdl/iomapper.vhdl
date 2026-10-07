@@ -1276,46 +1276,71 @@ begin
         );
   end generate;
 
-  -- SSNAIL LLM inference accelerator: registers at $FFD7500-$FFD751F
-  ssnail0 : entity work.ssnail
-    generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6))
-    port map (
-    cpuclock => cpuclock,
-    reset => reset,
-    irq => ssnail_irq,
-    ssnail_cs => ssnail_cs,
-    fastio_addr => unsigned(address),
-    fastio_write => w,
-    fastio_read => r,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_wdata => unsigned(data_i),
-    clock162 => clock162,
-    hr_cmd_valid => ssnail_hr_cmd_valid,
-    hr_cmd_ready => ssnail_hr_cmd_ready,
-    hr_cmd_op => ssnail_hr_cmd_op,
-    hr_cmd_addr => ssnail_hr_cmd_addr,
-    hr_cmd_len => ssnail_hr_cmd_len,
-    hr_rdata => ssnail_hr_rdata,
-    hr_rdata_valid => ssnail_hr_rdata_valid,
-    hr_wdata_req => ssnail_hr_wdata_req,
-    hr_wdata => ssnail_hr_wdata,
-    hr_wdata_be => ssnail_hr_wdata_be,
-    hr_cmd_done => ssnail_hr_cmd_done,
-    hr_error => ssnail_hr_error,
-    sd_cmd_valid => ssnail_sd_cmd_valid,
-    sd_cmd_ready => ssnail_sd_cmd_ready,
-    sd_cmd_op => ssnail_sd_cmd_op,
-    sd_cmd_addr => ssnail_sd_cmd_addr,
-    sd_cmd_len => ssnail_sd_cmd_len,
-    sd_rdata => ssnail_sd_rdata,
-    sd_rdata_valid => ssnail_sd_rdata_valid,
-    sd_wdata_req => ssnail_sd_wdata_req,
-    sd_wdata => ssnail_sd_wdata,
-    sd_wdata_be => ssnail_sd_wdata_be,
-    sd_cmd_done => ssnail_sd_cmd_done,
-    sd_error => ssnail_sd_error
-    );
+  -- SSNAIL LLM inference accelerator: registers at $FFD7500-$FFD75FF.
+  -- Only on the A200T MEGA65 boards (R3-R6), whose top levels connect its
+  -- HyperRAM/SDRAM ports.
+  ssnail_gen : if (target = mega65r3) or (target = mega65r4)
+              or (target = mega65r5) or (target = mega65r6) generate
+    ssnail0 : entity work.ssnail
+      generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6))
+      port map (
+      cpuclock => cpuclock,
+      reset => reset,
+      irq => ssnail_irq,
+      ssnail_cs => ssnail_cs,
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      std_logic_vector(fastio_rdata) => data_o,
+      fastio_wdata => unsigned(data_i),
+      clock162 => clock162,
+      hr_cmd_valid => ssnail_hr_cmd_valid,
+      hr_cmd_ready => ssnail_hr_cmd_ready,
+      hr_cmd_op => ssnail_hr_cmd_op,
+      hr_cmd_addr => ssnail_hr_cmd_addr,
+      hr_cmd_len => ssnail_hr_cmd_len,
+      hr_rdata => ssnail_hr_rdata,
+      hr_rdata_valid => ssnail_hr_rdata_valid,
+      hr_wdata_req => ssnail_hr_wdata_req,
+      hr_wdata => ssnail_hr_wdata,
+      hr_wdata_be => ssnail_hr_wdata_be,
+      hr_cmd_done => ssnail_hr_cmd_done,
+      hr_error => ssnail_hr_error,
+      sd_cmd_valid => ssnail_sd_cmd_valid,
+      sd_cmd_ready => ssnail_sd_cmd_ready,
+      sd_cmd_op => ssnail_sd_cmd_op,
+      sd_cmd_addr => ssnail_sd_cmd_addr,
+      sd_cmd_len => ssnail_sd_cmd_len,
+      sd_rdata => ssnail_sd_rdata,
+      sd_rdata_valid => ssnail_sd_rdata_valid,
+      sd_wdata_req => ssnail_sd_wdata_req,
+      sd_wdata => ssnail_sd_wdata,
+      sd_wdata_be => ssnail_sd_wdata_be,
+      sd_cmd_done => ssnail_sd_cmd_done,
+      sd_error => ssnail_sd_error
+      );
+  end generate;
 
+  -- No SSNAIL: its outputs idle.  The registers then read like unmapped I/O.
+  no_ssnail_gen : if not ((target = mega65r3) or (target = mega65r4)
+                          or (target = mega65r5) or (target = mega65r6)) generate
+    ssnail_irq          <= '1';             -- active low: never
+    ssnail_hr_cmd_valid <= '0';
+    ssnail_hr_cmd_op    <= "00";
+    ssnail_hr_cmd_addr  <= (others => '0');
+    ssnail_hr_cmd_len   <= (others => '0');
+    ssnail_hr_wdata     <= (others => '0');
+    ssnail_hr_wdata_be  <= "11";
+    ssnail_sd_cmd_valid <= '0';
+    ssnail_sd_cmd_op    <= "00";
+    ssnail_sd_cmd_addr  <= (others => '0');
+    ssnail_sd_cmd_len   <= (others => '0');
+    ssnail_sd_wdata     <= (others => '0');
+    ssnail_sd_wdata_be  <= "11";
+  end generate;
+
+    
+    
   buffered_uart0 : entity work.buffereduart port map (
     clock => cpuclock,
     reset => reset,
