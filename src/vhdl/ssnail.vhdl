@@ -83,6 +83,12 @@
 --   $0B ADDI                 R[a] = R[b] + Z (mod 2^32)
 --   $0C LEA                  A[a] = addr(X) + R[b] * Z (mod 2^28)
 --   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
+--   $11 DEQROW               Z (N0 x F32) = dequantise N0 elements of format a
+--                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16) at addr(X)
+--   $20 VADD / $21 VMUL      Z = X + Y / X * Y   (N0 x F32)
+--   $29 CVT16                Z (N0 x F16) = X (N0 x F32)
+--   F32 operands are 4-byte aligned, F16 2-byte; arithmetic is IEEE, round
+--   to nearest even, bit-exact with the emulator's hardware numerics.
 --   COPY's X and Y may be register-relative too.
 --   anything else            illegal opcode fault
 --
@@ -96,6 +102,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 use work.lumptypes.all;
+use work.ssnail_fpu_pkg.all;
 
 entity ssnail is
   port (
@@ -221,12 +228,16 @@ architecture shell of ssnail is
     C_IDLE,
     C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
     C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
+    C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
+    V_CHUNK, V_LDY, V_EL0, V_EL, V_ELST, V_ADV,
+    D_GROUP, D_FETCH, D_EMIT, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
     C_SYNC_ISSUE, C_SYNC_WAIT,
     C_LP_DECODE, C_LP_ISSUE, C_LP_WAIT, C_LP_INVAL, C_LP_DONE,
     C_NEXT, C_END);
   signal cstate : core_state_t := C_IDLE;
+  signal rd_ret, wr_ret, fpu_ret : core_state_t := C_IDLE;
 
   signal pc        : unsigned(27 downto 0) := (others => '0');
   signal instr     : unsigned(127 downto 0) := (others => '0');
@@ -262,6 +273,36 @@ architecture shell of ssnail is
   signal hr_out, sd_out : unsigned(2 downto 0) := (others => '0');
   -- Stand-alone SYNC CACHE requested from the CPU (not part of a job)
   signal cpu_sync : std_logic := '0';
+
+  -- FP unit
+  signal fpu_start, fpu_done : std_logic := '0';
+  signal fpu_op : unsigned(2 downto 0) := "000";
+  signal fpu_a, fpu_b, fpu_res, fpu_r : unsigned(31 downto 0) := (others => '0');
+
+  -- Vector engine
+  signal v_n       : unsigned(31 downto 0) := (others => '0');  -- elements left
+  signal px, py, pz, ps, ostart : unsigned(27 downto 0) := (others => '0');
+  signal v_e, v_i  : unsigned(7 downto 0) := (others => '0');   -- chunk size, index
+  signal o16       : std_logic := '0';                          -- F16 output
+  signal two_ops   : std_logic := '0';
+  -- read / write subroutines
+  signal rd_addr, wr_addr : unsigned(27 downto 0) := (others => '0');
+  signal rd_len, wr_len   : unsigned(8 downto 0) := (others => '0');
+  signal rd_sel    : unsigned(1 downto 0) := "00";
+  signal mw_active : std_logic := '0';
+  signal mw_k, mw_lead, mw_vend : unsigned(8 downto 0) := (others => '0');
+  signal mw_idx    : unsigned(6 downto 0) := (others => '0');
+  -- DEQROW
+  type grp_t is array (0 to 33) of unsigned(7 downto 0);
+  signal grp       : grp_t := (others => x"00");
+  signal gi, gbytes : unsigned(5 downto 0) := (others => '0');
+  signal d_j, epg  : unsigned(5 downto 0) := (others => '0');
+  signal d_fmt     : unsigned(7 downto 0) := (others => '0');
+  signal dq_scale, d_val : unsigned(31 downto 0) := (others => '0');
+  signal d_have_scale : std_logic := '0';
+  signal ld_valid  : std_logic := '0';
+  signal ld_block  : unsigned(27 downto 8) := (others => '0');
+  signal ea_z      : unsigned(27 downto 0) := (others => '0');
 
   -- Register files and resolved operands
   type rfile32_t is array (0 to 15) of unsigned(31 downto 0);
@@ -313,10 +354,14 @@ architecture shell of ssnail is
   type buf_t is array (0 to 127) of unsigned(15 downto 0);
   signal buf : buf_t := (others => x"0000");
   signal buf_widx : unsigned(6 downto 0) := (others => '0');  -- fill index
+  -- Vector engine operand buffers, indexed by address mod 256
+  signal bufx, bufy : buf_t := (others => x"0000");
+  signal cap_sel : unsigned(1 downto 0) := "00";   -- read data goes to: buf, bufx, bufy
   signal buf_ridx : unsigned(6 downto 0) := (others => '0');  -- drain index
   signal wdata_r  : unsigned(15 downto 0) := x"0000";
 
   attribute ram_style of buf : signal is "distributed";
+  attribute ram_style of bufx, bufy : signal is "distributed";
 
   attribute async_reg : string;
   attribute async_reg of go_s1, go_s2, abort_s1, abort_s2 : signal is "true";
@@ -519,12 +564,18 @@ begin
     variable hr_issue, sd_issue : std_logic;
     variable lp_inc, lp_dec : std_logic;
     variable st_al, en_al : unsigned(27 downto 0);
+    variable room, vlen : unsigned(31 downto 0);
+    variable a0, a1, a2 : unsigned(27 downto 0);
+    variable ix, iy, iz : unsigned(7 downto 0);
+    variable wd : unsigned(15 downto 0);
+    variable q : signed(31 downto 0);
   begin
     if rising_edge(clock162) then
       hr_issue := '0';
       sd_issue := '0';
       lp_inc := '0';
       lp_dec := '0';
+      fpu_start <= '0';
 
       -- Command toggle synchronisers
       go_s1 <= go_tgl;       go_s2 <= go_s1;
@@ -545,7 +596,22 @@ begin
       -- Write data supply, per the LUMP contract: register the next word
       -- on the first edge that sees a request.
       if (hr_wdata_req or sd_wdata_req) = '1' then
-        if str_active = '1' then
+        if mw_active = '1' then
+          -- Vector output: word k of the burst, bytes enabled only within
+          -- [lead, vend) relative to the burst start
+          wdata_r <= buf(to_integer(mw_idx + mw_k(6 downto 0)));
+          if mw_k & '0' >= mw_lead and mw_k & '0' < mw_vend then
+            wbe_r(0) <= '1';
+          else
+            wbe_r(0) <= '0';
+          end if;
+          if mw_k & '1' >= mw_lead and mw_k & '1' < mw_vend then
+            wbe_r(1) <= '1';
+          else
+            wbe_r(1) <= '0';
+          end if;
+          mw_k <= mw_k + 1;
+        elsif str_active = '1' then
           -- STR: an 8-byte burst; the register goes in words 0-1 or 2-3
           if str_k(0) = '0' then
             wdata_r <= opr_a(15 downto 0);
@@ -631,7 +697,13 @@ begin
         if cstate = C_FETCH_WAIT then
           instr <= rdata_r & instr(127 downto 16);
         else
-          buf(to_integer(buf_widx)) <= rdata_r;
+          if cap_sel = "01" then
+            bufx(to_integer(buf_widx)) <= rdata_r;
+          elsif cap_sel = "10" then
+            bufy(to_integer(buf_widx)) <= rdata_r;
+          else
+            buf(to_integer(buf_widx)) <= rdata_r;
+          end if;
           buf_widx <= buf_widx + 1;
         end if;
         words_got <= words_got + 1;
@@ -766,6 +838,11 @@ begin
           else
             ea_y <= instr(91 downto 64);
           end if;
+          if instr(127) = '1' then
+            ea_z <= rf_a(to_integer(instr(123 downto 120))) + resize(instr(119 downto 96), 28);
+          else
+            ea_z <= instr(123 downto 96);
+          end if;
           if instr(11 downto 8) = x"F" then
             opr_a <= (others => '0');
           else
@@ -827,6 +904,37 @@ begin
                 br_taken <= '1';
               end if;
               cstate <= C_NEXT;
+            when x"20" | x"21" | x"29" =>   -- VADD / VMUL / CVT16
+              if instr(7 downto 0) = x"29" then
+                o16 <= '1'; two_ops <= '0';
+              else
+                o16 <= '0'; two_ops <= '1';
+              end if;
+              if ea_x(1 downto 0) /= "00" or (instr(7 downto 0) /= x"29" and ea_y(1 downto 0) /= "00")
+                or (instr(7 downto 0) = x"29" and ea_z(0) /= '0')
+                or (instr(7 downto 0) /= x"29" and ea_z(1 downto 0) /= "00") then
+                err <= ERR_ALIGNMENT;
+                cstate <= C_END;
+              else
+                v_n <= n0;
+                px <= ea_x; py <= ea_y; pz <= ea_z;
+                cstate <= V_CHUNK;
+              end if;
+            when x"11" =>             -- DEQROW
+              d_fmt <= instr(15 downto 8);
+              if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
+                      or instr(15 downto 8) = 8 or instr(15 downto 8) = 30) then
+                err <= ERR_OPCODE;
+                cstate <= C_END;
+              elsif ea_z(1 downto 0) /= "00" then
+                err <= ERR_ALIGNMENT;
+                cstate <= C_END;
+              else
+                v_n <= n0;
+                ps <= ea_x; pz <= ea_z; ostart <= ea_z;
+                ld_valid <= '0';
+                cstate <= D_GROUP;
+              end if;
             when x"09" | x"0A" =>     -- LDR / STR
               if ea_x(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
@@ -1068,6 +1176,336 @@ begin
           end if;
           cstate <= C_IDLE;
 
+        -- ------------------------------------------------------------------
+        -- Subroutines: FPU operation, region read into a buffer, masked
+        -- write from buf.  Callers set the parameters and the return state.
+        when C_FPU_WAIT =>
+          if fpu_done = '1' then
+            fpu_r <= fpu_res;
+            cstate <= fpu_ret;
+          end if;
+
+        when C_RD_DEC =>
+          cstate <= C_RD_ISSUE;
+        when C_RD_ISSUE =>
+          if dec_ok = '0' then
+            err <= ERR_ADDRESS;
+            cstate <= C_END;
+          else
+            words_got <= (others => '0');
+            words_expected <= resize(rd_len(8 downto 1), 8);
+            buf_widx <= rd_addr(7 downto 1);
+            cap_sel <= rd_sel;
+            t_is_sd <= dec_is_sd;
+            if dec_is_sd = '1' then
+              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_READ;
+              sd_cmd_addr <= dec_local; sd_cmd_len <= rd_len;
+              sd_issue := '1';
+            else
+              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_READ;
+              hr_cmd_addr <= dec_local; hr_cmd_len <= rd_len;
+              hr_issue := '1';
+            end if;
+            cstate <= C_RD_WAIT;
+          end if;
+        when C_RD_WAIT =>
+          if words_got = words_expected and rvalid_r = '0' then
+            cap_sel <= "00";
+            cstate <= rd_ret;
+          end if;
+
+        when C_WR_DEC =>
+          cstate <= C_WR_ISSUE;
+        when C_WR_ISSUE =>
+          if dec_ok = '0' then
+            err <= ERR_ADDRESS;
+            cstate <= C_END;
+          else
+            mw_active <= '1';
+            mw_k <= (others => '0');
+            if dec_is_sd = '1' then
+              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
+              sd_cmd_addr <= dec_local; sd_cmd_len <= wr_len;
+              sd_issue := '1';
+            else
+              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
+              hr_cmd_addr <= dec_local; hr_cmd_len <= wr_len;
+              hr_issue := '1';
+            end if;
+            cstate <= C_WR_WAIT;
+          end if;
+        when C_WR_WAIT =>
+          if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+            mw_active <= '0';
+            cstate <= wr_ret;
+          end if;
+
+        -- ------------------------------------------------------------------
+        -- VADD / VMUL / CVT16: chunks that cross no 256-byte boundary in X,
+        -- Y or Z; read X (and Y), run each element through the FPU into buf,
+        -- write Z with byte masks.
+        when V_CHUNK =>
+          if v_n = 0 then
+            cstate <= C_NEXT;
+          else
+            room := resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 32);
+            vlen := v_n;
+            if room < vlen then vlen := room; end if;
+            if two_ops = '1' then
+              room := resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 32);
+              if room < vlen then vlen := room; end if;
+            end if;
+            if o16 = '1' then
+              room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 32);
+            else
+              room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 32);
+            end if;
+            if room < vlen then vlen := room; end if;
+            v_e <= vlen(7 downto 0);
+            -- read X: [px & ~7, roundup8(px + 4e))
+            a0 := px(27 downto 3) & "000";
+            a1 := px + (vlen(25 downto 0) & "00") + 7;
+            a1(2 downto 0) := "000";
+            rd_addr <= a0;
+            rd_len <= resize(a1 - a0, 9);
+            rd_sel <= "01";
+            dec_addr <= a0;
+            if two_ops = '1' then
+              rd_ret <= V_LDY;
+            else
+              rd_ret <= V_EL0;
+            end if;
+            cstate <= C_RD_DEC;
+          end if;
+
+        when V_LDY =>
+          a0 := py(27 downto 3) & "000";
+          a1 := py + (resize(v_e, 26) & "00") + 7;
+          a1(2 downto 0) := "000";
+          rd_addr <= a0;
+          rd_len <= resize(a1 - a0, 9);
+          rd_sel <= "10";
+          dec_addr <= a0;
+          rd_ret <= V_EL0;
+          cstate <= C_RD_DEC;
+
+        when V_EL0 =>
+          v_i <= (others => '0');
+          cstate <= V_EL;
+
+        when V_EL =>
+          if v_i = v_e then
+            -- write Z: bytes [pz, pz + e * size)
+            a0 := pz(27 downto 3) & "000";
+            if o16 = '1' then
+              a2 := pz + (resize(v_e, 27) & "0");
+            else
+              a2 := pz + (resize(v_e, 26) & "00");
+            end if;
+            a1 := a2 + 7;
+            a1(2 downto 0) := "000";
+            wr_addr <= a0;
+            wr_len <= resize(a1 - a0, 9);
+            mw_lead <= resize(pz - a0, 9);
+            mw_vend <= resize(a2 - a0, 9);
+            mw_idx <= a0(7 downto 1);
+            dec_addr <= a0;
+            wr_ret <= V_ADV;
+            cstate <= C_WR_DEC;
+          else
+            ix := px(7 downto 0) + (v_i(5 downto 0) & "00");
+            iy := py(7 downto 0) + (v_i(5 downto 0) & "00");
+            fpu_a <= bufx(to_integer(ix(7 downto 1) + 1)) & bufx(to_integer(ix(7 downto 1)));
+            fpu_b <= bufy(to_integer(iy(7 downto 1) + 1)) & bufy(to_integer(iy(7 downto 1)));
+            if instr(7 downto 0) = x"20" then
+              fpu_op <= FOP_ADD;
+            elsif instr(7 downto 0) = x"21" then
+              fpu_op <= FOP_MUL;
+            else
+              fpu_op <= FOP_F32TOF16;
+            end if;
+            fpu_start <= '1';
+            fpu_ret <= V_ELST;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when V_ELST =>
+          if o16 = '1' then
+            iz := pz(7 downto 0) + (v_i(6 downto 0) & "0");
+            buf(to_integer(iz(7 downto 1))) <= fpu_r(15 downto 0);
+          else
+            iz := pz(7 downto 0) + (v_i(5 downto 0) & "00");
+            buf(to_integer(iz(7 downto 1))) <= fpu_r(15 downto 0);
+            buf(to_integer(iz(7 downto 1) + 1)) <= fpu_r(31 downto 16);
+          end if;
+          v_i <= v_i + 1;
+          cstate <= V_EL;
+
+        when V_ADV =>
+          px <= px + (resize(v_e, 26) & "00");
+          py <= py + (resize(v_e, 26) & "00");
+          if o16 = '1' then
+            pz <= pz + (resize(v_e, 27) & "0");
+          else
+            pz <= pz + (resize(v_e, 26) & "00");
+          end if;
+          v_n <= v_n - resize(v_e, 32);
+          cstate <= V_CHUNK;
+
+        -- ------------------------------------------------------------------
+        -- DEQROW: gather each group (one element, or one 32-element quant
+        -- block) into grp through a forward-only byte fetcher, expand it to
+        -- F32 into buf, and write buf out whenever Z crosses a 256-byte
+        -- boundary or the row ends.
+        when D_GROUP =>
+          if v_n = 0 then
+            if pz /= ostart then
+              a0 := ostart(27 downto 3) & "000";
+              a1 := pz + 7;
+              a1(2 downto 0) := "000";
+              wr_addr <= a0;
+              wr_len <= resize(a1 - a0, 9);
+              mw_lead <= resize(ostart - a0, 9);
+              mw_vend <= resize(pz - a0, 9);
+              mw_idx <= a0(7 downto 1);
+              dec_addr <= a0;
+              ostart <= pz;
+              wr_ret <= C_NEXT;
+              cstate <= C_WR_DEC;
+            else
+              cstate <= C_NEXT;
+            end if;
+          else
+            gi <= (others => '0');
+            d_j <= (others => '0');
+            d_have_scale <= '0';
+            case to_integer(d_fmt) is
+              when 0 => gbytes <= to_unsigned(4, 6);  epg <= to_unsigned(1, 6);
+              when 1 | 30 => gbytes <= to_unsigned(2, 6); epg <= to_unsigned(1, 6);
+              when 8 => gbytes <= to_unsigned(34, 6); epg <= to_unsigned(32, 6);
+              when others => gbytes <= to_unsigned(18, 6); epg <= to_unsigned(32, 6);  -- Q4_0
+            end case;
+            cstate <= D_FETCH;
+          end if;
+
+        when D_FETCH =>
+          if gi = gbytes then
+            cstate <= D_EMIT;
+          elsif ld_valid = '0' or ps(27 downto 8) /= ld_block then
+            -- load the rest of this 256-byte block
+            a0 := ps(27 downto 3) & "000";
+            a1 := (ps(27 downto 8) + 1) & x"00";
+            rd_addr <= a0;
+            rd_len <= resize(a1 - a0, 9);
+            rd_sel <= "01";
+            dec_addr <= a0;
+            ld_block <= ps(27 downto 8);
+            ld_valid <= '1';
+            rd_ret <= D_FETCH;
+            cstate <= C_RD_DEC;
+          else
+            wd := bufx(to_integer(ps(7 downto 1)));
+            if ps(0) = '0' then
+              grp(to_integer(gi)) <= wd(7 downto 0);
+            else
+              grp(to_integer(gi)) <= wd(15 downto 8);
+            end if;
+            ps <= ps + 1;
+            gi <= gi + 1;
+          end if;
+
+        when D_EMIT =>
+          case to_integer(d_fmt) is
+            when 0 =>                              -- F32: the bits as they are
+              d_val <= grp(3) & grp(2) & grp(1) & grp(0);
+              cstate <= D_STORE;
+            when 30 =>                             -- BF16
+              d_val <= grp(1) & grp(0) & x"0000";
+              cstate <= D_STORE;
+            when 1 =>                              -- F16
+              fpu_op <= FOP_F16TOF32;
+              fpu_a <= x"0000" & grp(1) & grp(0);
+              fpu_start <= '1';
+              fpu_ret <= D_QMUL;
+              cstate <= C_FPU_WAIT;
+            when others =>                         -- Q8_0 / Q4_0
+              if d_have_scale = '0' then
+                fpu_op <= FOP_F16TOF32;
+                fpu_a <= x"0000" & grp(1) & grp(0);
+                fpu_start <= '1';
+                fpu_ret <= D_SCALE;
+                cstate <= C_FPU_WAIT;
+              else
+                if d_fmt = 8 then
+                  q := resize(signed(grp(2 + to_integer(d_j))), 32);
+                elsif d_j < 16 then
+                  q := resize(signed('0' & grp(2 + to_integer(d_j))(3 downto 0)), 32) - 8;
+                else
+                  q := resize(signed('0' & grp(2 + to_integer(d_j) - 16)(7 downto 4)), 32) - 8;
+                end if;
+                fpu_op <= FOP_I2F;
+                fpu_a <= unsigned(q);
+                fpu_start <= '1';
+                fpu_ret <= D_QMUL;
+                cstate <= C_FPU_WAIT;
+              end if;
+          end case;
+
+        when D_SCALE =>
+          dq_scale <= fpu_r;
+          d_have_scale <= '1';
+          cstate <= D_EMIT;
+
+        when D_QMUL =>
+          if d_fmt = 1 then
+            d_val <= fpu_r;                        -- F16 conversion result
+            cstate <= D_STORE;
+          else
+            fpu_op <= FOP_MUL;                     -- d * q, as F32
+            fpu_a <= dq_scale;
+            fpu_b <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= D_AFTER;
+            cstate <= C_FPU_WAIT;
+          end if;
+
+        when D_AFTER =>
+          d_val <= fpu_r;
+          cstate <= D_STORE;
+
+        when D_STORE =>
+          buf(to_integer(pz(7 downto 1))) <= d_val(15 downto 0);
+          buf(to_integer(pz(7 downto 1) + 1)) <= d_val(31 downto 16);
+          a2 := pz + 4;
+          pz <= a2;
+          v_n <= v_n - 1;
+          d_j <= d_j + 1;
+          if a2(7 downto 0) = 0 or v_n = 1 then
+            -- flush the output written since ostart
+            a0 := ostart(27 downto 3) & "000";
+            a1 := a2 + 7;
+            a1(2 downto 0) := "000";
+            wr_addr <= a0;
+            wr_len <= resize(a1 - a0, 9);
+            mw_lead <= resize(ostart - a0, 9);
+            mw_vend <= resize(a2 - a0, 9);
+            mw_idx <= a0(7 downto 1);
+            dec_addr <= a0;
+            ostart <= a2;
+            if v_n = 1 then
+              wr_ret <= C_NEXT;
+            elsif d_j + 1 = epg then
+              wr_ret <= D_GROUP;
+            else
+              wr_ret <= D_EMIT;
+            end if;
+            cstate <= C_WR_DEC;
+          elsif d_j + 1 = epg then
+            cstate <= D_GROUP;
+          else
+            cstate <= D_EMIT;
+          end if;
+
         when C_NEXT =>
           if br_taken = '1' then
             pc <= ea_x;
@@ -1118,6 +1556,10 @@ begin
   sd_wdata    <= wdata_r;
   hr_wdata_be <= wbe_r;
   sd_wdata_be <= wbe_r;
+
+  fpu0 : entity work.ssnail_fpu
+    port map (clock => clock162, start => fpu_start, op => fpu_op, a => fpu_a, b => fpu_b,
+              done => fpu_done, result => fpu_res);
 
   -- Ring read port (asynchronous LUT RAM read, registered in the core).  The
   -- cpuclock side only writes blocks the core is not reading.

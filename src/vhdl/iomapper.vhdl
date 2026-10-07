@@ -2379,8 +2379,8 @@ begin
         when others => f011_cs <= '0';
       end case;
 
-      -- @IO:GS $FFD7500-$FFD751F SSNAIL LLM inference accelerator registers
-      if address(19 downto 8) = x"D75" and address(7 downto 5) = "000" then
+      -- @IO:GS $FFD7500-$FFD75FF SSNAIL LLM inference accelerator registers
+      if address(19 downto 8) = x"D75" then
         ssnail_cs <= '1';
       else
         ssnail_cs <= '0';

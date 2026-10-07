@@ -20,6 +20,9 @@ Testbenches:
     tb_ssnail         SSNAIL shell: COPY/SYNC/HALT, faults, STEP, IRQ
     tb_ssnail_load    load port: segments, unaligned blocks, masking, ERROR
     tb_ssnail_step1   scalar/control instructions vs the reference emulator
+    tb_ssnail_fpu     the FP unit, bit-exact against numpy (83k vectors)
+    tb_ssnail_step2   DEQROW (all formats), VADD, VMUL, CVT16 vs the emulator's
+                      hardware-numerics mode
 
 Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
 VITAL libraries, which most GHDL builds lack).
@@ -46,15 +49,27 @@ BENCHES = {
     "tb_sdram_lump": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_lump.vhdl"],
                       "tb_sdram_lump", [["-gidentical=1"]],
                       r"ALL SDRAM LUMP TESTS PASSED"),
-    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
+    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail.vhdl",
                    "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),
-    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
+    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail.vhdl",
                         "tb_ssnail_load.vhdl"], "tb_ssnail_load", [[]],
                        r"TB_SSNAIL_LOAD: ALL PASSED"),
-    "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail.vhdl",
-                         "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"], "tb_ssnail_step1", [[]],
-                        r"TB_SSNAIL_STEP1: ALL PASSED"),
+    "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail.vhdl", "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"],
+                        "tb_ssnail_step1", [[]], r"TB_SSNAIL_STEP1: ALL PASSED"),
+    "tb_ssnail_fpu": (["ssnail_fpu.vhdl", "tb_ssnail_fpu.vhdl"], "tb_ssnail_fpu", [[]],
+                      r"TB_SSNAIL_FPU: ALL PASSED"),
+    "tb_ssnail_step2": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
+                        "tb_ssnail_step2", [[]], r"TB_SSNAIL_STEP2: ALL PASSED"),
 }
+# Generated inputs: file -> (generator script, needs the SSNAIL tools)
+GENERATED = {
+    "step1_pkg.vhdl": ("gen_step1.py", True),
+    "step2_pkg.vhdl": ("gen_step2.py", True),
+    "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
+}
+NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"]}
 # Things a passing run must not print
 BAD = re.compile(r"\(report error\)|\(assertion error\)|\(report failure\)|"
                  r"\(assertion failure\)|^FAIL|bound check failure|"
@@ -70,7 +85,7 @@ MODEL_PATCHES = [
 ]
 
 
-SSNAIL_REPO = "ssh://git@github.com/mega65/SSNAIL.git"
+SSNAIL_REPO = "https://github.com/mega65/SSNAIL.git"
 CHECKOUT = "SSNAIL"          # sub-directory (a plain clone, not a submodule)
 
 
@@ -148,9 +163,10 @@ def main():
         needed = set(COMMON)
         for n in names:
             needed.update(BENCHES[n][0])
+            needed.update(NEEDS_DATA.get(n, []))
         missing = []
         for f in sorted(needed):
-            if f == "step1_pkg.vhdl":
+            if f in GENERATED:
                 continue
             p = find(f, srcdirs)
             if p is None:
@@ -162,20 +178,24 @@ def main():
             if os.path.exists(p):
                 s = open(p).read().replace(old, new)
                 open(p, "w").write(s)
-        if "tb_ssnail_step1" in names:
-            gen = find("gen_step1.py", srcdirs)
+        for f in sorted(needed & set(GENERATED)):
+            gscript, needs_tools = GENERATED[f]
+            gen = find(gscript, srcdirs)
             if not gen:
-                missing.append("gen_step1.py (for tb_ssnail_step1)")
-            elif not args.tools:
-                missing.append("the SSNAIL tools (for tb_ssnail_step1): ./SSNAIL could not "
-                               "be cloned; check access to the repo, or give a checkout "
-                               "with --tools DIR or SSNAIL_TOOLS")
-            else:
-                env = dict(os.environ, SSNAIL_TOOLS=os.path.abspath(args.tools))
-                r = subprocess.run([sys.executable, gen], cwd=build, env=env,
-                                   capture_output=True, text=True)
-                if r.returncode:
-                    sys.exit("gen_step1.py failed:\n" + r.stdout + r.stderr)
+                missing.append(f"{gscript} (generates {f})")
+                continue
+            if needs_tools and not args.tools:
+                missing.append(f"the SSNAIL tools (for {f}): ./SSNAIL could not be cloned; "
+                               "check access to the repo, or give a checkout with --tools DIR "
+                               "or SSNAIL_TOOLS")
+                continue
+            env = dict(os.environ)
+            if args.tools:
+                env["SSNAIL_TOOLS"] = os.path.abspath(args.tools)
+            r = subprocess.run([sys.executable, gen], cwd=build, env=env,
+                               capture_output=True, text=True)
+            if r.returncode:
+                sys.exit(f"{gscript} failed:\n" + r.stdout + r.stderr)
         if missing:
             sys.exit("missing: " + ", ".join(missing))
 
