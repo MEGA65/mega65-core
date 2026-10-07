@@ -36,6 +36,31 @@
 --   $11      SDRAM base in MB (address bits 27-20). Reset: 0
 --   $12      SDRAM size in MB. Reset: 0 (i.e. no SDRAM)
 --
+-- Load port: streams a model image into RAM, anywhere in the SSNAIL linear
+-- space (attic RAM and SDRAM alike), without the CPU ever writing $8000000
+-- itself.  The loader sets the pointer, then repeatedly: waits for READY,
+-- DMAs a 512-byte SD card sector into the data register (destination held),
+-- and reads the next sector.
+--   $14-$16  Load pointer bits 0-23.  Writes are staged until $17 is written.
+--            Reads return the live pointer (it advances with every byte).
+--   $17      Write: bits 0-3 = pointer bits 24-27; this commits the new
+--            pointer.  Any bytes not yet written to RAM go out first, to the
+--            old pointer, so writing $17 also serves as "flush" at the end.
+--            Bit 6 set also clears ERROR, when the commit takes effect
+--            (use it on the first commit of a load).
+--            Read:  bit 7 READY: room for another 512 bytes (and SSNAIL is not
+--                   running a job, and any commit has been processed)
+--                   bit 6 ERROR: data addressed outside both RAM regions
+--                   (dropped); sticky until a commit with bit 6 set
+--                   bits 0-3 pointer bits 24-27
+--   $18      Data: each write stores one byte at the pointer and advances it.
+--
+-- The ring buffer is 1 KB of LUT RAM, indexed by destination address, so a
+-- 512-byte sector fits even when it straddles three 256-byte blocks.  A
+-- block is written to RAM as soon as the pointer moves past its end; a
+-- partial block waits for more data or a commit.  Writes bypass the CPU's
+-- caches, so each one is followed by an INVALIDATE on the same RAM port.
+--
 -- Instruction format: 16 bytes, 16-byte aligned, little-endian.
 --   byte 0 = opcode
 --   $00 NOP
@@ -131,6 +156,26 @@ architecture shell of ssnail is
   signal irq_en_done  : std_logic := '0';
   signal irq_pend_done : std_logic := '0';
 
+  attribute ram_style : string;
+
+  -- Load port, cpuclock side
+  signal lp_ptr       : unsigned(27 downto 0) := (others => '0');  -- live pointer
+  signal lp_stage     : unsigned(23 downto 0) := (others => '0');  -- staged bits 0-23
+  signal lp_blk_tgl   : std_logic := '0';   -- flips when the pointer leaves a block
+  signal lp_cmt_tgl   : std_logic := '0';   -- flips on commit
+  signal lp_cmt_end   : unsigned(27 downto 0) := (others => '0');  -- flush up to here
+  signal lp_cmt_new   : unsigned(27 downto 0) := (others => '0');  -- then continue here
+  signal lp_out       : unsigned(2 downto 0) := (others => '0');   -- blocks not yet acked
+  signal lp_cmt_pend  : std_logic := '0';
+  signal lp_cmt_clr   : std_logic := '0';   -- this commit clears ERROR
+  signal lp_ack_s1, lp_ack_s2, lp_ack_last : std_logic := '0';
+  signal lp_cack_s1, lp_cack_s2 : std_logic := '0';
+  signal lp_err_s1, lp_err_s2 : std_logic := '0';
+  signal lp_ready     : std_logic := '0';
+  type ring_t is array (0 to 511) of unsigned(7 downto 0);
+  signal ring_lo, ring_hi : ring_t := (others => x"00");   -- even / odd addresses
+  attribute ram_style of ring_lo, ring_hi : signal is "distributed";
+
   -- Command toggles (cpu -> core)
   signal go_tgl, abort_tgl, sync_tgl, step_tgl : std_logic := '0';
   -- GO/STEP written but not yet acknowledged by the core: report busy
@@ -165,6 +210,7 @@ architecture shell of ssnail is
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
     C_SYNC_ISSUE, C_SYNC_WAIT,
+    C_LP_DECODE, C_LP_ISSUE, C_LP_WAIT, C_LP_INVAL, C_LP_DONE,
     C_NEXT, C_END);
   signal cstate : core_state_t := C_IDLE;
 
@@ -208,6 +254,24 @@ architecture shell of ssnail is
   signal cp_remaining   : unsigned(15 downto 0) := (others => '0');
   signal cp_chunk       : unsigned(8 downto 0) := (others => '0');
 
+  -- Load port, core side
+  signal lp_blk_s1, lp_blk_s2, lp_blk_last : std_logic := '0';
+  signal lp_cmt_s1, lp_cmt_s2, lp_cmt_last : std_logic := '0';
+  signal lp_pending   : unsigned(2 downto 0) := (others => '0');  -- complete blocks waiting
+  signal lp_drain     : unsigned(27 downto 0) := (others => '0'); -- next address to write
+  signal lp_end       : unsigned(27 downto 0) := (others => '0'); -- end of current chunk
+  signal lp_is_commit : std_logic := '0';
+  signal lp_ack_tgl, lp_cack_tgl : std_logic := '0';
+  signal lp_error     : std_logic := '0';
+  signal lp_active    : std_logic := '0';    -- write data comes from the ring
+  signal lp_w         : unsigned(27 downto 0) := (others => '0'); -- next word address
+  signal lp_lead      : unsigned(8 downto 0) := (others => '0');  -- offsets within the chunk
+  signal lp_vend      : unsigned(8 downto 0) := (others => '0');
+  signal lp_k         : unsigned(8 downto 0) := (others => '0');
+  signal wbe_r        : std_logic_vector(1 downto 0) := "11";
+  signal ring_rd_idx  : unsigned(8 downto 0) := (others => '0');
+  signal ring_rd_lo, ring_rd_hi : unsigned(7 downto 0);
+
   -- Return path pipeline stage (the one-stage port mux)
   signal rvalid_r : std_logic := '0';
   signal rdata_r  : unsigned(15 downto 0) := x"0000";
@@ -220,13 +284,15 @@ architecture shell of ssnail is
   signal buf_ridx : unsigned(6 downto 0) := (others => '0');  -- drain index
   signal wdata_r  : unsigned(15 downto 0) := x"0000";
 
-  attribute ram_style : string;
   attribute ram_style of buf : signal is "distributed";
 
   attribute async_reg : string;
   attribute async_reg of go_s1, go_s2, abort_s1, abort_s2 : signal is "true";
   attribute async_reg of sync_s1, sync_s2, step_s1, step_s2 : signal is "true";
   attribute async_reg of pub_tgl_s1, pub_tgl_s2 : signal is "true";
+  attribute async_reg of lp_blk_s1, lp_blk_s2, lp_cmt_s1, lp_cmt_s2 : signal is "true";
+  attribute async_reg of lp_ack_s1, lp_ack_s2, lp_cack_s1, lp_cack_s2 : signal is "true";
+  attribute async_reg of lp_err_s1, lp_err_s2 : signal is "true";
 
   function min9(a, b : unsigned(8 downto 0)) return unsigned is
   begin
@@ -241,7 +307,7 @@ begin
   ---------------------------------------------------------------------------
   process (fastio_read, ssnail_cs, fastio_addr, job_ptr, cpu_pc, cpu_busy,
            cpu_done, cpu_err, start_pending, irq_pend_done, irq_en_done,
-           hr_size_mb, sd_base_mb, sd_size_mb) is
+           hr_size_mb, sd_base_mb, sd_size_mb, lp_ptr, lp_ready, lp_err_s2) is
   begin
     if fastio_read = '1' and ssnail_cs = '1' then
       case fastio_addr(4 downto 0) is
@@ -278,6 +344,11 @@ begin
         when "10000" => fastio_rdata <= hr_size_mb;
         when "10001" => fastio_rdata <= sd_base_mb;
         when "10010" => fastio_rdata <= sd_size_mb;
+        when "10100" => fastio_rdata <= lp_ptr(7 downto 0);
+        when "10101" => fastio_rdata <= lp_ptr(15 downto 8);
+        when "10110" => fastio_rdata <= lp_ptr(23 downto 16);
+        when "10111" =>
+          fastio_rdata <= lp_ready & lp_err_s2 & "00" & lp_ptr(27 downto 24);
         when others  => fastio_rdata <= x"FF";
       end case;
     else
@@ -345,8 +416,57 @@ begin
           when "10000" => if idle then hr_size_mb <= fastio_wdata; end if;
           when "10001" => if idle then sd_base_mb <= fastio_wdata; end if;
           when "10010" => if idle then sd_size_mb <= fastio_wdata; end if;
+          when "10100" => lp_stage(7 downto 0) <= fastio_wdata;
+          when "10101" => lp_stage(15 downto 8) <= fastio_wdata;
+          when "10110" => lp_stage(23 downto 16) <= fastio_wdata;
+          when "10111" =>
+            -- Commit: flush what's pending to the old pointer, then move
+            lp_cmt_end <= lp_ptr;
+            lp_cmt_new <= fastio_wdata(3 downto 0) & lp_stage;
+            lp_ptr <= fastio_wdata(3 downto 0) & lp_stage;
+            lp_cmt_clr <= fastio_wdata(6);
+            lp_cmt_tgl <= not lp_cmt_tgl;
+            lp_cmt_pend <= '1';
+          when "11000" =>
+            -- Data byte into the ring, at its destination address
+            if lp_ptr(0) = '0' then
+              ring_lo(to_integer(lp_ptr(9 downto 1))) <= fastio_wdata;
+            else
+              ring_hi(to_integer(lp_ptr(9 downto 1))) <= fastio_wdata;
+            end if;
+            lp_ptr <= lp_ptr + 1;
+            if lp_ptr(7 downto 0) = x"FF" then
+              -- This byte completes a 256-byte block: hand it to the core
+              lp_blk_tgl <= not lp_blk_tgl;
+              lp_out <= lp_out + 1;
+            end if;
           when others => null;
         end case;
+      end if;
+
+      -- Load port acknowledgements from the core
+      lp_ack_s1 <= lp_ack_tgl;  lp_ack_s2 <= lp_ack_s1;
+      lp_cack_s1 <= lp_cack_tgl; lp_cack_s2 <= lp_cack_s1;
+      lp_err_s1 <= lp_error;    lp_err_s2 <= lp_err_s1;
+      if lp_ack_s2 /= lp_ack_last then
+        lp_ack_last <= lp_ack_s2;
+        if not (fastio_write = '1' and ssnail_cs = '1' and fastio_addr(4 downto 0) = "11000"
+                and lp_ptr(7 downto 0) = x"FF") then
+          lp_out <= lp_out - 1;
+        else
+          lp_out <= lp_out;           -- a block completed in the same cycle
+        end if;
+      end if;
+      if lp_cack_s2 = lp_cmt_tgl then
+        if not (fastio_write = '1' and ssnail_cs = '1' and fastio_addr(4 downto 0) = "10111") then
+          lp_cmt_pend <= '0';
+        end if;
+      end if;
+      -- READY: every complete block written, no commit outstanding, no job
+      if lp_out = 0 and lp_cmt_pend = '0' and cpu_busy = '0' and start_pending = '0' then
+        lp_ready <= '1';
+      else
+        lp_ready <= '0';
       end if;
 
       if reset = '0' then
@@ -365,10 +485,14 @@ begin
     variable mb : unsigned(7 downto 0);
     variable room_s, room_d, rem9 : unsigned(8 downto 0);
     variable hr_issue, sd_issue : std_logic;
+    variable lp_inc, lp_dec : std_logic;
+    variable st_al, en_al : unsigned(27 downto 0);
   begin
     if rising_edge(clock162) then
       hr_issue := '0';
       sd_issue := '0';
+      lp_inc := '0';
+      lp_dec := '0';
 
       -- Command toggle synchronisers
       go_s1 <= go_tgl;       go_s2 <= go_s1;
@@ -389,8 +513,35 @@ begin
       -- Write data supply, per the LUMP contract: register the next word
       -- on the first edge that sees a request.
       if (hr_wdata_req or sd_wdata_req) = '1' then
-        wdata_r  <= buf(to_integer(buf_ridx));
-        buf_ridx <= buf_ridx + 1;
+        if lp_active = '1' then
+          -- Word at lp_w: bytes at offsets 2k and 2k+1 into the chunk,
+          -- enabled only between the chunk's real start and end.
+          wdata_r <= ring_rd_hi & ring_rd_lo;
+          if lp_k & '0' >= lp_lead and lp_k & '0' < lp_vend then
+            wbe_r(0) <= '1';
+          else
+            wbe_r(0) <= '0';
+          end if;
+          if lp_k & '1' >= lp_lead and lp_k & '1' < lp_vend then
+            wbe_r(1) <= '1';
+          else
+            wbe_r(1) <= '0';
+          end if;
+          lp_k <= lp_k + 1;
+          ring_rd_idx <= ring_rd_idx + 1;
+        else
+          wdata_r  <= buf(to_integer(buf_ridx));
+          wbe_r    <= "11";
+          buf_ridx <= buf_ridx + 1;
+        end if;
+      end if;
+
+      -- Load port toggles from the cpuclock side
+      lp_blk_s1 <= lp_blk_tgl; lp_blk_s2 <= lp_blk_s1;
+      lp_cmt_s1 <= lp_cmt_tgl; lp_cmt_s2 <= lp_cmt_s1;
+      if lp_blk_s2 /= lp_blk_last then
+        lp_blk_last <= lp_blk_s2;
+        lp_inc := '1';
       end if;
 
       -- Address decode of dec_addr, one cycle after it is set.
@@ -451,7 +602,49 @@ begin
       case cstate is
         when C_IDLE =>
           busy <= '0';
-          if go_s2 /= go_last or step_s2 /= step_last then
+          -- Load port work comes first.  A chunk is [lp_drain, lp_end): a
+          -- whole remaining block, or for a commit, whatever is left.
+          if lp_pending /= 0
+            or (lp_cmt_s2 /= lp_cmt_last and lp_blk_s2 = lp_blk_last) then
+            if lp_pending /= 0 then
+              lp_end <= (lp_drain(27 downto 8) + 1) & x"00";
+              en_al := (lp_drain(27 downto 8) + 1) & x"00";
+              lp_is_commit <= '0';
+            else
+              lp_end <= lp_cmt_end;
+              en_al := lp_cmt_end;
+              lp_is_commit <= '1';
+              if lp_cmt_clr = '1' and lp_drain = lp_cmt_end then
+                lp_error <= '0';
+              end if;
+            end if;
+            if lp_pending = 0 and lp_drain = lp_cmt_end then
+              -- Nothing (more) to flush: the commit takes effect
+              lp_drain <= lp_cmt_new;
+              lp_cmt_last <= lp_cmt_s2;
+              lp_cack_tgl <= lp_cmt_s2;
+            else
+              st_al := lp_drain(27 downto 3) & "000";
+              en_al := en_al + 7;
+              en_al(2 downto 0) := "000";
+              lp_lead <= resize(lp_drain(2 downto 0), 9);
+              lp_vend <= resize(en_al - st_al, 9);   -- adjusted below
+              if lp_pending /= 0 then
+                lp_vend <= resize(((lp_drain(27 downto 8) + 1) & x"00") - st_al, 9);
+              else
+                lp_vend <= resize(lp_cmt_end - st_al, 9);
+              end if;
+              lp_w <= st_al;
+              cp_chunk <= resize(en_al - st_al, 9);
+              ring_rd_idx <= st_al(9 downto 1);
+              lp_k <= (others => '0');
+              dec_addr <= st_al;
+              c_hr_size <= hr_size_mb;
+              c_sd_base <= sd_base_mb;
+              c_sd_size <= sd_size_mb;
+              cstate <= C_LP_DECODE;
+            end if;
+          elsif go_s2 /= go_last or step_s2 /= step_last then
             c_hr_size <= hr_size_mb;
             c_sd_base <= sd_base_mb;
             c_sd_size <= sd_size_mb;
@@ -657,6 +850,57 @@ begin
             end if;
           end if;
 
+        when C_LP_DECODE =>
+          cstate <= C_LP_ISSUE;          -- decode of the chunk address now
+
+        when C_LP_ISSUE =>
+          if dec_ok = '0' then
+            lp_error <= '1';             -- outside both regions: drop it
+            cstate <= C_LP_DONE;
+          else
+            lp_active <= '1';
+            t_is_sd <= dec_is_sd;
+            if dec_is_sd = '1' then
+              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
+              sd_cmd_addr <= dec_local; sd_cmd_len <= cp_chunk;
+              sd_issue := '1';
+            else
+              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_WRITE;
+              hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
+              hr_issue := '1';
+            end if;
+            cstate <= C_LP_WAIT;
+          end if;
+
+        when C_LP_WAIT =>
+          if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+            lp_active <= '0';
+            -- The write bypassed the CPU's caches on that port
+            if t_is_sd = '1' then
+              sd_cmd_valid <= '1'; sd_cmd_op <= LUMP_OP_INVALIDATE;
+              sd_cmd_addr <= (others => '0'); sd_cmd_len <= (others => '0');
+              sd_issue := '1';
+            else
+              hr_cmd_valid <= '1'; hr_cmd_op <= LUMP_OP_INVALIDATE;
+              hr_cmd_addr <= (others => '0'); hr_cmd_len <= (others => '0');
+              hr_issue := '1';
+            end if;
+            cstate <= C_LP_INVAL;
+          end if;
+
+        when C_LP_INVAL =>
+          if hr_out = 0 and sd_out = 0 then
+            cstate <= C_LP_DONE;
+          end if;
+
+        when C_LP_DONE =>
+          lp_drain <= lp_end;
+          if lp_is_commit = '0' then
+            lp_dec := '1';
+            lp_ack_tgl <= not lp_ack_tgl;
+          end if;
+          cstate <= C_IDLE;
+
         when C_NEXT =>
           pc <= pc + 16;
           if stepping = '1' then
@@ -676,6 +920,13 @@ begin
           cstate <= C_IDLE;
       end case;
 
+      -- Complete blocks waiting to be written
+      if lp_inc = '1' and lp_dec = '0' then
+        lp_pending <= lp_pending + 1;
+      elsif lp_inc = '0' and lp_dec = '1' then
+        lp_pending <= lp_pending - 1;
+      end if;
+
       -- Outstanding command counters
       if hr_issue = '1' and hr_cmd_done = '0' then
         hr_out <= hr_out + 1;
@@ -693,7 +944,12 @@ begin
 
   hr_wdata    <= wdata_r;
   sd_wdata    <= wdata_r;
-  hr_wdata_be <= "11";
-  sd_wdata_be <= "11";
+  hr_wdata_be <= wbe_r;
+  sd_wdata_be <= wbe_r;
+
+  -- Ring read port (asynchronous LUT RAM read, registered in the core).  The
+  -- cpuclock side only writes blocks the core is not reading.
+  ring_rd_lo <= ring_lo(to_integer(ring_rd_idx));
+  ring_rd_hi <= ring_hi(to_integer(ring_rd_idx));
 
 end shell;
