@@ -74,7 +74,11 @@ BENCHES = {
                         ["-gphi0_ps=4100", "-gdm_ps=1500", "--stop-time=4ms"],
                         ["-gphi0_ps=1300", "-gdm_ps=5600", "--stop-time=4ms"],
                         ["-gphi0_ps=5000", "-gdm_ps=2500", "-gxw_ps=3500", "--stop-time=4ms"],
-                        ["-gno_ps=1", "--stop-time=4ms"]],
+                        ["-gno_ps=1", "--stop-time=4ms"],
+                        ["-gforce_h1c0=1", "--stop-time=4ms"]],
+                       # (-gboot=1, training starting by itself at power-on,
+                       # is checked by hand: the SDRAM model asserts about
+                       # use before its init sequence, which the board skips)
                        r"ALL SDRAM TRAINING TESTS PASSED"),
     "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                    "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),

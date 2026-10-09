@@ -111,9 +111,7 @@ architecture tacoma_narrows of sdram_controller is
 
   signal last_data_ready_toggle : std_logic := '0';
 
-  -- XXX Don't configure SDRAM by default, while I debug why it sometimes
-  -- powers up in wrong state.
-  signal sdram_prepped         : std_logic             := '1';
+  signal sdram_prepped         : std_logic             := '0';
   -- The SDRAM requires a 100us setup time
   signal sdram_100us_countdown : integer               := 16_200;
   signal sdram_do_init         : std_logic             := '1';
@@ -840,6 +838,15 @@ begin
                 elsif write_latched = '1' and latched_addr(7 downto 0) = x"12" then
                   tr_req <= '1'; tr_mode <= "10";
                   write_latched <= '0';
+                  sdram_emit_command(CMD_NOP);
+                elsif write_latched = '1' and latched_addr(7 downto 0) = x"14" then
+                  -- $C000014: force the path (bit 2) and read cycle (bits
+                  -- 1-0), keeping the phase, for experiments
+                  trained_h <= wdata_latched(2);
+                  trained_c <= wdata_latched(1 downto 0);
+                  tr_ok <= '1';
+                  write_latched <= '0';
+                  busy <= '0';
                   sdram_emit_command(CMD_NOP);
                 elsif write_latched = '1' then
                   -- Repeat SDRAM initialisation sequence whenver a non-RAM
