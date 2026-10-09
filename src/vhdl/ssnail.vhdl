@@ -411,6 +411,13 @@ architecture shell of ssnail is
   signal words_got  : unsigned(7 downto 0) := (others => '0');
   -- Commands issued to each port and not yet completed (cmd_done)
   signal hr_out, sd_out : unsigned(2 downto 0) := (others => '0');
+  -- Watchdog on the waits for memory: an instruction fetch, or a SYNC,
+  -- that sees no read data / completions for 65536 cycles (400 us) ends
+  -- the job with ERR_READ instead of hanging.  wd_fired and the last
+  -- fetch's word count are readable at $FFD7507 for debugging.
+  signal wd_cnt     : unsigned(15 downto 0) := (others => '0');
+  signal wd_fired   : std_logic := '0';
+  signal dbg_words  : unsigned(3 downto 0) := (others => '0');
   -- Stand-alone SYNC CACHE requested from the CPU (not part of a job)
   signal cpu_sync : std_logic := '0';
 
@@ -637,7 +644,9 @@ begin
   ---------------------------------------------------------------------------
   process (fastio_read, ssnail_cs, fastio_addr, job_ptr, cpu_pc, cpu_busy,
            cpu_done, cpu_err, start_pending, irq_pend_done, irq_en_done,
-           hr_size_mb, sd_base_mb, sd_size_mb, hr_base_mb, lp_ptr, lp_ready, lp_err_s2) is
+           hr_size_mb, sd_base_mb, sd_size_mb, hr_base_mb, lp_ptr, lp_ready, lp_err_s2,
+           wd_fired, sd_out, dbg_words,
+           instr) is
   begin
     if fastio_read = '1' and ssnail_cs = '1' then
       case fastio_addr(4 downto 0) is
@@ -664,6 +673,10 @@ begin
         when "00110" =>
           fastio_rdata <= (others => '0');
           fastio_rdata(0) <= irq_en_done;
+        when "00111" =>
+          -- debug: 7 = watchdog ended the last job, 6-4 = SDRAM commands
+          -- outstanding, 3-0 = words the last instruction fetch received
+          fastio_rdata <= wd_fired & sd_out & dbg_words;
         when "01000" => fastio_rdata <= job_ptr(7 downto 0);
         when "01001" => fastio_rdata <= job_ptr(15 downto 8);
         when "01010" => fastio_rdata <= job_ptr(23 downto 16);
@@ -681,6 +694,16 @@ begin
         when "10110" => fastio_rdata <= lp_ptr(23 downto 16);
         when "10111" =>
           fastio_rdata <= lp_ready & lp_err_s2 & "00" & lp_ptr(27 downto 24);
+        -- Debug: the first 8 bytes of the last instruction fetched, as
+        -- SSNAIL saw them (kept after a HALT or an error).  Read only.
+        when "11000" => fastio_rdata <= instr(7 downto 0);
+        when "11001" => fastio_rdata <= instr(15 downto 8);
+        when "11010" => fastio_rdata <= instr(23 downto 16);
+        when "11011" => fastio_rdata <= instr(31 downto 24);
+        when "11100" => fastio_rdata <= instr(39 downto 32);
+        when "11101" => fastio_rdata <= instr(47 downto 40);
+        when "11110" => fastio_rdata <= instr(55 downto 48);
+        when "11111" => fastio_rdata <= instr(63 downto 56);
         when others  => fastio_rdata <= x"FF";
       end case;
     else
@@ -1084,6 +1107,7 @@ begin
             busy <= '1';
             done <= '0';
             err <= ERR_NONE;
+            wd_fired <= '0';
             abort_req <= '0';
             cstate <= C_FETCH_SETUP;
           elsif sync_s2 /= sync_last then
@@ -1129,8 +1153,19 @@ begin
           end if;
 
         when C_FETCH_WAIT =>
+          dbg_words <= words_got(3 downto 0);
           if words_got = words_expected and rvalid_r = '0' then
+            wd_cnt <= (others => '0');
             cstate <= C_RESOLVE;
+          elsif rvalid_r = '1' then
+            wd_cnt <= (others => '0');
+          elsif wd_cnt = x"FFFF" then
+            wd_cnt <= (others => '0');
+            wd_fired <= '1';
+            err <= ERR_READ;
+            cstate <= C_END;
+          else
+            wd_cnt <= wd_cnt + 1;
           end if;
 
         when C_RESOLVE =>
@@ -1512,12 +1547,21 @@ begin
           -- All earlier commands (e.g. COPY writes) complete before the
           -- invalidates, because each port's queue is in order.
           if hr_out = 0 and sd_out = 0 then
+            wd_cnt <= (others => '0');
             if cpu_sync = '1' then
               cpu_sync <= '0';
               cstate <= C_IDLE;
             else
               cstate <= C_NEXT;
             end if;
+          elsif wd_cnt = x"FFFF" then
+            wd_cnt <= (others => '0');
+            wd_fired <= '1';
+            cpu_sync <= '0';
+            err <= ERR_READ;
+            cstate <= C_END;
+          else
+            wd_cnt <= wd_cnt + 1;
           end if;
 
         when C_LP_DECODE =>
