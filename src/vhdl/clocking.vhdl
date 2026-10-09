@@ -29,7 +29,9 @@ entity clocking is
       -- steps per clock163 cycle.  Leave unconnected if unused.
       clock163m_ps_en     : in  std_logic := '0';
       clock163m_ps_incdec : in  std_logic := '1';
-      clock163m_ps_done   : out std_logic := '0'
+      clock163m_ps_done   : out std_logic := '0';
+      -- That MMCM's LOCKED: phase steps must wait for it
+      clock163m_locked    : out std_logic := '0'
    );
 end entity;
 
@@ -440,6 +442,7 @@ begin
     PSEN                => clock163m_ps_en,
     PSINCDEC            => clock163m_ps_incdec,
     PSDONE              => clock163m_ps_done,
+    LOCKED              => clock163m_locked,
     -- Other control and status signals
     PWRDWN              => '0',
     RST                 => '0');

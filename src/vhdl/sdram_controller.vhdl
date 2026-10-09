@@ -27,6 +27,9 @@ entity sdram_controller is
         ps_en     : out std_logic := '0';
         ps_incdec : out std_logic := '1';
         ps_done   : in  std_logic := '0';
+        -- That MMCM's LOCKED (asynchronous): training waits for it, as
+        -- phase steps before lock can leave the phase shifter unresponsive
+        ps_locked : in  std_logic := '1';
 
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
         -- speed up simulation)
@@ -321,6 +324,7 @@ architecture tacoma_narrows of sdram_controller is
   signal tr_ok         : std_logic := '0';   -- last training found a window
   signal tr_weak       : std_logic := '0';   -- narrow, or no stable path
   signal tr_no_ps      : std_logic := '0';   -- no phase shifter answered
+  signal ps_locked_s1, ps_locked_s2 : std_logic := '0';  -- synchroniser
   signal tr_count      : unsigned(7 downto 0) := x"00";
   signal tr_dec        : std_logic := '0';
   signal tr_to         : integer range 0 to 127 := 0;
@@ -539,6 +543,8 @@ begin
         rd_c <= '0' & identical_clocks;
       end if;
       ps_en <= '0';
+      ps_locked_s1 <= ps_locked;
+      ps_locked_s2 <= ps_locked_s1;
       lump_rd_pipe(0) <= lump_rd_issue;
       lump_rd_pipe(1 to 8) <= lump_rd_pipe(0 to 7);
       if (rd_c = "00" and (lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7) or lump_rd_pipe(8)) = '1')
@@ -637,6 +643,7 @@ begin
         when x"12" => nonram_val <= to_unsigned(tr_right, 9)(7 downto 0);
         when x"13" => nonram_val <= "0000000" & to_unsigned(tr_right, 9)(8);
         when x"14" => nonram_val <= "0000000" & trained_h;
+        when x"16" => nonram_val <= "0000000" & ps_locked_s2;
         when x"15" => nonram_val <= '0' & to_unsigned(tr_bs, 3) & to_unsigned(tr_bl, 4);
         when x"18" => nonram_val <= cmap(0);
         when x"19" => nonram_val <= cmap(1);
@@ -796,8 +803,9 @@ begin
 
         if sdram_init_phase = 31 then
           sdram_prepped <= '1';
-          -- busy stays set: the read capture training comes next, and
-          -- clears it.
+          busy          <= '0';
+          -- Read capture training next (it sets busy itself while it runs,
+          -- once the capture clock's MMCM is locked)
           tr_req        <= '1';
           tr_mode       <= "00";
           report "SDRAM: initialisation done, read capture training next";
@@ -812,7 +820,9 @@ begin
         end if;
         case sdram_state is
           when IDLE =>
-            if tr_req = '1' then
+            -- (training waits, with the controller working normally, until
+            -- the capture clock's MMCM is locked)
+            if tr_req = '1' and ps_locked_s2 = '1' then
               -- Read capture training (or a manual phase step).  Rows are
               -- closed first; refresh is handled inside.
               tr_req      <= '0';
@@ -1240,6 +1250,7 @@ begin
                 sdram_emit_command(CMD_PRECHARGE);
                 active_row <= '0';
                 tr_had_ok <= tr_ok;
+                tr_no_ps <= '0';
                 tr_dec <= tr_mode(1);
                 tr_cnt <= 3;
                 tr_ret <= T_PROBED;
