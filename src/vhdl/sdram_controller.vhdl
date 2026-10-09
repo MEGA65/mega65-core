@@ -293,7 +293,8 @@ architecture tacoma_narrows of sdram_controller is
   constant TR_PATTERN  : unsigned(63 downto 0) := x"3CA5C35AA53C5AC3";
   type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_WRITTEN,
                       T_STEP, T_STEP_ACT, T_TEST, T_TESTED, T_CLOSED,
-                      T_STEPPED, T_CHOOSE, T_SEEK, T_RESTORE, T_RESTORE_W,
+                      T_STEPPED, T_STEP_NEXT, T_CHOOSE, T_CHOOSE_SCAN, T_CHOOSE_SUM,
+                      T_CHOOSE_WRAP, T_SEEK, T_RESTORE, T_RESTORE_W,
                       T_FINISH, T_ABORT,
                       M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE);
   signal tr_st         : tr_state_t := T_START;
@@ -323,6 +324,9 @@ architecture tacoma_narrows of sdram_controller is
   type tr_n_t is array (0 to 7) of integer range 0 to TR_STEPS;
   signal run_len, run_start, best_len, best_start : tr_n_t := (others => 0);
   signal tr_best_len   : integer range 0 to TR_STEPS := 0;
+  signal tr_bc, tr_bi  : integer range 0 to 7 := 0;
+  signal tr_mi         : integer range 0 to 8 := 0;
+  signal tr_cs         : integer range 0 to 2*TR_STEPS := 0;
   signal tr_centre     : integer range 0 to TR_STEPS-1 := 0;
   type tr_cnt_t is array (0 to 7) of unsigned(7 downto 0);
   signal pass_cnt      : tr_cnt_t := (others => x"00");
@@ -419,7 +423,6 @@ begin
       end case;
     end procedure;
 
-    variable bc : integer range 0 to 7;
   begin
     if rising_edge(clock162) then
 
@@ -1243,11 +1246,17 @@ begin
                 end loop;
                 tr_st <= T_STEPPED;
               when T_STEPPED =>
-                if tr_s < TR_STEPS and (tr_s mod 8) = 7 then
-                  for c in 0 to 7 loop
-                    map_ram(36 * c + tr_s / 8) <= map_sh(c);
-                  end loop;
+                -- Every 8 steps of the first sweep, store the 8 map bytes,
+                -- one per cycle (the map is one single-port RAM)
+                if tr_s < TR_STEPS and (tr_s mod 8) = 7 and tr_mi /= 8 then
+                  map_ram(36 * tr_mi + tr_s / 8) <= map_sh(tr_mi);
+                  tr_mi <= tr_mi + 1;
+                  tr_st <= T_STEPPED;
+                else
+                  tr_mi <= 0;
+                  tr_st <= T_STEP_NEXT;
                 end if;
+              when T_STEP_NEXT =>
                 tr_s <= tr_s + 1;
                 tr_dec <= '0';
                 tr_st <= M_PS;
@@ -1257,27 +1266,45 @@ begin
                   tr_ret <= T_STEP;
                 end if;
               when T_CHOOSE =>
-                -- Back at position 0.  Take the cycle with the wider window
-                -- and seek to its centre.
-                -- (best: the choice with the widest window; the first wins
-                -- a tie)
-                bc := 0;
-                for c in 1 to 7 loop
-                  if best_len(c) > best_len(bc) then bc := c; end if;
-                end loop;
-                if best_len(bc) /= 0 then
-                  trained_c <= to_unsigned(bc mod 4, 2);
-                  if bc >= 4 then trained_h <= '1'; else trained_h <= '0'; end if;
-                  tr_best_len <= best_len(bc);
-                  tr_centre <= (best_start(bc) + best_len(bc)/2) mod TR_STEPS;
-                  tr_seek <= (best_start(bc) + best_len(bc)/2) mod TR_STEPS;
+                -- Back at position 0.  Take the way with the widest window
+                -- (the first wins a tie) and seek to its centre.  Spread
+                -- over several cycles to keep the logic short: one compare
+                -- per cycle, then the add, then the wrap.
+                tr_bc <= 0;
+                tr_bi <= 1;
+                tr_st <= T_CHOOSE_SCAN;
+              when T_CHOOSE_SCAN =>
+                if best_len(tr_bi) > best_len(tr_bc) then
+                  tr_bc <= tr_bi;
+                end if;
+                if tr_bi = 7 then
+                  tr_st <= T_CHOOSE_SUM;
+                else
+                  tr_bi <= tr_bi + 1;
+                end if;
+              when T_CHOOSE_SUM =>
+                tr_cs <= best_start(tr_bc) + best_len(tr_bc) / 2;
+                tr_best_len <= best_len(tr_bc);
+                if best_len(tr_bc) /= 0 then
+                  trained_c <= to_unsigned(tr_bc mod 4, 2);
+                  if tr_bc >= 4 then trained_h <= '1'; else trained_h <= '0'; end if;
                   tr_ok <= '1';
-                  if best_len(bc) < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
+                  if best_len(tr_bc) < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
                 else
                   tr_ok <= '0';
                   tr_weak <= '0';
-                  tr_best_len <= 0;
+                end if;
+                tr_st <= T_CHOOSE_WRAP;
+              when T_CHOOSE_WRAP =>
+                if tr_ok = '0' then
                   tr_seek <= 0;
+                  tr_centre <= 0;
+                elsif tr_cs >= TR_STEPS then
+                  tr_seek <= tr_cs - TR_STEPS;
+                  tr_centre <= tr_cs - TR_STEPS;
+                else
+                  tr_seek <= tr_cs;
+                  tr_centre <= tr_cs;
                 end if;
                 tr_st <= T_SEEK;
               when T_SEEK =>
