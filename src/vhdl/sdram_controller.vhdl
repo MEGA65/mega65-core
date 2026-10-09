@@ -111,6 +111,10 @@ architecture tacoma_narrows of sdram_controller is
 
   signal last_data_ready_toggle : std_logic := '0';
 
+  -- Run the SDRAM init sequence at power-on (after the 100us delay); the
+  -- read capture training follows at its end.  (Was '1', skipping init,
+  -- while debugging power-up problems that were probably the untrained
+  -- read capture clock.)
   signal sdram_prepped         : std_logic             := '0';
   -- The SDRAM requires a 100us setup time
   signal sdram_100us_countdown : integer               := 16_200;
@@ -741,6 +745,13 @@ begin
       if sdram_100us_countdown = 1 then
         report "SDRAM: Starting init sequence after 100usec delay";
         sdram_do_init <= not sdram_prepped;
+        -- The init sequence (which trains at its end) is skipped at
+        -- power-on while sdram_prepped starts at '1', so train here too,
+        -- unless training has already run or is running.
+        if sdram_prepped = '1' and tr_count = x"00" and tr_active = '0' then
+          tr_req  <= '1';
+          tr_mode <= "00";
+        end if;
       end if;
       if enforce_100us_delay = false then
         if sdram_prepped = '0' then
