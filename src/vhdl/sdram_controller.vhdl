@@ -271,71 +271,115 @@ architecture tacoma_narrows of sdram_controller is
   -- CPU line fill and LUMP read from here, so they can never disagree.
   signal dq_x          : unsigned(15 downto 0) := (others => '0');
   -- Read data cycle: words are taken from dq_x at T+7-rd_c .. T+10-rd_c
-  -- after a READ at T.  The trained value, with bit 0 flipped by
-  -- identical_clocks ($D7FE bit 5) for experiments.  (Without training,
-  -- 0 and 1 are the old bit 5 = 0 and 1, plus the dq_x stage.)
+  -- after a READ at T.  Set by training; until training succeeds (or with
+  -- no phase shifter) it is 0 or 1 from identical_clocks ($D7FE bit 5), the
+  -- old behaviour plus the dq_x stage.
   signal rd_c          : unsigned(1 downto 0) := "00";
   signal trained_c     : unsigned(1 downto 0) := "00";
   -- dq_x takes the data either straight from sdram_dq_latched (h = 0) or
   -- via dq_f on the falling edge of clock162 (h = 1).  That moves the point
-  -- where a clock162r edge is too close to a clock162 edge by half a cycle,
-  -- so a data window can always be found that it does not cut in two.
+  -- where a clock162r edge is too close to a clock162 edge by half a cycle.
   signal dq_f          : unsigned(15 downto 0) := (others => '0');
   signal x_h           : std_logic := '0';
   signal trained_h     : std_logic := '0';
-  signal tr_h          : std_logic := '0';
-  signal map_page      : std_logic := '0';
 
   -- Training.  Test words live at the top 8 bytes of the SDRAM
   -- (bank 3, last row, word columns 1020-1023).
+  --
+  -- 1. Coarse: 8 phases, 45 degrees (35 fine steps) apart.  At each, one
+  --    READ (done twice, results must agree) captures 7 words around the
+  --    burst from both crossing paths, and finds where the 4-word pattern
+  --    sits: that gives the read cycle for each path, or "not clean".
+  -- 2. The longest run of clean coarse phases (either path) is the window.
+  -- 3. Fine: step out from its first and last coarse phase one fine step at
+  --    a time to find the exact edges, and take the middle.
+  -- 4. Path: test the middle and a quarter-window either side; use the path
+  --    whose cycle is the same at all three (direct path preferred), so the
+  --    phase is well away from that path's crossing point.
   constant TR_STEPS    : integer := 280;   -- fine steps per clock162 cycle
                                            -- (VCO 810 MHz / 5, 1/56 VCO each)
+  constant TR_COARSE   : integer := 35;    -- fine steps per coarse step
   constant TR_PATTERN  : unsigned(63 downto 0) := x"3CA5C35AA53C5AC3";
-  type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_WRITTEN,
-                      T_STEP, T_STEP_ACT, T_TEST, T_TESTED, T_CLOSED,
-                      T_STEPPED, T_STEP_NEXT, T_CHOOSE, T_CHOOSE_SCAN, T_CHOOSE_SUM,
-                      T_CHOOSE_WRAP, T_SEEK, T_RESTORE, T_RESTORE_W,
-                      T_FINISH, T_ABORT,
-                      M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE);
+  type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_SAVE_READ,
+                      T_WRITTEN, T_CO_TEST, T_CO_REC, T_CO_NEXT,
+                      T_RUN, T_RUN_DONE,
+                      T_FL_STEP, T_FL_T, T_FL_REC, T_FR_GO, T_FR_STEP, T_FR_T, T_FR_REC,
+                      T_MID, T_MID2, T_MID3, T_PATH_GO, T_PATH_T, T_PATH_REC, T_PATH_PICK,
+                      T_RESTORE, T_RESTORE_W, T_FINISH, T_ABORT,
+                      T_TEST0, T_TEST1, T_TEST2, T_TEST3,
+                      M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE,
+                      M_SEEK, M_SEEK2, M_STEPN);
   signal tr_st         : tr_state_t := T_START;
-  signal tr_ret        : tr_state_t := T_START;
+  signal tr_ret        : tr_state_t := T_START;   -- micro-ops
+  signal tr_ret_n      : tr_state_t := T_START;   -- M_STEPN / M_SEEK
+  signal tr_ret_t      : tr_state_t := T_START;   -- the test sequence
   signal tr_req        : std_logic := '0';   -- train after init
   signal tr_mode       : unsigned(1 downto 0) := "00"; -- 0 train, 1 +1, 2 -1
   signal tr_active     : std_logic := '0';
   signal tr_ok         : std_logic := '0';   -- last training found a window
-  signal tr_weak       : std_logic := '0';   -- ... but under 16 steps wide
+  signal tr_weak       : std_logic := '0';   -- narrow, or no stable path
   signal tr_no_ps      : std_logic := '0';   -- no phase shifter answered
   signal tr_count      : unsigned(7 downto 0) := x"00";
   signal tr_dec        : std_logic := '0';
   signal tr_to         : integer range 0 to 127 := 0;
   signal tr_cnt        : integer range 0 to 15 := 0;
   signal tr_k          : integer range 0 to 15 := 0;
-  signal tr_c          : unsigned(1 downto 0) := "00";
   signal tr_r          : std_logic := '0';
   signal tr_wi         : integer range 0 to 3 := 0;
   signal tr_restore    : std_logic := '0';
   signal tr_had_ok     : std_logic := '0';
-  signal tw            : unsigned(63 downto 0) := (others => '0');
   signal tr_saved      : unsigned(63 downto 0) := (others => '0');
-  signal tr_s          : integer range 0 to 2*TR_STEPS := 0;
+  -- 7 captured words per path: word i = the value at edge T+3+i
+  signal wa, wb        : unsigned(111 downto 0) := (others => '0');
+  -- Test results (both reads agreed): clean, and the read cycle
+  signal t_va, t_vb    : std_logic := '0';
+  signal t_ca, t_cb    : unsigned(1 downto 0) := "00";
+  signal r1_va, r1_vb  : std_logic := '0';
+  signal r1_ca, r1_cb  : unsigned(1 downto 0) := "00";
   signal tr_pos        : integer range 0 to TR_STEPS-1 := 0;
-  signal tr_seek       : integer range 0 to TR_STEPS-1 := 0;
-  signal tr_okc        : std_logic_vector(7 downto 0) := x"00";  -- 4h+c
-  type tr_n_t is array (0 to 7) of integer range 0 to TR_STEPS;
-  signal run_len, run_start, best_len, best_start : tr_n_t := (others => 0);
-  signal tr_best_len   : integer range 0 to TR_STEPS := 0;
-  signal tr_bc, tr_bi  : integer range 0 to 7 := 0;
-  signal tr_mi         : integer range 0 to 8 := 0;
-  signal tr_cs         : integer range 0 to 2*TR_STEPS := 0;
+  signal tr_n          : integer range 0 to TR_STEPS := 0;
+  signal tr_ndec       : std_logic := '0';
+  signal tr_target     : integer range 0 to TR_STEPS-1 := 0;
+  signal tr_delta      : integer range -TR_STEPS to TR_STEPS := 0;
+  signal tr_p          : integer range 0 to 8 := 0;
+  type cmap_t is array (0 to 7) of unsigned(7 downto 0);
+  -- Coarse results: bit 2 path 0 clean, 1-0 its cycle; bit 6 path 1 clean,
+  -- 5-4 its cycle
+  signal cmap          : cmap_t := (others => x"00");
+  signal tr_i          : integer range 0 to 16 := 0;
+  signal tr_run        : integer range 0 to 8 := 0;
+  signal tr_rs, tr_bs  : integer range 0 to 7 := 0;
+  signal tr_bl         : integer range 0 to 8 := 0;
+  signal tr_fc         : integer range 0 to TR_COARSE := 0;
+  signal tr_left       : integer range 0 to TR_STEPS-1 := 0;
+  signal tr_right      : integer range 0 to TR_STEPS-1 := 0;
+  signal tr_width      : integer range 0 to TR_STEPS := 0;
   signal tr_centre     : integer range 0 to TR_STEPS-1 := 0;
-  type tr_cnt_t is array (0 to 7) of unsigned(7 downto 0);
-  signal pass_cnt      : tr_cnt_t := (others => x"00");
-  signal map_sh        : tr_cnt_t := (others => x"00");
-  -- Pass map of the first sweep: step 8i+j is bit j of byte 36(4h+c)+i.
-  -- Registers $C000020-$C0000AF show h = the last value written to
-  -- $C000013 (bit 0), c = 0-3 at $20, $44, $68, $8C.
-  type map_ram_t is array (0 to 287) of unsigned(7 downto 0);
-  signal map_ram       : map_ram_t := (others => x"00");
+  signal tr_qd         : integer range 0 to TR_STEPS/4 := 0;
+  signal tr_q          : integer range 0 to 3 := 0;
+  signal pa_ok, pb_ok  : std_logic := '0';
+  signal pa_c, pb_c    : unsigned(1 downto 0) := "00";
+  signal cen_va, cen_vb : std_logic := '0';
+  signal cen_ca, cen_cb : unsigned(1 downto 0) := "00";
+
+  -- Where the pattern starts in 7 captured words: j = 0..3, or 7 if not
+  -- there.  (The 4 words are all different, so at most one j matches.)
+  function tr_find(w : unsigned(111 downto 0)) return integer is
+  begin
+    for j in 0 to 3 loop
+      if w(16*j+63 downto 16*j) = TR_PATTERN then
+        return j;
+      end if;
+    end loop;
+    return 7;
+  end function;
+  -- (fine position arithmetic, all mod TR_STEPS)
+  function tr_wrap(x : integer) return integer is
+  begin
+    if x >= TR_STEPS then return x - TR_STEPS;
+    elsif x < 0 then return x + TR_STEPS;
+    else return x; end if;
+  end function;
 
   attribute iob : string;
   attribute iob of sdram_dq_out : signal is "true";
@@ -423,6 +467,9 @@ begin
       end case;
     end procedure;
 
+    variable tj       : integer range 0 to 7;
+    variable tva, tvb : std_logic;
+    variable tca, tcb : unsigned(1 downto 0);
   begin
     if rising_edge(clock162) then
 
@@ -481,8 +528,14 @@ begin
       else
         dq_x <= sdram_dq_latched;
       end if;
-      if sdram_state = TRAIN then x_h <= tr_h; else x_h <= trained_h; end if;
-      rd_c <= trained_c(1) & (trained_c(0) xor identical_clocks);
+      if tr_ok = '1' then
+        x_h  <= trained_h;
+        rd_c <= trained_c;
+      else
+        -- not trained (yet, or no phase shifter): $D7FE bit 5 as before
+        x_h  <= '0';
+        rd_c <= '0' & identical_clocks;
+      end if;
       ps_en <= '0';
       lump_rd_pipe(0) <= lump_rd_issue;
       lump_rd_pipe(1 to 8) <= lump_rd_pipe(0 to 7);
@@ -566,44 +619,32 @@ begin
           nonram_val <= write_jobs;
         when x"07" =>
           nonram_val <= resets;
-        -- Read capture training ($C000008-$C000011, maps at $C000080+)
+        -- Read capture training ($C000008-$C00001F)
         when x"08" =>
           nonram_val <= tr_ok & tr_active & tr_no_ps & tr_weak
                         & rd_c & trained_c;
-        when x"09" =>
-          nonram_val <= to_unsigned(tr_best_len, 9)(7 downto 0);
-        when x"0a" =>
-          nonram_val <= "0000000" & to_unsigned(tr_best_len, 9)(8);
-        when x"0b" =>
-          nonram_val <= to_unsigned(tr_centre, 9)(7 downto 0);
-        when x"0c" =>
-          nonram_val <= "0000000" & to_unsigned(tr_centre, 9)(8);
-        when x"0d" =>
-          nonram_val <= to_unsigned(tr_pos, 9)(7 downto 0);
-        when x"0e" =>
-          nonram_val <= "0000000" & to_unsigned(tr_pos, 9)(8);
-        when x"0f" =>
-          nonram_val <= tr_count;
-        -- passes in the first sweep, per choice: $10+4h+c
-        when x"10" => nonram_val <= pass_cnt(0);
-        when x"11" => nonram_val <= pass_cnt(1);
-        when x"12" => nonram_val <= pass_cnt(2);
-        when x"13" => nonram_val <= pass_cnt(3);
-        when x"14" => nonram_val <= pass_cnt(4);
-        when x"15" => nonram_val <= pass_cnt(5);
-        when x"16" => nonram_val <= pass_cnt(6);
-        when x"17" => nonram_val <= pass_cnt(7);
-        when x"18" => nonram_val <= "000000" & map_page & trained_h;
-        when others =>
-          if latched_addr(7 downto 0) >= x"20" and latched_addr(7 downto 0) < x"b0" then
-            if map_page = '1' then
-              nonram_val <= map_ram(to_integer(latched_addr(7 downto 0)) + 144 - 32);
-            else
-              nonram_val <= map_ram(to_integer(latched_addr(7 downto 0)) - 32);
-            end if;
-          else
-            nonram_val <= x"42";
-          end if;
+        when x"09" => nonram_val <= to_unsigned(tr_width, 9)(7 downto 0);
+        when x"0a" => nonram_val <= "0000000" & to_unsigned(tr_width, 9)(8);
+        when x"0b" => nonram_val <= to_unsigned(tr_centre, 9)(7 downto 0);
+        when x"0c" => nonram_val <= "0000000" & to_unsigned(tr_centre, 9)(8);
+        when x"0d" => nonram_val <= to_unsigned(tr_pos, 9)(7 downto 0);
+        when x"0e" => nonram_val <= "0000000" & to_unsigned(tr_pos, 9)(8);
+        when x"0f" => nonram_val <= tr_count;
+        when x"10" => nonram_val <= to_unsigned(tr_left, 9)(7 downto 0);
+        when x"11" => nonram_val <= "0000000" & to_unsigned(tr_left, 9)(8);
+        when x"12" => nonram_val <= to_unsigned(tr_right, 9)(7 downto 0);
+        when x"13" => nonram_val <= "0000000" & to_unsigned(tr_right, 9)(8);
+        when x"14" => nonram_val <= "0000000" & trained_h;
+        when x"15" => nonram_val <= '0' & to_unsigned(tr_bs, 3) & to_unsigned(tr_bl, 4);
+        when x"18" => nonram_val <= cmap(0);
+        when x"19" => nonram_val <= cmap(1);
+        when x"1a" => nonram_val <= cmap(2);
+        when x"1b" => nonram_val <= cmap(3);
+        when x"1c" => nonram_val <= cmap(4);
+        when x"1d" => nonram_val <= cmap(5);
+        when x"1e" => nonram_val <= cmap(6);
+        when x"1f" => nonram_val <= cmap(7);
+        when others => nonram_val <= x"42";
       end case;
 
 
@@ -799,12 +840,6 @@ begin
                 elsif write_latched = '1' and latched_addr(7 downto 0) = x"12" then
                   tr_req <= '1'; tr_mode <= "10";
                   write_latched <= '0';
-                  sdram_emit_command(CMD_NOP);
-                elsif write_latched = '1' and latched_addr(7 downto 0) = x"13" then
-                  -- $C000013: which pass maps $C000020+ shows (h, bit 0)
-                  map_page <= wdata_latched(0);
-                  write_latched <= '0';
-                  busy <= '0';
                   sdram_emit_command(CMD_NOP);
                 elsif write_latched = '1' then
                   -- Repeat SDRAM initialisation sequence whenver a non-RAM
@@ -1041,8 +1076,8 @@ begin
             sdram_emit_command(CMD_NOP);
             case tr_st is
               ---------------------------------------------------------------
-              -- Micro-operations; each returns to tr_ret
-              when M_WAIT =>
+              -- Micro-operations
+              when M_WAIT =>                  -- tr_cnt cycles, then tr_ret
                 if tr_cnt <= 1 then tr_st <= tr_ret; else tr_cnt <= tr_cnt - 1; end if;
               when M_PS =>
                 -- One fine phase step (PSCLK = clock162); PSDONE ~12 later
@@ -1053,9 +1088,9 @@ begin
               when M_PSW =>
                 if ps_done = '1' then
                   if tr_dec = '1' then
-                    if tr_pos = 0 then tr_pos <= TR_STEPS - 1; else tr_pos <= tr_pos - 1; end if;
+                    tr_pos <= tr_wrap(tr_pos - 1);
                   else
-                    if tr_pos = TR_STEPS - 1 then tr_pos <= 0; else tr_pos <= tr_pos + 1; end if;
+                    tr_pos <= tr_wrap(tr_pos + 1);
                   end if;
                   tr_st <= tr_ret;
                 elsif tr_to = 127 then
@@ -1064,16 +1099,47 @@ begin
                 else
                   tr_to <= tr_to + 1;
                 end if;
+              when M_STEPN =>                 -- tr_n steps (tr_ndec), then tr_ret_n
+                if tr_n = 0 then
+                  tr_st <= tr_ret_n;
+                else
+                  tr_n <= tr_n - 1;
+                  tr_dec <= tr_ndec;
+                  tr_ret <= M_STEPN;
+                  tr_st <= M_PS;
+                end if;
+              when M_SEEK =>                  -- to tr_target the short way, then tr_ret_n
+                tr_delta <= tr_target - tr_pos;
+                tr_st <= M_SEEK2;
+              when M_SEEK2 =>
+                if tr_delta >= 0 then
+                  if tr_delta <= TR_STEPS/2 then
+                    tr_n <= tr_delta; tr_ndec <= '0';
+                  else
+                    tr_n <= TR_STEPS - tr_delta; tr_ndec <= '1';
+                  end if;
+                else
+                  if tr_delta >= -TR_STEPS/2 then
+                    tr_n <= -tr_delta; tr_ndec <= '1';
+                  else
+                    tr_n <= TR_STEPS + tr_delta; tr_ndec <= '0';
+                  end if;
+                end if;
+                tr_st <= M_STEPN;
               when M_RWAIT =>
-                -- READ was issued at edge T, and now is T+tr_k.  Words are
-                -- taken from dq_x at T+7-c .. T+10-c.
+                -- READ was issued at edge T, and now is T+tr_k.  Keep what
+                -- both paths would hand dq_x at T+3..T+9: a word seen here
+                -- at T+k reaches dq_x at T+k+1, so a burst starting at
+                -- word j of these 7 is read cycle 3-j.
                 sdram_dqml <= '0'; sdram_dqmh <= '0';
-                if tr_k + to_integer(tr_c) >= 7 and tr_k + to_integer(tr_c) <= 10 then
-                  tw <= dq_x & tw(63 downto 16);
+                if tr_k >= 3 and tr_k <= 9 then
+                  wa <= sdram_dq_latched & wa(111 downto 16);
+                  wb <= dq_f & wb(111 downto 16);
                 end if;
                 if tr_k = 11 then tr_st <= tr_ret; else tr_k <= tr_k + 1; end if;
               when M_WRITE =>
-                -- Four WRITEs (burst length 1), test or saved words
+                -- Four WRITEs (burst length 1), test or saved words; the
+                -- row must be open.  Then tWR, then tr_ret.
                 sdram_emit_command(CMD_WRITE);
                 sdram_ba <= "11";
                 sdram_a(12 downto 11) <= "00";
@@ -1088,24 +1154,78 @@ begin
                 sdram_dqml <= '0'; sdram_dqmh <= '0';
                 if tr_wi = 3 then
                   tr_wi <= 0;
-                  tr_cnt <= 3;                  -- tWR
+                  tr_cnt <= 3;
                   tr_st <= M_WAIT;
                 else
                   tr_wi <= tr_wi + 1;
                 end if;
 
               ---------------------------------------------------------------
+              -- One test of the current phase, then tr_ret_t: (refresh if
+              -- due), open the row, READ twice, close it.  t_va/t_ca and
+              -- t_vb/t_cb: clean on each path, and the read cycle, when
+              -- both READs agreed.
+              when T_TEST0 =>
+                if refresh_due = '1' then
+                  sdram_emit_command(CMD_AUTO_REFRESH);
+                  refresh_due_countdown <= refresh_interval - 1;
+                  tr_cnt <= 11;               -- tRFC
+                  tr_ret <= T_TEST1;
+                  tr_st <= M_WAIT;
+                else
+                  tr_st <= T_TEST1;
+                end if;
+              when T_TEST1 =>
+                sdram_emit_command(CMD_ACTIVATE_ROW);
+                sdram_ba <= "11";
+                sdram_a <= (others => '1');
+                tr_r <= '0';
+                tr_cnt <= 2;                  -- tRCD
+                tr_ret <= T_TEST2;
+                tr_st <= M_WAIT;
+              when T_TEST2 =>
+                sdram_emit_command(CMD_READ);
+                sdram_ba <= "11";
+                sdram_a(12 downto 10) <= "000";
+                sdram_a(9 downto 0) <= to_unsigned(1020, 10);
+                sdram_dqml <= '0'; sdram_dqmh <= '0';
+                tr_k <= 1;
+                tr_ret <= T_TEST3;
+                tr_st <= M_RWAIT;
+              when T_TEST3 =>
+                tj := tr_find(wa);
+                if tj < 4 then tva := '1'; tca := to_unsigned(3 - tj, 2);
+                else tva := '0'; tca := "00"; end if;
+                tj := tr_find(wb);
+                if tj < 4 then tvb := '1'; tcb := to_unsigned(3 - tj, 2);
+                else tvb := '0'; tcb := "00"; end if;
+                if tr_r = '0' then
+                  r1_va <= tva; r1_ca <= tca; r1_vb <= tvb; r1_cb <= tcb;
+                  tr_r <= '1';
+                  tr_st <= T_TEST2;
+                else
+                  if tva = '1' and r1_va = '1' and tca = r1_ca then t_va <= '1'; else t_va <= '0'; end if;
+                  if tvb = '1' and r1_vb = '1' and tcb = r1_cb then t_vb <= '1'; else t_vb <= '0'; end if;
+                  t_ca <= tca;
+                  t_cb <= tcb;
+                  sdram_emit_command(CMD_PRECHARGE);
+                  tr_cnt <= 3;                -- tRP
+                  tr_ret <= tr_ret_t;
+                  tr_st <= M_WAIT;
+                end if;
+
+              ---------------------------------------------------------------
               when T_START =>
-                -- Close all rows (tRP).  Then a training run starts with one
-                -- phase step, which checks that a phase shifter answers; a
-                -- manual step ($C000011/2) is just that step.
+                -- Close all rows (tRP).  A training run then starts with
+                -- one phase step, which checks that a phase shifter answers;
+                -- a manual step ($C000011/2) is just that step.
                 sdram_emit_command(CMD_PRECHARGE);
                 active_row <= '0';
                 tr_had_ok <= tr_ok;
                 tr_dec <= tr_mode(1);
                 tr_cnt <= 3;
-                tr_st <= M_WAIT;
                 tr_ret <= T_PROBED;
+                tr_st <= M_WAIT;
               when T_PROBED =>
                 tr_st <= M_PS;
                 if tr_mode = "00" then
@@ -1114,208 +1234,202 @@ begin
                   tr_ret <= T_FINISH;
                 end if;
               when T_OPENED =>
+                -- Positions are counted from here.  If reads are trusted
+                -- (trained before), save the 8 test bytes first.
+                tr_pos <= 0;
+                if tr_had_ok = '1' then
+                  tr_ret_t <= T_SAVED;
+                  tr_st <= T_TEST0;
+                else
+                  tr_st <= T_SAVED;
+                end if;
+              when T_SAVED =>
+                if tr_had_ok = '1' then
+                  tj := 3 - to_integer(trained_c);
+                  if trained_h = '1' then
+                    tr_saved <= wb(16*tj+63 downto 16*tj);
+                  else
+                    tr_saved <= wa(16*tj+63 downto 16*tj);
+                  end if;
+                end if;
                 sdram_emit_command(CMD_ACTIVATE_ROW);
                 sdram_ba <= "11";
                 sdram_a <= (others => '1');
-                tr_cnt <= 2;                  -- tRCD
-                tr_st <= M_WAIT;
-                tr_ret <= T_SAVED;
                 tr_restore <= '0';
                 tr_wi <= 0;
-                -- Save the 8 bytes, if reads are trustworthy (trained before)
-                tr_c <= rd_c;
-                tr_h <= trained_h;
-                tr_r <= tr_had_ok;
-              when T_SAVED =>
-                if tr_had_ok = '1' and tr_r = '1' then
-                  -- read them, with the current setting
-                  tr_r <= '0';
-                  sdram_emit_command(CMD_READ);
-                  sdram_ba <= "11";
-                  sdram_a(12 downto 10) <= "000";
-                  sdram_a(9 downto 0) <= to_unsigned(1020, 10);
-                  sdram_dqml <= '0'; sdram_dqmh <= '0';
-                  tr_k <= 1;
-                  tr_st <= M_RWAIT;
-                  tr_ret <= T_SAVED;
-                else
-                  if tr_had_ok = '1' then
-                    tr_saved <= tw;
-                  end if;
-                  tr_ret <= T_WRITTEN;
-                  tr_st <= M_WRITE;
-                end if;
-              when T_WRITTEN =>
-                -- Pattern written; close the row and start the sweep
-                sdram_emit_command(CMD_PRECHARGE);
-                tr_cnt <= 3;
-                tr_st <= M_WAIT;
-                tr_ret <= T_STEP;
-                tr_s <= 0;
-                tr_pos <= 0;
-                run_len <= (others => 0);
-                best_len <= (others => 0);
-                run_start <= (others => 0);
-                best_start <= (others => 0);
-                pass_cnt <= (others => x"00");
-              when T_STEP =>
-                -- Test this phase: refresh if due, open the row, then two
-                -- reads with each cycle choice
-                if refresh_due = '1' then
-                  sdram_emit_command(CMD_AUTO_REFRESH);
-                  refresh_due_countdown <= refresh_interval - 1;
-                  tr_cnt <= 11;               -- tRFC
-                  tr_st <= M_WAIT;
-                  tr_ret <= T_STEP_ACT;
-                else
-                  tr_st <= T_STEP_ACT;
-                end if;
-              when T_STEP_ACT =>
-                sdram_emit_command(CMD_ACTIVATE_ROW);
-                sdram_ba <= "11";
-                sdram_a <= (others => '1');
                 tr_cnt <= 2;
+                tr_ret <= T_SAVE_READ;
                 tr_st <= M_WAIT;
-                tr_ret <= T_TEST;
-                tr_c <= "00";
-                tr_h <= '0';
-                tr_r <= '0';
-                tr_okc <= x"FF";
-              when T_TEST =>
-                sdram_emit_command(CMD_READ);
-                sdram_ba <= "11";
-                sdram_a(12 downto 10) <= "000";
-                sdram_a(9 downto 0) <= to_unsigned(1020, 10);
-                sdram_dqml <= '0'; sdram_dqmh <= '0';
-                tr_k <= 1;
-                tr_st <= M_RWAIT;
-                tr_ret <= T_TESTED;
-              when T_TESTED =>
-                if tw /= TR_PATTERN then
-                  if tr_h = '1' then
-                    tr_okc(4 + to_integer(tr_c)) <= '0';
-                  else
-                    tr_okc(to_integer(tr_c)) <= '0';
-                  end if;
-                end if;
-                if tr_r = '0' then
-                  tr_r <= '1';
-                  tr_st <= T_TEST;
-                elsif tr_c /= "11" then
-                  tr_r <= '0';
-                  tr_c <= tr_c + 1;
-                  tr_st <= T_TEST;
-                elsif tr_h = '0' then
-                  tr_r <= '0';
-                  tr_c <= "00";
-                  tr_h <= '1';
-                  tr_st <= T_TEST;
+              when T_SAVE_READ =>
+                -- (row open) write the test pattern
+                tr_ret <= T_WRITTEN;
+                tr_st <= M_WRITE;
+              when T_WRITTEN =>
+                sdram_emit_command(CMD_PRECHARGE);
+                tr_p <= 0;
+                tr_cnt <= 3;
+                tr_ret <= T_CO_TEST;
+                tr_st <= M_WAIT;
+
+              -- 1. Coarse: 8 phases, 35 fine steps apart (back to 0 after)
+              when T_CO_TEST =>
+                tr_ret_t <= T_CO_REC;
+                tr_st <= T_TEST0;
+              when T_CO_REC =>
+                cmap(tr_p) <= '0' & t_vb & t_cb & '0' & t_va & t_ca;
+                tr_p <= tr_p + 1;
+                tr_n <= TR_COARSE;
+                tr_ndec <= '0';
+                tr_ret_n <= T_CO_NEXT;
+                tr_st <= M_STEPN;
+              when T_CO_NEXT =>
+                if tr_p = 8 then
+                  tr_i <= 0; tr_run <= 0; tr_bl <= 0; tr_rs <= 0; tr_bs <= 0;
+                  tr_st <= T_RUN;
                 else
-                  sdram_emit_command(CMD_PRECHARGE);
-                  tr_cnt <= 3;
-                  tr_st <= M_WAIT;
-                  tr_ret <= T_CLOSED;
+                  tr_st <= T_CO_TEST;
                 end if;
-              when T_CLOSED =>
-                -- Book-keeping for this phase, then step on
-                for c in 0 to 7 loop
-                  if tr_okc(c) = '1' then
-                    if run_len(c) = 0 then
-                      run_start(c) <= tr_pos;
-                    end if;
-                    if run_len(c) < TR_STEPS then
-                      run_len(c) <= run_len(c) + 1;
-                      if run_len(c) + 1 > best_len(c) then
-                        best_len(c) <= run_len(c) + 1;
-                        if run_len(c) = 0 then
-                          best_start(c) <= tr_pos;
-                        else
-                          best_start(c) <= run_start(c);
-                        end if;
-                      end if;
-                    end if;
-                  else
-                    run_len(c) <= 0;
-                  end if;
-                  if tr_s < TR_STEPS then
-                    map_sh(c) <= tr_okc(c) & map_sh(c)(7 downto 1);
-                    if tr_okc(c) = '1' and pass_cnt(c) /= x"FF" then
-                      pass_cnt(c) <= pass_cnt(c) + 1;
+
+              -- 2. Longest run of clean coarse phases, going round twice
+              when T_RUN =>
+                if (cmap(tr_i mod 8)(2) or cmap(tr_i mod 8)(6)) = '1' then
+                  if tr_run < 8 then
+                    tr_run <= tr_run + 1;
+                    if tr_run = 0 then tr_rs <= tr_i mod 8; end if;
+                    if tr_run + 1 > tr_bl then
+                      tr_bl <= tr_run + 1;
+                      if tr_run = 0 then tr_bs <= tr_i mod 8; else tr_bs <= tr_rs; end if;
                     end if;
                   end if;
-                end loop;
-                tr_st <= T_STEPPED;
-              when T_STEPPED =>
-                -- Every 8 steps of the first sweep, store the 8 map bytes,
-                -- one per cycle (the map is one single-port RAM)
-                if tr_s < TR_STEPS and (tr_s mod 8) = 7 and tr_mi /= 8 then
-                  map_ram(36 * tr_mi + tr_s / 8) <= map_sh(tr_mi);
-                  tr_mi <= tr_mi + 1;
-                  tr_st <= T_STEPPED;
                 else
-                  tr_mi <= 0;
-                  tr_st <= T_STEP_NEXT;
+                  tr_run <= 0;
                 end if;
-              when T_STEP_NEXT =>
-                tr_s <= tr_s + 1;
-                tr_dec <= '0';
-                tr_st <= M_PS;
-                if tr_s = 2*TR_STEPS - 1 then
-                  tr_ret <= T_CHOOSE;         -- two whole cycles swept
+                if tr_i = 15 then tr_st <= T_RUN_DONE; else tr_i <= tr_i + 1; end if;
+              when T_RUN_DONE =>
+                if tr_bl = 0 then
+                  tr_ok <= '0'; tr_weak <= '0'; tr_width <= 0;
+                  tr_st <= T_RESTORE;
+                elsif tr_bl = 8 then
+                  -- clean all the way round: no edges to find
+                  tr_left <= 0; tr_right <= TR_STEPS - 1;
+                  tr_st <= T_MID;
                 else
-                  tr_ret <= T_STEP;
+                  tr_target <= tr_bs * TR_COARSE;
+                  tr_fc <= 0;
+                  tr_ret_n <= T_FL_STEP;
+                  tr_st <= M_SEEK;
                 end if;
-              when T_CHOOSE =>
-                -- Back at position 0.  Take the way with the widest window
-                -- (the first wins a tie) and seek to its centre.  Spread
-                -- over several cycles to keep the logic short: one compare
-                -- per cycle, then the add, then the wrap.
-                tr_bc <= 0;
-                tr_bi <= 1;
-                tr_st <= T_CHOOSE_SCAN;
-              when T_CHOOSE_SCAN =>
-                if best_len(tr_bi) > best_len(tr_bc) then
-                  tr_bc <= tr_bi;
-                end if;
-                if tr_bi = 7 then
-                  tr_st <= T_CHOOSE_SUM;
+
+              -- 3. Fine edges: step out one at a time until not clean
+              when T_FL_STEP =>
+                if tr_fc = TR_COARSE then
+                  tr_left <= tr_pos;
+                  tr_st <= T_FR_GO;
                 else
-                  tr_bi <= tr_bi + 1;
+                  tr_n <= 1; tr_ndec <= '1';
+                  tr_ret_n <= T_FL_T;
+                  tr_st <= M_STEPN;
                 end if;
-              when T_CHOOSE_SUM =>
-                tr_cs <= best_start(tr_bc) + best_len(tr_bc) / 2;
-                tr_best_len <= best_len(tr_bc);
-                if best_len(tr_bc) /= 0 then
-                  trained_c <= to_unsigned(tr_bc mod 4, 2);
-                  if tr_bc >= 4 then trained_h <= '1'; else trained_h <= '0'; end if;
-                  tr_ok <= '1';
-                  if best_len(tr_bc) < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
+              when T_FL_T =>
+                tr_ret_t <= T_FL_REC;
+                tr_st <= T_TEST0;
+              when T_FL_REC =>
+                if (t_va or t_vb) = '1' then
+                  tr_fc <= tr_fc + 1;
+                  tr_st <= T_FL_STEP;
+                else
+                  tr_left <= tr_wrap(tr_pos + 1);
+                  tr_st <= T_FR_GO;
+                end if;
+              when T_FR_GO =>
+                tr_target <= ((tr_bs + tr_bl - 1) mod 8) * TR_COARSE;
+                tr_fc <= 0;
+                tr_ret_n <= T_FR_STEP;
+                tr_st <= M_SEEK;
+              when T_FR_STEP =>
+                if tr_fc = TR_COARSE then
+                  tr_right <= tr_pos;
+                  tr_st <= T_MID;
+                else
+                  tr_n <= 1; tr_ndec <= '0';
+                  tr_ret_n <= T_FR_T;
+                  tr_st <= M_STEPN;
+                end if;
+              when T_FR_T =>
+                tr_ret_t <= T_FR_REC;
+                tr_st <= T_TEST0;
+              when T_FR_REC =>
+                if (t_va or t_vb) = '1' then
+                  tr_fc <= tr_fc + 1;
+                  tr_st <= T_FR_STEP;
+                else
+                  tr_right <= tr_wrap(tr_pos - 1);
+                  tr_st <= T_MID;
+                end if;
+              when T_MID =>
+                tr_delta <= tr_right - tr_left;
+                tr_st <= T_MID2;
+              when T_MID2 =>
+                if tr_delta < 0 then
+                  tr_width <= tr_delta + TR_STEPS + 1;
+                else
+                  tr_width <= tr_delta + 1;
+                end if;
+                tr_st <= T_MID3;
+              when T_MID3 =>
+                tr_centre <= tr_wrap(tr_left + tr_width / 2);
+                if tr_width >= 4 then tr_qd <= tr_width / 4; else tr_qd <= 1; end if;
+                tr_q <= 0;
+                tr_st <= T_PATH_GO;
+
+              -- 4. Path: the centre, then a quarter-window either side
+              when T_PATH_GO =>
+                if tr_q = 0 then
+                  tr_target <= tr_centre;
+                elsif tr_q = 1 then
+                  tr_target <= tr_wrap(tr_centre - tr_qd);
+                else
+                  tr_target <= tr_wrap(tr_centre + tr_qd);
+                end if;
+                tr_ret_n <= T_PATH_T;
+                tr_st <= M_SEEK;
+              when T_PATH_T =>
+                tr_ret_t <= T_PATH_REC;
+                tr_st <= T_TEST0;
+              when T_PATH_REC =>
+                if tr_q = 0 then
+                  pa_ok <= t_va; pa_c <= t_ca;
+                  pb_ok <= t_vb; pb_c <= t_cb;
+                  cen_va <= t_va; cen_ca <= t_ca;
+                  cen_vb <= t_vb; cen_cb <= t_cb;
+                else
+                  if t_va = '0' or t_ca /= pa_c then pa_ok <= '0'; end if;
+                  if t_vb = '0' or t_cb /= pb_c then pb_ok <= '0'; end if;
+                end if;
+                if tr_q = 2 then
+                  tr_st <= T_PATH_PICK;
+                else
+                  tr_q <= tr_q + 1;
+                  tr_st <= T_PATH_GO;
+                end if;
+              when T_PATH_PICK =>
+                tr_ok <= '1';
+                if tr_width < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
+                if pa_ok = '1' then
+                  trained_h <= '0'; trained_c <= pa_c;
+                elsif pb_ok = '1' then
+                  trained_h <= '1'; trained_c <= pb_c;
+                elsif cen_va = '1' then
+                  trained_h <= '0'; trained_c <= cen_ca; tr_weak <= '1';
+                elsif cen_vb = '1' then
+                  trained_h <= '1'; trained_c <= cen_cb; tr_weak <= '1';
                 else
                   tr_ok <= '0';
-                  tr_weak <= '0';
                 end if;
-                tr_st <= T_CHOOSE_WRAP;
-              when T_CHOOSE_WRAP =>
-                if tr_ok = '0' then
-                  tr_seek <= 0;
-                  tr_centre <= 0;
-                elsif tr_cs >= TR_STEPS then
-                  tr_seek <= tr_cs - TR_STEPS;
-                  tr_centre <= tr_cs - TR_STEPS;
-                else
-                  tr_seek <= tr_cs;
-                  tr_centre <= tr_cs;
-                end if;
-                tr_st <= T_SEEK;
-              when T_SEEK =>
-                if tr_seek /= 0 then
-                  tr_seek <= tr_seek - 1;
-                  tr_dec <= '0';
-                  tr_ret <= T_SEEK;
-                  tr_st <= M_PS;
-                else
-                  tr_st <= T_RESTORE;
-                end if;
+                tr_target <= tr_centre;
+                tr_ret_n <= T_RESTORE;
+                tr_st <= M_SEEK;
+
               when T_RESTORE =>
                 if tr_had_ok = '1' then
                   sdram_emit_command(CMD_ACTIVATE_ROW);
@@ -1324,8 +1438,8 @@ begin
                   tr_restore <= '1';
                   tr_wi <= 0;
                   tr_cnt <= 2;
-                  tr_st <= M_WAIT;
                   tr_ret <= T_RESTORE_W;
+                  tr_st <= M_WAIT;
                 else
                   tr_st <= T_FINISH;
                 end if;
@@ -1337,8 +1451,8 @@ begin
                 sdram_emit_command(CMD_PRECHARGE);
                 tr_restore <= '0';
                 tr_cnt <= 3;
-                tr_st <= M_WAIT;
                 tr_ret <= T_FINISH;
+                tr_st <= M_WAIT;
               when T_FINISH =>
                 active_row <= '0';
                 tr_active <= '0';
