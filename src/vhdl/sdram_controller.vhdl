@@ -295,21 +295,27 @@ architecture tacoma_narrows of sdram_controller is
   --    READ (done twice, results must agree) captures 7 words around the
   --    burst from both crossing paths, and finds where the 4-word pattern
   --    sits: that gives the read cycle for each path, or "not clean".
-  -- 2. The longest run of clean coarse phases (either path) is the window.
+  --    The direct path is captured from dq_x itself (held on the direct
+  --    path while training), the other from dq_f, so what is measured is
+  --    exactly the crossing used afterwards.
+  -- 2. Window, for each path on its own: the longest run of coarse phases
+  --    where that path is clean with the same read cycle.  Each path's
+  --    window ends at the pads' invalid time on one side and at its own
+  --    crossing point on the other (the two crossing points are half a
+  --    cycle apart).  The path with the longer run is used (direct path on
+  --    a tie).
   -- 3. Fine: step out from its first and last coarse phase one fine step at
-  --    a time to find the exact edges, and take the middle.
-  -- 4. Path: test the middle and a quarter-window either side; use the path
-  --    whose cycle is the same at all three (direct path preferred), so the
-  --    phase is well away from that path's crossing point.
+  --    a time, while that path stays clean at that cycle, to find the exact
+  --    edges, and take the middle.  A final test there confirms it.
   constant TR_STEPS    : integer := 280;   -- fine steps per clock162 cycle
                                            -- (VCO 810 MHz / 5, 1/56 VCO each)
   constant TR_COARSE   : integer := 35;    -- fine steps per coarse step
   constant TR_PATTERN  : unsigned(63 downto 0) := x"3CA5C35AA53C5AC3";
   type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_SAVE_READ,
                       T_WRITTEN, T_CO_TEST, T_CO_REC, T_CO_NEXT,
-                      T_RUN, T_RUN_DONE,
+                      T_RUN, T_RUN_DONE, T_RUN_GO,
                       T_FL_STEP, T_FL_T, T_FL_REC, T_FR_GO, T_FR_STEP, T_FR_T, T_FR_REC,
-                      T_MID, T_MID2, T_MID3, T_PATH_GO, T_PATH_T, T_PATH_REC, T_PATH_PICK,
+                      T_MID, T_MID2, T_MID3, T_PATH_GO, T_PATH_T, T_PATH_REC,
                       T_RESTORE, T_RESTORE_W, T_FINISH, T_ABORT,
                       T_TEST0, T_TEST1, T_TEST2, T_TEST3,
                       M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE,
@@ -356,17 +362,16 @@ architecture tacoma_narrows of sdram_controller is
   signal tr_run        : integer range 0 to 8 := 0;
   signal tr_rs, tr_bs  : integer range 0 to 7 := 0;
   signal tr_bl         : integer range 0 to 8 := 0;
+  signal tr_rc, tr_bc  : unsigned(1 downto 0) := "00";  -- run's read cycle
+  signal tr_h          : std_logic := '0';   -- path being scanned / chosen
+  signal tr_bs0        : integer range 0 to 7 := 0;     -- path 0's best run
+  signal tr_bl0        : integer range 0 to 8 := 0;
+  signal tr_bc0        : unsigned(1 downto 0) := "00";
   signal tr_fc         : integer range 0 to TR_COARSE := 0;
   signal tr_left       : integer range 0 to TR_STEPS-1 := 0;
   signal tr_right      : integer range 0 to TR_STEPS-1 := 0;
   signal tr_width      : integer range 0 to TR_STEPS := 0;
   signal tr_centre     : integer range 0 to TR_STEPS-1 := 0;
-  signal tr_qd         : integer range 0 to TR_STEPS/4 := 0;
-  signal tr_q          : integer range 0 to 3 := 0;
-  signal pa_ok, pb_ok  : std_logic := '0';
-  signal pa_c, pb_c    : unsigned(1 downto 0) := "00";
-  signal cen_va, cen_vb : std_logic := '0';
-  signal cen_ca, cen_cb : unsigned(1 downto 0) := "00";
 
   -- Where the pattern starts in 7 captured words: j = 0..3, or 7 if not
   -- there.  (The 4 words are all different, so at most one j matches.)
@@ -378,6 +383,14 @@ architecture tacoma_narrows of sdram_controller is
       end if;
     end loop;
     return 7;
+  end function;
+  -- A test result is clean on path h at read cycle c
+  function tr_clean(h : std_logic; va : std_logic; ca : unsigned(1 downto 0);
+                    vb : std_logic; cb : unsigned(1 downto 0);
+                    c : unsigned(1 downto 0)) return boolean is
+  begin
+    if h = '0' then return va = '1' and ca = c;
+    else return vb = '1' and cb = c; end if;
   end function;
   -- (fine position arithmetic, all mod TR_STEPS)
   function tr_wrap(x : integer) return integer is
@@ -534,7 +547,11 @@ begin
       else
         dq_x <= sdram_dq_latched;
       end if;
-      if tr_ok = '1' then
+      if tr_active = '1' then
+        -- training measures the direct path through dq_x itself
+        x_h  <= '0';
+        rd_c <= trained_c;
+      elsif tr_ok = '1' then
         x_h  <= trained_h;
         rd_c <= trained_c;
       else
@@ -1156,12 +1173,16 @@ begin
                 tr_st <= M_STEPN;
               when M_RWAIT =>
                 -- READ was issued at edge T, and now is T+tr_k.  Keep what
-                -- both paths would hand dq_x at T+3..T+9: a word seen here
-                -- at T+k reaches dq_x at T+k+1, so a burst starting at
-                -- word j of these 7 is read cycle 3-j.
+                -- dq_x takes at edges T+3..T+9 on each path (word i = edge
+                -- T+3+i), so a burst starting at word j of these 7 is read
+                -- cycle 3-j.  Path 0: dq_x itself (x_h is held at 0 while
+                -- training), so one edge later; path 1: dq_f, which is what
+                -- dq_x would take at the same edge.
                 sdram_dqml <= '0'; sdram_dqmh <= '0';
+                if tr_k >= 4 and tr_k <= 10 then
+                  wa <= dq_x & wa(111 downto 16);
+                end if;
                 if tr_k >= 3 and tr_k <= 9 then
-                  wa <= sdram_dq_latched & wa(111 downto 16);
                   wb <= dq_f & wb(111 downto 16);
                 end if;
                 if tr_k = 11 then tr_st <= tr_ret; else tr_k <= tr_k + 1; end if;
@@ -1314,27 +1335,53 @@ begin
               when T_CO_NEXT =>
                 if tr_p = 8 then
                   tr_i <= 0; tr_run <= 0; tr_bl <= 0; tr_rs <= 0; tr_bs <= 0;
+                  tr_h <= '0';
                   tr_st <= T_RUN;
                 else
                   tr_st <= T_CO_TEST;
                 end if;
 
-              -- 2. Longest run of clean coarse phases, going round twice
+              -- 2. For path tr_h, the longest run of coarse phases clean at
+              --    one read cycle, going round twice
               when T_RUN =>
-                if (cmap(tr_i mod 8)(2) or cmap(tr_i mod 8)(6)) = '1' then
-                  if tr_run < 8 then
+                if tr_h = '0' then
+                  tva := cmap(tr_i mod 8)(2); tca := cmap(tr_i mod 8)(1 downto 0);
+                else
+                  tva := cmap(tr_i mod 8)(6); tca := cmap(tr_i mod 8)(5 downto 4);
+                end if;
+                if tva = '1' then
+                  if tr_run = 0 or tca /= tr_rc then
+                    -- a new run starts here
+                    tr_run <= 1; tr_rs <= tr_i mod 8; tr_rc <= tca;
+                    if tr_bl = 0 then
+                      tr_bl <= 1; tr_bs <= tr_i mod 8; tr_bc <= tca;
+                    end if;
+                  elsif tr_run < 8 then
                     tr_run <= tr_run + 1;
-                    if tr_run = 0 then tr_rs <= tr_i mod 8; end if;
                     if tr_run + 1 > tr_bl then
-                      tr_bl <= tr_run + 1;
-                      if tr_run = 0 then tr_bs <= tr_i mod 8; else tr_bs <= tr_rs; end if;
+                      tr_bl <= tr_run + 1; tr_bs <= tr_rs; tr_bc <= tr_rc;
                     end if;
                   end if;
                 else
                   tr_run <= 0;
                 end if;
-                if tr_i = 15 then tr_st <= T_RUN_DONE; else tr_i <= tr_i + 1; end if;
+                if tr_i /= 15 then
+                  tr_i <= tr_i + 1;
+                elsif tr_h = '0' then
+                  -- keep path 0's best, then the same for path 1
+                  tr_bl0 <= tr_bl; tr_bs0 <= tr_bs; tr_bc0 <= tr_bc;
+                  tr_i <= 0; tr_run <= 0; tr_bl <= 0; tr_rs <= 0; tr_bs <= 0;
+                  tr_h <= '1';
+                else
+                  tr_st <= T_RUN_DONE;
+                end if;
               when T_RUN_DONE =>
+                -- the longer run of the two (path 0 on a tie)
+                if tr_bl0 >= tr_bl then
+                  tr_h <= '0'; tr_bl <= tr_bl0; tr_bs <= tr_bs0; tr_bc <= tr_bc0;
+                end if;
+                tr_st <= T_RUN_GO;
+              when T_RUN_GO =>
                 if tr_bl = 0 then
                   tr_ok <= '0'; tr_weak <= '0'; tr_width <= 0;
                   tr_st <= T_RESTORE;
@@ -1363,7 +1410,7 @@ begin
                 tr_ret_t <= T_FL_REC;
                 tr_st <= T_TEST0;
               when T_FL_REC =>
-                if (t_va or t_vb) = '1' then
+                if tr_clean(tr_h, t_va, t_ca, t_vb, t_cb, tr_bc) then
                   tr_fc <= tr_fc + 1;
                   tr_st <= T_FL_STEP;
                 else
@@ -1388,7 +1435,7 @@ begin
                 tr_ret_t <= T_FR_REC;
                 tr_st <= T_TEST0;
               when T_FR_REC =>
-                if (t_va or t_vb) = '1' then
+                if tr_clean(tr_h, t_va, t_ca, t_vb, t_cb, tr_bc) then
                   tr_fc <= tr_fc + 1;
                   tr_st <= T_FR_STEP;
                 else
@@ -1407,57 +1454,27 @@ begin
                 tr_st <= T_MID3;
               when T_MID3 =>
                 tr_centre <= tr_wrap(tr_left + tr_width / 2);
-                if tr_width >= 4 then tr_qd <= tr_width / 4; else tr_qd <= 1; end if;
-                tr_q <= 0;
                 tr_st <= T_PATH_GO;
 
-              -- 4. Path: the centre, then a quarter-window either side
+              -- 4. Go to the middle, and check it there
               when T_PATH_GO =>
-                if tr_q = 0 then
-                  tr_target <= tr_centre;
-                elsif tr_q = 1 then
-                  tr_target <= tr_wrap(tr_centre - tr_qd);
-                else
-                  tr_target <= tr_wrap(tr_centre + tr_qd);
-                end if;
+                tr_target <= tr_centre;
                 tr_ret_n <= T_PATH_T;
                 tr_st <= M_SEEK;
               when T_PATH_T =>
                 tr_ret_t <= T_PATH_REC;
                 tr_st <= T_TEST0;
               when T_PATH_REC =>
-                if tr_q = 0 then
-                  pa_ok <= t_va; pa_c <= t_ca;
-                  pb_ok <= t_vb; pb_c <= t_cb;
-                  cen_va <= t_va; cen_ca <= t_ca;
-                  cen_vb <= t_vb; cen_cb <= t_cb;
-                else
-                  if t_va = '0' or t_ca /= pa_c then pa_ok <= '0'; end if;
-                  if t_vb = '0' or t_cb /= pb_c then pb_ok <= '0'; end if;
-                end if;
-                if tr_q = 2 then
-                  tr_st <= T_PATH_PICK;
-                else
-                  tr_q <= tr_q + 1;
-                  tr_st <= T_PATH_GO;
-                end if;
-              when T_PATH_PICK =>
                 tr_ok <= '1';
-                if tr_width < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
-                if pa_ok = '1' then
-                  trained_h <= '0'; trained_c <= pa_c;
-                elsif pb_ok = '1' then
-                  trained_h <= '1'; trained_c <= pb_c;
-                elsif cen_va = '1' then
-                  trained_h <= '0'; trained_c <= cen_ca; tr_weak <= '1';
-                elsif cen_vb = '1' then
-                  trained_h <= '1'; trained_c <= cen_cb; tr_weak <= '1';
+                trained_h <= tr_h;
+                trained_c <= tr_bc;
+                if tr_width < 16
+                  or not tr_clean(tr_h, t_va, t_ca, t_vb, t_cb, tr_bc) then
+                  tr_weak <= '1';
                 else
-                  tr_ok <= '0';
+                  tr_weak <= '0';
                 end if;
-                tr_target <= tr_centre;
-                tr_ret_n <= T_RESTORE;
-                tr_st <= M_SEEK;
+                tr_st <= T_RESTORE;
 
               when T_RESTORE =>
                 if tr_had_ok = '1' then

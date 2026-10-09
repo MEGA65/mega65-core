@@ -74,6 +74,9 @@ BENCHES = {
                         ["-gphi0_ps=4100", "-gdm_ps=1500", "--stop-time=4ms"],
                         ["-gphi0_ps=1300", "-gdm_ps=5600", "--stop-time=4ms"],
                         ["-gphi0_ps=5000", "-gdm_ps=2500", "-gxw_ps=3500", "--stop-time=4ms"],
+                        # a wide data eye, like the R6 (about 0.5 ns invalid)
+                        ["-gphi0_ps=0", "-gdm_ps=4000", "-gxw_ps=500", "--stop-time=4ms"],
+                        ["-gphi0_ps=3000", "-gdm_ps=2000", "-gxw_ps=500", "--stop-time=4ms"],
                         ["-gno_ps=1", "--stop-time=4ms"],
                         ["-gforce_h1c0=1", "--stop-time=4ms"],
                         ["-gboot=1", "--stop-time=4ms"],
