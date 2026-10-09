@@ -404,6 +404,15 @@ set n_hold  [expr $ratio-1]
 set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
 set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
 
+# SDRAM read capture training: the controller moves clock163m (its own MMCM,
+# whose phase to clock163 differs after every lock anyway) through a whole
+# cycle with the MMCM fine phase shift, so the crossing from the IOB capture
+# registers into clock163 (direct, or via a falling-edge stage) has no fixed
+# relationship to time against.  Keep it a short plain delay instead.
+set_max_delay -datapath_only 2.0 \
+  -from [get_cells -hier -filter {NAME =~ *sdramctrl0/sdram_dq_latched_reg*}] \
+  -to   [get_cells -hier -filter {NAME =~ *sdramctrl0/dq_[xf]_reg*}]
+
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]

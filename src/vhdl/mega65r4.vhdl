@@ -317,6 +317,8 @@ architecture Behavioral of container is
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock162 : std_logic;
   signal clock162m : std_logic;
+  -- SDRAM read capture training: fine phase shift of clock162m
+  signal sdram_ps_en, sdram_ps_incdec, sdram_ps_done : std_logic;
   signal clock200 : std_logic;
   signal clock270 : std_logic;
   signal clock325 : std_logic;
@@ -639,7 +641,10 @@ begin
                clock163m => clock162m,  --  162     MHz, phase shifted by -207 degrees for SDRAM read timing
                clock200  => clock200,   --  200     MHz
                clock270  => clock270,   --  270     MHz
-               clock325  => clock325    --  325     MHz
+               clock325  => clock325,   --  325     MHz
+               clock163m_ps_en     => sdram_ps_en,
+               clock163m_ps_incdec => sdram_ps_incdec,
+               clock163m_ps_done   => sdram_ps_done
                );
 
   upscaler0: entity work.upscaler
@@ -930,6 +935,9 @@ begin
       identical_clocks => sdram_slow_clock,
       clock162 => clock162,
       clock162r => clock162m,
+      ps_en     => sdram_ps_en,
+      ps_incdec => sdram_ps_incdec,
+      ps_done   => sdram_ps_done,
       -- LUMP port for SSNAIL
       lump_cmd_valid => ssnail_sd_cmd_valid,
       lump_cmd_ready => ssnail_sd_cmd_ready,

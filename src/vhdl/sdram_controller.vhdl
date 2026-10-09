@@ -17,6 +17,17 @@ entity sdram_controller is
 
         identical_clocks : in std_logic;
 
+        -- Read capture training.  clock162r comes from an MMCM of its own,
+        -- whose phase relative to clock162 is different after every lock, so
+        -- after initialisation the controller sweeps clock162r through a
+        -- whole cycle with the MMCM's dynamic fine phase shift (PSCLK =
+        -- clock162), finds the widest window of clean reads and centres it.
+        -- Leave ps_done unconnected ('0') if there is no phase shifter: the
+        -- training then stops at once and nothing changes.
+        ps_en     : out std_logic := '0';
+        ps_incdec : out std_logic := '1';
+        ps_done   : in  std_logic := '0';
+
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
         -- speed up simulation)
         enforce_100us_delay : in boolean := true;
@@ -142,6 +153,7 @@ architecture tacoma_narrows of sdram_controller is
                          READ_WAIT_2,
                          READ_WAIT_3,
                          READ_WAIT_4,
+                         READ_WAIT_5,
                          READ_0,
                          READ_1,
                          READ_2,
@@ -172,6 +184,7 @@ architecture tacoma_narrows of sdram_controller is
                          LUMP_READ_DRAIN,
                          LUMP_WRITE,
                          LUMP_WRITE_RECOVER,
+                         TRAIN,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
 
@@ -254,6 +267,72 @@ architecture tacoma_narrows of sdram_controller is
   signal lump_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
   signal lump_rd_issue : std_logic := '0';
 
+  -- The one place read data crosses from clock162r to clock162.  Both the
+  -- CPU line fill and LUMP read from here, so they can never disagree.
+  signal dq_x          : unsigned(15 downto 0) := (others => '0');
+  -- Read data cycle: words are taken from dq_x at T+7-rd_c .. T+10-rd_c
+  -- after a READ at T.  The trained value, with bit 0 flipped by
+  -- identical_clocks ($D7FE bit 5) for experiments.  (Without training,
+  -- 0 and 1 are the old bit 5 = 0 and 1, plus the dq_x stage.)
+  signal rd_c          : unsigned(1 downto 0) := "00";
+  signal trained_c     : unsigned(1 downto 0) := "00";
+  -- dq_x takes the data either straight from sdram_dq_latched (h = 0) or
+  -- via dq_f on the falling edge of clock162 (h = 1).  That moves the point
+  -- where a clock162r edge is too close to a clock162 edge by half a cycle,
+  -- so a data window can always be found that it does not cut in two.
+  signal dq_f          : unsigned(15 downto 0) := (others => '0');
+  signal x_h           : std_logic := '0';
+  signal trained_h     : std_logic := '0';
+  signal tr_h          : std_logic := '0';
+  signal map_page      : std_logic := '0';
+
+  -- Training.  Test words live at the top 8 bytes of the SDRAM
+  -- (bank 3, last row, word columns 1020-1023).
+  constant TR_STEPS    : integer := 280;   -- fine steps per clock162 cycle
+                                           -- (VCO 810 MHz / 5, 1/56 VCO each)
+  constant TR_PATTERN  : unsigned(63 downto 0) := x"3CA5C35AA53C5AC3";
+  type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_WRITTEN,
+                      T_STEP, T_STEP_ACT, T_TEST, T_TESTED, T_CLOSED,
+                      T_STEPPED, T_CHOOSE, T_SEEK, T_RESTORE, T_RESTORE_W,
+                      T_FINISH, T_ABORT,
+                      M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE);
+  signal tr_st         : tr_state_t := T_START;
+  signal tr_ret        : tr_state_t := T_START;
+  signal tr_req        : std_logic := '0';   -- train after init
+  signal tr_mode       : unsigned(1 downto 0) := "00"; -- 0 train, 1 +1, 2 -1
+  signal tr_active     : std_logic := '0';
+  signal tr_ok         : std_logic := '0';   -- last training found a window
+  signal tr_weak       : std_logic := '0';   -- ... but under 16 steps wide
+  signal tr_no_ps      : std_logic := '0';   -- no phase shifter answered
+  signal tr_count      : unsigned(7 downto 0) := x"00";
+  signal tr_dec        : std_logic := '0';
+  signal tr_to         : integer range 0 to 127 := 0;
+  signal tr_cnt        : integer range 0 to 15 := 0;
+  signal tr_k          : integer range 0 to 15 := 0;
+  signal tr_c          : unsigned(1 downto 0) := "00";
+  signal tr_r          : std_logic := '0';
+  signal tr_wi         : integer range 0 to 3 := 0;
+  signal tr_restore    : std_logic := '0';
+  signal tr_had_ok     : std_logic := '0';
+  signal tw            : unsigned(63 downto 0) := (others => '0');
+  signal tr_saved      : unsigned(63 downto 0) := (others => '0');
+  signal tr_s          : integer range 0 to 2*TR_STEPS := 0;
+  signal tr_pos        : integer range 0 to TR_STEPS-1 := 0;
+  signal tr_seek       : integer range 0 to TR_STEPS-1 := 0;
+  signal tr_okc        : std_logic_vector(7 downto 0) := x"00";  -- 4h+c
+  type tr_n_t is array (0 to 7) of integer range 0 to TR_STEPS;
+  signal run_len, run_start, best_len, best_start : tr_n_t := (others => 0);
+  signal tr_best_len   : integer range 0 to TR_STEPS := 0;
+  signal tr_centre     : integer range 0 to TR_STEPS-1 := 0;
+  type tr_cnt_t is array (0 to 7) of unsigned(7 downto 0);
+  signal pass_cnt      : tr_cnt_t := (others => x"00");
+  signal map_sh        : tr_cnt_t := (others => x"00");
+  -- Pass map of the first sweep: step 8i+j is bit j of byte 36(4h+c)+i.
+  -- Registers $C000020-$C0000AF show h = the last value written to
+  -- $C000013 (bit 0), c = 0-3 at $20, $44, $68, $8C.
+  type map_ram_t is array (0 to 287) of unsigned(7 downto 0);
+  signal map_ram       : map_ram_t := (others => x"00");
+
   attribute iob : string;
   attribute iob of sdram_dq_out : signal is "true";
   attribute iob of sdram_dq_oe_n : signal is "true";
@@ -285,6 +364,13 @@ begin
 
     if rising_edge(clock162r) then
       sdram_dq_latched <= sdram_dq;
+    end if;
+  end process;
+
+  process(clock162) is
+  begin
+    if falling_edge(clock162) then
+      dq_f <= sdram_dq_latched;
     end if;
   end process;
 
@@ -333,6 +419,7 @@ begin
       end case;
     end procedure;
 
+    variable bc : integer range 0 to 7;
   begin
     if rising_edge(clock162) then
 
@@ -381,14 +468,27 @@ begin
 
       -- LUMP read data capture.  A READ (burst length 4) emitted at edge T
       -- delivers words at edges T+6..T+9 (T+5..T+8 with identical_clocks),
-      -- matching READ_1..READ_4 of the CPU read path.  lump_rd_issue is set
+      -- as seen in sdram_dq_latched, matching READ_1..READ_4 of the CPU
+      -- read path.  lump_rd_issue is set
       -- at edge T, so at edge T+k we see lump_rd_pipe(k-2).
+      -- (Words reach dq_x one cycle after sdram_dq_latched: they are taken
+      -- at T+7-rd_c .. T+10-rd_c.)
+      if x_h = '1' then
+        dq_x <= dq_f;
+      else
+        dq_x <= sdram_dq_latched;
+      end if;
+      if sdram_state = TRAIN then x_h <= tr_h; else x_h <= trained_h; end if;
+      rd_c <= trained_c(1) & (trained_c(0) xor identical_clocks);
+      ps_en <= '0';
       lump_rd_pipe(0) <= lump_rd_issue;
       lump_rd_pipe(1 to 8) <= lump_rd_pipe(0 to 7);
-      if (identical_clocks = '0' and (lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7)) = '1')
-        or (identical_clocks = '1' and (lump_rd_pipe(3) or lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6)) = '1')
+      if (rd_c = "00" and (lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7) or lump_rd_pipe(8)) = '1')
+        or (rd_c = "01" and (lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7)) = '1')
+        or (rd_c = "10" and (lump_rd_pipe(3) or lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6)) = '1')
+        or (rd_c = "11" and (lump_rd_pipe(2) or lump_rd_pipe(3) or lump_rd_pipe(4) or lump_rd_pipe(5)) = '1')
       then
-        lump_rdata       <= sdram_dq_latched;
+        lump_rdata       <= dq_x;
         lump_rdata_valid <= '1';
       end if;
 
@@ -463,7 +563,44 @@ begin
           nonram_val <= write_jobs;
         when x"07" =>
           nonram_val <= resets;
-        when others => nonram_val <= x"42";
+        -- Read capture training ($C000008-$C000011, maps at $C000080+)
+        when x"08" =>
+          nonram_val <= tr_ok & tr_active & tr_no_ps & tr_weak
+                        & rd_c & trained_c;
+        when x"09" =>
+          nonram_val <= to_unsigned(tr_best_len, 9)(7 downto 0);
+        when x"0a" =>
+          nonram_val <= "0000000" & to_unsigned(tr_best_len, 9)(8);
+        when x"0b" =>
+          nonram_val <= to_unsigned(tr_centre, 9)(7 downto 0);
+        when x"0c" =>
+          nonram_val <= "0000000" & to_unsigned(tr_centre, 9)(8);
+        when x"0d" =>
+          nonram_val <= to_unsigned(tr_pos, 9)(7 downto 0);
+        when x"0e" =>
+          nonram_val <= "0000000" & to_unsigned(tr_pos, 9)(8);
+        when x"0f" =>
+          nonram_val <= tr_count;
+        -- passes in the first sweep, per choice: $10+4h+c
+        when x"10" => nonram_val <= pass_cnt(0);
+        when x"11" => nonram_val <= pass_cnt(1);
+        when x"12" => nonram_val <= pass_cnt(2);
+        when x"13" => nonram_val <= pass_cnt(3);
+        when x"14" => nonram_val <= pass_cnt(4);
+        when x"15" => nonram_val <= pass_cnt(5);
+        when x"16" => nonram_val <= pass_cnt(6);
+        when x"17" => nonram_val <= pass_cnt(7);
+        when x"18" => nonram_val <= "000000" & map_page & trained_h;
+        when others =>
+          if latched_addr(7 downto 0) >= x"20" and latched_addr(7 downto 0) < x"b0" then
+            if map_page = '1' then
+              nonram_val <= map_ram(to_integer(latched_addr(7 downto 0)) + 144 - 32);
+            else
+              nonram_val <= map_ram(to_integer(latched_addr(7 downto 0)) - 32);
+            end if;
+          else
+            nonram_val <= x"42";
+          end if;
       end case;
 
 
@@ -606,9 +743,11 @@ begin
 
         if sdram_init_phase = 31 then
           sdram_prepped <= '1';
-          report "BUSY: Clearing busy";
-          busy          <= '0';
-          report "SDRAM: Clearing BUSY at end of initialisation sequence";
+          -- busy stays set: the read capture training comes next, and
+          -- clears it.
+          tr_req        <= '1';
+          tr_mode       <= "00";
+          report "SDRAM: initialisation done, read capture training next";
         elsif sdram_init_phase /= 0 then
           sdram_init_phase <= sdram_init_phase + 1;
         end if;
@@ -620,7 +759,16 @@ begin
         end if;
         case sdram_state is
           when IDLE =>
-            if refresh_due = '1' and active_row = '0' then
+            if tr_req = '1' then
+              -- Read capture training (or a manual phase step).  Rows are
+              -- closed first; refresh is handled inside.
+              tr_req      <= '0';
+              tr_active   <= '1';
+              busy        <= '1';
+              tr_st       <= T_START;
+              sdram_state <= TRAIN;
+              sdram_emit_command(CMD_NOP);
+            elsif refresh_due = '1' and active_row = '0' then
               report "REFRESH is DUE (and no row was open, so triggering immediately)";
               sdram_emit_command(CMD_AUTO_REFRESH);
               sdram_state <= REFRESH_1;
@@ -635,7 +783,27 @@ begin
             elsif read_latched = '1' or write_latched = '1' then
               if latched_addr(26) = '1' then
                 report "NONRAMACCESS: Non-RAM access detected";
-                if write_latched = '1' then
+                if write_latched = '1' and latched_addr(7 downto 0) = x"10" then
+                  -- $C000010: train again (the 8 test bytes are restored)
+                  tr_req <= '1'; tr_mode <= "00";
+                  write_latched <= '0';
+                  sdram_emit_command(CMD_NOP);
+                elsif write_latched = '1' and latched_addr(7 downto 0) = x"11" then
+                  -- $C000011 / $C000012: one fine phase step later / earlier
+                  tr_req <= '1'; tr_mode <= "01";
+                  write_latched <= '0';
+                  sdram_emit_command(CMD_NOP);
+                elsif write_latched = '1' and latched_addr(7 downto 0) = x"12" then
+                  tr_req <= '1'; tr_mode <= "10";
+                  write_latched <= '0';
+                  sdram_emit_command(CMD_NOP);
+                elsif write_latched = '1' and latched_addr(7 downto 0) = x"13" then
+                  -- $C000013: which pass maps $C000020+ shows (h, bit 0)
+                  map_page <= wdata_latched(0);
+                  write_latched <= '0';
+                  busy <= '0';
+                  sdram_emit_command(CMD_NOP);
+                elsif write_latched = '1' then
                   -- Repeat SDRAM initialisation sequence whenver a non-RAM
                   -- address is written.
                   -- XXX Used to debug whether SDRAM initialisation is sometimes
@@ -865,6 +1033,299 @@ begin
               lump_cmd_done <= '1';
               sdram_state   <= IDLE;
             end if;
+          when TRAIN =>
+            sdram_state <= TRAIN;
+            sdram_emit_command(CMD_NOP);
+            case tr_st is
+              ---------------------------------------------------------------
+              -- Micro-operations; each returns to tr_ret
+              when M_WAIT =>
+                if tr_cnt <= 1 then tr_st <= tr_ret; else tr_cnt <= tr_cnt - 1; end if;
+              when M_PS =>
+                -- One fine phase step (PSCLK = clock162); PSDONE ~12 later
+                ps_en     <= '1';
+                ps_incdec <= not tr_dec;
+                tr_to     <= 0;
+                tr_st     <= M_PSW;
+              when M_PSW =>
+                if ps_done = '1' then
+                  if tr_dec = '1' then
+                    if tr_pos = 0 then tr_pos <= TR_STEPS - 1; else tr_pos <= tr_pos - 1; end if;
+                  else
+                    if tr_pos = TR_STEPS - 1 then tr_pos <= 0; else tr_pos <= tr_pos + 1; end if;
+                  end if;
+                  tr_st <= tr_ret;
+                elsif tr_to = 127 then
+                  tr_no_ps <= '1';
+                  tr_st <= T_ABORT;
+                else
+                  tr_to <= tr_to + 1;
+                end if;
+              when M_RWAIT =>
+                -- READ was issued at edge T, and now is T+tr_k.  Words are
+                -- taken from dq_x at T+7-c .. T+10-c.
+                sdram_dqml <= '0'; sdram_dqmh <= '0';
+                if tr_k + to_integer(tr_c) >= 7 and tr_k + to_integer(tr_c) <= 10 then
+                  tw <= dq_x & tw(63 downto 16);
+                end if;
+                if tr_k = 11 then tr_st <= tr_ret; else tr_k <= tr_k + 1; end if;
+              when M_WRITE =>
+                -- Four WRITEs (burst length 1), test or saved words
+                sdram_emit_command(CMD_WRITE);
+                sdram_ba <= "11";
+                sdram_a(12 downto 11) <= "00";
+                sdram_a(10) <= '0';
+                sdram_a(9 downto 0) <= to_unsigned(1020 + tr_wi, 10);
+                if tr_restore = '1' then
+                  sdram_dq_out <= tr_saved(tr_wi*16+15 downto tr_wi*16);
+                else
+                  sdram_dq_out <= TR_PATTERN(tr_wi*16+15 downto tr_wi*16);
+                end if;
+                sdram_dq_oe_n <= (others => '0');
+                sdram_dqml <= '0'; sdram_dqmh <= '0';
+                if tr_wi = 3 then
+                  tr_wi <= 0;
+                  tr_cnt <= 3;                  -- tWR
+                  tr_st <= M_WAIT;
+                else
+                  tr_wi <= tr_wi + 1;
+                end if;
+
+              ---------------------------------------------------------------
+              when T_START =>
+                -- Close all rows (tRP).  Then a training run starts with one
+                -- phase step, which checks that a phase shifter answers; a
+                -- manual step ($C000011/2) is just that step.
+                sdram_emit_command(CMD_PRECHARGE);
+                active_row <= '0';
+                tr_had_ok <= tr_ok;
+                tr_dec <= tr_mode(1);
+                tr_cnt <= 3;
+                tr_st <= M_WAIT;
+                tr_ret <= T_PROBED;
+              when T_PROBED =>
+                tr_st <= M_PS;
+                if tr_mode = "00" then
+                  tr_ret <= T_OPENED;
+                else
+                  tr_ret <= T_FINISH;
+                end if;
+              when T_OPENED =>
+                sdram_emit_command(CMD_ACTIVATE_ROW);
+                sdram_ba <= "11";
+                sdram_a <= (others => '1');
+                tr_cnt <= 2;                  -- tRCD
+                tr_st <= M_WAIT;
+                tr_ret <= T_SAVED;
+                tr_restore <= '0';
+                tr_wi <= 0;
+                -- Save the 8 bytes, if reads are trustworthy (trained before)
+                tr_c <= rd_c;
+                tr_h <= trained_h;
+                tr_r <= tr_had_ok;
+              when T_SAVED =>
+                if tr_had_ok = '1' and tr_r = '1' then
+                  -- read them, with the current setting
+                  tr_r <= '0';
+                  sdram_emit_command(CMD_READ);
+                  sdram_ba <= "11";
+                  sdram_a(12 downto 10) <= "000";
+                  sdram_a(9 downto 0) <= to_unsigned(1020, 10);
+                  sdram_dqml <= '0'; sdram_dqmh <= '0';
+                  tr_k <= 1;
+                  tr_st <= M_RWAIT;
+                  tr_ret <= T_SAVED;
+                else
+                  if tr_had_ok = '1' then
+                    tr_saved <= tw;
+                  end if;
+                  tr_ret <= T_WRITTEN;
+                  tr_st <= M_WRITE;
+                end if;
+              when T_WRITTEN =>
+                -- Pattern written; close the row and start the sweep
+                sdram_emit_command(CMD_PRECHARGE);
+                tr_cnt <= 3;
+                tr_st <= M_WAIT;
+                tr_ret <= T_STEP;
+                tr_s <= 0;
+                tr_pos <= 0;
+                run_len <= (others => 0);
+                best_len <= (others => 0);
+                run_start <= (others => 0);
+                best_start <= (others => 0);
+                pass_cnt <= (others => x"00");
+              when T_STEP =>
+                -- Test this phase: refresh if due, open the row, then two
+                -- reads with each cycle choice
+                if refresh_due = '1' then
+                  sdram_emit_command(CMD_AUTO_REFRESH);
+                  refresh_due_countdown <= refresh_interval - 1;
+                  tr_cnt <= 11;               -- tRFC
+                  tr_st <= M_WAIT;
+                  tr_ret <= T_STEP_ACT;
+                else
+                  tr_st <= T_STEP_ACT;
+                end if;
+              when T_STEP_ACT =>
+                sdram_emit_command(CMD_ACTIVATE_ROW);
+                sdram_ba <= "11";
+                sdram_a <= (others => '1');
+                tr_cnt <= 2;
+                tr_st <= M_WAIT;
+                tr_ret <= T_TEST;
+                tr_c <= "00";
+                tr_h <= '0';
+                tr_r <= '0';
+                tr_okc <= x"FF";
+              when T_TEST =>
+                sdram_emit_command(CMD_READ);
+                sdram_ba <= "11";
+                sdram_a(12 downto 10) <= "000";
+                sdram_a(9 downto 0) <= to_unsigned(1020, 10);
+                sdram_dqml <= '0'; sdram_dqmh <= '0';
+                tr_k <= 1;
+                tr_st <= M_RWAIT;
+                tr_ret <= T_TESTED;
+              when T_TESTED =>
+                if tw /= TR_PATTERN then
+                  if tr_h = '1' then
+                    tr_okc(4 + to_integer(tr_c)) <= '0';
+                  else
+                    tr_okc(to_integer(tr_c)) <= '0';
+                  end if;
+                end if;
+                if tr_r = '0' then
+                  tr_r <= '1';
+                  tr_st <= T_TEST;
+                elsif tr_c /= "11" then
+                  tr_r <= '0';
+                  tr_c <= tr_c + 1;
+                  tr_st <= T_TEST;
+                elsif tr_h = '0' then
+                  tr_r <= '0';
+                  tr_c <= "00";
+                  tr_h <= '1';
+                  tr_st <= T_TEST;
+                else
+                  sdram_emit_command(CMD_PRECHARGE);
+                  tr_cnt <= 3;
+                  tr_st <= M_WAIT;
+                  tr_ret <= T_CLOSED;
+                end if;
+              when T_CLOSED =>
+                -- Book-keeping for this phase, then step on
+                for c in 0 to 7 loop
+                  if tr_okc(c) = '1' then
+                    if run_len(c) = 0 then
+                      run_start(c) <= tr_pos;
+                    end if;
+                    if run_len(c) < TR_STEPS then
+                      run_len(c) <= run_len(c) + 1;
+                      if run_len(c) + 1 > best_len(c) then
+                        best_len(c) <= run_len(c) + 1;
+                        if run_len(c) = 0 then
+                          best_start(c) <= tr_pos;
+                        else
+                          best_start(c) <= run_start(c);
+                        end if;
+                      end if;
+                    end if;
+                  else
+                    run_len(c) <= 0;
+                  end if;
+                  if tr_s < TR_STEPS then
+                    map_sh(c) <= tr_okc(c) & map_sh(c)(7 downto 1);
+                    if tr_okc(c) = '1' and pass_cnt(c) /= x"FF" then
+                      pass_cnt(c) <= pass_cnt(c) + 1;
+                    end if;
+                  end if;
+                end loop;
+                tr_st <= T_STEPPED;
+              when T_STEPPED =>
+                if tr_s < TR_STEPS and (tr_s mod 8) = 7 then
+                  for c in 0 to 7 loop
+                    map_ram(36 * c + tr_s / 8) <= map_sh(c);
+                  end loop;
+                end if;
+                tr_s <= tr_s + 1;
+                tr_dec <= '0';
+                tr_st <= M_PS;
+                if tr_s = 2*TR_STEPS - 1 then
+                  tr_ret <= T_CHOOSE;         -- two whole cycles swept
+                else
+                  tr_ret <= T_STEP;
+                end if;
+              when T_CHOOSE =>
+                -- Back at position 0.  Take the cycle with the wider window
+                -- and seek to its centre.
+                -- (best: the choice with the widest window; the first wins
+                -- a tie)
+                bc := 0;
+                for c in 1 to 7 loop
+                  if best_len(c) > best_len(bc) then bc := c; end if;
+                end loop;
+                if best_len(bc) /= 0 then
+                  trained_c <= to_unsigned(bc mod 4, 2);
+                  if bc >= 4 then trained_h <= '1'; else trained_h <= '0'; end if;
+                  tr_best_len <= best_len(bc);
+                  tr_centre <= (best_start(bc) + best_len(bc)/2) mod TR_STEPS;
+                  tr_seek <= (best_start(bc) + best_len(bc)/2) mod TR_STEPS;
+                  tr_ok <= '1';
+                  if best_len(bc) < 16 then tr_weak <= '1'; else tr_weak <= '0'; end if;
+                else
+                  tr_ok <= '0';
+                  tr_weak <= '0';
+                  tr_best_len <= 0;
+                  tr_seek <= 0;
+                end if;
+                tr_st <= T_SEEK;
+              when T_SEEK =>
+                if tr_seek /= 0 then
+                  tr_seek <= tr_seek - 1;
+                  tr_dec <= '0';
+                  tr_ret <= T_SEEK;
+                  tr_st <= M_PS;
+                else
+                  tr_st <= T_RESTORE;
+                end if;
+              when T_RESTORE =>
+                if tr_had_ok = '1' then
+                  sdram_emit_command(CMD_ACTIVATE_ROW);
+                  sdram_ba <= "11";
+                  sdram_a <= (others => '1');
+                  tr_restore <= '1';
+                  tr_wi <= 0;
+                  tr_cnt <= 2;
+                  tr_st <= M_WAIT;
+                  tr_ret <= T_RESTORE_W;
+                else
+                  tr_st <= T_FINISH;
+                end if;
+              when T_RESTORE_W =>
+                tr_ret <= T_ABORT;            -- (precharge and finish)
+                tr_st <= M_WRITE;
+              when T_ABORT =>
+                -- Also the normal way out after a restore: close rows
+                sdram_emit_command(CMD_PRECHARGE);
+                tr_restore <= '0';
+                tr_cnt <= 3;
+                tr_st <= M_WAIT;
+                tr_ret <= T_FINISH;
+              when T_FINISH =>
+                active_row <= '0';
+                tr_active <= '0';
+                if tr_mode = "00" then
+                  tr_count <= tr_count + 1;
+                end if;
+                if read_latched = '0' and write_latched = '0'
+                  and read_request = '0' and write_request = '0' then
+                  busy <= '0';
+                end if;
+                sdram_state <= IDLE;
+              when others =>
+                tr_st <= T_ABORT;
+            end case;
           when NON_RAM_READ =>
             read_latched              <= '0';
             report "PUBLISH: non-RAM read";
@@ -930,15 +1391,25 @@ begin
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_2 =>
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_WAIT_3 =>
-            if identical_clocks='1' then
+            -- READ_1 (the first word) comes at T+7-rd_c: skip wait states
+            if rd_c = "11" then
               sdram_state <= READ_0;
             end if;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
+          when READ_WAIT_3 =>
+            if rd_c = "10" then
+              sdram_state <= READ_0;
+            elsif rd_c = "01" then
+              sdram_state <= READ_WAIT_5;
+            end if;
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            sdram_emit_command(CMD_NOP);
           when READ_WAIT_4 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            sdram_emit_command(CMD_NOP);
+          when READ_WAIT_5 =>
+            -- (the dq_x stage)
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_0 =>
@@ -947,20 +1418,20 @@ begin
             -- Data is latched on opposite phase clock, so it isn't available yet
             -- but rather in the next cycle in READ_1
           when READ_1 =>
-            rdata_line(15 downto 0) <= sdram_dq_latched;
+            rdata_line(15 downto 0) <= dq_x;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_2 =>
             sdram_dqml <= '0'; sdram_dqmh <= '0';
-            rdata_line(31 downto 16) <= sdram_dq_latched;
+            rdata_line(31 downto 16) <= dq_x;
             sdram_emit_command(CMD_NOP);
           when READ_3 =>
             sdram_emit_command(CMD_NOP);
             sdram_dqml <= '0'; sdram_dqmh <= '0';
-            rdata_line(47 downto 32) <= sdram_dq_latched;
+            rdata_line(47 downto 32) <= dq_x;
           when READ_4 =>
-            report "READ4: sdram_dq_latched = $" & to_hexstring(sdram_dq_latched);
-            rdata_line(63 downto 48) <= sdram_dq_latched;
+            report "READ4: dq_x = $" & to_hexstring(dq_x);
+            rdata_line(63 downto 48) <= dq_x;
             read_complete_strobe     <= '1';
             read_latched             <= '0';
             report "BUSY: Clearing after read";

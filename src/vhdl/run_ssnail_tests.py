@@ -17,6 +17,8 @@ SSNAIL_TOOLS point at a checkout elsewhere.  Add SSNAIL/ to .gitignore.
 
 Testbenches:
     tb_sdram_lump     LUMP port on sdram_controller (identical_clocks=1)
+    tb_sdram_train    SDRAM read capture training: arbitrary capture clock
+                      phase and board delays, retraining, manual steps
     tb_ssnail         SSNAIL shell: COPY/SYNC/HALT, faults, STEP, IRQ
     tb_ssnail_load    load port: segments, unaligned blocks, masking, ERROR
     tb_ssnail_step1   scalar/control instructions vs the reference emulator
@@ -62,6 +64,18 @@ BENCHES = {
     "tb_sdram_lump": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_lump.vhdl"],
                       "tb_sdram_lump", [["-gidentical=1"]],
                       r"ALL SDRAM LUMP TESTS PASSED"),
+    # Read capture training: the capture clock starts at an arbitrary phase
+    # (as after every MMCM lock), with various board delays; and with no
+    # phase shifter connected (training skipped, old behaviour).
+    "tb_sdram_train": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_train.vhdl"],
+                       "tb_sdram_train",
+                       [["-gphi0_ps=0", "-gdm_ps=4000", "--stop-time=4ms"],
+                        ["-gphi0_ps=2500", "-gdm_ps=3500", "--stop-time=4ms"],
+                        ["-gphi0_ps=4100", "-gdm_ps=1500", "--stop-time=4ms"],
+                        ["-gphi0_ps=1300", "-gdm_ps=5600", "--stop-time=4ms"],
+                        ["-gphi0_ps=5000", "-gdm_ps=2500", "-gxw_ps=3500", "--stop-time=4ms"],
+                        ["-gno_ps=1", "--stop-time=4ms"]],
+                       r"ALL SDRAM TRAINING TESTS PASSED"),
     "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                    "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),
     "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
@@ -143,6 +157,11 @@ MODEL_PATCHES = [
     ("is42s16320f_model.vhdl", "to_string(addr)", "to_string(std_logic_vector(addr))"),
     ("is42s16320f_model.vhdl", "to_string(cmd)", "to_string(std_logic_vector(cmd))"),
     ("is42s16320f_model.vhdl", "array(0 to (1*1024*1024-1))", "array(0 to (64*1024-1))"),
+    # (64K words, so wrap addresses: the read training uses the top row)
+    ("is42s16320f_model.vhdl", "ram_array(to_integer(row_addr & col_addr))",
+     "ram_array(to_integer(row_addr & col_addr) mod 65536)"),
+    ("is42s16320f_model.vhdl", "ram_array(to_integer(write_queue_addr(0)))",
+     "ram_array(to_integer(write_queue_addr(0)) mod 65536)"),
 ]
 
 

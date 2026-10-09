@@ -21,7 +21,15 @@ entity clocking is
       clock163m  : out std_logic;
       clock200   : out std_logic;
       clock270   : out std_logic;
-      clock325   : out std_logic
+      clock325   : out std_logic;
+
+      -- Dynamic fine phase shift of clock163m (the SDRAM read capture
+      -- clock), for the SDRAM controller's read training.  Synchronous to
+      -- clock163.  One step = 1/56 of the 810 MHz VCO period (22 ps), 280
+      -- steps per clock163 cycle.  Leave unconnected if unused.
+      clock163m_ps_en     : in  std_logic := '0';
+      clock163m_ps_incdec : in  std_logic := '1';
+      clock163m_ps_done   : out std_logic := '0'
    );
 end entity;
 
@@ -51,6 +59,7 @@ architecture RTL of clocking is
   signal u_clock200 : std_logic := '0';
   signal u_clock270 : std_logic := '0';
   signal u_clock325 : std_logic := '0';
+  signal clock163_i : std_logic := '0';
   
 begin
 
@@ -242,7 +251,8 @@ begin
   
   bufg163:
   bufg port map ( I => u_clock163,
-                  O => clock163);  
+                  O => clock163_i);
+  clock163 <= clock163_i;
 
   bufg163m:
   bufg port map ( I => u_clock163m,
@@ -392,11 +402,14 @@ begin
     CLKOUT4_USE_FINE_PS  => FALSE,
     
     -- CLKOUT5 = clock163 = 812.5MHz/5 = 162.5 MHz
-    -- Phase adjusted by 180 degrees
+    -- Phase adjusted by 180 degrees, then moved at run time by the SDRAM
+    -- controller's read training (dynamic fine phase shift).  This MMCM's
+    -- phase relative to mmcm_adv0 differs after every lock, so the static
+    -- phase is only a starting point.
     CLKOUT5_DIVIDE       => 5,
     CLKOUT5_PHASE        => 180.0,
     CLKOUT5_DUTY_CYCLE   => 0.500,
-    CLKOUT5_USE_FINE_PS  => FALSE,
+    CLKOUT5_USE_FINE_PS  => TRUE,
 
     -- CLKOUT6 = clock270 = 270MHz
     CLKOUT6_DIVIDE       => 3,
@@ -422,10 +435,11 @@ begin
     DEN                 => '0',
     DI                  => (others => '0'),
     DWE                 => '0',
-    -- Ports for dynamic phase shift
-    PSCLK               => '0',
-    PSEN                => '0',
-    PSINCDEC            => '0',
+    -- Ports for dynamic phase shift (SDRAM read training)
+    PSCLK               => clock163_i,
+    PSEN                => clock163m_ps_en,
+    PSINCDEC            => clock163m_ps_incdec,
+    PSDONE              => clock163m_ps_done,
     -- Other control and status signals
     PWRDWN              => '0',
     RST                 => '0');
