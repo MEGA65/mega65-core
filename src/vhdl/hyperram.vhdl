@@ -186,6 +186,10 @@ architecture gothic of hyperram is
   -- This also sets the drive strength to the maximum, to get cleaner faster
   -- clock transitions. This fixes checkerboard read errors at 80MHz.
 
+  -- HyperRAM register space, CR0 (register word $800), as a controller
+  -- address: bit 25 selects register space (CPU $A001000)
+  constant CR0_ADDRESS : unsigned(26 downto 0) := "010" & x"001000";
+
   signal conf_buf0 : unsigned(7 downto 0) := x"ff";
   signal conf_buf1 : unsigned(7 downto 0) := x"f6";
   signal conf_buf0_in : unsigned(7 downto 0) := x"ff";
@@ -432,6 +436,9 @@ architecture gothic of hyperram is
   signal lump_q_len      : unsigned(8 downto 0) := (others => '0');
   signal lump_q_pop      : std_logic := '0';
   signal is_lump         : std_logic := '0';
+  -- LUMP data phase in the slow (half-rate) mode, as the CPU path uses when
+  -- fast_read_mode / fast_write_mode are clear: act on alternate cycles only
+  signal lump_slow       : std_logic := '0';
   signal lump_inval_req  : std_logic := '0';
   -- Words still to transfer in the current burst, minus two.  It goes
   -- negative exactly on the last word, so the sign bit IS the "last word"
@@ -687,7 +694,12 @@ begin
         end if;
 
       end if;
-      if write_collect1_dispatchable = '0' and write_collect1_toolate = '0' and write_collect1_flushed = '0' then
+      -- Only if collect0 did not take it above in this same cycle: otherwise
+      -- both collects took the one queued write, and it went out twice
+      -- (only reachable when both collects are free with a write queued,
+      -- e.g. the CR0 write queued by a write to $BFFFFF9).
+      if write_collect1_dispatchable = '0' and write_collect1_toolate = '0' and write_collect1_flushed = '0'
+        and not (write_collect0_dispatchable = '0' and write_collect0_toolate = '0' and write_collect0_flushed = '0') then
         if queued_write='1' then
           report "DISPATCH: Dequeuing queued write to $" & to_hstring(queued_waddr);
 
@@ -1103,8 +1115,41 @@ begin
               conf_buf0_in <= wdata;
               conf_buf0_set <= not conf_buf0_set;
             when x"9" =>
+              -- @IO:GS $BFFFFF8 HYRAM!CR0HI HyperRAM configuration register 0, high byte (write first)
+              -- @IO:GS $BFFFFF9 HYRAM!CR0LO HyperRAM configuration register 0, low byte: writing it sends $BFFFFF8/9 to the HyperRAM's CR0
               conf_buf1_in <= wdata;
               conf_buf1_set <= not conf_buf1_set;
+              -- The write latencies follow CR0's initial latency (bits 7-4:
+              -- $E = 3, $F = 4, $0 = 5, $1 = 6 clocks): 2N-3 and, for the
+              -- doubled latency (fixed latency, or a refresh collision),
+              -- 2N-1 more, counted in byte times.  N = 4 gives the reset
+              -- values, 5 and 7.  Write $BFFFFF3/4 afterwards to override.
+              -- (Chip 0 only: the trapdoor HyperRAM keeps write_latency2.)
+              case wdata(7 downto 4) is
+                when x"E" => write_latency <= to_unsigned(3,8); extra_write_latency <= to_unsigned(5,8);
+                when x"F" => write_latency <= to_unsigned(5,8); extra_write_latency <= to_unsigned(7,8);
+                when x"0" => write_latency <= to_unsigned(7,8); extra_write_latency <= to_unsigned(9,8);
+                when x"1" => write_latency <= to_unsigned(9,8); extra_write_latency <= to_unsigned(11,8);
+                when others => null;    -- reserved codes: leave them
+              end case;
+              -- Send it: queue a write to register space, CR0 (word $800),
+              -- exactly as a CPU write to $A001000 would.  Register writes
+              -- take their 16 bits from conf_buf0/1, not from the data.
+              if queued_write = '0' then
+                queued_waddr <= CR0_ADDRESS;
+                queued_wdata <= x"00";
+                queued_wdata_hi <= x"00";
+                queued_wen_lo <= '1';
+                queued_wen_hi <= '0';
+                queued_write <= '1';
+              else
+                queued2_waddr <= CR0_ADDRESS;
+                queued2_wdata <= x"00";
+                queued2_wdata_hi <= x"00";
+                queued2_wen_lo <= '1';
+                queued2_wen_hi <= '0';
+                queued2_write <= '1';
+              end if;
             when x"d" =>
               write_latency2 <= wdata;
             when x"e" =>
@@ -1968,8 +2013,15 @@ begin
 
               if lump_is_read = '1' then
                 ram_reading_held <= '1';
-                state <= HyperRAMOutputCommand;
-                hr_clk_fast <= '1';
+                -- Command in the controller's configured mode, as the CPU
+                -- path does ($BFFFFF2 bit 0)
+                if fast_cmd_mode = '1' and fast_cmd_for_write_enabled then
+                  state <= HyperRAMOutputCommand;
+                  hr_clk_fast <= '1';
+                else
+                  state <= HyperRAMOutputCommandSlow;
+                  hr_clk_fast <= '0';
+                end if;
                 hr_clk_phaseshift <= write_phase_shift;
               else
                 ram_reading_held <= '0';
@@ -2230,7 +2282,9 @@ begin
         when StartBackgroundWrite =>
           report "in StartBackgroundWrite to synchronise with clock";
           pause_phase <= '0';
-          if (fast_cmd_mode='1' and fast_cmd_for_write_enabled) or is_lump='1' then
+          -- Fast writes always get a fast command: switching the HyperRAM
+          -- clock rate in mid-transaction costs a variable number of edges
+          if (fast_cmd_mode='1' or fast_write_mode='1') and fast_cmd_for_write_enabled then
             state <= HyperRAMOutputCommand;
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '1';
@@ -2374,7 +2428,17 @@ begin
                 countdown_is_zero <= '0';
                 hr_rwds_high_seen <= '0';
                 countdown_timeout <= '0';
-                if fast_read_mode='1' then
+                if is_lump='1' then
+                  state <= LumpReadWait;
+                  if fast_read_mode='1' then
+                    lump_slow <= '0';
+                    hr_clk_fast <= '1';
+                  else
+                    lump_slow <= '1';
+                    pause_phase <= '1';
+                    hr_clk_fast <= '0';
+                  end if;
+                elsif fast_read_mode='1' then
                   hr_clk_fast <= '1';
                   state <= HyperRAMReadWait;
                 else
@@ -2437,7 +2501,17 @@ begin
                   end if;
                 end if;
                 countdown_timeout <= '0';
-                if fast_write_mode='1' then
+                if is_lump='1' then
+                  lump_wdata_req <= '1';
+                  state <= LumpDoWrite;
+                  if fast_write_mode='1' then
+                    lump_slow <= '0';
+                    hr_clk_fast <= '1';
+                  else
+                    lump_slow <= '1';
+                    hr_clk_fast <= '0';
+                  end if;
+                elsif fast_write_mode='1' then
                   hr_clk_fast <= '1';
                   state <= HyperRAMDoWrite;
                 else
@@ -2534,8 +2608,15 @@ begin
               hr_rwds_high_seen <= '0';
               countdown_timeout <= '0';
               if is_lump='1' then
-                hr_clk_fast <= '1';
                 state <= LumpReadWait;
+                if fast_read_mode='1' then
+                  lump_slow <= '0';
+                  hr_clk_fast <= '1';
+                else
+                  lump_slow <= '1';
+                  pause_phase <= '1';
+                  hr_clk_fast <= '0';
+                end if;
               elsif fast_read_mode='1' then
                 hr_clk_fast <= '1';
                 state <= HyperRAMReadWait;
@@ -2569,10 +2650,12 @@ begin
               -- Initial latency is reduced by 2 cycles for the last bytes
               -- of the access command, and by 1 more to cover state
               -- machine latency
+              -- Fast command: this state hands off one cycle later than the slow
+              -- one (an extra byte time on the bus), so one less latency
               if hyperram1_select='0' then
-                countdown <= to_integer(write_latency);
+                countdown <= to_integer(write_latency) - 1;
               else
-                countdown <= to_integer(write_latency2);
+                countdown <= to_integer(write_latency2) - 1;
               end if;
               -- XXX Doesn't work if write_latency(2) is $00
               countdown_is_zero <= '0';
@@ -2604,8 +2687,14 @@ begin
                 -- edges later, which is no earlier than the first data
                 -- byte (requires write latency >= 1, as for normal writes)
                 lump_wdata_req <= '1';
-                hr_clk_fast <= '1';
                 state <= LumpDoWrite;
+                if fast_write_mode='1' then
+                  lump_slow <= '0';
+                  hr_clk_fast <= '1';
+                else
+                  lump_slow <= '1';
+                  hr_clk_fast <= '0';
+                end if;
               elsif fast_write_mode='1' then
                 hr_clk_fast <= '1';
                 state <= HyperRAMDoWrite;
@@ -2656,14 +2745,21 @@ begin
               report "Applying extra latency";
             end if;
           end if;
-          if countdown = 1 then
-            countdown_is_zero <= '1';
-          end if;
-          if countdown /= 0 then
-            countdown <= countdown - 1;
-          else
-            report "asserting countdown_timeout";
-            countdown_timeout <= '1';
+          -- Not on the hand-off cycle (countdown_timeout already set): there
+          -- the hand-off above clears countdown_timeout and loads the
+          -- latency countdown for the next state, and re-asserting it here
+          -- (the later assignment wins) made every fast-command write
+          -- finish at once, with nothing written.
+          if countdown_timeout = '0' then
+            if countdown = 1 then
+              countdown_is_zero <= '1';
+            end if;
+            if countdown /= 0 then
+              countdown <= countdown - 1;
+            else
+              report "asserting countdown_timeout";
+              countdown_timeout <= '1';
+            end if;
           end if;
           byte_phase <= to_unsigned(0,6);
           write_byte_phase <= '0';
@@ -2727,21 +2823,23 @@ begin
           -- Fetch takes 2 cycles, so schedule one cycle before last read
           -- and shift, so that it happens after that last shift, but
           -- before it is needed again.
-          if background_write_count = 0 then
-            -- See if we have another write collect that we can
-            -- continue with
-            -- XXX We suspect that chained writes might be problematic on the
-            -- external hyperram for some strange reason, so disable them.
+          -- Here a byte goes out on every cycle, so (unlike the slow state,
+          -- which has an idle cycle between bytes) the fetch must happen in
+          -- the cycle of the line's LAST byte, so the next cycle can drive
+          -- the new line's byte 0: request it at count 1, one byte earlier.
+          -- (Requesting at count 0 made the fetch land in a byte slot: that
+          -- slot went out masked, and the byte shift below overwrote the
+          -- fetched line, so chained writes lost their data.)
+          if background_write_count = 1 then
             if write_continues /= 0 and background_chained_write='1' then
               if background_write_fetch = '0' then
                 report "WRITECONTINUE: Continuing write: Requesting fetch.";
                 background_write_fetch <= '1';
               end if;
-            else
-              report "WRITECONTINUE: No continuation. Terminating write.";
-              report "asserting countdown_timeout";
-              countdown_timeout <= '1';
             end if;
+          elsif background_write_count = 0 and background_write_fetch = '0' then
+            report "WRITECONTINUE: No continuation. Terminating write.";
+            countdown_timeout <= '1';
           end if;
 
           report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
@@ -2866,19 +2964,25 @@ begin
                 hr_d <= background_write_data(0);
                 hr2_d <= background_write_data(0);
 
-                background_write_data(0) <= background_write_data(1);
-                background_write_data(1) <= background_write_data(2);
-                background_write_data(2) <= background_write_data(3);
-                background_write_data(3) <= background_write_data(4);
-                background_write_data(4) <= background_write_data(5);
-                background_write_data(5) <= background_write_data(6);
-                background_write_data(6) <= background_write_data(7);
-                background_write_data(7) <= x"00";
+                -- Shift, unless the next line is being fetched in this same
+                -- cycle (the line's last byte): then the fetch's load stands
+                if background_write_fetch = '0' then
+                  background_write_data(0) <= background_write_data(1);
+                  background_write_data(1) <= background_write_data(2);
+                  background_write_data(2) <= background_write_data(3);
+                  background_write_data(3) <= background_write_data(4);
+                  background_write_data(4) <= background_write_data(5);
+                  background_write_data(5) <= background_write_data(6);
+                  background_write_data(6) <= background_write_data(7);
+                  background_write_data(7) <= x"00";
+                end if;
 
                 hr_rwds <= not background_write_valids(0);
                 hr2_rwds <= not background_write_valids(0);
-                background_write_valids(0 to 6) <= background_write_valids(1 to 7);
-                background_write_valids(7) <= '0';
+                if background_write_fetch = '0' then
+                  background_write_valids(0 to 6) <= background_write_valids(1 to 7);
+                  background_write_valids(7) <= '0';
+                end if;
               else
                 -- XXX Doesn't handle 16-bit writes properly. But that's
                 -- okay, as they are only supported with the cache and
@@ -3264,9 +3368,14 @@ begin
           hr2_rwds <= 'Z';
           hr_d <= (others => 'Z');
           hr2_d <= (others => 'Z');
-          hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
+          if lump_slow = '1' then
+            pause_phase <= not pause_phase;
+          end if;
 
-          if lump_flushing = '1' then
+          if lump_slow = '1' and pause_phase = '1' then
+            null;                     -- slow mode: the off cycle
+          elsif lump_flushing = '1' then
+            hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
             -- The device stopped responding.  CS is already released; emit
             -- the rest of the words as garbage so the requester's word count
             -- stays consistent.
@@ -3284,6 +3393,7 @@ begin
               lump_cnt <= lump_cnt - 1;
             end if;
           else
+            hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
             -- Watchdog: reloaded on every byte, so it only fires if the
             -- device stops delivering data.
             if countdown_is_zero = '0' then
@@ -3359,7 +3469,17 @@ begin
           -- path of HyperRAMDoWrite.  Bursts are whole multiples of 8 bytes,
           -- which also satisfies the revD parts' 32-bit write requirement.
           hr_clk_phaseshift <= write_phase_shift;
+          if lump_slow = '1' then
+            pause_phase <= not pause_phase;
+          end if;
 
+          if lump_slow = '1' and pause_phase = '1' then
+            -- slow mode: the off cycle.  As HyperRAMDoWriteSlow, finish only
+            -- here, after the last byte has had its whole (two-cycle) slot
+            if countdown_timeout = '1' then
+              state <= HyperRAMFinishWriting;
+            end if;
+          else
           -- Write mask pre-amble
           if countdown = 2 then
             hr_rwds <= '0';
@@ -3406,13 +3526,18 @@ begin
                 hr2_rwds <= not lump_wbe_hi;
                 lump_byte_odd <= '0';
                 if lump_cnt(8) = '1' then
-                  state <= HyperRAMFinishWriting;
+                  if lump_slow = '1' then
+                    countdown_timeout <= '1';   -- finish on the off cycle
+                  else
+                    state <= HyperRAMFinishWriting;
+                  end if;
                 else
                   lump_cnt <= lump_cnt - 1;
                 end if;
               end if;
             end if;
           end if;
+          end if;                     -- (slow-mode gating)
 
         when HyperRAMReadWait =>
           hr_rwds <= 'Z';
