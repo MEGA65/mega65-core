@@ -27,6 +27,11 @@ Testbenches:
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
+    tb_hyperram_lump  the real HyperRAM controller with the Cypress device
+                      model: CPU path and LUMP reads/writes in slow mode
+                      ($60, the R6 today), fast reads ($62), fast command
+                      and reads ($63) and all fast ($67); and CR0 set from
+                      the MEGA65 side ($BFFFFF8/9): 3 clocks slow, 6 fixed fast
 
 Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
 VITAL libraries, which most GHDL builds lack).
@@ -43,6 +48,10 @@ import time
 
 GHDL_FLAGS = ["--std=93c", "-fexplicit", "-fsynopsys"]
 COMMON = ["debugtools.vhdl", "cputypes.vhdl", "lump_queue.vhdl"]
+VITAL_URL = "https://raw.githubusercontent.com/ghdl/ghdl/master/libraries/vital2000/"
+VITAL_FILES = ["timing_p.vhdl", "timing_b.vhdl", "prmtvs_p.vhdl", "prmtvs_b.vhdl",
+               "memory_p.vhdl", "memory_b.vhdl"]
+
 
 # name: (sources after COMMON, top entity, [generic sets], success marker)
 BENCHES = {
@@ -82,6 +91,25 @@ BENCHES = {
                         "tb_ssnail_perf.vhdl"],
                        "tb_ssnail_perf", [[]], r"TB_SSNAIL_PERF: ALL PASSED"),
 }
+BENCHES["tb_hyperram_lump"] = (
+    VITAL_FILES + ["gen_utils.vhdl", "conversions.vhdl", "s27kl0641.vhdl", "hyperram.vhdl",
+                   "tb_hyperram_lump.vhdl"],
+    "tb_hyperram_lump",
+    [["-gmode=96", "--stop-time=600us"],      # $60: slow (the R6's setting today)
+     ["-gmode=98", "--stop-time=600us"],      # $62: fast reads
+     ["-gmode=99", "--stop-time=600us"],      # $63: fast command and reads
+     ["-gmode=103", "--stop-time=600us"],     # $67: everything fast
+     # CR0 written via $BFFFFF8/9, write latencies set automatically:
+     ["-gmode=96", "-gcr0=65510", "--stop-time=600us"],   # slow, 3 clocks variable ($FFE6)
+     ["-gmode=103", "-gcr0=65310", "--stop-time=600us"],  # fast, 6 clocks fixed ($FF1E)
+     # Chained CPU writes in fast mode (3 clocks makes the controller chain
+     # them here): the chained-fetch bug lost a byte every few lines
+     ["-gmode=103", "-gcr0=65510", "-gn1=256", "--stop-time=900us"],
+     # ... and at the default 4 clocks with back-to-back writes, as DMA does
+     # (the old controller lost 127 of 1024 bytes here)
+     ["-gmode=103", "-gn1=512", "-gwgap=0", "--stop-time=900us"]],
+    r"TB_HYPERRAM_LUMP: ALL PASSED")
+
 # Generated inputs: file -> (generator script, needs the SSNAIL tools)
 GENERATED = {
     "step1_pkg.vhdl": ("gen_step1.py", True),
@@ -101,7 +129,17 @@ BAD = re.compile(r"\(report error\)|\(assertion error\)|\(report failure\)|"
 # The SDRAM model needs two local changes for GHDL/VHDL-93: to_string() of
 # unsigned values, and a smaller memory array (the full 32M-word array of
 # signals exhausts GHDL's memory).  Applied to the scratch copy only.
+# The HyperRAM device model (s27kl0641.vhdl, from mega65-core) needs the
+# VITAL packages, which some GHDL builds (e.g. Debian's) leave out.  They are
+# fetched from GHDL's repository once, cached, and compiled into work along
+# with the model's support packages.
+
+# Benches whose designs print a great deal: keep only these lines (and errors)
+LOG_FILTER = {"tb_hyperram_lump": re.compile(r"tb_hyperram_lump\.vhdl|LUMP: Timed")}
+
 MODEL_PATCHES = [
+    ("gen_utils.vhdl", "IEEE.VITAL_primitives", "work.VITAL_primitives"),
+    ("gen_utils.vhdl", "IEEE.VITAL_timing", "work.VITAL_timing"),
     ("is42s16320f_model.vhdl", "to_string(addr)", "to_string(std_logic_vector(addr))"),
     ("is42s16320f_model.vhdl", "to_string(cmd)", "to_string(std_logic_vector(cmd))"),
     ("is42s16320f_model.vhdl", "array(0 to (1*1024*1024-1))", "array(0 to (64*1024-1))"),
@@ -159,6 +197,37 @@ def tools_too_old(tools):
     return missing or None
 
 
+def fetch_vital(build):
+    """Put the retargeted VITAL sources in build (cached in ~/.cache)."""
+    import urllib.request
+    cache = os.path.join(os.path.expanduser("~"), ".cache", "ssnail-tests", "vital")
+    os.makedirs(cache, exist_ok=True)
+    for f in VITAL_FILES:
+        c = os.path.join(cache, f)
+        if not os.path.exists(c):
+            text = urllib.request.urlopen(VITAL_URL + f, timeout=60).read().decode("latin-1")
+            text = re.sub(r"IEEE\.VITAL_", "work.VITAL_", text, flags=re.I)
+            open(c, "w", encoding="latin-1").write(text)
+        shutil.copy(c, build)
+
+
+def run_filtered(cmd, cwd, keep, timeout):
+    """Run, keeping only lines matching keep (or BAD): some designs print
+    hundreds of megabytes of debug output."""
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         text=True, errors="replace")
+    kept, t0 = [], time.time()
+    for line in p.stdout:
+        if keep.search(line) or BAD.search(line):
+            kept.append(line)
+        if time.time() - t0 > timeout:
+            p.kill()
+            kept.append("(timed out)\n")
+            break
+    p.wait()
+    return p.returncode, "".join(kept)
+
+
 def find(name, dirs):
     for d in dirs:
         p = os.path.join(d, name)
@@ -209,8 +278,14 @@ def main():
             needed.update(BENCHES[n][0])
             needed.update(NEEDS_DATA.get(n, []))
         missing = []
+        if needed & set(VITAL_FILES):
+            try:
+                fetch_vital(build)
+            except Exception as e:
+                missing.append(f"the VITAL packages ({e}); they come from {VITAL_URL}")
+            open(os.path.join(build, "s27kl0641.mem"), "w").close()   # model preload: none
         for f in sorted(needed):
-            if f in GENERATED:
+            if f in GENERATED or f in VITAL_FILES:
                 continue
             p = find(f, srcdirs)
             if p is None:
@@ -268,11 +343,14 @@ def main():
                 for g in gensets:
                     label = n + (" " + " ".join(g) if g else "")
                     t0 = time.time()
-                    r = subprocess.run(["ghdl", "-r", *GHDL_FLAGS, top, *g,
-                                        "--ieee-asserts=disable"],
-                                       cwd=build, capture_output=True, text=True,
-                                       timeout=1800)
-                    log = r.stdout + r.stderr
+                    cmd = ["ghdl", "-r", *GHDL_FLAGS, top, *g, "--ieee-asserts=disable"]
+                    if n in LOG_FILTER:
+                        rc, log = run_filtered(cmd, build, LOG_FILTER[n], 1800)
+                        r = subprocess.CompletedProcess(cmd, rc)
+                    else:
+                        r = subprocess.run(cmd, cwd=build, capture_output=True, text=True,
+                                           timeout=1800)
+                        log = r.stdout + r.stderr
                     open(os.path.join(build, label.replace(" ", "_") + ".log"), "w").write(log)
                     ok = r.returncode == 0 and re.search(marker, log) and not BAD.search(log)
                     detail = f"{time.time() - t0:.0f}s"
