@@ -818,7 +818,9 @@ begin
 
       expansionram_current_cache_line => current_cache_line,
       expansionram_current_cache_line_address => current_cache_line_address,
-      expansionram_current_cache_line_valid => current_cache_line_valid,
+      -- No longer needed, because the CPU direct cache line hit path will
+      -- always win
+      -- expansionram_current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
 
       ----------------------------------------------------------------------

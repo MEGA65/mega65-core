@@ -1070,6 +1070,8 @@ begin
 
       expansionram_current_cache_line => expansionram_current_cache_line,
       expansionram_current_cache_line_address => expansionram_current_cache_line_address,
+      -- No longer needed, because the CPU direct cache line hit path will
+      -- always win
 --      expansionram_current_cache_line_valid => current_cache_line_valid,
 
       ----------------------------------------------------------------------
