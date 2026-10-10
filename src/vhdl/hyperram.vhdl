@@ -518,7 +518,11 @@ architecture gothic of hyperram is
   -- bit 1 prefetch after CPU reads, bit 2 also prefetch past the exported
   -- line when the CPU moves it on (the early next-line fetch: off by default
   -- until the CPU side is known to use it well)
-  signal v2_flags : std_logic_vector(7 downto 0) := x"03";
+  -- Disable prefetches if only using 4 cache lines, because otherwise the prefetch
+  -- stomps on the entire cache causing performance to go through the floor.
+  -- In fact, prefetch in the hyperramtest benchmark shows zero benefit, only
+  -- this negative impact.
+  signal v2_flags : std_logic_vector(7 downto 0) := x"01";
   signal v2_en    : std_logic := '1';
   signal v2_ram   : std_logic;          -- the request on the port is v2's
   signal read_request_o, write_request_o : std_logic;  -- the old path's
