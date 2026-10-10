@@ -524,10 +524,10 @@ architecture gothic of hyperram is
   signal read_request_o, write_request_o : std_logic;  -- the old path's
   signal busy_o   : std_logic := '0';   -- the old path's busy
   signal busy_v2  : std_logic := '1';
-  constant H_NL   : integer := 16;      -- cached lines (8 bytes each)
+  constant H_NL   : integer := 4;      -- cached lines (8 bytes each)
   constant H_NW   : integer := 2;       -- posted-write buffers
   constant H_FILL : integer := 4;       -- lines per fill burst
-  constant H_PF   : integer := 8;       -- prefetch this many lines ahead
+  constant H_PF   : integer := 4;       -- prefetch this many lines ahead
   type h_ltag_t  is array (0 to H_NL - 1) of unsigned(26 downto 3);
   type h_ldata_t is array (0 to H_NL - 1) of unsigned(63 downto 0);
   signal c_tag  : h_ltag_t := (others => (others => '1'));
