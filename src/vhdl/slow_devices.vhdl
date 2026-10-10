@@ -576,8 +576,13 @@ begin
             expansionram_read <= not slow_access_write;
             report "setting expansionram_read to " & std_logic'image(not slow_access_write)
               & " ( = not " & std_logic'image(slow_access_write) & ")";
-            expansionram_write_hyperram <= slow_access_write and (sdram_t_or_hyperram_f = false);
-            expansionram_write_sdram <= slow_access_write and (sdram_t_or_hyperram_f = true);
+            if sdram_t_or_hyperram_f then
+              expansionram_write_hyperram <= '0';
+              expansionram_write_sdram <= slow_access_write;
+            else
+              expansionram_write_hyperram <= slow_access_write;            
+              expansionram_write_sdram <= '0';
+            end if;
             
             if slow_access_write='1' then
               -- Write can be delivered, and then ignored, since we aren't
