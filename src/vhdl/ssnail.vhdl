@@ -121,6 +121,87 @@
 -- communicate only via toggle handshakes and stable snapshots; the
 -- multi-bit paths need set_max_delay / false path constraints.
 
+-- ---------------------------------------------------------------------------
+-- SSNAIL burst-output scratchpad.
+-- Four 32 x 16-bit LUTRAM banks, interleaved by word address modulo four.
+-- A write packet contains 1, 2 or 4 consecutive words. Because they are
+-- consecutive, at most one word reaches each bank on any clock edge.
+-- The reader is asynchronous, so the existing LUMP request -> wdata_r
+-- timing is unchanged. The banks are write-first only after a clock edge;
+-- same-edge read/write follows the original signal-array semantics.
+-- Data bits are deliberately opaque: future quantized/packed formats can
+-- use the same scratchpad once the upstream packer constructs 16-bit words.
+-- ---------------------------------------------------------------------------
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity ssnail_output_buffer is
+  port (
+    clk       : in  std_logic;
+    wr_en     : in  std_logic;
+    wr_base   : in  unsigned(6 downto 0);
+    wr_mask   : in  std_logic_vector(3 downto 0); -- word 0..3 enabled
+    wr_data   : in  unsigned(63 downto 0);        -- low word at wr_base
+    rd_addr   : in  unsigned(6 downto 0);
+    rd_data   : out unsigned(15 downto 0)
+  );
+end ssnail_output_buffer;
+
+architecture banked of ssnail_output_buffer is
+  type bank_t is array (0 to 31) of unsigned(15 downto 0);
+  signal bank0, bank1, bank2, bank3 : bank_t := (others => (others => '0'));
+  attribute ram_style : string;
+  attribute ram_style of bank0, bank1, bank2, bank3 : signal is "distributed";
+begin
+  -- Four independent asynchronous read ports, one per physical bank;
+  -- the final 4:1 mux selects the requested word. This is only *one*
+  -- logical read port and uses no extra cycle on the existing LUMP path.
+  with rd_addr(1 downto 0) select rd_data <=
+    bank0(to_integer(rd_addr(6 downto 2))) when "00",
+    bank1(to_integer(rd_addr(6 downto 2))) when "01",
+    bank2(to_integer(rd_addr(6 downto 2))) when "10",
+    bank3(to_integer(rd_addr(6 downto 2))) when others;
+
+  process(clk) is
+    variable lane : unsigned(1 downto 0);
+    variable addr : unsigned(6 downto 0);
+  begin
+    if rising_edge(clk) then
+      -- Each assignment below is the sole write port for that bank.
+      -- lane = (bank_number - wr_base[1:0]) modulo 4; arithmetic on
+      -- the seven-bit address wraps exactly as the old buf indexing did.
+      lane := to_unsigned(0, 2) - wr_base(1 downto 0);
+      addr := wr_base + resize(lane, 7);
+      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
+        bank0(to_integer(addr(6 downto 2))) <=
+          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
+      end if;
+
+      lane := to_unsigned(1, 2) - wr_base(1 downto 0);
+      addr := wr_base + resize(lane, 7);
+      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
+        bank1(to_integer(addr(6 downto 2))) <=
+          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
+      end if;
+
+      lane := to_unsigned(2, 2) - wr_base(1 downto 0);
+      addr := wr_base + resize(lane, 7);
+      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
+        bank2(to_integer(addr(6 downto 2))) <=
+          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
+      end if;
+
+      lane := to_unsigned(3, 2) - wr_base(1 downto 0);
+      addr := wr_base + resize(lane, 7);
+      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
+        bank3(to_integer(addr(6 downto 2))) <=
+          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
+      end if;
+    end if;
+  end process;
+end banked;
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -637,17 +718,28 @@ architecture shell of ssnail is
   signal rdata_r  : unsigned(15 downto 0) := x"0000";
   signal rerror_r : std_logic := '0';
 
-  -- 256-byte burst buffer in LUT RAM
+  -- Input burst buffer: one writer (read-response port), unlike the old
+  -- buf which combined read responses and multiword arithmetic writes.
   type buf_t is array (0 to 127) of unsigned(15 downto 0);
-  signal buf : buf_t := (others => x"0000");
+  signal buf_in : buf_t := (others => x"0000");
   signal buf_widx : unsigned(6 downto 0) := (others => '0');  -- fill index
   -- Vector engine operand buffers, indexed by address mod 256
   signal bufx, bufy, bufb : buf_t := (others => x"0000");
-  signal cap_sel : unsigned(1 downto 0) := "00";   -- read data goes to: buf, bufx, bufy
+  signal cap_sel : unsigned(1 downto 0) := "00";   -- read data goes to: buf_in, bufx, bufy, bufb
   signal buf_ridx : unsigned(6 downto 0) := (others => '0');  -- drain index
   signal wdata_r  : unsigned(15 downto 0) := x"0000";
 
-  attribute ram_style of buf : signal is "distributed";
+  -- Output burst write packet. One transaction per core clock, with 1/2/4
+  -- consecutive 16-bit words. The output buffer has one physical write
+  -- per bank, and no writes from the read-response path.
+  signal ob_wr_en   : std_logic := '0';
+  signal ob_wr_base : unsigned(6 downto 0) := (others => '0');
+  signal ob_wr_mask : std_logic_vector(3 downto 0) := (others => '0');
+  signal ob_wr_data : unsigned(63 downto 0) := (others => '0');
+  signal ob_rd_addr : unsigned(6 downto 0);
+  signal ob_rd_data : unsigned(15 downto 0);
+
+  attribute ram_style of buf_in : signal is "distributed";
   attribute ram_style of bufx, bufy, bufb : signal is "distributed";
 
   attribute async_reg : string;
@@ -664,6 +756,78 @@ architecture shell of ssnail is
   end function;
 
 begin
+
+  output_buffer0 : entity work.ssnail_output_buffer
+    port map (
+      clk     => clock162,
+      wr_en   => ob_wr_en,
+      wr_base => ob_wr_base,
+      wr_mask => ob_wr_mask,
+      wr_data => ob_wr_data,
+      rd_addr => ob_rd_addr,
+      rd_data => ob_rd_data
+    );
+
+  -- Shared write arbitration/packing for all arithmetic output producers.
+  -- Each cstate writes at most four *consecutive* halfwords. There is no
+  -- loss of write-response data: that uses buf_in, a different physical RAM.
+  -- This is combinational, so writes still take effect on the same edge as
+  -- in the original process; no new cycles or handshakes are required.
+  process (cstate, o16, pz, v_i, fpu_r, d_val, g_val, g_f16,
+           rp0, outv, at_i, at_hd) is
+    variable byte_index : unsigned(7 downto 0);
+  begin
+    ob_wr_en   <= '0';
+    ob_wr_base <= (others => '0');
+    ob_wr_mask <= (others => '0');
+    ob_wr_data <= (others => '0');
+    byte_index := (others => '0');
+    case cstate is
+      when V_ELST =>
+        if o16 = '1' then
+          byte_index := pz(7 downto 0) + (v_i(6 downto 0) & "0");
+          ob_wr_base <= byte_index(7 downto 1);
+          ob_wr_mask <= "0001";
+        else
+          byte_index := pz(7 downto 0) + (v_i(5 downto 0) & "00");
+          ob_wr_base <= byte_index(7 downto 1);
+          ob_wr_mask <= "0011";
+        end if;
+        ob_wr_data(31 downto 0) <= fpu_r;
+        ob_wr_en <= '1';
+      when D_STORE =>
+        ob_wr_base <= pz(7 downto 1);
+        ob_wr_mask <= "0011";
+        ob_wr_data(31 downto 0) <= d_val;
+        ob_wr_en <= '1';
+      when G_OUT4 =>
+        ob_wr_base <= pz(7 downto 1);
+        if g_f16 = '1' then
+          ob_wr_mask <= "0001";
+        else
+          ob_wr_mask <= "0011";
+        end if;
+        ob_wr_data(31 downto 0) <= g_val;
+        ob_wr_en <= '1';
+      when E_R6 =>
+        byte_index := pz(7 downto 0) + (v_i(5 downto 0) & "00");
+        ob_wr_base <= byte_index(7 downto 1);
+        ob_wr_mask <= "1111";
+        ob_wr_data <= fpu_r & rp0;
+        ob_wr_en <= '1';
+      when A_WR =>
+        if at_i /= at_hd(8 downto 0) then
+          ob_wr_base <= pz(7 downto 1);
+          ob_wr_mask <= "0011";
+          ob_wr_data(31 downto 0) <= outv(to_integer(at_i));
+          ob_wr_en <= '1';
+        end if;
+      when others => null;
+    end case;
+  end process;
+
+  -- Output burst read address is exactly the former buf expression.
+  ob_rd_addr <= mw_idx + mw_k(6 downto 0);
 
   ---------------------------------------------------------------------------
   -- FastIO register reads (asynchronous, as in buffereduart, to avoid wait
@@ -878,7 +1042,7 @@ begin
     variable st_al, en_al : unsigned(27 downto 0);
     variable room, vlen : unsigned(31 downto 0);
     variable a0, a1, a2 : unsigned(27 downto 0);
-    variable ix, iy, iz, ib : unsigned(7 downto 0);
+    variable ix, iy, ib : unsigned(7 downto 0);
     variable xv, lo, hi : unsigned(31 downto 0);
     variable ti : integer range 0 to 1023;
     variable wd : unsigned(15 downto 0);
@@ -936,7 +1100,7 @@ begin
         if mw_active = '1' then
           -- Vector output: word k of the burst, bytes enabled only within
           -- [lead, vend) relative to the burst start
-          wdata_r <= buf(to_integer(mw_idx + mw_k(6 downto 0)));
+          wdata_r <= ob_rd_data;
           if mw_k & '0' >= mw_lead and mw_k & '0' < mw_vend then
             wbe_r(0) <= '1';
           else
@@ -978,7 +1142,7 @@ begin
           lp_k <= lp_k + 1;
           ring_rd_idx <= ring_rd_idx + 1;
         else
-          wdata_r  <= buf(to_integer(buf_ridx));
+          wdata_r  <= buf_in(to_integer(buf_ridx));
           wbe_r    <= "11";
           buf_ridx <= buf_ridx + 1;
         end if;
@@ -1059,7 +1223,7 @@ begin
           elsif cap_sel = "11" then
             bufb(to_integer(buf_widx)) <= rdata_r;
           else
-            buf(to_integer(buf_widx)) <= rdata_r;
+            buf_in(to_integer(buf_widx)) <= rdata_r;
           end if;
           buf_widx <= buf_widx + 1;
         end if;
@@ -1462,9 +1626,9 @@ begin
           elsif words_got = words_expected and rvalid_r = '0' then
             if instr(11 downto 8) /= x"F" then
               if ea_x(2) = '0' then
-                rf_r(to_integer(instr(11 downto 8))) <= buf(1) & buf(0);
+                rf_r(to_integer(instr(11 downto 8))) <= buf_in(1) & buf_in(0);
               else
-                rf_r(to_integer(instr(11 downto 8))) <= buf(3) & buf(2);
+                rf_r(to_integer(instr(11 downto 8))) <= buf_in(3) & buf_in(2);
               end if;
             end if;
             cstate <= C_NEXT;
@@ -1920,14 +2084,6 @@ begin
           cstate <= V_EL;
 
         when V_ELST =>
-          if o16 = '1' then
-            iz := pz(7 downto 0) + (v_i(6 downto 0) & "0");
-            buf(to_integer(iz(7 downto 1))) <= fpu_r(15 downto 0);
-          else
-            iz := pz(7 downto 0) + (v_i(5 downto 0) & "00");
-            buf(to_integer(iz(7 downto 1))) <= fpu_r(15 downto 0);
-            buf(to_integer(iz(7 downto 1) + 1)) <= fpu_r(31 downto 16);
-          end if;
           v_i <= v_i + 1;
           cstate <= V_EL;
 
@@ -2248,8 +2404,6 @@ begin
           cstate <= D_STORE;
 
         when D_STORE =>
-          buf(to_integer(pz(7 downto 1))) <= d_val(15 downto 0);
-          buf(to_integer(pz(7 downto 1) + 1)) <= d_val(31 downto 16);
           a2 := pz + 4;
           pz <= a2;
           v_n <= v_n - 1;
@@ -2527,7 +2681,7 @@ begin
           elsif g_addz = '1' then
             fpu_op <= FOP_ADD;                         -- y = acc + y_old
             fpu_a <= g_accv;
-            fpu_b <= buf(to_integer(pz(7 downto 1) + 1)) & buf(to_integer(pz(7 downto 1)));
+            fpu_b <= buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)));
             fpu_start <= '1';
             fpu_ret <= G_OUT2;
             cstate <= C_FPU_WAIT;
@@ -2553,11 +2707,8 @@ begin
 
         when G_OUT4 =>
           if g_f16 = '1' then
-            buf(to_integer(pz(7 downto 1))) <= g_val(15 downto 0);
             a2 := pz + 2;
           else
-            buf(to_integer(pz(7 downto 1))) <= g_val(15 downto 0);
-            buf(to_integer(pz(7 downto 1) + 1)) <= g_val(31 downto 16);
             a2 := pz + 4;
           end if;
           pz <= a2;
@@ -2647,11 +2798,6 @@ begin
           fpu_op <= FOP_ADD; fpu_a <= rp_b; fpu_b <= fpu_r;
           fpu_start <= '1'; fpu_ret <= E_R6; cstate <= C_FPU_WAIT;
         when E_R6 =>
-          iz := pz(7 downto 0) + (v_i(5 downto 0) & "00");
-          buf(to_integer(iz(7 downto 1))) <= rp0(15 downto 0);
-          buf(to_integer(iz(7 downto 1) + 1)) <= rp0(31 downto 16);
-          buf(to_integer(iz(7 downto 1) + 2)) <= fpu_r(15 downto 0);
-          buf(to_integer(iz(7 downto 1) + 3)) <= fpu_r(31 downto 16);
           v_i <= v_i + 2;
           if rope_j + 2 = rope_hd then
             rope_j <= (others => '0');
@@ -2905,8 +3051,6 @@ begin
           if at_i = at_hd(8 downto 0) then
             cstate <= A_HNEXT;
           else
-            buf(to_integer(pz(7 downto 1))) <= outv(to_integer(at_i))(15 downto 0);
-            buf(to_integer(pz(7 downto 1) + 1)) <= outv(to_integer(at_i))(31 downto 16);
             a2 := pz + 4;
             pz <= a2;
             at_i <= at_i + 1;
