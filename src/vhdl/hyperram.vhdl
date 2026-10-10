@@ -2021,9 +2021,11 @@ begin
 
               if lump_is_read = '1' then
                 ram_reading_held <= '1';
-                -- Command in the controller's configured mode, as the CPU
-                -- path does ($BFFFFF2 bit 0)
-                if fast_cmd_mode = '1' and fast_cmd_for_write_enabled then
+                -- Command at the same rate as the data phase that follows
+                -- ($BFFFFF2 bit 1): LUMP never switches the HyperRAM clock
+                -- rate in mid-transaction.  (Fast command + slow data, $61 /
+                -- $81, passes in simulation but failed on the R6.)
+                if fast_read_mode = '1' then
                   state <= HyperRAMOutputCommand;
                   hr_clk_fast <= '1';
                 else
@@ -2291,8 +2293,11 @@ begin
           report "in StartBackgroundWrite to synchronise with clock";
           pause_phase <= '0';
           -- Fast writes always get a fast command: switching the HyperRAM
-          -- clock rate in mid-transaction costs a variable number of edges
-          if (fast_cmd_mode='1' or fast_write_mode='1') and fast_cmd_for_write_enabled then
+          -- clock rate in mid-transaction costs a variable number of edges.
+          -- LUMP writes follow their data rate only (see the LUMP read
+          -- dispatch); CPU writes also take a fast command with $BFFFFF2 bit 0.
+          if ((fast_cmd_mode='1' and is_lump='0') or fast_write_mode='1')
+            and fast_cmd_for_write_enabled then
             state <= HyperRAMOutputCommand;
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '1';

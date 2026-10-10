@@ -119,6 +119,9 @@ BENCHES["tb_hyperram_lump"] = (
      ["-gmode=98", "--stop-time=600us"],      # $62: fast reads
      ["-gmode=99", "--stop-time=600us"],      # $63: fast command and reads
      ["-gmode=103", "--stop-time=600us"],     # $67: everything fast
+     ["-gmode=97", "--stop-time=600us"],      # $61: fast command, slow data
+     ["-gmode=129", "--stop-time=600us"],     # $81: the same, cache on
+     ["-gmode=101", "--stop-time=600us"],     # $65: fast command and writes
      # CR0 written via $BFFFFF8/9, write latencies set automatically:
      ["-gmode=96", "-gcr0=65510", "--stop-time=600us"],   # slow, 3 clocks variable ($FFE6)
      ["-gmode=103", "-gcr0=65310", "--stop-time=600us"],  # fast, 6 clocks fixed ($FF1E)
