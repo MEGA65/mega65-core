@@ -19,6 +19,8 @@ Testbenches:
     tb_sdram_lump     LUMP port on sdram_controller (identical_clocks=1)
     tb_sdram_train    SDRAM read capture training: arbitrary capture clock
                       phase and board delays, retraining, manual steps
+    tb_sdram_cache    the SDRAM controller's CPU path (caches, write buffers,
+                      open rows) as the CPU and slow_devices use it, with LUMP
     tb_ssnail         SSNAIL shell: COPY/SYNC/HALT, faults, STEP, IRQ
     tb_ssnail_load    load port: segments, unaligned blocks, masking, ERROR
     tb_ssnail_step1   scalar/control instructions vs the reference emulator
@@ -61,13 +63,13 @@ BENCHES = {
     # clock162r as an inverted clock, which shifts the controller's existing
     # CPU read path and the LUMP path alike by one word -- not representative
     # of the hardware's real phase-shifted clock.
-    "tb_sdram_lump": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_lump.vhdl"],
+    "tb_sdram_lump": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "tb_sdram_lump.vhdl"],
                       "tb_sdram_lump", [["-gidentical=1"]],
                       r"ALL SDRAM LUMP TESTS PASSED"),
     # Read capture training: the capture clock starts at an arbitrary phase
     # (as after every MMCM lock), with various board delays; and with no
     # phase shifter connected (training skipped, old behaviour).
-    "tb_sdram_train": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "tb_sdram_train.vhdl"],
+    "tb_sdram_train": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "tb_sdram_train.vhdl"],
                        "tb_sdram_train",
                        [["-gphi0_ps=0", "-gdm_ps=4000", "--stop-time=4ms"],
                         ["-gphi0_ps=2500", "-gdm_ps=3500", "--stop-time=4ms"],
@@ -82,31 +84,40 @@ BENCHES = {
                         ["-gboot=1", "--stop-time=4ms"],
                         ["-gboot=1", "-glock_us=300", "--stop-time=4ms"]],
                        r"ALL SDRAM TRAINING TESTS PASSED"),
-    "tb_ssnail": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
+    "tb_sdram_cache": (["sdram_controller.vhdl", "sdram4_model.vhdl", "tb_sdram_cache.vhdl"],
+                       "tb_sdram_cache",
+                       [["--stop-time=20ms"],
+                        ["-gcpu_line=1", "--stop-time=20ms"],
+                        ["-gcpu_line=1", "-gcpu_adv=1", "-gcpu_pf=1", "-gseed0=7", "--stop-time=20ms"],
+                        ["-gcpu_line=1", "-gcpu_adv=1", "-gcflags=3", "-gseed0=11", "--stop-time=20ms"],
+                        ["-gcflags=0", "-gseed0=5", "--stop-time=20ms"],
+                        ["-gphi0_ps=4000", "-gdm_ps=2500", "-gxw_ps=500", "-gseed0=3", "--stop-time=20ms"]],
+                       r"TB_SDRAM_CACHE: ALL PASSED"),
+    "tb_ssnail": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                    "tb_ssnail.vhdl"], "tb_ssnail", [[]], r"TB_SSNAIL COMPLETE"),
-    "tb_ssnail_load": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
+    "tb_ssnail_load": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "tb_ssnail_load.vhdl"], "tb_ssnail_load", [[]],
                        r"TB_SSNAIL_LOAD: ALL PASSED"),
-    "tb_ssnail_step1": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_step1": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"],
                         "tb_ssnail_step1", [[]], r"TB_SSNAIL_STEP1: ALL PASSED"),
     "tb_ssnail_fpu": (["ssnail_fpu.vhdl", "tb_ssnail_fpu.vhdl"], "tb_ssnail_fpu", [[]],
                       r"TB_SSNAIL_FPU: ALL PASSED"),
-    "tb_ssnail_step2": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_step2": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
                         "tb_ssnail_step2", [[]], r"TB_SSNAIL_STEP2: ALL PASSED"),
-    "tb_ssnail_step3": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_step3": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step3_pkg.vhdl", "tb_ssnail_step3.vhdl"],
                         "tb_ssnail_step3", [[]], r"TB_SSNAIL_STEP3: ALL PASSED"),
-    "tb_ssnail_step4": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_step4": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step4_pkg.vhdl",
                          "tb_ssnail_step4.vhdl"],
                         "tb_ssnail_step4", [[]], r"TB_SSNAIL_STEP4: ALL PASSED"),
-    "tb_ssnail_step5": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
                         "tb_ssnail_step5", [[]], r"TB_SSNAIL_STEP5: ALL PASSED"),
-    "tb_ssnail_perf": (["sdram_controller.vhdl", "is42s16320f_model.vhdl", "ssnail_fpu.vhdl",
+    "tb_ssnail_perf": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "perf_pkg.vhdl",
                         "tb_ssnail_perf.vhdl"],
                        "tb_ssnail_perf", [[]], r"TB_SSNAIL_PERF: ALL PASSED"),

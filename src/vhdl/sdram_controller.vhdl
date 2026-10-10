@@ -147,30 +147,7 @@ architecture tacoma_narrows of sdram_controller is
   -- SDRAM state machine.  IDLE must be the last in the list,
   -- so that the shallow auto-progression logic can progress
   -- through.
-  type sdram_state_t is (CLOSE_AND_SWITCH_ROW,
-                         CLOSE_AND_SWITCH_ROW_2,
-                         CLOSE_AND_SWITCH_ROW_3,
-                         CLOSE_AND_SWITCH_ROW_4,
-                         ACTIVATE_WAIT,
-                         ACTIVATE_WAIT_1,
-                         ACTIVATE_WAIT_2,
-                         READ_WAIT,
-                         READ_WAIT_2,
-                         READ_WAIT_3,
-                         READ_WAIT_4,
-                         READ_WAIT_5,
-                         READ_0,
-                         READ_1,
-                         READ_2,
-                         READ_3,
-                         READ_4,
-                         WRITE_1,
-                         WRITE_2,
-                         CLOSE_FOR_REFRESH,
-                         CLOSE_FOR_REFRESH_2,
-                         CLOSE_FOR_REFRESH_3,
-                         CLOSE_FOR_REFRESH_4,
-                         REFRESH_1,
+  type sdram_state_t is (REFRESH_1,
                          REFRESH_2,
                          REFRESH_3,
                          REFRESH_4,
@@ -183,8 +160,13 @@ architecture tacoma_narrows of sdram_controller is
                          -- LUMP states.  These always set sdram_state
                          -- explicitly, so their position here only matters
                          -- in that they must come before IDLE.
-                         LUMP_PRECHARGE,
-                         LUMP_ACTIVATE,
+                         -- CPU path and shared states (#949), likewise
+                         OPEN_CHK,
+                         FILL_RD,
+                         FILL_DRAIN,
+                         FLUSH_WR,
+                         LUMP_W1,
+                         LUMP_W2,
                          LUMP_READ,
                          LUMP_READ_DRAIN,
                          LUMP_WRITE,
@@ -233,10 +215,112 @@ architecture tacoma_narrows of sdram_controller is
 
   signal read_complete_strobe : std_logic              := '0';
   signal read_publish_strobe  : std_logic              := '0';
-  signal active_row           : std_logic              := '0';
-  signal active_row_addr      : unsigned(25 downto 11) := (others => '0');
 
   signal resets : unsigned(7 downto 0) := x"00";
+
+  ---------------------------------------------------------------------------
+  -- CPU path (#949): a row open in every bank, posted writes, a small line
+  -- cache with prefetch, and the exported "current cache line".
+  ---------------------------------------------------------------------------
+  -- Address map (CPU and LUMP alike): word column = address(10 downto 1),
+  -- row = address(25 downto 13), bank = address(12 downto 11) xor
+  -- address(17 downto 16).  Consecutive 2 KB rows go to different banks,
+  -- and the XOR also puts areas 64 KB apart (a copy's source and
+  -- destination, say) in different banks, so both rows stay open.
+  -- SDRAM timing, in 162 MHz cycles between commands
+  constant tRAS_C : integer := 7;
+  constant tRP_C  : integer := 3;
+  constant tRCD_C : integer := 3;
+  constant tRRD_C : integer := 2;
+  constant tWR_C  : integer := 2;
+  type cnt4_t is array (0 to 3) of integer range 0 to 15;
+  type row4_t is array (0 to 3) of unsigned(12 downto 0);
+  signal bk_open : std_logic_vector(0 to 3) := "0000";
+  signal bk_row  : row4_t := (others => (others => '0'));
+  -- cycles since the bank's last ACTIVATE / WRITE / PRECHARGE (saturating)
+  signal bk_act, bk_wr, bk_pre : cnt4_t := (others => 15);
+  signal g_act : integer range 0 to 15 := 15;   -- since any ACTIVATE
+  signal all_closable : std_logic := '0';       -- PRECHARGE ALL allowed now
+  -- OPEN_CHK: get o_row open in o_bank (tRCD done), then go to o_ret
+  signal o_bank : unsigned(1 downto 0) := "00";
+  signal o_row  : unsigned(12 downto 0) := (others => '0');
+  signal o_ret  : sdram_state_t := IDLE;
+
+  -- Line cache: NL lines of 8 bytes, round-robin replacement.  Written
+  -- through by CPU writes (and by posted writes when a line arrives), so a
+  -- valid line is always current.
+  constant NL : integer := 8;
+  type ltag_t  is array (0 to NL - 1) of unsigned(26 downto 3);
+  type ldata_t is array (0 to NL - 1) of unsigned(63 downto 0);
+  signal c_tag  : ltag_t := (others => (others => '1'));
+  signal c_val  : std_logic_vector(0 to NL - 1) := (others => '0');
+  signal c_data : ldata_t := (others => (others => '0'));
+  signal c_rr   : integer range 0 to NL - 1 := 0;
+  -- The line fill in progress (one READ, 4 words)
+  signal fill_active : std_logic := '0';
+  signal fl_tag   : unsigned(26 downto 3) := (others => '1');
+  signal fl_slot  : integer range 0 to NL - 1 := 0;
+  signal fl_word  : integer range 0 to 3 := 0;
+  signal fl_rd_issue : std_logic := '0';
+  signal fl_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
+
+  -- Posted writes: NW line buffers with byte masks.  w_cur is the one last
+  -- written; the others are written out as soon as the bus is free.
+  constant NW : integer := 2;
+  type wtag_t  is array (0 to NW - 1) of unsigned(26 downto 3);
+  type wdata_t is array (0 to NW - 1) of unsigned(63 downto 0);
+  type wmask_t is array (0 to NW - 1) of std_logic_vector(7 downto 0);
+  type wage_t  is array (0 to NW - 1) of integer range 0 to 63;
+  signal w_tag  : wtag_t := (others => (others => '1'));
+  signal w_data : wdata_t := (others => (others => '0'));
+  signal w_mask : wmask_t := (others => (others => '0'));
+  signal w_age  : wage_t := (others => 0);
+  signal w_cur  : integer range 0 to NW - 1 := 0;
+  signal w_stall : std_logic := '0';            -- a write waits for a buffer
+  -- the buffer being written out by FLUSH_WR (copied out of w_*)
+  signal f_tag  : unsigned(26 downto 3) := (others => '0');
+  signal f_data : unsigned(63 downto 0) := (others => '0');
+  signal f_mask : std_logic_vector(7 downto 0) := (others => '0');
+  signal f_word : integer range 0 to 3 := 0;
+
+  -- CPU request handling: R_LOOK compares, R_DECIDE acts, R_WAIT waits
+  -- for a line fill
+  type rs_t is (R_IDLE, R_LOOK, R_DECIDE, R_WAIT);
+  signal rs : rs_t := R_IDLE;
+  signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
+  signal lk_w : std_logic_vector(0 to NW - 1) := (others => '0');
+  signal want_fill : std_logic := '0';          -- fill the latched line
+  signal last_pub : unsigned(26 downto 3) := (others => '1');
+
+  -- The exported line (current_cache_line*), and the next/prev requests
+  signal exp_addr  : unsigned(26 downto 3) := (others => '1');
+  signal exp_valid : std_logic := '0';
+  signal exp_data  : unsigned(63 downto 0) := (others => '0');
+  signal x_look, x_use : std_logic := '0';
+  signal x_addr : unsigned(26 downto 3) := (others => '1');
+  signal x_hit  : std_logic_vector(0 to NL - 1) := (others => '0');
+  signal x_want : std_logic := '0';             -- fill x_addr, then export it
+  signal x_down : std_logic := '0';
+
+  -- Prefetch: after the CPU reads line B (or, with cflags(1), after the
+  -- exported line moves to B), make sure lines B+1..B+PF (B-1.. when the
+  -- reads go down) are cached.
+  constant PF : integer := 4;
+  signal pf_base : unsigned(26 downto 3) := (others => '1');
+  signal pf_down : std_logic := '0';
+  signal pf_k    : integer range 0 to PF + 1 := PF + 1;  -- PF + 1: idle
+  signal pf_cand : unsigned(26 downto 3) := (others => '1');
+  signal pf_chk  : std_logic := '0';
+  signal pf_chk2 : std_logic := '0';
+  signal pf_present : std_logic := '0';
+  signal pf_want : std_logic := '0';
+  signal pf_line : unsigned(26 downto 3) := (others => '1');
+  -- $C000015 (write) / $C000017 (read): bit 0 prefetch after CPU reads,
+  -- bit 1 also prefetch past the exported line when the CPU moves it on
+  -- (the early next-line fetch; off by default until the CPU side is known
+  -- to use it well)
+  signal cflags : std_logic_vector(7 downto 0) := x"01";
+  signal hits, misses : unsigned(15 downto 0) := (others => '0');
 
   signal sdram_dq_out : unsigned(15 downto 0);
   signal sdram_dq_oe_n : std_logic_vector(15 downto 0);
@@ -288,8 +372,9 @@ architecture tacoma_narrows of sdram_controller is
   signal x_h           : std_logic := '0';
   signal trained_h     : std_logic := '0';
 
-  -- Training.  Test words live at the top 8 bytes of the SDRAM
-  -- (bank 3, last row, word columns 1020-1023).
+  -- Training.  Test words live at the top 8 bytes of the SDRAM: with the
+  -- address map below, that is bank 0, the last row, word columns
+  -- 1020-1023.
   --
   -- 1. Coarse: 8 phases, 45 degrees (35 fine steps) apart.  At each, one
   --    READ (done twice, results must agree) captures 7 words around the
@@ -311,6 +396,7 @@ architecture tacoma_narrows of sdram_controller is
                                            -- (VCO 810 MHz / 5, 1/56 VCO each)
   constant TR_COARSE   : integer := 35;    -- fine steps per coarse step
   constant TR_PATTERN  : unsigned(63 downto 0) := x"3CA5C35AA53C5AC3";
+  constant TR_BANK     : unsigned(1 downto 0) := "00";  -- (row all ones)
   type tr_state_t is (T_START, T_PROBED, T_OPENED, T_SAVED, T_SAVE_READ,
                       T_WRITTEN, T_CO_TEST, T_CO_REC, T_CO_NEXT,
                       T_RUN, T_RUN_DONE, T_RUN_GO,
@@ -391,6 +477,23 @@ architecture tacoma_narrows of sdram_controller is
   begin
     if h = '0' then return va = '1' and ca = c;
     else return vb = '1' and cb = c; end if;
+  end function;
+  -- The address map (see above), for whole addresses and for line tags
+  function a_bank(a : unsigned(26 downto 0)) return unsigned is
+  begin
+    return a(12 downto 11) xor a(17 downto 16);
+  end function;
+  function l_bank(t : unsigned(26 downto 3)) return unsigned is
+  begin
+    return t(12 downto 11) xor t(17 downto 16);
+  end function;
+  function l_row(t : unsigned(26 downto 3)) return unsigned is
+  begin
+    return t(25 downto 13);
+  end function;
+  function byte_of(d : unsigned(63 downto 0); i : integer) return unsigned is
+  begin
+    return d(8 * i + 7 downto 8 * i);
   end function;
   -- (fine position arithmetic, all mod TR_STEPS)
   function tr_wrap(x : integer) return integer is
@@ -487,6 +590,102 @@ begin
     end procedure;
 
     variable tj       : integer range 0 to 7;
+    variable v_line   : unsigned(63 downto 0);
+    variable v_fill_done : boolean;
+    variable v_hit    : integer range -1 to NL - 1;
+    variable v_wh     : integer range -1 to NW - 1;
+    variable v_free   : integer range -1 to NW - 1;
+    variable v_idx    : integer range 0 to 7;
+    variable v_b      : integer range 0 to 3;
+    variable v_byte   : unsigned(7 downto 0);
+    variable v_hi     : unsigned(7 downto 0);
+    variable v_mask   : std_logic_vector(7 downto 0);
+    variable v_pf_go  : boolean;
+    variable v_pf_base : unsigned(26 downto 3);
+    variable v_pf_down : std_logic;
+
+    procedure publish(b, bh : unsigned(7 downto 0)) is
+    begin
+      rdata <= b;
+      rdata_hi <= bh;
+      data_ready_toggle <= not last_data_ready_toggle;
+      last_data_ready_toggle <= not last_data_ready_toggle;
+      read_latched <= '0';
+      rs <= R_IDLE;
+    end procedure;
+    -- The exported line, and the slow_devices/CPU ports for it, together
+    -- (slow_devices takes its "next byte" from the line when it sees the
+    -- read's data_ready_toggle, so they must change in the same cycle)
+    procedure set_export(t : unsigned(26 downto 3); d : unsigned(63 downto 0)) is
+    begin
+      exp_addr <= t;
+      exp_data <= d;
+      exp_valid <= '1';
+      current_cache_line_address <= t;
+      for k in 0 to 7 loop
+        current_cache_line(k) <= d(8 * k + 7 downto 8 * k);
+      end loop;
+      current_cache_line_valid <= '1';
+    end procedure;
+    -- Prefetch from line t on, if enabled, going the way the reads go
+    procedure prefetch_from(t : unsigned(26 downto 3)) is
+    begin
+      if cflags(0) = '1' and t /= last_pub then
+        v_pf_go := true;
+        v_pf_base := t;
+        v_pf_down := '0';
+        if t = last_pub - 1 then v_pf_down := '1'; end if;
+        last_pub <= t;
+      end if;
+    end procedure;
+
+    -- Start a line fill (one READ) of line t into the next cache slot
+    procedure start_fill(t : unsigned(26 downto 3)) is
+    begin
+      fill_active <= '1';
+      fl_tag  <= t;
+      fl_slot <= c_rr;
+      fl_word <= 0;
+      c_val(c_rr) <= '0';
+      c_tag(c_rr) <= t;
+      if c_rr = NL - 1 then c_rr <= 0; else c_rr <= c_rr + 1; end if;
+      o_bank <= l_bank(t);
+      o_row  <= l_row(t);
+      o_ret  <= FILL_RD;
+      sdram_state <= OPEN_CHK;
+    end procedure;
+    -- Start writing out posted-write buffer j (copied out, so it is free
+    -- again at once)
+    procedure start_flush(j : integer) is
+    begin
+      f_tag  <= w_tag(j);
+      f_data <= w_data(j);
+      f_mask <= w_mask(j);
+      f_word <= 0;
+      w_mask(j) <= (others => '0');
+      o_bank <= l_bank(w_tag(j));
+      o_row  <= l_row(w_tag(j));
+      o_ret  <= FLUSH_WR;
+      sdram_state <= OPEN_CHK;
+    end procedure;
+
+    -- PRECHARGE ALL allowed in this cycle (tRAS and tWR in every open bank)
+    impure function closable return boolean is
+    begin
+      for b in 0 to 3 loop
+        if bk_open(b) = '1' and (bk_act(b) < tRAS_C or bk_wr(b) < tWR_C) then
+          return false;
+        end if;
+      end loop;
+      return true;
+    end function;
+    impure function all_precharged return boolean is
+    begin
+      for b in 0 to 3 loop
+        if bk_open(b) = '1' or bk_pre(b) < tRP_C then return false; end if;
+      end loop;
+      return true;
+    end function;
     variable tva, tvb : std_logic;
     variable tca, tcb : unsigned(1 downto 0);
   begin
@@ -495,6 +694,10 @@ begin
       sdram_dq_oe_n <= (others => '1');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
+      -- No command unless a state below issues one (the command outputs are
+      -- registers: a state that issued none used to repeat the last one,
+      -- e.g. a second AUTO REFRESH in REFRESH_1)
+      sdram_emit_command(CMD_NOP);
 
       -- LUMP: single-cycle strobes default low
       lump_q_pop       <= '0';
@@ -503,6 +706,7 @@ begin
       lump_cmd_done    <= '0';
       lump_error       <= '0';
       lump_rd_issue    <= '0';
+      fl_rd_issue      <= '0';
       lump_idle        <= not (lump_q_valid or lump_active or lump_q_pop);
 
       -- LUMP write data request stream: one request per cycle once started.
@@ -516,16 +720,8 @@ begin
       -- cycle after a pop, lump_q_pop='1' forces the flags low, and the head
       -- has been updated by the time they are next computed.  The branch
       -- that consumes a command also clears its flag explicitly.
-      -- lump_row_match may be one cycle stale only if active_row_addr changed
-      -- in the previous cycle, which only happens in ACTIVATE_WAIT_2 and
-      -- LUMP_ACTIVATE, neither of which is ever immediately followed by IDLE.
       lump_go     <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
       lump_inv_go <= lump_q_valid and lump_q_op(1) and (not lump_q_pop);
-      if lump_q_addr(25 downto 11) = active_row_addr(25 downto 11) then
-        lump_row_match <= '1';
-      else
-        lump_row_match <= '0';
-      end if;
       lump_is_write_pre <= lump_q_op(0);
       if lump_q_op(0) = '1' then
         -- WRITE: one command per 16-bit word
@@ -580,50 +776,52 @@ begin
         refresh_due <= '1';
       end if;
 
-      if current_cache_line_address(26 downto 3) /= latched_addr(26 downto 3) then
-        write_targets_cache_line <= '0';
-      else
-        write_targets_cache_line <= '1';
+      -- Bank timers (saturating; a command below sets its timer to 1)
+      for b in 0 to 3 loop
+        if bk_act(b) /= 15 then bk_act(b) <= bk_act(b) + 1; end if;
+        if bk_wr(b)  /= 15 then bk_wr(b)  <= bk_wr(b) + 1; end if;
+        if bk_pre(b) /= 15 then bk_pre(b) <= bk_pre(b) + 1; end if;
+      end loop;
+      if g_act /= 15 then g_act <= g_act + 1; end if;
+
+      -- Line fill data capture, timed exactly as for LUMP (see below)
+      fl_rd_pipe(0) <= fl_rd_issue;
+      fl_rd_pipe(1 to 8) <= fl_rd_pipe(0 to 7);
+      v_fill_done := false;
+      v_pf_go := false;
+      if (rd_c = "00" and (fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7) or fl_rd_pipe(8)) = '1')
+        or (rd_c = "01" and (fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7)) = '1')
+        or (rd_c = "10" and (fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6)) = '1')
+        or (rd_c = "11" and (fl_rd_pipe(2) or fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5)) = '1')
+      then
+        if fl_word /= 3 then
+          c_data(fl_slot)(16 * fl_word + 15 downto 16 * fl_word) <= dq_x;
+          fl_word <= fl_word + 1;
+        else
+          -- Last word: the line is complete.  Posted writes to it that are
+          -- still buffered go over the top.
+          v_line := c_data(fl_slot);
+          v_line(63 downto 48) := dq_x;
+          for j in 0 to NW - 1 loop
+            if w_tag(j) = fl_tag then
+              for k in 0 to 7 loop
+                if w_mask(j)(k) = '1' then
+                  v_line(8 * k + 7 downto 8 * k) := w_data(j)(8 * k + 7 downto 8 * k);
+                end if;
+              end loop;
+            end if;
+          end loop;
+          c_data(fl_slot) <= v_line;
+          c_val(fl_slot) <= '1';
+          -- (and no other copy of this line)
+          for i in 0 to NL - 1 loop
+            if i /= fl_slot and c_tag(i) = fl_tag then c_val(i) <= '0'; end if;
+          end loop;
+          fl_word <= 0;
+          fill_active <= '0';
+          v_fill_done := true;
+        end if;
       end if;
-
-      cache_line_prev_address <= current_cache_line_address(26 downto 3) - 1;
-      cache_line_next_address <= current_cache_line_address(26 downto 3) + 1;
-
-      if reactive_cache_line_if_safe = '1' and write_targets_cache_line = '0' then
-        current_cache_line_valid     <= '1';
-        current_cache_line_valid_int <= '1';
-        reactive_cache_line_if_safe  <= '0';
-      end if;
-
-      -- Keep logic flat by pre-extracting read data
-      -- report "RDATA_BUF: Reading from offset " & to_string(std_logic_vector(latched_addr(2 downto 0))) &
-      -- ", = $" & to_hexstring(rdata_line);
-      case latched_addr(2 downto 0) is
-        when "000" =>
-          rdata_buf    <= rdata_line(7 downto 0);
-          rdata_hi_buf <= rdata_line(15 downto 8);
-        when "001" =>
-          rdata_buf    <= rdata_line(15 downto 8);
-          rdata_hi_buf <= rdata_line(23 downto 16);
-        when "010" =>
-          rdata_buf    <= rdata_line(23 downto 16);
-          rdata_hi_buf <= rdata_line(31 downto 24);
-        when "011" =>
-          rdata_buf    <= rdata_line(31 downto 24);
-          rdata_hi_buf <= rdata_line(39 downto 32);
-        when "100" =>
-          rdata_buf    <= rdata_line(39 downto 32);
-          rdata_hi_buf <= rdata_line(47 downto 40);
-        when "101" =>
-          rdata_buf    <= rdata_line(47 downto 40);
-          rdata_hi_buf <= rdata_line(55 downto 48);
-        when "110" =>
-          rdata_buf    <= rdata_line(55 downto 48);
-          rdata_hi_buf <= rdata_line(63 downto 56);
-        when others =>                  -- "111" =>
-          rdata_buf    <= rdata_line(63 downto 56);
-          rdata_hi_buf <= rdata_line(7 downto 0);
-      end case;
 
       case latched_addr(7 downto 0) is
         -- "SDRAM" at $C000000
@@ -661,6 +859,11 @@ begin
         when x"13" => nonram_val <= "0000000" & to_unsigned(tr_right, 9)(8);
         when x"14" => nonram_val <= "0000000" & trained_h;
         when x"16" => nonram_val <= "0000000" & ps_locked_s2;
+        when x"17" => nonram_val <= unsigned(cflags);
+        when x"20" => nonram_val <= hits(7 downto 0);
+        when x"21" => nonram_val <= hits(15 downto 8);
+        when x"22" => nonram_val <= misses(7 downto 0);
+        when x"23" => nonram_val <= misses(15 downto 8);
         when x"15" => nonram_val <= '0' & to_unsigned(tr_bs, 3) & to_unsigned(tr_bl, 4);
         when x"18" => nonram_val <= cmap(0);
         when x"19" => nonram_val <= cmap(1);
@@ -681,7 +884,9 @@ begin
         busy         <= '1';
         read_latched <= '1';
         latched_addr <= address;
-        silent_read  <= '0';
+        -- (look-up next cycle: not here, as address comes from the pixel
+        -- clock domain and the compare would lengthen that crossing)
+        if address(26) = '0' then rs <= R_LOOK; end if;
       end if;
       if read_request = '0' and write_request = '1' and write_latched = '0' and read_latched = '0' then
         report "Latching write request";
@@ -690,6 +895,15 @@ begin
         write_latched <= '1';
         latched_addr  <= address;
         wdata_latched <= wdata;
+        -- (look-up next cycle: not here, as address comes from the pixel
+        -- clock domain and the compare would lengthen that crossing)
+        if address(26) = '0' then rs <= R_LOOK; end if;
+
+        -- The exported line stops being valid at once (until the write has
+        -- been applied, if it is to that line): the CPU may read it
+        -- directly within a few cycles.  (No address compare here: address
+        -- comes from the pixel clock domain.)
+        current_cache_line_valid <= '0';
         if rdata_16en = '1' then
           wdata_hi_latched <= wdata_hi;
           latched_wen_lo   <= wen_lo;
@@ -699,67 +913,6 @@ begin
           latched_wen_lo   <= address(0);
           latched_wen_hi   <= not address(0);
         end if;
-      end if;
-
-      if read_publish_strobe = '1' then
-        read_publish_strobe <= '0';
-        report "rdata_line = $" & to_hexstring(rdata_line);
-        report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
-        report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf) & ", silent=" & std_logic'image(silent_read);
-        -- When prefetching cache lines, we don't present the output.
-        -- I.E., the read is "silent"
-        if silent_read = '0' then
-          rdata                  <= rdata_buf;
-          rdata_hi               <= rdata_hi_buf;
-          data_ready_toggle      <= not last_data_ready_toggle;
-          last_data_ready_toggle <= not last_data_ready_toggle;
-          report "BUSY: Clearing busy via read_publish_strobe";
-          busy                   <= '0';
-        end if;
-      end if;
-      if read_complete_strobe = '1' then
-        read_complete_strobe <= '0';
-        report "READCOMPLETE: Publishing cache line $" & to_hexstring(rdata_line);
-        -- We also update the read cache line here
-        for b in 0 to 7 loop
-          current_cache_line(b) <= rdata_line((b*8+7) downto (b*8));
-        end loop;
-        current_cache_line_address(26 downto 3) <= latched_addr(26 downto 3);
-        current_cache_line_valid                <= '1';
-        current_cache_line_valid_int            <= '1';
-
-        read_publish_strobe <= '1';
-      end if;
-
-      next_toggle_drive <= expansionram_current_cache_line_next_toggle;
-      prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
-
-      if read_request = '0' and write_request = '0' and write_latched = '0' and read_latched = '0' and
-        (prev_toggle_drive /= prev_current_cache_line_prev_toggle) then
-        -- Read previous cache line
-        report "Latching read or write request for previous cache line";
-        report "prev_toggle_drive = " & std_logic'image(prev_toggle_drive) & ", "
-          & "prev_current_cache_line_prev_toggle = " & std_logic'image(prev_current_cache_line_prev_toggle);
-        report "BUSY: Asserting busy";
-        busy                                <= '1';
-        read_latched                        <= '1';
-        latched_addr(26 downto 3)           <= cache_line_prev_address;
-        latched_addr(2 downto 0)            <= "000";
-        silent_read                         <= '1';
-        prev_current_cache_line_prev_toggle <= prev_toggle_drive;
-      end if;
-
-      if read_request = '0' and write_request = '0' and write_latched = '0' and read_latched = '0' and
-        (next_toggle_drive /= prev_current_cache_line_next_toggle) then
-        -- Read next cache line
-        report "Latching read or write request for next cache line";
-        report "BUSY: Asserting busy";
-        busy                                <= '1';
-        read_latched                        <= '1';
-        latched_addr(26 downto 3)           <= cache_line_next_address;
-        latched_addr(2 downto 0)            <= "000";
-        silent_read                         <= '1';
-        prev_current_cache_line_next_toggle <= next_toggle_drive;
       end if;
 
       -- Manage the 100usec SDRAM initialisation delay, if enabled
@@ -837,218 +990,228 @@ begin
         end if;
         case sdram_state is
           when IDLE =>
-            -- (training waits, with the controller working normally, until
-            -- the capture clock's MMCM is locked)
+            sdram_emit_command(CMD_NOP);
+            v_wh := -1;                 -- (write buffer to flush, if any)
+            if w_stall = '1' or lump_q_valid = '1' then
+              -- urgently: a write waits for a buffer, or LUMP waits for
+              -- the buffers to be empty
+              for j in 0 to NW - 1 loop
+                if w_mask(j) /= x"00" and (j /= w_cur or v_wh = -1) then v_wh := j; end if;
+              end loop;
+            end if;
             if tr_req = '1' and ps_locked_s2 = '1' then
-              -- Read capture training (or a manual phase step).  Rows are
-              -- closed first; refresh is handled inside.
-              tr_req      <= '0';
-              tr_active   <= '1';
-              busy        <= '1';
-              tr_st       <= T_START;
-              sdram_state <= TRAIN;
-              sdram_emit_command(CMD_NOP);
-            elsif refresh_due = '1' and active_row = '0' then
-              report "REFRESH is DUE (and no row was open, so triggering immediately)";
-              sdram_emit_command(CMD_AUTO_REFRESH);
-              sdram_state <= REFRESH_1;
-              report "BUSY: Asserting busy";
-              busy        <= '1';
-            elsif refresh_due = '1' and active_row = '1' then
-              report "REFRESH is DUE (a row is open, so precharging first)";
-              sdram_emit_command(CMD_PRECHARGE);
-              sdram_state <= CLOSE_FOR_REFRESH;
-              report "BUSY: Asserting busy";
-              busy        <= '1';
-            elsif read_latched = '1' or write_latched = '1' then
-              if latched_addr(26) = '1' then
-                report "NONRAMACCESS: Non-RAM access detected";
-                if write_latched = '1' and latched_addr(7 downto 0) = x"10" then
-                  -- $C000010: train again (the 8 test bytes are restored)
-                  tr_req <= '1'; tr_mode <= "00";
-                  write_latched <= '0';
-                  sdram_emit_command(CMD_NOP);
-                elsif write_latched = '1' and latched_addr(7 downto 0) = x"11" then
-                  -- $C000011 / $C000012: one fine phase step later / earlier
-                  tr_req <= '1'; tr_mode <= "01";
-                  write_latched <= '0';
-                  sdram_emit_command(CMD_NOP);
-                elsif write_latched = '1' and latched_addr(7 downto 0) = x"12" then
-                  tr_req <= '1'; tr_mode <= "10";
-                  write_latched <= '0';
-                  sdram_emit_command(CMD_NOP);
-                elsif write_latched = '1' and latched_addr(7 downto 0) = x"14" then
-                  -- $C000014: force the path (bit 2) and read cycle (bits
-                  -- 1-0), keeping the phase, for experiments
-                  trained_h <= wdata_latched(2);
-                  trained_c <= wdata_latched(1 downto 0);
-                  tr_ok <= '1';
-                  write_latched <= '0';
-                  busy <= '0';
-                  sdram_emit_command(CMD_NOP);
-                elsif write_latched = '1' then
-                  -- Repeat SDRAM initialisation sequence whenver a non-RAM
-                  -- address is written.
-                  -- XXX Used to debug whether SDRAM initialisation is sometimes
-                  -- failing.
-                  sdram_prepped <= '0';
-                  sdram_init_phase <= 0;
-                  sdram_do_init <= '1';
-                  write_latched <= '0';
-                else
-                  -- Read non-RAM address
-                  sdram_state <= NON_RAM_READ;
-                  sdram_emit_command(CMD_NOP);
-                end if;
-              else
-                -- Activate the row
-                if read_latched = '1' then
-                  report "SDRAMREAD: Starting read from $" & to_hexstring(latched_addr);
-                end if;
-                if write_latched = '1' then
-                  report "SDRAMWRITE: Starting write: $" & to_hexstring(latched_addr) & " <= $" & to_hexstring(wdata_latched);
-                end if;
-                if active_row = '0' then
-                  report "ACTIVATEROW: No row open yet, so opening before read or write for row $" & to_hexstring(latched_addr)
-                    & " = %" & to_string(std_logic_vector(latched_addr));
-                  -- If no active row, then activate one
-                  sdram_emit_command(CMD_ACTIVATE_ROW);
-                  sdram_ba    <= latched_addr(25 downto 24);
-                  sdram_a     <= latched_addr(23 downto 11);
-                  sdram_state <= ACTIVATE_WAIT;
-                elsif latched_addr(25 downto 11) /= active_row_addr(25 downto 11) then
-                  report "ACTIVATEROW: Closing old row before opening new one required for read or write";
-                  -- Different row activated
-                  -- Precharge row, then activate the correct row
-                  sdram_emit_command(CMD_PRECHARGE);
-                  sdram_ba    <= latched_addr(25 downto 24);
-                  sdram_a     <= latched_addr(23 downto 11);
-                  sdram_state <= CLOSE_AND_SWITCH_ROW;
-                else
-                  -- Correct row already activated
-                  report "ACTIVEROW: Correct row is already active";
-                  if read_latched = '1' then
-                    report "SDRAM: Issuing READ command after ROW_ACTIVATE";
-                    sdram_emit_command(CMD_READ);
-                    -- Select address of start of 8-byte block
-                    -- Each word is 2 bytes, which takes one bit
-                    -- off, and then the bottom two bits must be zero.
-                    sdram_a(12)         <= '0';
-                    sdram_a(11)         <= '0';
-                    sdram_a(10)         <= '0';  -- Disable auto precharge
-                    sdram_a(9 downto 2) <= latched_addr(10 downto 3);
-                    sdram_a(1 downto 0) <= "00";
-                    sdram_state         <= READ_WAIT;
-                    sdram_dqml          <= '0'; sdram_dqmh <= '0';
-                  end if;
-                  if write_latched = '1' then
-                    report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
-                    sdram_state <= WRITE_1;
-                    sdram_dq_out(7 downto 0)  <= wdata_latched;
-                    sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-                    sdram_dq_oe_n <= (others => '0');
-                  end if;
-
-                end if;
-
-                -- XXX For now we invalidate the cache line on _any_ write
-                -- For the common case of DMA copy to or from slow RAM, this
-                -- will be ok. Copying slow to slow will, however be bad.
-                -- So to remedy that, we set a signal to check if the cache
-                -- line can be re-instated. This prevents use of the cache while
-                -- we are figuring out if the line is still valid.
-                if write_latched = '1' then
-                  current_cache_line_valid     <= '0';
-                  current_cache_line_valid_int <= '0';
-                  if current_cache_line_valid_int = '1' then
-                    reactive_cache_line_if_safe <= '1';
-                  end if;
-                end if;
+              -- Read capture training.  It starts with a PRECHARGE ALL, so
+              -- waits until that is allowed (and, with the controller
+              -- working normally meanwhile, for the capture clock's MMCM).
+              if closable then
+                tr_req      <= '0';
+                tr_active   <= '1';
+                tr_st       <= T_START;
+                sdram_state <= TRAIN;
               end if;
-            elsif (lump_go or lump_inv_go) = '1' then
-              -- LUMP has the lowest priority: refresh and CPU requests
-              -- are always served first.
+            elsif refresh_due = '1' then
+              -- every bank closed (and tRP over) for the AUTO REFRESH
+              if bk_open /= "0000" then
+                if closable then
+                  sdram_emit_command(CMD_PRECHARGE);  -- (A10 = 1: all banks)
+                  for b in 0 to 3 loop
+                    if bk_open(b) = '1' then bk_pre(b) <= 1; end if;
+                  end loop;
+                  bk_open <= "0000";
+                end if;
+              elsif all_precharged then
+                sdram_emit_command(CMD_AUTO_REFRESH);
+                sdram_state <= REFRESH_1;
+              end if;
+            elsif (read_latched = '1' or write_latched = '1') and latched_addr(26) = '1' then
+              report "NONRAMACCESS: Non-RAM access detected";
+              if write_latched = '1' and latched_addr(7 downto 0) = x"10" then
+                -- $C000010: train again (the 8 test bytes are restored)
+                tr_req <= '1'; tr_mode <= "00";
+                write_latched <= '0';
+                sdram_emit_command(CMD_NOP);
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"11" then
+                -- $C000011 / $C000012: one fine phase step later / earlier
+                tr_req <= '1'; tr_mode <= "01";
+                write_latched <= '0';
+                sdram_emit_command(CMD_NOP);
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"12" then
+                tr_req <= '1'; tr_mode <= "10";
+                write_latched <= '0';
+                sdram_emit_command(CMD_NOP);
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"15" then
+                -- $C000015: CPU path flags (see cflags)
+                cflags <= std_logic_vector(wdata_latched);
+                write_latched <= '0';
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"14" then
+                -- $C000014: force the path (bit 2) and read cycle (bits
+                -- 1-0), keeping the phase, for experiments
+                trained_h <= wdata_latched(2);
+                trained_c <= wdata_latched(1 downto 0);
+                tr_ok <= '1';
+                write_latched <= '0';
+                busy <= '0';
+                sdram_emit_command(CMD_NOP);
+              elsif write_latched = '1' then
+                -- Repeat SDRAM initialisation sequence whenver a non-RAM
+                -- address is written.
+                -- XXX Used to debug whether SDRAM initialisation is sometimes
+                -- failing.
+                sdram_prepped <= '0';
+                sdram_init_phase <= 0;
+                sdram_do_init <= '1';
+                write_latched <= '0';
+              else
+                -- Read non-RAM address
+                sdram_state <= NON_RAM_READ;
+                sdram_emit_command(CMD_NOP);
+              end if;
+            elsif want_fill = '1' and fill_active = '0' then
+              -- the CPU's read missed: fetch its line
+              want_fill <= '0';
+              start_fill(latched_addr(26 downto 3));
+            elsif x_want = '1' and fill_active = '0' then
+              -- the CPU moved the exported line on to one not cached
+              start_fill(x_addr);
+            elsif v_wh /= -1 then
+              start_flush(v_wh);
+            elsif (lump_go or lump_inv_go) = '1' and w_mask(0) = x"00" and w_mask(1) = x"00" then
+              -- LUMP has the lowest priority: refresh, CPU requests and
+              -- posted writes are always served first.
               lump_q_pop <= '1';
               lump_go <= '0';
               lump_inv_go <= '0';
+              if lump_inv_go = '1' or lump_is_write_pre = '1' then
+                -- the CPU's cached copies may be stale after this
+                c_val <= (others => '0');
+                exp_valid <= '0';
+                exp_addr <= (others => '1');
+                current_cache_line_valid <= '0';
+                current_cache_line_address <= (others => '1');
+                pf_k <= PF + 1;
+                pf_chk <= '0';
+                pf_chk2 <= '0';
+                pf_want <= '0';
+              end if;
               if lump_inv_go = '1' then
                 report "LUMP: Invalidating read cache";
-                current_cache_line_valid     <= '0';
-                current_cache_line_valid_int <= '0';
-                reactive_cache_line_if_safe  <= '0';
-                lump_cmd_done                <= '1';
-                sdram_emit_command(CMD_NOP);
+                lump_cmd_done <= '1';
               else
                 report "LUMP: Starting burst @ $" & to_hexstring(lump_q_addr);
                 lump_active   <= '1';
-                -- Note: busy is deliberately left alone.  CPU requests
-                -- arriving now are latched as usual and served after the
-                -- burst; the latching logic manages busy for them.
-                lump_bank     <= lump_q_addr(25 downto 24);
-                lump_row      <= lump_q_addr(23 downto 11);
+                lump_bank     <= a_bank(lump_q_addr);
+                lump_row      <= lump_q_addr(25 downto 13);
                 lump_col      <= lump_q_addr(10 downto 1);
                 lump_phase    <= "00";
                 lump_is_write <= lump_is_write_pre;
                 lump_cnt      <= lump_cnt_init;
-                if active_row = '0' then
-                  sdram_emit_command(CMD_ACTIVATE_ROW);
-                  sdram_ba    <= lump_q_addr(25 downto 24);
-                  sdram_a     <= lump_q_addr(23 downto 11);
-                  sdram_state <= LUMP_ACTIVATE;
-                  lump_wait   <= 1;
-                elsif lump_row_match = '0' then
-                  sdram_emit_command(CMD_PRECHARGE);
-                  sdram_state <= LUMP_PRECHARGE;
-                  lump_wait   <= 3;
-                else
-                  -- Correct row already open
-                  sdram_emit_command(CMD_NOP);
-                  sdram_state <= LUMP_ACTIVATE;
-                  lump_wait   <= 1;
+                o_bank <= a_bank(lump_q_addr);
+                o_row  <= lump_q_addr(25 downto 13);
+                if lump_is_write_pre = '1' then o_ret <= LUMP_W1; else o_ret <= LUMP_READ; end if;
+                sdram_state <= OPEN_CHK;
+              end if;
+            else
+              -- background: posted writes the CPU has moved on from, then
+              -- prefetch
+              for j in 0 to NW - 1 loop
+                if w_mask(j) /= x"00" and v_wh = -1
+                  and (j /= w_cur or w_mask(j) = x"FF" or w_age(j) >= 32) then
+                  v_wh := j;
                 end if;
+              end loop;
+              if v_wh /= -1 then
+                start_flush(v_wh);
+              elsif pf_want = '1' and fill_active = '0' then
+                pf_want <= '0';
+                start_fill(pf_line);
               end if;
-            else
-              sdram_emit_command(CMD_NOP);
             end if;
-          when LUMP_PRECHARGE =>
-            -- PRECHARGE (all banks) was issued from IDLE.  Same tRP as the
-            -- CLOSE_AND_SWITCH_ROW path: ACTIVATE 4 cycles after PRECHARGE.
-            sdram_state <= LUMP_PRECHARGE;
-            if lump_wait /= 0 then
-              lump_wait <= lump_wait - 1;
-              sdram_emit_command(CMD_NOP);
-            else
-              sdram_emit_command(CMD_ACTIVATE_ROW);
-              sdram_ba    <= lump_bank;
-              sdram_a     <= lump_row;
-              sdram_state <= LUMP_ACTIVATE;
-              lump_wait   <= 1;
-            end if;
-          when LUMP_ACTIVATE =>
-            -- Wait out tRCD: first READ/WRITE is issued 3 cycles after
-            -- ACTIVATE, as in the CPU path.
+
+          when OPEN_CHK =>
+            -- Open o_row in bank o_bank, then on to o_ret once a READ or
+            -- WRITE may follow (tRCD).  A different open row there is closed
+            -- first (tRAS, tWR), then tRP and tRRD before the ACTIVATE.
+            sdram_state <= OPEN_CHK;
             sdram_emit_command(CMD_NOP);
-            active_row                    <= '1';
-            active_row_addr(25 downto 24) <= lump_bank;
-            active_row_addr(23 downto 11) <= lump_row;
-            sdram_state <= LUMP_ACTIVATE;
-            if lump_wait = 1 and lump_is_write = '1' then
-              -- Request the first write word now: it is sampled two edges
-              -- later, which is exactly when the first WRITE is emitted.
-              -- The remaining requests then follow one per cycle.
-              lump_wdata_req <= '1';
-              -- (words - 1) further requests: lump_cnt is words - 2 here
-              lump_wreq_cnt  <= lump_cnt;
-            end if;
-            if lump_wait /= 0 then
-              lump_wait <= lump_wait - 1;
-            else
-              if lump_is_write = '1' then
-                sdram_state <= LUMP_WRITE;
-              else
-                sdram_state <= LUMP_READ;
+            v_b := to_integer(o_bank);
+            if bk_open(v_b) = '1' and bk_row(v_b) = o_row then
+              if bk_act(v_b) >= tRCD_C - 1 then
+                sdram_state <= o_ret;
               end if;
+            elsif bk_open(v_b) = '1' then
+              if bk_act(v_b) >= tRAS_C and bk_wr(v_b) >= tWR_C then
+                sdram_emit_command(CMD_PRECHARGE);
+                sdram_a(10) <= '0';             -- this bank only
+                sdram_ba <= o_bank;
+                bk_open(v_b) <= '0';
+                bk_pre(v_b) <= 1;
+              end if;
+            elsif bk_pre(v_b) >= tRP_C and g_act >= tRRD_C then
+              sdram_emit_command(CMD_ACTIVATE_ROW);
+              sdram_ba <= o_bank;
+              sdram_a  <= o_row;
+              bk_open(v_b) <= '1';
+              bk_row(v_b) <= o_row;
+              bk_act(v_b) <= 1;
+              g_act <= 1;
             end if;
+
+          when FILL_RD =>
+            -- One READ (burst of 4 words) for the line fill; the words are
+            -- captured by the fl_rd_pipe logic above
+            sdram_emit_command(CMD_READ);
+            sdram_ba <= l_bank(fl_tag);
+            sdram_a(12 downto 10) <= "000";     -- (A10 = 0: no auto precharge)
+            sdram_a(9 downto 2) <= fl_tag(10 downto 3);
+            sdram_a(1 downto 0) <= "00";
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            fl_rd_issue <= '1';
+            read_jobs <= read_jobs + 1;
+            sdram_state <= FILL_DRAIN;
+          when FILL_DRAIN =>
+            sdram_emit_command(CMD_NOP);
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            sdram_state <= FILL_DRAIN;
+            if fl_rd_issue = '0' and fl_rd_pipe = "000000000" then
+              sdram_state <= IDLE;
+            end if;
+
+          when FLUSH_WR =>
+            -- Write out a posted line: one WRITE per word with any byte to
+            -- write (DQM masks the others), one per cycle
+            sdram_state <= FLUSH_WR;
+            sdram_emit_command(CMD_NOP);
+            if f_mask(2 * f_word + 1 downto 2 * f_word) /= "00" then
+              sdram_emit_command(CMD_WRITE);
+              sdram_ba <= l_bank(f_tag);
+              sdram_a(12 downto 10) <= "000";
+              sdram_a(9 downto 2) <= f_tag(10 downto 3);
+              sdram_a(1 downto 0) <= to_unsigned(f_word, 2);
+              sdram_dq_out <= f_data(16 * f_word + 15 downto 16 * f_word);
+              sdram_dq_oe_n <= (others => '0');
+              sdram_dqml <= not f_mask(2 * f_word);
+              sdram_dqmh <= not f_mask(2 * f_word + 1);
+              bk_wr(to_integer(l_bank(f_tag))) <= 1;
+              write_jobs <= write_jobs + 1;
+            end if;
+            if f_word = 3 then
+              sdram_state <= IDLE;
+            else
+              f_word <= f_word + 1;
+            end if;
+
+          when LUMP_W1 =>
+            -- Request the first write word now: it is sampled two edges
+            -- later, which is exactly when the first WRITE is emitted.  The
+            -- remaining requests then follow one per cycle.
+            sdram_emit_command(CMD_NOP);
+            lump_wdata_req <= '1';
+            -- (words - 1) further requests: lump_cnt is words - 2 here
+            lump_wreq_cnt  <= lump_cnt;
+            sdram_state <= LUMP_W2;
+          when LUMP_W2 =>
+            sdram_emit_command(CMD_NOP);
+            sdram_state <= LUMP_WRITE;
           when LUMP_READ =>
             -- Issue one READ (burst of 4 words) every 4 cycles.  This gives
             -- a gap-free stream of data from the open row.
@@ -1099,6 +1262,7 @@ begin
             sdram_dqml          <= not lump_wdata_be(0);
             sdram_dqmh          <= not lump_wdata_be(1);
             write_jobs          <= write_jobs + 1;
+            bk_wr(to_integer(lump_bank)) <= 1;
             if lump_cnt(8) = '1' then
               sdram_state <= LUMP_WRITE_RECOVER;
               lump_wait   <= 1;
@@ -1190,7 +1354,7 @@ begin
                 -- Four WRITEs (burst length 1), test or saved words; the
                 -- row must be open.  Then tWR, then tr_ret.
                 sdram_emit_command(CMD_WRITE);
-                sdram_ba <= "11";
+                sdram_ba <= TR_BANK;
                 sdram_a(12 downto 11) <= "00";
                 sdram_a(10) <= '0';
                 sdram_a(9 downto 0) <= to_unsigned(1020 + tr_wi, 10);
@@ -1226,7 +1390,7 @@ begin
                 end if;
               when T_TEST1 =>
                 sdram_emit_command(CMD_ACTIVATE_ROW);
-                sdram_ba <= "11";
+                sdram_ba <= TR_BANK;
                 sdram_a <= (others => '1');
                 tr_r <= '0';
                 tr_cnt <= 2;                  -- tRCD
@@ -1234,7 +1398,7 @@ begin
                 tr_st <= M_WAIT;
               when T_TEST2 =>
                 sdram_emit_command(CMD_READ);
-                sdram_ba <= "11";
+                sdram_ba <= TR_BANK;
                 sdram_a(12 downto 10) <= "000";
                 sdram_a(9 downto 0) <= to_unsigned(1020, 10);
                 sdram_dqml <= '0'; sdram_dqmh <= '0';
@@ -1269,7 +1433,7 @@ begin
                 -- one phase step, which checks that a phase shifter answers;
                 -- a manual step ($C000011/2) is just that step.
                 sdram_emit_command(CMD_PRECHARGE);
-                active_row <= '0';
+                bk_open <= "0000";
                 tr_had_ok <= tr_ok;
                 tr_no_ps <= '0';
                 tr_dec <= tr_mode(1);
@@ -1303,7 +1467,7 @@ begin
                   end if;
                 end if;
                 sdram_emit_command(CMD_ACTIVATE_ROW);
-                sdram_ba <= "11";
+                sdram_ba <= TR_BANK;
                 sdram_a <= (others => '1');
                 tr_restore <= '0';
                 tr_wi <= 0;
@@ -1479,7 +1643,7 @@ begin
               when T_RESTORE =>
                 if tr_had_ok = '1' then
                   sdram_emit_command(CMD_ACTIVATE_ROW);
-                  sdram_ba <= "11";
+                  sdram_ba <= TR_BANK;
                   sdram_a <= (others => '1');
                   tr_restore <= '1';
                   tr_wi <= 0;
@@ -1500,14 +1664,16 @@ begin
                 tr_ret <= T_FINISH;
                 tr_st <= M_WAIT;
               when T_FINISH =>
-                active_row <= '0';
+                -- (every bank closed, and tRP over); the read path may have
+                -- changed, and the test row was rewritten: drop the cache
+                bk_open <= "0000";
+                bk_pre <= (others => tRP_C);
+                c_val <= (others => '0');
+                exp_valid <= '0';
+                current_cache_line_valid <= '0';
                 tr_active <= '0';
                 if tr_mode = "00" then
                   tr_count <= tr_count + 1;
-                end if;
-                if read_latched = '0' and write_latched = '0'
-                  and read_request = '0' and write_request = '0' then
-                  busy <= '0';
                 end if;
                 sdram_state <= IDLE;
               when others =>
@@ -1524,137 +1690,7 @@ begin
             rdata_hi                  <= nonram_val;
             sdram_state               <= IDLE;
             report "NONRAMACCESS: Presenting value $" & to_hexstring(nonram_val);
-          when CLOSE_AND_SWITCH_ROW =>
-            -- PRECHARGE has already been issued, so just NOP until precharge
-            -- time expired
-            sdram_emit_command(CMD_NOP);
-          when CLOSE_AND_SWITCH_ROW_2 => sdram_emit_command(CMD_NOP);
-          when CLOSE_AND_SWITCH_ROW_3 => sdram_emit_command(CMD_NOP);
-          when CLOSE_AND_SWITCH_ROW_4 =>
-            -- Now open the new row
-            sdram_emit_command(CMD_ACTIVATE_ROW);
-            sdram_ba <= latched_addr(25 downto 24);
-            sdram_a  <= latched_addr(23 downto 11);
-          when ACTIVATE_WAIT =>
-            sdram_emit_command(CMD_NOP);
-          when ACTIVATE_WAIT_1 =>
-            sdram_emit_command(CMD_NOP);
-            if write_latched = '1' then
-              -- Setup write data early, to handle marginal timing
-              -- more safely (saves us needing separate read latch clock)
-              sdram_dq_out(7 downto 0)  <= wdata_latched;
-              sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-              sdram_dq_oe_n             <= (others => '0');
-              sdram_dqmh            <= latched_wen_hi;
-              sdram_dqml            <= latched_wen_lo;
-            end if;
-          when ACTIVATE_WAIT_2 =>
-            sdram_emit_command(CMD_NOP);
-            active_row                    <= '1';
-            active_row_addr(25 downto 11) <= latched_addr(25 downto 11);
-            if read_latched = '1' then
-              report "SDRAM: Issuing READ command after ROW_ACTIVATE";
-              sdram_emit_command(CMD_READ);
-              -- Select address of start of 8-byte block
-              -- Each word is 2 bytes, which takes one bit
-              -- off, and then the bottom two bits must be zero.
-              sdram_a(12)         <= '0';
-              sdram_a(11)         <= '0';
-              sdram_a(10)         <= '0';  -- Disable auto precharge
-              sdram_a(9 downto 2) <= latched_addr(10 downto 3);
-              sdram_a(1 downto 0) <= "00";
-              sdram_state         <= READ_WAIT;
-              sdram_dqml          <= '0'; sdram_dqmh <= '0';
-            end if;
-            if write_latched = '1' then
-              report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
-              sdram_state <= WRITE_1;
-            end if;
-            sdram_dq_out(7 downto 0)  <= wdata_latched;
-            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-            sdram_dq_oe_n             <= (others => '0');
-          when READ_WAIT =>
-            read_jobs  <= read_jobs + 1;
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_WAIT_2 =>
-            -- READ_1 (the first word) comes at T+7-rd_c: skip wait states
-            if rd_c = "11" then
-              sdram_state <= READ_0;
-            end if;
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_WAIT_3 =>
-            if rd_c = "10" then
-              sdram_state <= READ_0;
-            elsif rd_c = "01" then
-              sdram_state <= READ_WAIT_5;
-            end if;
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_WAIT_4 =>
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_WAIT_5 =>
-            -- (the dq_x stage)
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_0 =>
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-            -- Data is latched on opposite phase clock, so it isn't available yet
-            -- but rather in the next cycle in READ_1
-          when READ_1 =>
-            rdata_line(15 downto 0) <= dq_x;
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            sdram_emit_command(CMD_NOP);
-          when READ_2 =>
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            rdata_line(31 downto 16) <= dq_x;
-            sdram_emit_command(CMD_NOP);
-          when READ_3 =>
-            sdram_emit_command(CMD_NOP);
-            sdram_dqml <= '0'; sdram_dqmh <= '0';
-            rdata_line(47 downto 32) <= dq_x;
-          when READ_4 =>
-            report "READ4: dq_x = $" & to_hexstring(dq_x);
-            rdata_line(63 downto 48) <= dq_x;
-            read_complete_strobe     <= '1';
-            read_latched             <= '0';
-            report "BUSY: Clearing after read";
-            busy                     <= '0';
-            sdram_state              <= IDLE;
-          when WRITE_1 =>
-            sdram_emit_command(CMD_WRITE);
-            sdram_a(12)         <= '0';
-            sdram_a(11)         <= '0';
-            sdram_a(10)         <= '0';  -- Disable auto precharge
-            sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-
-            sdram_dq_out(7 downto 0)  <= wdata_latched;
-            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-            sdram_dq_oe_n             <= (others => '0');
-
-            -- DQM lines are high to ignore a byte, and low to accept one
-            sdram_dqmh <= latched_wen_hi;
-            sdram_dqml <= latched_wen_lo;
-
-            -- Immediately complete write request if the correct row is
-            -- already open
-            report "BUSY: Clearing after non-ram read";
-            busy          <= '0';
-            write_latched <= '0';
-          when WRITE_2 =>
-            sdram_dq_out(7 downto 0)  <= wdata_latched;
-            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-            sdram_dq_oe_n             <= (others => '0');
-            sdram_state           <= IDLE;
-          when CLOSE_FOR_REFRESH   => sdram_emit_command(CMD_NOP);
-          when CLOSE_FOR_REFRESH_2 => sdram_emit_command(CMD_NOP);
-          when CLOSE_FOR_REFRESH_3 => sdram_emit_command(CMD_NOP);
-          when CLOSE_FOR_REFRESH_4 => sdram_emit_command(CMD_NOP);
           when REFRESH_1 =>
-            active_row            <= '0';
             refresh_due_countdown <= refresh_interval - 1;
           when REFRESH_2 => sdram_emit_command(CMD_NOP);
           when REFRESH_3 => sdram_emit_command(CMD_NOP);
@@ -1665,12 +1701,237 @@ begin
           when REFRESH_8 => sdram_emit_command(CMD_NOP);
           when REFRESH_9 =>
             sdram_emit_command(CMD_NOP);
-            report "BUSY: Clearing BUSY after refresh";
-            busy        <= '0';
             sdram_state <= IDLE;
           when others =>
             sdram_emit_command(CMD_NOP);
         end case;
+      end if;
+
+      -------------------------------------------------------------------------
+      -- CPU side (#949).  This runs alongside whatever the SDRAM itself is
+      -- doing: reads that hit, and writes, never wait for it.
+      -------------------------------------------------------------------------
+      next_toggle_drive <= expansionram_current_cache_line_next_toggle;
+      prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
+      v_idx := to_integer(latched_addr(2 downto 0));
+      for j in 0 to NW - 1 loop
+        if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
+      end loop;
+
+      if sdram_prepped = '1' and tr_active = '0' then
+
+        -- A fill has just completed: a read waiting for that line gets it
+        -- now; the exported line moves to it if the CPU asked for it
+        if v_fill_done then
+          if rs /= R_IDLE and read_latched = '1' and fl_tag = latched_addr(26 downto 3) then
+            publish(byte_of(v_line, v_idx), byte_of(v_line, (v_idx + 1) mod 8));
+            set_export(fl_tag, v_line);
+            prefetch_from(fl_tag);
+          elsif rs = R_WAIT or rs = R_DECIDE then
+            rs <= R_LOOK;               -- (look again)
+          end if;
+          if x_want = '1' and fl_tag = x_addr and write_latched = '0' and write_request = '0' then
+            set_export(x_addr, v_line);
+            x_want <= '0';
+            if cflags(1) = '1' then prefetch_from(x_addr); end if;
+          end if;
+        end if;
+
+        case rs is
+          when R_IDLE =>
+            if (read_latched = '1' or write_latched = '1') and latched_addr(26) = '0' then
+              rs <= R_LOOK;
+            end if;
+          when R_LOOK =>
+            for i in 0 to NL - 1 loop
+              if c_tag(i) = latched_addr(26 downto 3) then lk_c(i) <= '1'; else lk_c(i) <= '0'; end if;
+            end loop;
+            for j in 0 to NW - 1 loop
+              if w_tag(j) = latched_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
+            end loop;
+            rs <= R_DECIDE;
+          when R_DECIDE =>
+            if v_fill_done then
+              null;                     -- (handled above)
+            elsif read_latched = '1' then
+              v_wh := -1;
+              v_hit := -1;
+              for j in 0 to NW - 1 loop
+                if lk_w(j) = '1' and w_mask(j)(v_idx) = '1' then v_wh := j; end if;
+              end loop;
+              for i in NL - 1 downto 0 loop
+                if lk_c(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
+              end loop;
+              if v_hit /= -1 then
+                -- (a cached line already has any posted writes in it)
+                hits <= hits + 1;
+                publish(byte_of(c_data(v_hit), v_idx), byte_of(c_data(v_hit), (v_idx + 1) mod 8));
+                set_export(latched_addr(26 downto 3), c_data(v_hit));
+                prefetch_from(latched_addr(26 downto 3));
+              elsif v_wh /= -1 then
+                hits <= hits + 1;
+                publish(byte_of(w_data(v_wh), v_idx), byte_of(w_data(v_wh), (v_idx + 1) mod 8));
+              else
+                misses <= misses + 1;
+                if not (fill_active = '1' and fl_tag = latched_addr(26 downto 3)) then
+                  want_fill <= '1';
+                end if;
+                rs <= R_WAIT;
+              end if;
+            elsif write_latched = '1' then
+              -- Posted write: into the buffer already holding this line, or
+              -- a free one; if neither, wait for one to be written out
+              v_wh := -1;
+              v_free := -1;
+              for j in 0 to NW - 1 loop
+                if lk_w(j) = '1' and w_mask(j) /= x"00" then v_wh := j; end if;
+                if w_mask(j) = x"00" and v_free = -1 then v_free := j; end if;
+              end loop;
+              if v_wh = -1 and v_free /= -1 then
+                v_wh := v_free;
+                v_line := (others => '0');
+                v_mask := (others => '0');
+              elsif v_wh /= -1 then
+                v_line := w_data(v_wh);
+                v_mask := w_mask(v_wh);
+              end if;
+              if v_wh = -1 then
+                w_stall <= '1';
+                rs <= R_LOOK;
+              else
+                w_stall <= '0';
+                if rdata_16en = '1' then
+                  if latched_wen_lo = '1' then
+                    v_line(8 * v_idx + 7 downto 8 * v_idx) := wdata_latched;
+                    v_mask(v_idx) := '1';
+                  end if;
+                  if latched_wen_hi = '1' and v_idx /= 7 then
+                    v_line(8 * v_idx + 15 downto 8 * v_idx + 8) := wdata_hi_latched;
+                    v_mask(v_idx + 1) := '1';
+                  end if;
+                else
+                  v_line(8 * v_idx + 7 downto 8 * v_idx) := wdata_latched;
+                  v_mask(v_idx) := '1';
+                end if;
+                w_tag(v_wh)  <= latched_addr(26 downto 3);
+                w_data(v_wh) <= v_line;
+                w_mask(v_wh) <= v_mask;
+                w_age(v_wh)  <= 0;
+                w_cur <= v_wh;
+                -- write through into the cached copy (also one completing
+                -- right now), and the exported line
+                for i in 0 to NL - 1 loop
+                  if c_tag(i) = latched_addr(26 downto 3)
+                    and (c_val(i) = '1' or (v_fill_done and i = fl_slot)) then
+                    for k in 0 to 7 loop
+                      if v_mask(k) = '1' and (k = v_idx or (rdata_16en = '1' and k = v_idx + 1)) then
+                        c_data(i)(8 * k + 7 downto 8 * k) <= v_line(8 * k + 7 downto 8 * k);
+                      end if;
+                    end loop;
+                  end if;
+                end loop;
+                current_cache_line_valid <= exp_valid;
+                if exp_addr = latched_addr(26 downto 3) then
+                  v_line := exp_data;
+                  if rdata_16en = '0' or latched_wen_lo = '1' then
+                    v_line(8 * v_idx + 7 downto 8 * v_idx) := wdata_latched;
+                  end if;
+                  if rdata_16en = '1' and latched_wen_hi = '1' and v_idx /= 7 then
+                    v_line(8 * v_idx + 15 downto 8 * v_idx + 8) := wdata_hi_latched;
+                  end if;
+                  set_export(exp_addr, v_line);
+                end if;
+                write_latched <= '0';
+                rs <= R_IDLE;
+              end if;
+            else
+              rs <= R_IDLE;
+            end if;
+          when R_WAIT =>
+            -- (a completed fill sends us back to R_LOOK, above)
+            if read_latched = '0' then rs <= R_IDLE; end if;
+        end case;
+
+        -- The CPU moved on from the exported line (next/prev)
+        if next_toggle_drive /= prev_current_cache_line_next_toggle then
+          prev_current_cache_line_next_toggle <= next_toggle_drive;
+          x_addr <= exp_addr + 1;
+          x_down <= '0';
+          x_look <= '1';
+          x_want <= '0';
+        elsif prev_toggle_drive /= prev_current_cache_line_prev_toggle then
+          prev_current_cache_line_prev_toggle <= prev_toggle_drive;
+          x_addr <= exp_addr - 1;
+          x_down <= '1';
+          x_look <= '1';
+          x_want <= '0';
+        elsif x_look = '1' then
+          x_look <= '0';
+          x_use <= '1';
+          for i in 0 to NL - 1 loop
+            if c_tag(i) = x_addr then x_hit(i) <= '1'; else x_hit(i) <= '0'; end if;
+          end loop;
+        elsif x_use = '1' then
+          x_use <= '0';
+          v_hit := -1;
+          for i in 0 to NL - 1 loop
+            if x_hit(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
+          end loop;
+          if v_hit /= -1 and write_latched = '0' and write_request = '0' then
+            set_export(x_addr, c_data(v_hit));
+            if cflags(1) = '1' then prefetch_from(x_addr); end if;
+          else
+            x_want <= '1';              -- (fetched, then exported)
+          end if;
+        end if;
+
+        -- Prefetch scanner: checks one candidate line at a time
+        if pf_chk2 = '1' then
+          pf_chk2 <= '0';
+          if pf_present = '0' then
+            pf_want <= '1';
+            pf_line <= pf_cand;
+          end if;
+          if pf_k <= PF then pf_k <= pf_k + 1; end if;
+        elsif pf_chk = '1' then
+          pf_chk <= '0';
+          pf_chk2 <= '1';
+          pf_present <= '0';
+          for i in 0 to NL - 1 loop
+            if c_val(i) = '1' and c_tag(i) = pf_cand then pf_present <= '1'; end if;
+          end loop;
+          if fill_active = '1' and fl_tag = pf_cand then pf_present <= '1'; end if;
+        elsif pf_k <= PF and pf_want = '0' then
+          if pf_down = '1' then
+            pf_cand <= pf_base - pf_k;
+          else
+            pf_cand <= pf_base + pf_k;
+          end if;
+          pf_chk <= '1';
+        end if;
+        -- (prefetch_from, in this cycle, overrides the above)
+        if v_pf_go then
+          pf_base <= v_pf_base;
+          pf_down <= v_pf_down;
+          pf_k <= 1;
+          pf_chk <= '0';
+          pf_chk2 <= '0';
+          pf_want <= '0';
+        end if;
+      end if;
+
+      -- slow_devices must wait while we cannot take a request.  A write is
+      -- taken into a buffer within three cycles, sooner than slow_devices
+      -- can bring the next request, so it only holds things up when both
+      -- buffers are in use.
+      if sdram_prepped = '0' or tr_active = '1'
+        or read_latched = '1' or read_request = '1'
+        or (latched_addr(26) = '1' and (write_latched = '1' or write_request = '1'))
+        or ((write_latched = '1' or write_request = '1')
+            and w_mask(0) /= x"00" and w_mask(1) /= x"00") then
+        busy <= '1';
+      else
+        busy <= '0';
       end if;
 
     end if;
