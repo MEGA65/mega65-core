@@ -56,6 +56,8 @@ entity hyperram is
          current_cache_line_address : buffer unsigned(26 downto 3) := (others => '0');
          current_cache_line_valid : out std_logic := '0';
          expansionram_current_cache_line_next_toggle : in std_logic := '0';
+         -- (#949: the v2 CPU path also follows prev; the tops may leave it open)
+         expansionram_current_cache_line_prev_toggle : in std_logic := '0';
 
          -- Allow VIC-IV to request lines of data also.
          -- We then pump it out byte-by-byte when ready
@@ -118,7 +120,7 @@ architecture gothic of hyperram is
     HyperRAMReadWaitSlow,
     HyperRAMReadWait,
     -- LUMP burst states (fast mode timing only)
-    LumpReadSetup,
+    PortReadSetup,
     LumpReadWait,
     LumpDoWrite
     );
@@ -432,9 +434,12 @@ architecture gothic of hyperram is
   signal viciv_data_buffer : cache_row_t := (others => x"00");
   signal viciv_buffer_toggle : std_logic := '0';
   signal last_viciv_buffer_toggle : std_logic := '0';
-  signal viciv_next_byte : integer range 0 to 8 := 0;
+  signal viciv_next_byte : integer range 0 to 8 := 8;  -- (8: nothing to send)
   signal viciv_request_count : unsigned(31 downto 0) := to_unsigned(0,32);
   signal is_vic_fetch : boolean := false;
+  -- The VIC-IV waits for its 8 bytes with no timeout, so a fetch that times
+  -- out still hands over its (garbage) buffer
+  signal vic_buffer_sent : std_logic := '0';
 
   -- LUMP port state
   signal lump_q_valid    : std_logic := '0';
@@ -501,7 +506,136 @@ architecture gothic of hyperram is
   signal last_data_ready_toggle_out : std_logic := '0';
   signal data_ready_toggle_drive : std_logic := '0';
 
+  -----------------------------------------------------------------------------
+  -- CPU path v2 (#949): the same scheme as the SDRAM controller's CPU path.
+  -- A line cache, posted writes with byte masks, prefetch, the exported line
+  -- with next/prev, and VIC-IV fetches, all in the clock163 domain.  Its bus
+  -- work is done as LUMP-engine bursts (fills of up to H_FILL lines, and
+  -- one-line masked writes), so it shares the LUMP path's timing.  Register
+  -- space ($A000000 up: CR0, the debug registers) still goes the old way.
+  -----------------------------------------------------------------------------
+  -- $BFFFFF7: bit 0 CPU path v2 (0: the old path; switch only while idle),
+  -- bit 1 prefetch after CPU reads, bit 2 also prefetch past the exported
+  -- line when the CPU moves it on (the early next-line fetch: off by default
+  -- until the CPU side is known to use it well)
+  signal v2_flags : std_logic_vector(7 downto 0) := x"03";
+  signal v2_en    : std_logic;
+  signal v2_ram   : std_logic;          -- the request on the port is v2's
+  signal read_request_o, write_request_o : std_logic;  -- the old path's
+  signal busy_o   : std_logic := '0';   -- the old path's busy
+  signal busy_v2  : std_logic := '1';
+  constant H_NL   : integer := 16;      -- cached lines (8 bytes each)
+  constant H_NW   : integer := 2;       -- posted-write buffers
+  constant H_FILL : integer := 4;       -- lines per fill burst
+  constant H_PF   : integer := 8;       -- prefetch this many lines ahead
+  type h_ltag_t  is array (0 to H_NL - 1) of unsigned(26 downto 3);
+  type h_ldata_t is array (0 to H_NL - 1) of unsigned(63 downto 0);
+  signal c_tag  : h_ltag_t := (others => (others => '1'));
+  signal c_val  : std_logic_vector(0 to H_NL - 1) := (others => '0');
+  signal c_data : h_ldata_t := (others => (others => '0'));
+  signal c_rr   : integer range 0 to H_NL - 1 := 0;
+  -- the fill in progress: fl_n lines from fl_tag, into slots fl_slot
+  type h_slots_t is array (0 to H_FILL - 1) of integer range 0 to H_NL - 1;
+  signal fill_active : std_logic := '0';
+  signal fl_tag  : unsigned(26 downto 3) := (others => '1');
+  signal fl_n    : integer range 0 to H_FILL := 0;
+  signal fl_line : integer range 0 to H_FILL - 1 := 0;
+  signal fl_word : integer range 0 to 3 := 0;
+  signal fl_slot : h_slots_t := (others => 0);
+  signal fl_err  : std_logic := '0';
+  -- posted writes; w_fl: being written out (frozen until done)
+  type h_wtag_t  is array (0 to H_NW - 1) of unsigned(26 downto 3);
+  type h_wdata_t is array (0 to H_NW - 1) of unsigned(63 downto 0);
+  type h_wmask_t is array (0 to H_NW - 1) of std_logic_vector(7 downto 0);
+  type h_wage_t  is array (0 to H_NW - 1) of integer range 0 to 63;
+  signal w_tag  : h_wtag_t := (others => (others => '1'));
+  signal w_data : h_wdata_t := (others => (others => '0'));
+  signal w_mask : h_wmask_t := (others => (others => '0'));
+  signal w_age  : h_wage_t := (others => 0);
+  signal w_fl   : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  signal w_cur  : integer range 0 to H_NW - 1 := 0;
+  signal w_stall : std_logic := '0';
+  signal f_j    : integer range 0 to H_NW - 1 := 0;
+  signal f_word : integer range 0 to 3 := 0;
+  -- the request being handled
+  signal rd_l, wr_l : std_logic := '0';
+  signal l_addr : unsigned(26 downto 0) := (others => '0');
+  signal l_wdata, l_wdata_hi : unsigned(7 downto 0) := x"00";
+  signal l_wen_lo, l_wen_hi : std_logic := '0';
+  type h_rs_t is (R_IDLE, R_LOOK, R_DECIDE, R_WAIT);
+  signal rs : h_rs_t := R_IDLE;
+  signal lk_c : std_logic_vector(0 to H_NL - 1) := (others => '0');
+  signal lk_w : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  signal want_fill : std_logic := '0';
+  signal last_pub : unsigned(26 downto 3) := (others => '1');
+  -- the exported line, and next/prev
+  signal exp_addr  : unsigned(26 downto 3) := (others => '1');
+  signal exp_valid : std_logic := '0';
+  signal exp_data  : unsigned(63 downto 0) := (others => '0');
+  signal x_look, x_use, x_want, x_down : std_logic := '0';
+  signal x_addr : unsigned(26 downto 3) := (others => '1');
+  signal x_hit  : std_logic_vector(0 to H_NL - 1) := (others => '0');
+  signal next_toggle_drive, prev_toggle_drive : std_logic := '0';
+  signal next_toggle_seen, prev_toggle_seen : std_logic := '0';
+  -- prefetch
+  signal pf_base : unsigned(26 downto 3) := (others => '1');
+  signal pf_down : std_logic := '0';
+  signal pf_k    : integer range 0 to H_PF + 1 := H_PF + 1;
+  signal pf_cand : unsigned(26 downto 3) := (others => '1');
+  signal pf_chk, pf_chk2, pf_present, pf_want : std_logic := '0';
+  signal pf_line : unsigned(26 downto 3) := (others => '1');
+  signal v2_hits, v2_misses : unsigned(15 downto 0) := (others => '0');
+  -- VIC-IV fetches
+  signal vic_tag : unsigned(26 downto 3) := (others => '1');
+  signal vic_look, vic_use, vic_want : std_logic := '0';
+  signal vic_hit : std_logic_vector(0 to H_NL - 1) := (others => '0');
+  -- LUMP-engine jobs: cj_req waits for the Idle dispatch, cj_busy until done
+  signal cj_req, cj_busy, cj_read : std_logic := '0';
+  signal cj_tag : unsigned(26 downto 3) := (others => '0');
+  signal cj_cnt_init : signed(8 downto 0) := (others => '1');
+  signal cj_pf : std_logic := '0';           -- the job is a prefetch
+  -- A LUMP burst pauses at an 8-byte boundary (after at least 16 bytes) when
+  -- a CPU request needs the bus, and resumes after it: at the boot data rate
+  -- a 256-byte burst takes over 3 us, and slow_devices gives up after 1.6.
+  signal lump_yield   : std_logic := '0';    -- a CPU request waits (registered)
+  signal lump_res     : std_logic := '0';    -- a paused LUMP command
+  signal lump_res_addr : unsigned(26 downto 3) := (others => '0');
+  signal lump_res_cnt : signed(8 downto 0) := (others => '1');
+  signal lump_res_read : std_logic := '0';
+  signal lump_pre_res : std_logic := '0';    -- the pre-computed burst resumes it
+  signal lump_cur_addr : unsigned(26 downto 3) := (others => '0');
+  signal lump_wg      : unsigned(1 downto 0) := "00";  -- word within 8 bytes
+  signal lump_seg     : std_logic := '0';    -- 8 bytes done in this burst
+  -- 8-byte groups done in this burst: it also pauses after 256 bytes, so
+  -- CS is never low for more than 4 us (tCSM: the device refreshes between)
+  signal lump_ng      : unsigned(4 downto 0) := (others => '0');
+  signal lump_ending  : std_logic := '0';    -- write: pausing after this word
+  signal lump_pre_cpu   : std_logic := '0';  -- the pre-computed burst is v2's
+  signal lump_owner_cpu : std_logic := '0';  -- the burst under way is v2's
+  signal v2_inval : std_logic := '0';
+  -- the LUMP engine's own strobes and data (the LUMP port sees its bursts)
+  signal le_rdata : unsigned(15 downto 0) := x"0000";
+  signal le_rdata_valid, le_wdata_req, le_cmd_done, le_error : std_logic := '0';
+  signal le_wdata : unsigned(15 downto 0);
+  signal le_wdata_be : std_logic_vector(1 downto 0);
+  signal cj_wdata : unsigned(15 downto 0) := x"0000";
+  signal cj_wdata_be : std_logic_vector(1 downto 0) := "00";
+
 begin
+
+  v2_en <= v2_flags(0);
+  -- RAM (not register space) requests are v2's when it is on
+  v2_ram <= v2_en and not address(25);
+  read_request_o  <= read_request and not v2_ram;
+  write_request_o <= write_request and not v2_ram;
+  busy <= busy_o or busy_v2;
+  lump_rdata       <= le_rdata;
+  lump_rdata_valid <= le_rdata_valid and not lump_owner_cpu;
+  lump_wdata_req   <= le_wdata_req and not lump_owner_cpu;
+  lump_cmd_done    <= le_cmd_done and not lump_owner_cpu;
+  lump_error       <= le_error and not lump_owner_cpu;
+  le_wdata    <= cj_wdata when lump_owner_cpu = '1' else lump_wdata;
+  le_wdata_be <= cj_wdata_be when lump_owner_cpu = '1' else lump_wdata_be;
 
   lump_queue0 : entity work.lump_queue
     port map (
@@ -526,16 +660,125 @@ begin
     variable show_collect1 : boolean := false;
     variable show_block : boolean := false;
     variable show_always : boolean := true;
+    -- CPU path v2
+    variable v2_done      : boolean;
+    variable v2_done_slot : integer range 0 to H_NL - 1;
+    variable v2_pf_go     : boolean;
+    variable v2_pf_base   : unsigned(26 downto 3);
+    variable v2_pf_down   : std_logic;
+    variable v2_idx       : integer range 0 to 7;
+    variable v2_line, v2_line2 : unsigned(63 downto 0);
+    variable v2_tag       : unsigned(26 downto 3);
+    variable v2_wh, v2_hit, v2_free : integer range -1 to H_NL;
+    variable v2_frozen    : boolean;
+    variable v2_mask      : std_logic_vector(7 downto 0);
+
+    function byte_of(d : unsigned(63 downto 0); i : integer) return unsigned is
+    begin
+      return d(8 * i + 7 downto 8 * i);
+    end function;
+    -- Answer the CPU's read
+    procedure v2_publish(b, bh : unsigned(7 downto 0)) is
+    begin
+      report "V2: read $" & to_hstring(l_addr) & " -> $" & to_hstring(b);
+      rdata <= b;
+      rdata_hi <= bh;
+      -- (the toggle with the data, as the SDRAM controller does: the old
+      -- path's extra cycle through data_ready_toggle_drive isn't needed)
+      data_ready_toggle_out <= not last_data_ready_toggle_out;
+      data_ready_toggle_drive <= not last_data_ready_toggle_out;
+      last_data_ready_toggle_out <= not last_data_ready_toggle_out;
+      rd_l <= '0';
+      rs <= R_IDLE;
+    end procedure;
+    -- The exported line, and slow_devices' view of it
+    procedure v2_set_export(t : unsigned(26 downto 3); d : unsigned(63 downto 0)) is
+    begin
+      exp_addr <= t;
+      exp_data <= d;
+      exp_valid <= '1';
+      if v2_en = '1' then
+        current_cache_line_address <= t;
+        for k in 0 to 7 loop
+          current_cache_line(k) <= d(8 * k + 7 downto 8 * k);
+        end loop;
+        current_cache_line_valid <= enable_current_cache_line;
+      end if;
+    end procedure;
+    -- Prefetch from line t on, if enabled, going the way the reads go
+    procedure v2_prefetch_from(t : unsigned(26 downto 3)) is
+    begin
+      if v2_flags(1) = '1' and t /= last_pub then
+        v2_pf_go := true;
+        v2_pf_base := t;
+        v2_pf_down := '0';
+        if t = last_pub - 1 then v2_pf_down := '1'; end if;
+        last_pub <= t;
+      end if;
+    end procedure;
+    -- Fill the lines around t (upwards from t, or ending at t if down),
+    -- staying within t's 1 KB, into the next slots
+    procedure v2_start_fill(t : unsigned(26 downto 3); down : std_logic) is
+      variable st : unsigned(26 downto 3);
+      variable n  : integer range 1 to H_FILL;
+      variable o  : integer range 0 to 127;
+    begin
+      o := to_integer(t(9 downto 3));
+      if down = '0' then
+        st := t;
+        if 128 - o < H_FILL then n := 128 - o; else n := H_FILL; end if;
+      elsif o < H_FILL - 1 then
+        st := t - o;
+        n := o + 1;
+      else
+        st := t - (H_FILL - 1);
+        n := H_FILL;
+      end if;
+      for k in 0 to H_FILL - 1 loop
+        fl_slot(k) <= (c_rr + k) mod H_NL;
+        if k < n then
+          c_val((c_rr + k) mod H_NL) <= '0';
+          c_tag((c_rr + k) mod H_NL) <= st + k;
+        end if;
+      end loop;
+      c_rr <= (c_rr + n) mod H_NL;
+      report "V2: fill $" & to_hstring(st & "000") & ", " & integer'image(n) & " lines";
+      fill_active <= '1';
+      fl_tag <= st;
+      fl_n <= n;
+      fl_line <= 0;
+      fl_word <= 0;
+      fl_err <= '0';
+      cj_req <= '1';
+      cj_pf <= '0';
+      cj_read <= '1';
+      cj_tag <= st;
+      cj_cnt_init <= to_signed(4 * n - 2, 9);
+    end procedure;
+    -- Write out posted-write buffer j (frozen until it is done)
+    procedure v2_start_flush(j : integer) is
+    begin
+      report "V2: flush buffer " & integer'image(j) & " $" & to_hstring(w_tag(j) & "000")
+        & " mask " & to_string(w_mask(j));
+      w_fl(j) <= '1';
+      f_j <= j;
+      f_word <= 0;
+      cj_req <= '1';
+      cj_pf <= '0';
+      cj_read <= '0';
+      cj_tag <= w_tag(j);
+      cj_cnt_init <= to_signed(2, 9);
+    end procedure;
   begin
     if rising_edge(pixelclock) then
 
       invalidate_read_cache <= '0';
       cache_row_update_address_changed <= '0';
 
-      if read_request='1' then
+      if read_request_o='1' then
         read_request_latch <= '1';
       end if;
-      if write_request='1' then
+      if write_request_o='1' then
         write_request_latch <= '1';
       end if;
       if read_request_delatch = '1' then
@@ -570,13 +813,13 @@ begin
         extra_write_latency2 <= to_unsigned(3,8);
       end if;
 
-      report "read_request=" & std_logic'image(read_request)
+      report "read_request_o=" & std_logic'image(read_request_o)
         & ", read_request_held=" & std_logic'image(read_request_held)
         & ", write_request_held=" & std_logic'image(write_request_held)
         & ", read_request_latch=" & std_logic'image(read_request_latch)
         & ", write_request_latch=" & std_logic'image(write_request_latch)
         & ", busy_internal=" & std_logic'image(busy_internal)
-        & ", write_request=" & std_logic'image(write_request)
+        & ", write_request_o=" & std_logic'image(write_request_o)
         & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
         & ", is_block_read=" & boolean'image(is_block_read)
         & ", address=$" & to_hstring(address);
@@ -611,12 +854,12 @@ begin
       end if;
 
       if cache_enabled then
-        busy <= busy_internal or write_blocked or queued_write or queued2_write or (not start_delay_expired);
+        busy_o <= busy_internal or write_blocked or queued_write or queued2_write or (not start_delay_expired);
       else
         -- With no cache, we have to IMMEDIATELY assert busy when we see a
         -- request to avoid a race-condition with slow_devices
-        busy <= busy_internal or write_blocked or queued_write or queued2_write
-                or read_request or write_request or read_request_latch or write_request_latch
+        busy_o <= busy_internal or write_blocked or queued_write or queued2_write
+                or read_request_o or write_request_o or read_request_latch or write_request_latch
                 or (not start_delay_expired);
       end if;
 
@@ -638,16 +881,16 @@ begin
         write_blocked <= queued_write or queued2_write;
       else
         write_blocked <= '1';
-        busy <= '1';
+        busy_o <= '1';
       end if;
 
       -- Similarly as soon as we see a VIC-IV request come through we need to
       -- assert busy
       if viciv_request_toggle /= viciv_last_request_toggle then
-        busy <= '1';
+        busy_o <= '1';
       end if;
 
-      if read_request = '1' or write_request = '1' or read_request_latch='1' or write_request_latch='1' then
+      if read_request_o = '1' or write_request_o = '1' or read_request_latch='1' or write_request_latch='1' then
         request_counter_int <= not request_counter_int;
         request_counter <= request_counter_int;
       end if;
@@ -754,7 +997,7 @@ begin
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
       report "address = $" & to_hstring(address);
-      if (read_request or read_request_latch)='1' and busy_internal='0'
+      if (read_request_o or read_request_latch)='1' and busy_internal='0'
         and ((is_block_read = false) or block_address_matches_address='0')
         -- Don't but in on the VIC-IV (but once we have submitted a request, we
         -- do have priority)
@@ -1020,6 +1263,11 @@ begin
             when x"b8" => rdata_buf <= lump_dbg_nw;
             when x"b9" => rdata_buf <= "0000" & lump_slow & fast_write_mode & fast_read_mode & fast_cmd_mode;
             when x"ba" => rdata_buf <= to_unsigned(read_time_adjust, 8);
+            -- CPU path v2 (#949): read hits and misses
+            when x"c0" => rdata_buf <= v2_hits(7 downto 0);
+            when x"c1" => rdata_buf <= v2_hits(15 downto 8);
+            when x"c2" => rdata_buf <= v2_misses(7 downto 0);
+            when x"c3" => rdata_buf <= v2_misses(15 downto 8);
             when others => rdata_buf <= x"BF";
           end case;
           report "flipping read_publish_toggle";
@@ -1054,7 +1302,7 @@ begin
             when x"6" =>
               rdata_buf <= rwr_delay;
             when x"7" =>
-              rdata_buf <= unsigned(cache_row0_valids);
+              rdata_buf <= unsigned(v2_flags);
             when x"8" =>
               rdata_buf <= conf_buf0;
             when x"9" =>
@@ -1119,7 +1367,7 @@ begin
 
         queued_write <= '0';
 
-      elsif (write_request or write_request_latch)='1' and busy_internal='0' then
+      elsif (write_request_o or write_request_latch)='1' and busy_internal='0' then
         report "Making write request: addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
         -- Begin write request
         -- Latch address and data
@@ -1147,6 +1395,9 @@ begin
               else
                 cache_enabled <= false;
               end if;
+            when x"7" =>
+              -- @IO:GS $BFFFFF7 HYRAM!CPUPATH CPU path: bit 0 the v2 path (cache, posted writes), bit 1 prefetch, bit 2 early next-line prefetch
+              v2_flags <= std_logic_vector(wdata);
             when x"3" =>
               write_latency <= wdata;
             when x"4" =>
@@ -1517,36 +1768,82 @@ begin
       hr_clock_phase165 <= hr_clock_phase165 + 1;
 
       -- LUMP: single-cycle strobes default low
+      v2_inval         <= '0';
       lump_q_pop       <= '0';
-      lump_rdata_valid <= '0';
-      lump_wdata_req   <= '0';
-      lump_cmd_done    <= '0';
-      lump_error       <= '0';
-      lump_idle        <= not (lump_q_valid or is_lump or lump_inval_req or lump_q_pop);
+      le_rdata_valid <= '0';
+      le_wdata_req   <= '0';
+      le_cmd_done    <= '0';
+      le_error       <= '0';
+      lump_idle        <= not (lump_q_valid or is_lump or lump_inval_req or lump_q_pop or lump_res);
 
       -- Pre-compute everything the Idle-state LUMP dispatch needs, one cycle
       -- ahead.  The cycle after a pop, lump_q_pop='1' forces these low, and
       -- the head is updated by the time they are next computed, so the
       -- registered view is always consistent with the queue.  Branches that
       -- consume a command also clear the relevant flag explicitly.
-      lump_go     <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
-      lump_inv_go <= lump_q_valid and lump_q_op(1) and (not lump_q_pop);
-      if lump_q_op = LUMP_OP_READ then
-        lump_is_read <= '1';
-      else
-        lump_is_read <= '0';
-      end if;
-      lump_cnt_init <= signed(resize(lump_q_len(8 downto 1), 9)) - 2;
-      lump_addr_pre <= lump_q_addr(26 downto 3);
-      -- Linear burst command in memory space (address is 8-byte aligned)
-      lump_cmd_pre(47) <= not lump_q_op(0);  -- READ=1 (op "00"), WRITE=0 ("01")
+      -- A v2 CPU-path job takes the engine before LUMP does, and LUMP waits
+      -- while v2 holds posted writes (it must not read around them).
       lump_cmd_pre(46) <= '0';               -- memory, not registers
       lump_cmd_pre(45) <= '1';               -- linear
       lump_cmd_pre(44 downto 35) <= (others => '0');
-      lump_cmd_pre(34 downto 16) <= lump_q_addr(22 downto 4);
       lump_cmd_pre(15 downto 3) <= (others => '0');
-      lump_cmd_pre(2) <= lump_q_addr(3);
       lump_cmd_pre(1 downto 0) <= "00";
+      if (cj_req = '1' and (cj_pf = '0' or w_stall = '1' or want_fill = '1' or vic_want = '1'))
+        or request_toggle /= last_request_toggle or read_request_latch = '1'
+        or (v2_en = '0' and viciv_request_toggle /= viciv_last_request_toggle)
+        or write_collect0_dispatchable = '1' or write_collect1_dispatchable = '1' then
+        lump_yield <= '1';
+      else
+        lump_yield <= '0';
+      end if;
+      if cj_req = '1' then
+        lump_pre_cpu <= '1';
+        lump_pre_res <= '0';
+        lump_go      <= '1';
+        lump_inv_go  <= '0';
+        lump_is_read <= cj_read;
+        lump_cnt_init <= cj_cnt_init;
+        lump_addr_pre <= cj_tag;
+        lump_cmd_pre(47) <= cj_read;
+        lump_cmd_pre(34 downto 16) <= cj_tag(22 downto 4);
+        lump_cmd_pre(2) <= cj_tag(3);
+      elsif lump_res = '1' then
+        -- resume the paused LUMP command
+        lump_pre_cpu <= '0';
+        lump_pre_res <= '1';
+        if w_mask(0) = x"00" and w_mask(1) = x"00" and cj_busy = '0' then
+          lump_go <= '1';
+        else
+          lump_go <= '0';
+        end if;
+        lump_inv_go <= '0';
+        lump_is_read <= lump_res_read;
+        lump_cnt_init <= lump_res_cnt;
+        lump_addr_pre <= lump_res_addr;
+        lump_cmd_pre(47) <= lump_res_read;
+        lump_cmd_pre(34 downto 16) <= lump_res_addr(22 downto 4);
+        lump_cmd_pre(2) <= lump_res_addr(3);
+      else
+        lump_pre_cpu <= '0';
+        lump_pre_res <= '0';
+        if w_mask(0) = x"00" and w_mask(1) = x"00" and cj_busy = '0' then
+          lump_go <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
+        else
+          lump_go <= '0';
+        end if;
+        lump_inv_go <= lump_q_valid and lump_q_op(1) and (not lump_q_pop);
+        if lump_q_op = LUMP_OP_READ then
+          lump_is_read <= '1';
+        else
+          lump_is_read <= '0';
+        end if;
+        lump_cnt_init <= signed(resize(lump_q_len(8 downto 1), 9)) - 2;
+        lump_addr_pre <= lump_q_addr(26 downto 3);
+        -- Linear burst command in memory space (address is 8-byte aligned)
+        lump_cmd_pre(47) <= not lump_q_op(0);  -- READ=1 (op "00"), WRITE=0 ("01")
+        lump_cmd_pre(34 downto 16) <= lump_q_addr(22 downto 4);
+        lump_cmd_pre(2) <= lump_q_addr(3);
+      end if;
       -- LUMP is the lowest-priority requester: only dispatch if nobody else
       -- wanted the bus last cycle.  (Something arriving in the very cycle we
       -- dispatch simply waits for one burst.)
@@ -1627,12 +1924,12 @@ begin
       else
         address_matches_hyperram_access_address_block <= '0';
       end if;
-      if read_request='1' or read_request_held='1' then
+      if read_request_o='1' or read_request_held='1' then
         read_request_prev <= '1';
       else
         read_request_prev <= '0';
       end if;
-      if write_request='1' or write_request_held='1' then
+      if write_request_o='1' or write_request_held='1' then
         write_request_prev <= '1';
       else
         write_request_prev <= '0';
@@ -1708,7 +2005,7 @@ begin
       end if;
 
 
-      if enable_current_cache_line='1' then
+      if enable_current_cache_line='1' and v2_en = '0' then
 --        if current_cache_line /= current_cache_line_drive then
 --          report "CACHE: Updating current_cache_line from drive. Now "
 --            & to_hstring(current_cache_line_drive(0)) & " ...";
@@ -1864,8 +2161,8 @@ begin
       end if;
 
       -- Keep read request when required
-      read_request_held <= read_request;
-      write_request_held <= write_request;
+      read_request_held <= read_request_o;
+      write_request_held <= write_request_o;
 
       if start_delay_expired='0' then
         if no_start_delay then
@@ -1936,7 +2233,8 @@ begin
         -- so drop all CPU-side read caches.
         report "LUMP: Invalidating read caches";
         lump_inval_req <= '0';
-        lump_cmd_done <= '1';
+        le_cmd_done <= '1';
+        v2_inval <= '1';
         cache_row0_valids <= (others => '0');
         cache_row1_valids <= (others => '0');
         block_valid <= '0';
@@ -1971,7 +2269,7 @@ begin
 
           -- LUMP INVALIDATE needs no bus cycle, so take it whenever it
           -- reaches the head of the queue.
-          if lump_inv_go = '1' then
+          if lump_inv_go = '1' and lump_res = '0' then
             lump_q_pop <= '1';
             lump_inv_go <= '0';
             lump_inval_req <= '1';
@@ -2037,15 +2335,38 @@ begin
               -- busy_internal is deliberately left alone, so CPU requests
               -- continue to queue (and hit the caches) as usual.
               report "LUMP: Starting burst @ $" & to_hstring(lump_addr_pre & "000");
-              lump_q_pop <= '1';
               lump_go <= '0';
               is_lump <= '1';
-              lump_dbg_idx <= 0; lump_dbg_got <= '0'; lump_dbg_cyc <= x"00";
-              lump_dbg_wgot <= '0'; lump_dbg_wcyc <= x"00";
-              if lump_is_read = '1' then
-                lump_dbg_rw <= x"00"; lump_dbg_nr <= lump_dbg_nr + 1;
+              lump_owner_cpu <= lump_pre_cpu;
+              -- Nothing else is waiting (lump_bus_free), so the old path is
+              -- free for requests during the burst, as Idle would have left
+              -- it: a busy_internal left over from its last read held
+              -- slow_devices off for the whole burst
+              busy_internal <= '0';
+              lump_cur_addr <= lump_addr_pre;
+              lump_wg <= "00";
+              lump_seg <= '0';
+              lump_ng <= (others => '0');
+              lump_ending <= '0';
+              if lump_pre_cpu = '1' then
+                -- a v2 CPU-path job (the LUMP queue is left alone)
+                cj_req <= '0';
+                cj_busy <= '1';
+              elsif lump_pre_res = '1' then
+                -- the rest of a paused LUMP command (already popped)
+                lump_res <= '0';
+                if lump_is_read = '0' then v2_inval <= '1'; end if;
               else
-                lump_dbg_wq <= x"00"; lump_dbg_wb <= x"00"; lump_dbg_nw <= lump_dbg_nw + 1;
+                lump_q_pop <= '1';
+                lump_dbg_idx <= 0; lump_dbg_got <= '0'; lump_dbg_cyc <= x"00";
+                lump_dbg_wgot <= '0'; lump_dbg_wcyc <= x"00";
+                if lump_is_read = '1' then
+                  lump_dbg_rw <= x"00"; lump_dbg_nr <= lump_dbg_nr + 1;
+                else
+                  lump_dbg_wq <= x"00"; lump_dbg_wb <= x"00"; lump_dbg_nw <= lump_dbg_nw + 1;
+                  -- the v2 CPU path's cached copies may be stale after this
+                  v2_inval <= '1';
+                end if;
               end if;
               lump_cnt <= lump_cnt_init;
               lump_byte_odd <= '0';
@@ -2079,16 +2400,19 @@ begin
                 -- address byte changed on a HyperRAM clock edge (#949: LUMP
                 -- reads from HyperRAM failed on hardware, but not in a
                 -- zero-delay simulation).
-                state <= LumpReadSetup;
+                state <= PortReadSetup;
               else
                 ram_reading_held <= '0';
                 -- Same clock-phase synchronisation step as background writes
                 state <= StartBackgroundWrite;
               end if;
-            elsif (viciv_request_toggle /= viciv_last_request_toggle)
+            elsif v2_en = '0' and (viciv_request_toggle /= viciv_last_request_toggle)
               -- Only start VIC-IV fetches if we don't have a transaction
               -- already waiting to go.
               and ((request_toggle = last_request_toggle) or viciv_debug_priority='1')
+              -- and, as for CPU reads, not past posted writes (#949)
+              and write_collect0_dispatchable = '0'
+              and write_collect1_dispatchable = '0'
             then
               report "VIC: Received data request for $" & to_hstring(viciv_addr&"000")
                 & ", bank = $" & to_hstring(viciv_bank&"0000000000000000000");
@@ -2124,17 +2448,10 @@ begin
               countdown_is_zero <= '0';
               config_reg_write <= '0';
               hr_reset <= '1'; -- active low reset
-              pause_phase <= '0';
-
-              if fast_cmd_mode='1' then
-                state <= HyperRAMOutputCommand;
-                hr_clk_fast <= '1';
-                hr_clk_phaseshift <= write_phase_shift;
-              else
-                state <= HyperRAMOutputCommandSlow;
-                hr_clk_fast <= '0';
-                hr_clk_phaseshift <= write_phase_shift;
-              end if;
+              vic_buffer_sent <= '0';
+              -- One setup cycle, as CPU reads have: going straight to the
+              -- command state put every command byte on a HyperRAM clock edge
+              state <= PortReadSetup;
             elsif prefetch_when_idle then
               prefetch_when_idle <= false;
               report "DISPATCHER: Dispatching chained pre-fetch";
@@ -2354,9 +2671,9 @@ begin
             hr_clk_fast <= '0';
           end if;
 
-        when LumpReadSetup =>
-          -- Exactly ReadSetup's timing and command rate choice
-          -- (hr_command was loaded in Idle).
+        when PortReadSetup =>
+          -- LUMP and VIC-IV reads: exactly ReadSetup's timing and command
+          -- rate choice (hr_command was loaded in Idle).
           pause_phase <= '0';
           if fast_cmd_mode='1' then
             state <= HyperRAMOutputCommand;
@@ -2577,7 +2894,7 @@ begin
                 end if;
                 countdown_timeout <= '0';
                 if is_lump='1' then
-                  lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
+                  le_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                   state <= LumpDoWrite;
                   if fast_write_mode='1' then
                     lump_slow <= '0';
@@ -2761,7 +3078,7 @@ begin
                 -- Request the first write word now: it is sampled two
                 -- edges later, which is no earlier than the first data
                 -- byte (requires write latency >= 1, as for normal writes)
-                lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
+                le_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                 state <= LumpDoWrite;
                 if fast_write_mode='1' then
                   lump_slow <= '0';
@@ -2939,7 +3256,7 @@ begin
             background_chained_write <= '0';
 
             if hr_clock_phase165="11" and (background_write_valids = "00000000")
-              and (read_request='1' or write_request='1' or write_blocked='1') then
+              and (read_request_o='1' or write_request_o='1' or write_blocked='1') then
               report "LatencyWait: Aborting tail of background write due to incoming job/write_blocked";
               state <= HyperRAMFinishWriting;
             end if;
@@ -3229,7 +3546,7 @@ begin
             background_chained_write <= '0';
 
             if hr_clock_phase165="11" and (background_write_valids = "00000000")
-              and (read_request='1' or write_request='1' or write_blocked='1') then
+              and (read_request_o='1' or write_request_o='1' or write_blocked='1') then
               report "LatencyWait: Aborting tail of background write due to incoming job/write_blocked";
               state <= HyperRAMFinishWriting;
             end if;
@@ -3421,7 +3738,10 @@ begin
         when HyperRAMFinishWriting =>
           if is_lump = '1' then
             is_lump <= '0';
-            lump_cmd_done <= '1';
+            if lump_ending = '0' then
+              le_cmd_done <= '1';
+            end if;
+            lump_ending <= '0';
           end if;
           -- Mask writing from here on.
           hr_cs0 <= '1';
@@ -3466,12 +3786,12 @@ begin
             -- The device stopped responding.  CS is already released; emit
             -- the rest of the words as garbage so the requester's word count
             -- stays consistent.
-            lump_rdata <= x"DDDD";
-            lump_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
+            le_rdata <= x"DDDD";
+            le_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
             if lump_cnt(8) = '1' then
               lump_flushing <= '0';
               is_lump <= '0';
-              lump_cmd_done <= '1';
+              le_cmd_done <= '1';
               rwr_counter <= rwr_delay;
               rwr_waiting <= '1';
               hr_clk_phaseshift <= write_phase_shift;
@@ -3493,7 +3813,7 @@ begin
               report "LUMP: Timed out waiting for read data";
               hr_cs0 <= '1';
               hr_cs1 <= '1';
-              lump_error <= '1';
+              le_error <= '1';
               -- Flush out the remaining words.  A half-received word is
               -- simply sent as part of the flush.
               lump_byte_odd <= '0';
@@ -3529,18 +3849,39 @@ begin
                 lump_byte_odd <= '1';
               else
                 if hyperram0_select='1' then
-                  lump_rdata <= hr_d & lump_rbuf_lo;
+                  le_rdata <= hr_d & lump_rbuf_lo;
                 else
-                  lump_rdata <= hr2_d & lump_rbuf_lo;
+                  le_rdata <= hr2_d & lump_rbuf_lo;
                 end if;
-                lump_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
+                le_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
                 lump_byte_odd <= '0';
+                lump_wg <= lump_wg + 1;
+                if lump_wg = "11" then
+                  lump_cur_addr <= lump_cur_addr + 1;
+                  lump_seg <= '1';
+                  lump_ng <= lump_ng + 1;
+                end if;
                 if lump_cnt(8) = '1' then
                   report "LUMP: Read burst complete";
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
                   is_lump <= '0';
-                  lump_cmd_done <= '1';
+                  le_cmd_done <= '1';
+                  rwr_counter <= rwr_delay;
+                  rwr_waiting <= '1';
+                  hr_clk_phaseshift <= write_phase_shift;
+                  state <= Idle;
+                elsif lump_wg = "11" and lump_owner_cpu = '0'
+                  and ((lump_seg = '1' and lump_yield = '1') or lump_ng = "11111") then
+                  -- pause here (an 8-byte boundary): the CPU needs the bus
+                  report "LUMP: Read burst paused";
+                  hr_cs0 <= '1';
+                  hr_cs1 <= '1';
+                  is_lump <= '0';
+                  lump_res <= '1';
+                  lump_res_read <= '1';
+                  lump_res_addr <= lump_cur_addr + 1;
+                  lump_res_cnt <= lump_cnt - 1;
                   rwr_counter <= rwr_delay;
                   rwr_waiting <= '1';
                   hr_clk_phaseshift <= write_phase_shift;
@@ -3599,16 +3940,21 @@ begin
               -- RWDS high masks the byte
               lump_dbg_wb <= lump_dbg_wb + 1; lump_dbg_wgot <= '1';
               if lump_byte_odd = '0' then
-                hr_d <= lump_wdata(7 downto 0);
-                hr2_d <= lump_wdata(7 downto 0);
-                hr_rwds <= not lump_wdata_be(0);
-                hr2_rwds <= not lump_wdata_be(0);
-                lump_wbuf_hi <= lump_wdata(15 downto 8);
-                lump_wbe_hi <= lump_wdata_be(1);
-                if lump_cnt(8) = '0' then
+                hr_d <= le_wdata(7 downto 0);
+                hr2_d <= le_wdata(7 downto 0);
+                hr_rwds <= not le_wdata_be(0);
+                hr2_rwds <= not le_wdata_be(0);
+                lump_wbuf_hi <= le_wdata(15 downto 8);
+                lump_wbe_hi <= le_wdata_be(1);
+                if lump_cnt(8) = '0' and lump_wg = "11" and lump_owner_cpu = '0'
+                  and ((lump_seg = '1' and lump_yield = '1') or lump_ng = "11111") then
+                  -- pause after this word (an 8-byte boundary): the CPU
+                  -- needs the bus.  (No request for the next word.)
+                  lump_ending <= '1';
+                elsif lump_cnt(8) = '0' then
                   -- Next word is sampled two edges from now, i.e., for the
                   -- next low byte.
-                  lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
+                  le_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                 end if;
                 lump_byte_odd <= '1';
               else
@@ -3617,7 +3963,20 @@ begin
                 hr_rwds <= not lump_wbe_hi;
                 hr2_rwds <= not lump_wbe_hi;
                 lump_byte_odd <= '0';
-                if lump_cnt(8) = '1' then
+                lump_wg <= lump_wg + 1;
+                if lump_wg = "11" then
+                  lump_cur_addr <= lump_cur_addr + 1;
+                  lump_seg <= '1';
+                  lump_ng <= lump_ng + 1;
+                end if;
+                if lump_ending = '1' then
+                  report "LUMP: Write burst paused";
+                  lump_res <= '1';
+                  lump_res_read <= '0';
+                  lump_res_addr <= lump_cur_addr + 1;
+                  lump_res_cnt <= lump_cnt - 1;
+                end if;
+                if lump_cnt(8) = '1' or lump_ending = '1' then
                   if lump_slow = '1' then
                     countdown_timeout <= '1';   -- finish on the off cycle
                   else
@@ -3646,12 +4005,20 @@ begin
           if countdown_is_zero = '1' then
             -- Timed out waiting for read -- so return anyway, rather
             -- than locking the machine hard forever.
-            rdata_hi_buf2 <= x"DD";       -- (was rdata_hi_buf: the pixelclock side's)
-            rdata_buf2 <= x"DD";
-            rdata_buf2(0) <= data_ready_toggle;
-            rdata_buf2(1) <= busy_internal;
-            report "asserting read_publish_strobe";
-            read_publish_strobe2 <= '1';
+            if is_vic_fetch then
+              -- The VIC-IV waits for 8 bytes with no timeout: give it
+              -- the buffer anyway (the CPU is not waiting for this read)
+              if vic_buffer_sent = '0' then
+                viciv_buffer_toggle <= not viciv_buffer_toggle;
+              end if;
+            else
+              rdata_hi_buf2 <= x"DD";       -- (was rdata_hi_buf: the pixelclock side's)
+              rdata_buf2 <= x"DD";
+              rdata_buf2(0) <= data_ready_toggle;
+              rdata_buf2(1) <= busy_internal;
+              report "asserting read_publish_strobe";
+              read_publish_strobe2 <= '1';
+            end if;
             rwr_counter <= rwr_delay;
             rwr_waiting <= '1';
             hr_clk_phaseshift <= write_phase_shift;
@@ -3665,9 +4032,9 @@ begin
               -- Okay, here is the tricky case: If the request is for data
               -- that is in this block read, we DONT want to abort the read,
               -- because starting a new request will almost always be slower.
-              report "DISPATCH: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
+              report "DISPATCH: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request_o);
               report "DISPATCH:"
-                & " read_request=" & std_logic'image(read_request)
+                & " read_request_o=" & std_logic'image(read_request_o)
                 & " read_request_held=" & std_logic'image(read_request_held)
                 & " address_matches_hyperram_access_address_block=" & std_logic'image(address_matches_hyperram_access_address_block);
 
@@ -3810,6 +4177,7 @@ begin
                 if byte_phase = 0 then
                   report "VIC: Indicating buffer readiness";
                   viciv_buffer_toggle <= not viciv_buffer_toggle;
+                  vic_buffer_sent <= '1';
                 end if;
               elsif hyperram_access_address_matches_cache_row0 = '1' then
                 cache_row0_valids(to_integer(byte_phase)) <= '1';
@@ -3941,11 +4309,11 @@ begin
           -- Abort memory pre-fetching if we are asked to do something
           -- XXX unless it is for data that would be pre-fetched?
           if is_block_read and (not is_expected_to_respond) and (not is_vic_fetch)  then
-            if ( write_request='1')
+            if ( write_request_o='1')
               -- If a new read is on the same cache line as the last, then
               -- assume whatever read we are doing now will satisfy it
---              or (read_request='1' and address(26 downto 3) /= ram_address(26 downto 3))
-              or (read_request='1')
+--              or (read_request_o='1' and address(26 downto 3) /= ram_address(26 downto 3))
+              or (read_request_o='1')
             then
               report "DISPATCH: Aborting pre-fetch due to incoming request";
               state <= ReadAbort;
@@ -3980,12 +4348,20 @@ begin
             if countdown_is_zero = '1' then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
-              rdata_hi_buf2 <= x"DD";     -- (was rdata_hi_buf: the pixelclock side's)
-              rdata_buf2 <= x"DD";
-              rdata_buf2(0) <= data_ready_toggle;
-              rdata_buf2(1) <= busy_internal;
-              report "asserting read_publish_strobe";
-              read_publish_strobe2 <= '1';
+              if is_vic_fetch then
+                -- The VIC-IV waits for 8 bytes with no timeout: give it
+                -- the buffer anyway (the CPU is not waiting for this read)
+                if vic_buffer_sent = '0' then
+                  viciv_buffer_toggle <= not viciv_buffer_toggle;
+                end if;
+              else
+                rdata_hi_buf2 <= x"DD";     -- (was rdata_hi_buf: the pixelclock side's)
+                rdata_buf2 <= x"DD";
+                rdata_buf2(0) <= data_ready_toggle;
+                rdata_buf2(1) <= busy_internal;
+                report "asserting read_publish_strobe";
+                read_publish_strobe2 <= '1';
+              end if;
               rwr_counter <= rwr_delay;
               rwr_waiting <= '1';
               report "returning to idle";
@@ -4040,11 +4416,13 @@ begin
                   else
                     viciv_data_buffer(to_integer(byte_phase)) <= hr2_d;
                   end if;
-                  -- We load the data here 2x faster than it is sent to the VIC-IV
-                  -- so we can start transmitting immediately, to minimise latency
-                  if byte_phase = 0 then
+                  -- Slow mode: the bytes arrive no faster than they are sent
+                  -- to the VIC-IV (one per pixelclock), so hand the buffer
+                  -- over only once it is full
+                  if byte_phase = 7 then
                     report "VIC: Indicating buffer readiness";
                     viciv_buffer_toggle <= not viciv_buffer_toggle;
+                    vic_buffer_sent <= '1';
                   end if;
                 elsif hyperram_access_address_matches_cache_row0 = '1' then
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
@@ -4162,6 +4540,417 @@ begin
             end if;
           end if;
       end case;
+
+      -------------------------------------------------------------------------
+      -- CPU path v2 (#949).  Reads that hit, and writes, never wait for the
+      -- HyperRAM; misses, write-outs and prefetches are LUMP-engine bursts.
+      -------------------------------------------------------------------------
+      v2_done := false;
+      v2_pf_go := false;
+      next_toggle_drive <= expansionram_current_cache_line_next_toggle;
+      prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
+      v2_idx := to_integer(l_addr(2 downto 0));
+      for j in 0 to H_NW - 1 loop
+        if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
+      end loop;
+
+      -- Requests (from the pixelclock side; each lasts two of our cycles)
+      if read_request = '1' and write_request = '0' and v2_ram = '1'
+        and rd_l = '0' and wr_l = '0' then
+        rd_l <= '1';
+        l_addr <= address;
+        busy_v2 <= '1';
+        rs <= R_LOOK;
+      end if;
+      if read_request = '0' and write_request = '1' and v2_ram = '1'
+        and rd_l = '0' and wr_l = '0' then
+        wr_l <= '1';
+        l_addr <= address;
+        l_wdata <= wdata;
+        busy_v2 <= '1';
+        rs <= R_LOOK;
+        if rdata_16en = '1' then
+          l_wdata_hi <= wdata_hi;
+          l_wen_lo <= wen_lo;
+          l_wen_hi <= wen_hi;
+        else
+          l_wen_lo <= '1';
+          l_wen_hi <= '0';
+        end if;
+        -- The exported line stops being valid at once, until the write has
+        -- been applied (the CPU may read it directly within a few cycles)
+        if v2_en = '1' then
+          current_cache_line_valid <= '0';
+        end if;
+      end if;
+
+      -- Fill data from the engine: word fl_word of line fl_line
+      if le_error = '1' and lump_owner_cpu = '1' then fl_err <= '1'; end if;
+      if le_rdata_valid = '1' and lump_owner_cpu = '1' and fill_active = '1' then
+        if fl_word /= 3 then
+          c_data(fl_slot(fl_line))(16 * fl_word + 15 downto 16 * fl_word) <= le_rdata;
+          fl_word <= fl_word + 1;
+        else
+          -- the line is complete; posted writes to it go over the top
+          v2_line := c_data(fl_slot(fl_line));
+          v2_line(63 downto 48) := le_rdata;
+          v2_tag := fl_tag + fl_line;
+          for j in 0 to H_NW - 1 loop
+            if w_tag(j) = v2_tag then
+              for k in 0 to 7 loop
+                if w_mask(j)(k) = '1' then
+                  v2_line(8 * k + 7 downto 8 * k) := w_data(j)(8 * k + 7 downto 8 * k);
+                end if;
+              end loop;
+            end if;
+          end loop;
+          c_data(fl_slot(fl_line)) <= v2_line;
+          if fl_err = '0' and le_error = '0' then
+            c_val(fl_slot(fl_line)) <= '1';
+          end if;
+          for i in 0 to H_NL - 1 loop
+            if i /= fl_slot(fl_line) and c_tag(i) = v2_tag then c_val(i) <= '0'; end if;
+          end loop;
+          v2_done := true;
+          report "V2: line $" & to_hstring(v2_tag & "000") & " = $" & to_hstring(v2_line);
+          v2_done_slot := fl_slot(fl_line);
+          fl_word <= 0;
+          if fl_line = fl_n - 1 then
+            fill_active <= '0';
+          else
+            fl_line <= fl_line + 1;
+          end if;
+        end if;
+      end if;
+      -- Write-out data for the engine (sampled two edges after its request)
+      if le_wdata_req = '1' and lump_owner_cpu = '1' then
+        cj_wdata <= w_data(f_j)(16 * f_word + 15 downto 16 * f_word);
+        cj_wdata_be <= w_mask(f_j)(2 * f_word + 1 downto 2 * f_word);
+        if f_word /= 3 then f_word <= f_word + 1; end if;
+      end if;
+      -- A job has finished
+      if le_cmd_done = '1' and lump_owner_cpu = '1' then
+        lump_owner_cpu <= '0';
+        cj_busy <= '0';
+        if cj_read = '0' then
+          w_mask(f_j) <= (others => '0');
+          w_fl(f_j) <= '0';
+        end if;
+        fill_active <= '0';
+      end if;
+
+      if v2_done then
+        -- a read waiting for this line gets it now; the exported line moves
+        -- to it if the CPU asked for it; the VIC-IV gets its line
+        if rs /= R_IDLE and rd_l = '1' and v2_tag = l_addr(26 downto 3) then
+          v2_publish(byte_of(v2_line, v2_idx), byte_of(v2_line, (v2_idx + 1) mod 8));
+          v2_set_export(v2_tag, v2_line);
+          v2_prefetch_from(v2_tag);
+        elsif rs = R_WAIT or rs = R_DECIDE then
+          rs <= R_LOOK;
+        end if;
+        if x_want = '1' and v2_tag = x_addr and wr_l = '0' and write_request = '0' then
+          v2_set_export(x_addr, v2_line);
+          x_want <= '0';
+          if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
+        end if;
+        if vic_want = '1' and v2_tag = vic_tag then
+          for k in 0 to 7 loop
+            viciv_data_buffer(k) <= v2_line(8 * k + 7 downto 8 * k);
+          end loop;
+          viciv_buffer_toggle <= not viciv_buffer_toggle;
+          vic_want <= '0';
+        end if;
+      end if;
+
+      case rs is
+        when R_IDLE =>
+          null;
+        when R_LOOK =>
+          for i in 0 to H_NL - 1 loop
+            if c_tag(i) = l_addr(26 downto 3) then lk_c(i) <= '1'; else lk_c(i) <= '0'; end if;
+          end loop;
+          for j in 0 to H_NW - 1 loop
+            if w_tag(j) = l_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
+          end loop;
+          rs <= R_DECIDE;
+        when R_DECIDE =>
+          if v2_done then
+            null;                       -- (handled above)
+          elsif rd_l = '1' then
+            v2_wh := -1;
+            v2_hit := -1;
+            for j in 0 to H_NW - 1 loop
+              if lk_w(j) = '1' and w_mask(j)(v2_idx) = '1' then v2_wh := j; end if;
+            end loop;
+            for i in H_NL - 1 downto 0 loop
+              if lk_c(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;
+            end loop;
+            if v2_hit /= -1 then
+              -- (a cached line already has the posted writes in it)
+              v2_hits <= v2_hits + 1;
+              v2_publish(byte_of(c_data(v2_hit), v2_idx), byte_of(c_data(v2_hit), (v2_idx + 1) mod 8));
+              v2_set_export(l_addr(26 downto 3), c_data(v2_hit));
+              v2_prefetch_from(l_addr(26 downto 3));
+            elsif v2_wh /= -1 then
+              v2_hits <= v2_hits + 1;
+              v2_publish(byte_of(w_data(v2_wh), v2_idx), byte_of(w_data(v2_wh), (v2_idx + 1) mod 8));
+            else
+              v2_misses <= v2_misses + 1;
+              -- (unless the fill under way brings this line)
+              if not (fill_active = '1' and l_addr(26 downto 3) - fl_tag < fl_n) then
+                want_fill <= '1';
+              end if;
+              rs <= R_WAIT;
+            end if;
+          elsif wr_l = '1' then
+            -- Posted write: into the buffer holding this line, or a free one;
+            -- wait if neither, or if this line's buffer is being written out
+            v2_wh := -1;
+            v2_free := -1;
+            v2_frozen := false;
+            for j in 0 to H_NW - 1 loop
+              if lk_w(j) = '1' and w_mask(j) /= x"00" then
+                if w_fl(j) = '1' then v2_frozen := true; else v2_wh := j; end if;
+              end if;
+              if w_mask(j) = x"00" and v2_free = -1 then v2_free := j; end if;
+            end loop;
+            if v2_wh = -1 and v2_free /= -1 and not v2_frozen then
+              v2_wh := v2_free;
+              v2_line := (others => '0');
+              v2_mask := (others => '0');
+            elsif v2_wh /= -1 then
+              v2_line := w_data(v2_wh);
+              v2_mask := w_mask(v2_wh);
+            end if;
+            if v2_wh = -1 or v2_frozen then
+              w_stall <= '1';
+              rs <= R_LOOK;
+            else
+              w_stall <= '0';
+              if l_wen_lo = '1' then
+                v2_line(8 * v2_idx + 7 downto 8 * v2_idx) := l_wdata;
+                v2_mask(v2_idx) := '1';
+              end if;
+              if l_wen_hi = '1' and v2_idx /= 7 then
+                v2_line(8 * v2_idx + 15 downto 8 * v2_idx + 8) := l_wdata_hi;
+                v2_mask(v2_idx + 1) := '1';
+              end if;
+              report "V2: write $" & to_hstring(l_addr) & " = $" & to_hstring(l_wdata)
+                & " into buffer " & integer'image(v2_wh);
+              w_tag(v2_wh)  <= l_addr(26 downto 3);
+              w_data(v2_wh) <= v2_line;
+              w_mask(v2_wh) <= v2_mask;
+              w_age(v2_wh)  <= 0;
+              w_cur <= v2_wh;
+              -- write through into the cached copy (also one completing now)
+              for i in 0 to H_NL - 1 loop
+                if c_tag(i) = l_addr(26 downto 3)
+                  and (c_val(i) = '1' or (v2_done and i = v2_done_slot)) then
+                  for k in 0 to 7 loop
+                    if (k = v2_idx and l_wen_lo = '1') or (k = v2_idx + 1 and l_wen_hi = '1') then
+                      c_data(i)(8 * k + 7 downto 8 * k) <= v2_line(8 * k + 7 downto 8 * k);
+                    end if;
+                  end loop;
+                end if;
+              end loop;
+              -- and into the exported line
+              if v2_en = '1' then
+                current_cache_line_valid <= exp_valid and enable_current_cache_line;
+              end if;
+              if exp_addr = l_addr(26 downto 3) then
+                v2_line2 := exp_data;
+                if l_wen_lo = '1' then
+                  v2_line2(8 * v2_idx + 7 downto 8 * v2_idx) := l_wdata;
+                end if;
+                if l_wen_hi = '1' and v2_idx /= 7 then
+                  v2_line2(8 * v2_idx + 15 downto 8 * v2_idx + 8) := l_wdata_hi;
+                end if;
+                v2_set_export(exp_addr, v2_line2);
+              end if;
+              wr_l <= '0';
+              rs <= R_IDLE;
+            end if;
+          else
+            rs <= R_IDLE;
+          end if;
+        when R_WAIT =>
+          -- (a completed fill sends us back to R_LOOK, above)
+          if rd_l = '0' then rs <= R_IDLE; end if;
+      end case;
+
+      -- The CPU moved on from the exported line (next/prev)
+      if next_toggle_drive /= next_toggle_seen then
+        next_toggle_seen <= next_toggle_drive;
+        x_addr <= exp_addr + 1;
+        x_down <= '0';
+        x_look <= '1';
+        x_want <= '0';
+      elsif prev_toggle_drive /= prev_toggle_seen then
+        prev_toggle_seen <= prev_toggle_drive;
+        x_addr <= exp_addr - 1;
+        x_down <= '1';
+        x_look <= '1';
+        x_want <= '0';
+      elsif x_look = '1' then
+        x_look <= '0';
+        x_use <= '1';
+        for i in 0 to H_NL - 1 loop
+          if c_tag(i) = x_addr then x_hit(i) <= '1'; else x_hit(i) <= '0'; end if;
+        end loop;
+      elsif x_use = '1' then
+        x_use <= '0';
+        v2_hit := -1;
+        for i in 0 to H_NL - 1 loop
+          if x_hit(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;
+        end loop;
+        if v2_hit /= -1 and wr_l = '0' and write_request = '0' then
+          v2_set_export(x_addr, c_data(v2_hit));
+          if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
+        elsif v2_en = '1' then
+          x_want <= '1';                -- (fetched, then exported)
+        end if;
+      end if;
+
+      -- VIC-IV fetches: the request (its address is held until the 8 bytes
+      -- are delivered), the look-up in two steps, then the line or a fill
+      if v2_en = '1' and viciv_request_toggle /= viciv_last_request_toggle
+        and vic_look = '0' and vic_use = '0' and vic_want = '0' then
+        viciv_last_request_toggle <= viciv_request_toggle;
+        viciv_request_count <= viciv_request_count + 1;
+        vic_tag(26 downto 19) <= viciv_bank;
+        vic_tag(18 downto 3) <= viciv_addr;
+        vic_look <= '1';
+      elsif vic_look = '1' then
+        vic_look <= '0';
+        vic_use <= '1';
+        for i in 0 to H_NL - 1 loop
+          if c_tag(i) = vic_tag then vic_hit(i) <= '1'; else vic_hit(i) <= '0'; end if;
+        end loop;
+      elsif vic_use = '1' then
+        vic_use <= '0';
+        v2_hit := -1;
+        for i in 0 to H_NL - 1 loop
+          if vic_hit(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;
+        end loop;
+        if v2_hit /= -1 then
+          -- (cached lines have the CPU's writes in them)
+          for k in 0 to 7 loop
+            viciv_data_buffer(k) <= c_data(v2_hit)(8 * k + 7 downto 8 * k);
+          end loop;
+          viciv_buffer_toggle <= not viciv_buffer_toggle;
+        else
+          vic_want <= '1';
+        end if;
+      end if;
+
+      -- Prefetch scanner: one candidate line at a time
+      if pf_chk2 = '1' then
+        pf_chk2 <= '0';
+        if pf_present = '0' then
+          pf_want <= '1';
+          pf_line <= pf_cand;
+        end if;
+        if pf_k <= H_PF then pf_k <= pf_k + 1; end if;
+      elsif pf_chk = '1' then
+        pf_chk <= '0';
+        pf_chk2 <= '1';
+        pf_present <= '0';
+        for i in 0 to H_NL - 1 loop
+          if c_val(i) = '1' and c_tag(i) = pf_cand then pf_present <= '1'; end if;
+        end loop;
+        if fill_active = '1' and pf_cand - fl_tag < fl_n then pf_present <= '1'; end if;
+      elsif pf_k <= H_PF and pf_want = '0' then
+        if pf_down = '1' then
+          pf_cand <= pf_base - pf_k;
+        else
+          pf_cand <= pf_base + pf_k;
+        end if;
+        pf_chk <= '1';
+      end if;
+      if v2_pf_go then
+        pf_base <= v2_pf_base;
+        pf_down <= v2_pf_down;
+        pf_k <= 1;
+        pf_chk <= '0';
+        pf_chk2 <= '0';
+        pf_want <= '0';
+      end if;
+
+      -- LUMP wrote, or invalidated: cached copies may be stale
+      if v2_inval = '1' then
+        c_val <= (others => '0');
+        exp_valid <= '0';
+        exp_addr <= (others => '1');
+        if v2_en = '1' then
+          current_cache_line_valid <= '0';
+          current_cache_line_address <= (others => '1');
+        end if;
+        pf_k <= H_PF + 1;
+        pf_chk <= '0';
+        pf_chk2 <= '0';
+        pf_want <= '0';
+      end if;
+
+      -- Jobs for the engine, when it is free: the VIC-IV's line, the CPU's
+      -- line, the line the exported line moves to, then posted writes that
+      -- must go (a write waiting for a buffer, or LUMP waiting), then posted
+      -- writes the CPU has moved on from, then prefetch.  (Posted writes are
+      -- still written out with v2 switched off.)
+      if cj_req = '0' and cj_busy = '0' and first_transaction = '0'
+        and start_delay_expired = '1' then
+        -- urgent write-outs, then background ones
+        v2_wh := -1;
+        if w_stall = '1' or lump_q_valid = '1' or lump_res = '1' or v2_en = '0' then
+          for j in 0 to H_NW - 1 loop
+            if w_mask(j) /= x"00" and w_fl(j) = '0' and (j /= w_cur or v2_wh = -1) then
+              v2_wh := j;
+            end if;
+          end loop;
+        end if;
+        v2_free := -1;
+        for j in 0 to H_NW - 1 loop
+          if w_mask(j) /= x"00" and w_fl(j) = '0' and v2_free = -1
+            and (j /= w_cur or w_mask(j) = x"FF" or w_age(j) >= 32) then
+            v2_free := j;
+          end if;
+        end loop;
+        if vic_want = '1' and fill_active = '0' then
+          v2_start_fill(vic_tag, '0');
+        elsif want_fill = '1' and fill_active = '0' then
+          want_fill <= '0';
+          v2_start_fill(l_addr(26 downto 3), '0');
+        elsif x_want = '1' and fill_active = '0' then
+          v2_start_fill(x_addr, x_down);
+        elsif v2_wh /= -1 then
+          v2_start_flush(v2_wh);
+        elsif v2_free /= -1 then
+          v2_start_flush(v2_free);
+        elsif pf_want = '1' and fill_active = '0' and v2_en = '1'
+          and lump_q_valid = '0' and lump_res = '0' and is_lump = '0' then
+          -- (LUMP goes before prefetch, and a prefetch must not hold the job
+          -- slot while a LUMP burst runs: a write-out may need it)
+          pf_want <= '0';
+          v2_start_fill(pf_line, pf_down);
+          cj_pf <= '1';
+        end if;
+      end if;
+
+      -- slow_devices must wait while we cannot take a request.  A write is
+      -- taken into a buffer within three cycles, sooner than slow_devices
+      -- can bring the next request, so it only holds things up when both
+      -- buffers are in use.
+      if v2_en = '0' then
+        busy_v2 <= '0';
+      elsif start_delay_expired = '0' or first_transaction = '1'
+        or rd_l = '1' or (read_request = '1' and v2_ram = '1')
+        or (wr_l = '1' and w_stall = '1')
+        or ((wr_l = '1' or (write_request = '1' and v2_ram = '1'))
+            and w_mask(0) /= x"00" and w_mask(1) /= x"00") then
+        busy_v2 <= '1';
+      else
+        busy_v2 <= '0';
+      end if;
     end if;
 
   end process;

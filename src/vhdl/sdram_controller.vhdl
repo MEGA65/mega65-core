@@ -322,6 +322,21 @@ architecture tacoma_narrows of sdram_controller is
   signal cflags : std_logic_vector(7 downto 0) := x"01";
   signal hits, misses : unsigned(15 downto 0) := (others => '0');
 
+  -- VIC-IV line fetches (8 bytes at vic_bank:viciv_addr, delivered on
+  -- pixelclock as 8 consecutive strobes).  A cached line answers at once;
+  -- otherwise it is fetched into the cache like a CPU line.
+  signal vic_bank  : unsigned(7 downto 0) := x"00";   -- $C000024
+  signal vic_req_s : std_logic := '0';
+  signal vic_last  : std_logic := '0';
+  signal vic_tag   : unsigned(26 downto 3) := (others => '1');
+  signal vic_look, vic_use, vic_want : std_logic := '0';
+  signal vic_hit   : std_logic_vector(0 to NL - 1) := (others => '0');
+  signal vic_buf   : unsigned(63 downto 0) := (others => '0');
+  signal vic_ready : std_logic := '0';                 -- toggles: vic_buf full
+  signal vic_ready_seen : std_logic := '0';            -- (pixelclock side)
+  signal vic_next  : integer range 0 to 8 := 8;
+  signal vic_count : unsigned(15 downto 0) := (others => '0');
+
   signal sdram_dq_out : unsigned(15 downto 0);
   signal sdram_dq_oe_n : std_logic_vector(15 downto 0);
 
@@ -864,6 +879,9 @@ begin
         when x"21" => nonram_val <= hits(15 downto 8);
         when x"22" => nonram_val <= misses(7 downto 0);
         when x"23" => nonram_val <= misses(15 downto 8);
+        when x"24" => nonram_val <= vic_bank;
+        when x"25" => nonram_val <= vic_count(7 downto 0);
+        when x"26" => nonram_val <= vic_count(15 downto 8);
         when x"15" => nonram_val <= '0' & to_unsigned(tr_bs, 3) & to_unsigned(tr_bl, 4);
         when x"18" => nonram_val <= cmap(0);
         when x"19" => nonram_val <= cmap(1);
@@ -1043,6 +1061,10 @@ begin
                 -- $C000015: CPU path flags (see cflags)
                 cflags <= std_logic_vector(wdata_latched);
                 write_latched <= '0';
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"24" then
+                -- $C000024: VIC-IV bank (address bits 26-19 of its fetches)
+                vic_bank <= wdata_latched;
+                write_latched <= '0';
               elsif write_latched = '1' and latched_addr(7 downto 0) = x"14" then
                 -- $C000014: force the path (bit 2) and read cycle (bits
                 -- 1-0), keeping the phase, for experiments
@@ -1066,6 +1088,9 @@ begin
                 sdram_state <= NON_RAM_READ;
                 sdram_emit_command(CMD_NOP);
               end if;
+            elsif vic_want = '1' and fill_active = '0' then
+              -- the VIC-IV is waiting for this line (the display can't wait)
+              start_fill(vic_tag);
             elsif want_fill = '1' and fill_active = '0' then
               -- the CPU's read missed: fetch its line
               want_fill <= '0';
@@ -1730,6 +1755,11 @@ begin
           elsif rs = R_WAIT or rs = R_DECIDE then
             rs <= R_LOOK;               -- (look again)
           end if;
+          if vic_want = '1' and fl_tag = vic_tag then
+            vic_buf <= v_line;
+            vic_want <= '0';
+            vic_ready <= not vic_ready;
+          end if;
           if x_want = '1' and fl_tag = x_addr and write_latched = '0' and write_request = '0' then
             set_export(x_addr, v_line);
             x_want <= '0';
@@ -1885,6 +1915,38 @@ begin
           end if;
         end if;
 
+        -- VIC-IV fetches: a request (the toggle comes with its address,
+        -- held until the 8 bytes are delivered), then the cache look-up in
+        -- two steps as for next/prev, then the line or a fill
+        vic_req_s <= viciv_request_toggle;
+        if vic_req_s /= vic_last and vic_look = '0' and vic_use = '0' and vic_want = '0' then
+          vic_last <= vic_req_s;
+          vic_tag(26) <= '0';
+          vic_tag(25 downto 19) <= vic_bank(6 downto 0);
+          vic_tag(18 downto 3) <= viciv_addr;
+          vic_look <= '1';
+          vic_count <= vic_count + 1;
+        elsif vic_look = '1' then
+          vic_look <= '0';
+          vic_use <= '1';
+          for i in 0 to NL - 1 loop
+            if c_tag(i) = vic_tag then vic_hit(i) <= '1'; else vic_hit(i) <= '0'; end if;
+          end loop;
+        elsif vic_use = '1' then
+          vic_use <= '0';
+          v_hit := -1;
+          for i in 0 to NL - 1 loop
+            if vic_hit(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
+          end loop;
+          if v_hit /= -1 then
+            -- (cached lines have the CPU's writes in them)
+            vic_buf <= c_data(v_hit);
+            vic_ready <= not vic_ready;
+          else
+            vic_want <= '1';
+          end if;
+        end if;
+
         -- Prefetch scanner: checks one candidate line at a time
         if pf_chk2 = '1' then
           pf_chk2 <= '0';
@@ -1934,6 +1996,24 @@ begin
         busy <= '0';
       end if;
 
+    end if;
+  end process;
+
+  -- VIC-IV: the 8 bytes, one per pixelclock, as the HyperRAM controller does
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      viciv_data_strobe <= '0';
+      if vic_ready /= vic_ready_seen then
+        vic_ready_seen <= vic_ready;
+        viciv_data_out <= vic_buf(7 downto 0);
+        viciv_data_strobe <= '1';
+        vic_next <= 1;
+      elsif vic_next < 8 then
+        viciv_data_out <= vic_buf(8 * vic_next + 7 downto 8 * vic_next);
+        viciv_data_strobe <= '1';
+        vic_next <= vic_next + 1;
+      end if;
     end if;
   end process;
 

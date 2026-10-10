@@ -2140,17 +2140,15 @@ begin
         bold_is_alt <= '0';        
       end if;
 
-      -- Drive stage for data from hyper RAM and signals out to it
-      hyper_data <= hyper_data_in;
-      hyper_data_strobe <= hyper_data_strobe_in;
+      -- Drive stage for signals out to hyper RAM.  (The data and strobe
+      -- coming back are registered on pixelclock, below: the RAM
+      -- controllers send the 8 bytes on 8 consecutive pixelclock cycles, so
+      -- sampling them here, at half that rate, lost every other byte and
+      -- counted the rest twice.  #949)
       hyper_addr <= hyper_addr_drive;
       hyper_request_toggle_drive2 <= hyper_request_toggle_drive;
       hyper_request_toggle_drive3 <= hyper_request_toggle_drive2;
       hyper_request_toggle <= hyper_request_toggle_drive3;
-
-      if hyper_data_strobe = '1' then
-        hyper_data_counter <= hyper_data_counter + 1;
-      end if;
 
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
@@ -3015,6 +3013,13 @@ begin
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
   begin
     if rising_edge(pixelclock) and all_pause='0' then
+
+      -- Data from hyper RAM: one byte per pixelclock while the strobe is high
+      hyper_data <= hyper_data_in;
+      hyper_data_strobe <= hyper_data_strobe_in;
+      if hyper_data_strobe = '1' then
+        hyper_data_counter <= hyper_data_counter + 1;
+      end if;
 
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
