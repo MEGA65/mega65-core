@@ -444,6 +444,13 @@ architecture tacoma_narrows of sdram_controller is
   signal tr_saved      : unsigned(63 downto 0) := (others => '0');
   -- 7 captured words per path: word i = the value at edge T+3+i
   signal wa, wb        : unsigned(111 downto 0) := (others => '0');
+  -- Diagnostic snapshots of the SECOND read at a selected coarse phase.
+  -- $C000027 (write) selects 0..7; $C000027 (read) returns bit 7 =
+  -- snapshot valid, bits 2:0 = selected phase.  The selected phase is
+  -- sampled at T_CO_REC, then held for inspection after training.
+  signal tr_dbg_phase : unsigned(2 downto 0) := (others => '0');
+  signal tr_dbg_valid : std_logic := '0';
+  signal tr_dbg_wa, tr_dbg_wb : unsigned(111 downto 0) := (others => '0');
   -- Test results (both reads agreed): clean, and the read cycle
   signal t_va, t_vb    : std_logic := '0';
   signal t_ca, t_cb    : unsigned(1 downto 0) := "00";
@@ -882,6 +889,39 @@ begin
         when x"24" => nonram_val <= vic_bank;
         when x"25" => nonram_val <= vic_count(7 downto 0);
         when x"26" => nonram_val <= vic_count(15 downto 8);
+        when x"27" => nonram_val <= tr_dbg_valid & "0000" & tr_dbg_phase;
+        -- Seven captured 16-bit words in chronological order: word 0 at
+        -- bits 15:0, word 6 at 111:96.  Little-endian byte readback.
+        when x"30" => nonram_val <= tr_dbg_wa(7 downto 0);
+        when x"31" => nonram_val <= tr_dbg_wa(15 downto 8);
+        when x"32" => nonram_val <= tr_dbg_wa(23 downto 16);
+        when x"33" => nonram_val <= tr_dbg_wa(31 downto 24);
+        when x"34" => nonram_val <= tr_dbg_wa(39 downto 32);
+        when x"35" => nonram_val <= tr_dbg_wa(47 downto 40);
+        when x"36" => nonram_val <= tr_dbg_wa(55 downto 48);
+        when x"37" => nonram_val <= tr_dbg_wa(63 downto 56);
+        when x"38" => nonram_val <= tr_dbg_wa(71 downto 64);
+        when x"39" => nonram_val <= tr_dbg_wa(79 downto 72);
+        when x"3a" => nonram_val <= tr_dbg_wa(87 downto 80);
+        when x"3b" => nonram_val <= tr_dbg_wa(95 downto 88);
+        when x"3c" => nonram_val <= tr_dbg_wa(103 downto 96);
+        when x"3d" => nonram_val <= tr_dbg_wa(111 downto 104);
+        when x"3e" | x"3f" => nonram_val <= x"00";
+        when x"40" => nonram_val <= tr_dbg_wb(7 downto 0);
+        when x"41" => nonram_val <= tr_dbg_wb(15 downto 8);
+        when x"42" => nonram_val <= tr_dbg_wb(23 downto 16);
+        when x"43" => nonram_val <= tr_dbg_wb(31 downto 24);
+        when x"44" => nonram_val <= tr_dbg_wb(39 downto 32);
+        when x"45" => nonram_val <= tr_dbg_wb(47 downto 40);
+        when x"46" => nonram_val <= tr_dbg_wb(55 downto 48);
+        when x"47" => nonram_val <= tr_dbg_wb(63 downto 56);
+        when x"48" => nonram_val <= tr_dbg_wb(71 downto 64);
+        when x"49" => nonram_val <= tr_dbg_wb(79 downto 72);
+        when x"4a" => nonram_val <= tr_dbg_wb(87 downto 80);
+        when x"4b" => nonram_val <= tr_dbg_wb(95 downto 88);
+        when x"4c" => nonram_val <= tr_dbg_wb(103 downto 96);
+        when x"4d" => nonram_val <= tr_dbg_wb(111 downto 104);
+        when x"4e" | x"4f" => nonram_val <= x"00";
         when x"15" => nonram_val <= '0' & to_unsigned(tr_bs, 3) & to_unsigned(tr_bl, 4);
         when x"18" => nonram_val <= cmap(0);
         when x"19" => nonram_val <= cmap(1);
@@ -1064,6 +1104,11 @@ begin
               elsif write_latched = '1' and latched_addr(7 downto 0) = x"24" then
                 -- $C000024: VIC-IV bank (address bits 26-19 of its fetches)
                 vic_bank <= wdata_latched;
+                write_latched <= '0';
+              elsif write_latched = '1' and latched_addr(7 downto 0) = x"27" then
+                -- Select the coarse phase to snapshot on the next training.
+                tr_dbg_phase <= wdata_latched(2 downto 0);
+                tr_dbg_valid <= '0';
                 write_latched <= '0';
               elsif write_latched = '1' and latched_addr(7 downto 0) = x"14" then
                 -- $C000014: force the path (bit 2) and read cycle (bits
@@ -1454,6 +1499,9 @@ begin
 
               ---------------------------------------------------------------
               when T_START =>
+                if tr_mode = "00" then
+                  tr_dbg_valid <= '0';
+                end if;
                 -- Close all rows (tRP).  A training run then starts with
                 -- one phase step, which checks that a phase shifter answers;
                 -- a manual step ($C000011/2) is just that step.
@@ -1516,6 +1564,11 @@ begin
                 tr_st <= T_TEST0;
               when T_CO_REC =>
                 cmap(tr_p) <= '0' & t_vb & t_cb & '0' & t_va & t_ca;
+                if tr_p = to_integer(tr_dbg_phase) then
+                  tr_dbg_wa <= wa;
+                  tr_dbg_wb <= wb;
+                  tr_dbg_valid <= '1';
+                end if;
                 tr_p <= tr_p + 1;
                 tr_n <= TR_COARSE;
                 tr_ndec <= '0';
