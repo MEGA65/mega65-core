@@ -36,9 +36,15 @@ Testbenches:
                       ($60, the R6 today), fast reads ($62), fast command
                       and reads ($63) and all fast ($67); and CR0 set from
                       the MEGA65 side ($BFFFFF8/9): 3 clocks slow, 6 fixed fast
+    tb_ssnail_hr      SSNAIL with the real HyperRAM and SDRAM controllers:
+                      a program fetched from HyperRAM, and a COPY HyperRAM ->
+                      SDRAM -> HyperRAM, in the boot mode ($E1) and others
 
-Not covered: the HyperRAM LUMP port (the s27kl0641 model needs the IEEE
-VITAL libraries, which most GHDL builds lack).
+Both HyperRAM benches fail if a command/address byte changes within 1 ns of a
+HyperRAM clock edge: in a zero-delay simulation the device model still reads
+the old value, so a command a cycle out of phase passes here and fails on the
+real chip.  The VITAL libraries the device model needs are downloaded if
+missing.
 """
 
 import argparse
@@ -143,6 +149,17 @@ BENCHES["tb_hyperram_lump"] = (
      # (the old controller lost 127 of 1024 bytes here)
      ["-gmode=103", "-gn1=512", "-gwgap=0", "--stop-time=900us"]],
     r"TB_HYPERRAM_LUMP: ALL PASSED")
+BENCHES["tb_ssnail_hr"] = (
+    VITAL_FILES + ["gen_utils.vhdl", "conversions.vhdl", "s27kl0641.vhdl", "hyperram.vhdl",
+                   "sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl",
+                   "ssnail_fpu.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "tb_ssnail_hr.vhdl"],
+    "tb_ssnail_hr",
+    [["--stop-time=400us"],                   # the boot mode, $E1
+     ["-gmode=224", "--stop-time=400us"],     # $E0: cache, slow
+     ["-gmode=96", "--stop-time=400us"],      # $60
+     ["-gmode=97", "--stop-time=400us"],      # $61: fast command, slow data
+     ["-gmode=231", "--stop-time=400us"]],    # $E7: all fast
+    r"TB_SSNAIL_HR: ALL PASSED")
 
 # Generated inputs: file -> (generator script, needs the SSNAIL tools)
 GENERATED = {

@@ -118,6 +118,7 @@ architecture gothic of hyperram is
     HyperRAMReadWaitSlow,
     HyperRAMReadWait,
     -- LUMP burst states (fast mode timing only)
+    LumpReadSetup,
     LumpReadWait,
     LumpDoWrite
     );
@@ -2071,18 +2072,14 @@ begin
 
               if lump_is_read = '1' then
                 ram_reading_held <= '1';
-                -- Command at the same rate as the data phase that follows
-                -- ($BFFFFF2 bit 1): LUMP never switches the HyperRAM clock
-                -- rate in mid-transaction.  (Fast command + slow data, $61 /
-                -- $81, passes in simulation but failed on the R6.)
-                if fast_read_mode = '1' then
-                  state <= HyperRAMOutputCommand;
-                  hr_clk_fast <= '1';
-                else
-                  state <= HyperRAMOutputCommandSlow;
-                  hr_clk_fast <= '0';
-                end if;
-                hr_clk_phaseshift <= write_phase_shift;
+                -- One setup cycle, as CPU reads have (ReadSetup): the command
+                -- must start on the same clock163 cycle relative to the
+                -- HyperRAM clock as theirs.  Going straight to the command
+                -- state started it a cycle early, so every command and
+                -- address byte changed on a HyperRAM clock edge (#949: LUMP
+                -- reads from HyperRAM failed on hardware, but not in a
+                -- zero-delay simulation).
+                state <= LumpReadSetup;
               else
                 ram_reading_held <= '0';
                 -- Same clock-phase synchronisation step as background writes
@@ -2344,9 +2341,9 @@ begin
           pause_phase <= '0';
           -- Fast writes always get a fast command: switching the HyperRAM
           -- clock rate in mid-transaction costs a variable number of edges.
-          -- LUMP writes follow their data rate only (see the LUMP read
-          -- dispatch); CPU writes also take a fast command with $BFFFFF2 bit 0.
-          if ((fast_cmd_mode='1' and is_lump='0') or fast_write_mode='1')
+          -- Otherwise $BFFFFF2 bit 0 picks the command rate, for CPU and
+          -- LUMP writes alike.
+          if (fast_cmd_mode='1' or fast_write_mode='1')
             and fast_cmd_for_write_enabled then
             state <= HyperRAMOutputCommand;
             hr_clk_phaseshift <= write_phase_shift;
@@ -2356,6 +2353,21 @@ begin
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '0';
           end if;
+
+        when LumpReadSetup =>
+          -- Exactly ReadSetup's timing and command rate choice
+          -- (hr_command was loaded in Idle).
+          pause_phase <= '0';
+          if fast_cmd_mode='1' then
+            state <= HyperRAMOutputCommand;
+            hr_clk_fast <= '1';
+          else
+            state <= HyperRAMOutputCommandSlow;
+            hr_clk_fast <= '0';
+          end if;
+          hr_clk_phaseshift <= write_phase_shift;
+          countdown <= 6;
+          countdown_is_zero <= '0';
 
         when ReadSetup =>
           report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";

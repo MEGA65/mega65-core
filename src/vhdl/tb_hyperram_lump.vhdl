@@ -33,6 +33,8 @@ end entity;
 architecture test of tb_hyperram_lump is
   signal pixelclock, clock163, clock325 : std_logic := '0';
   signal finished : boolean := false;
+  -- command/address bytes that changed within 1 ns of a HyperRAM clock edge
+  signal ca_bad : integer := 0;
 
   signal address : unsigned(26 downto 0) := (others => '0');
   signal wdata, rdata : unsigned(7 downto 0) := x"00";
@@ -63,6 +65,34 @@ architecture test of tb_hyperram_lump is
   signal lclear : std_logic := '0';
   signal tracing : std_logic := '0';
 begin
+  -- The command and address bytes (the first 6 clock edges after CS falls)
+  -- must not change within 1 ns of a clock edge.  In a zero-delay simulation
+  -- the model still reads the old value, so a command a whole cycle out of
+  -- phase works here and fails on the real chip (#949: LUMP reads).
+  ca_check : process (hr_clk_p, hr_d, hr_cs0)
+    variable edges : integer := 0;
+  begin
+    if hr_cs0 /= '0' then
+      edges := 0;
+    else
+      if hr_clk_p'event then
+        if edges < 6 and hr_d'last_event < 1 ns then
+          if ca_bad < 4 then
+            report "HyperRAM command byte " & integer'image(edges)
+              & " changed on a clock edge" severity error;
+          end if;
+          ca_bad <= ca_bad + 1;
+        end if;
+        edges := edges + 1;
+      elsif hr_d'event and edges >= 1 and edges <= 6 and hr_clk_p'last_event < 1 ns then
+        if ca_bad < 4 then
+          report "HyperRAM command byte " & integer'image(edges - 1)
+            & " changed just after its clock edge" severity error;
+        end if;
+        ca_bad <= ca_bad + 1;
+      end if;
+    end if;
+  end process;
   -- 325, 163 and 81 MHz, in phase
   process
   begin
@@ -353,6 +383,8 @@ begin
       end if;
     end loop;
     check(bad = 0, "LUMP write with byte enables (" & integer'image(bad) & " bad)");
+    check(ca_bad = 0, "command bytes stable at the clock edges ("
+          & integer'image(ca_bad) & " changed on an edge)");
 
     if errors = 0 then
       report "TB_HYPERRAM_LUMP: ALL PASSED";
