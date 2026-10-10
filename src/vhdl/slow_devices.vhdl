@@ -57,7 +57,9 @@ ENTITY slow_devices IS
     -- Expansion RAM (upto 128MB)
     ------------------------------------------------------------------------
     expansionram_read : out std_logic := '0';
-    expansionram_write : out std_logic := '0';
+    sdram_t_or_hyperram_f : in std_logic := '0';
+    expansionram_write_hyperram : out std_logic := '0';
+    expansionram_write_sdram : out std_logic := '0';
     expansionram_rdata : in unsigned(7 downto 0) := x"FF";
     expansionram_wdata : out unsigned(7 downto 0) := x"FF";
     expansionram_address : out unsigned(26 downto 0);
@@ -331,7 +333,8 @@ begin
           -- Clear flags for expansion RAM access request
           report "Clearing expansionram_read/write in Idle";
           expansionram_read <= '0';
-          expansionram_write <= '0';
+          expansionram_write_hyperram <= '0';
+          expansionram_write_sdram <= '0';
 
           if slow_access_last_request_toggle /= slow_access_request_toggle then
             if slow_access_write='1' then
@@ -573,8 +576,9 @@ begin
             expansionram_read <= not slow_access_write;
             report "setting expansionram_read to " & std_logic'image(not slow_access_write)
               & " ( = not " & std_logic'image(slow_access_write) & ")";
-            expansionram_write <= slow_access_write;
-
+            expansionram_write_hyperram <= slow_write_access and (not sdram_t_or_hyperram_f);
+            expansionram_write_sdram <= slow_write_access and sdram_t_or_hyperram_f;
+            
             if slow_access_write='1' then
               -- Write can be delivered, and then ignored, since we aren't
               -- waiting for anything. So just return to the Idle state;
@@ -601,7 +605,8 @@ begin
       report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_toggle = "
         & std_logic'image(expansionram_data_ready_toggle) & ").";
         expansionram_read <= '0';
-        expansionram_write <= '0';
+        expansionram_write_hyperram <= '0';
+        expansionram_write_sdram <= '0';
       if (expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle) then
         last_expansionram_data_ready_toggle_sample <= expansionram_data_ready_toggle;
         report "Saw data. Switching back to Idle state. byte = $" & to_hexstring(expansionram_rdata);

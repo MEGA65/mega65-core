@@ -440,7 +440,8 @@ architecture Behavioral of container is
   signal fastkey : std_logic;
 
   signal expansionram_read : std_logic;
-  signal expansionram_write : std_logic;
+  signal expansionram_write_hyperram : std_logic;
+  signal expansionram_write_sdram : std_logic;
   signal expansionram_rdata : unsigned(7 downto 0);
   signal hyperram_rdata : unsigned(7 downto 0);
   signal sdram_rdata : unsigned(7 downto 0);
@@ -916,7 +917,7 @@ begin
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
-      write_request => expansionram_write,
+      write_request => expansionram_write_hyperram,
       rdata => hyperram_rdata,
       data_ready_toggle_out => hyperram_data_ready_toggle,
       busy => hyperram_busy,
@@ -993,7 +994,7 @@ begin
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
-      write_request => expansionram_write,
+      write_request => expansionram_write_sdram,
       rdata => sdram_rdata,
       data_ready_toggle => sdram_data_ready_toggle,
       busy => sdram_busy,
@@ -1062,7 +1063,9 @@ begin
       expansionram_data_ready_toggle => expansionram_data_ready_toggle,
       expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
-      expansionram_write => expansionram_write,
+      sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+      expansionram_write_hyperram => expansionram_write_hyperram,
+      expansionram_write_sdram => expansionram_write_sdram,
       expansionram_address => expansionram_address,
       expansionram_rdata => expansionram_rdata,
       expansionram_wdata => expansionram_wdata,
