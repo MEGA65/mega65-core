@@ -1694,8 +1694,16 @@ begin
       end if;
 
       data_ready_toggle_out <= data_ready_toggle_drive;
+      -- read_publish_toggle is a toggle owned by the pixelclock side (cache,
+      -- write-collect, block and register reads).  It used to be cleared
+      -- from here as well (read_publish_toggle <= last_read_publish_toggle,
+      -- with last_read_publish_toggle never written): a flip-flop driven
+      -- from two clocks.  That simulates as a set/clear flag, but cannot be
+      -- built as one, and on hardware every second such read was never
+      -- published (the CPU then took the previous byte).  Now this side only
+      -- follows it.
       if read_publish_toggle /= last_read_publish_toggle then
-        read_publish_toggle <= last_read_publish_toggle;
+        last_read_publish_toggle <= read_publish_toggle;
         report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf);
 
         rdata                  <= rdata_buf;
@@ -3554,7 +3562,7 @@ begin
           if countdown_is_zero = '1' then
             -- Timed out waiting for read -- so return anyway, rather
             -- than locking the machine hard forever.
-            rdata_hi_buf <= x"DD";
+            rdata_hi_buf2 <= x"DD";       -- (was rdata_hi_buf: the pixelclock side's)
             rdata_buf2 <= x"DD";
             rdata_buf2(0) <= data_ready_toggle;
             rdata_buf2(1) <= busy_internal;
@@ -3888,7 +3896,7 @@ begin
             if countdown_is_zero = '1' then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
-              rdata_hi_buf <= x"DD";
+              rdata_hi_buf2 <= x"DD";     -- (was rdata_hi_buf: the pixelclock side's)
               rdata_buf2 <= x"DD";
               rdata_buf2(0) <= data_ready_toggle;
               rdata_buf2(1) <= busy_internal;
