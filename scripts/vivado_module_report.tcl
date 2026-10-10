@@ -40,13 +40,14 @@ set root [lindex $matches 0]
 set root_path [get_property NAME $root]
 puts "Selected instance: $root_path ([get_property REF_NAME $root])"
 
-# Reports on the specific module, plus full-design baseline for comparing.
-report_utilization -file [file join $outdir full_design_utilization.rpt]
-report_utilization -hierarchical -hierarchical_depth 4 -hierarchical_min_primitive_count 0 \
-    -file [file join $outdir full_design_hierarchy.rpt]
+# Reports on the requested module first, then whole-design comparisons.
+# Vivado 2023.2 does not support -hierarchical_min_primitive_count.
 report_utilization -cells $root -file [file join $outdir module_utilization.rpt]
 report_utilization -cells $root -hierarchical -hierarchical_depth 5 \
-    -hierarchical_min_primitive_count 0 -file [file join $outdir module_hierarchy.rpt]
+    -file [file join $outdir module_hierarchy.rpt]
+report_utilization -file [file join $outdir full_design_utilization.rpt]
+report_utilization -hierarchical -hierarchical_depth 4 \
+    -file [file join $outdir full_design_hierarchy.rpt]
 report_control_sets -cells $root -file [file join $outdir module_control_sets.rpt]
 report_control_sets -cells $root -verbose -file [file join $outdir module_control_sets_verbose.rpt]
 # report_ram_utilization can be sizable, so generate both a text report and CSV.
