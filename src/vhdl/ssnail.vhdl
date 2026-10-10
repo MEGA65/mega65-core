@@ -357,7 +357,7 @@ architecture shell of ssnail is
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
     V_CHUNK, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
     E_K1, E_K2, E_K3, E_ACC, E_ACC2,
-    T_START, T_K, T_I, T_LOOK, T_C0, T_DONE,
+    T_START, T_K, T_I, T_LOOK, T_COEFF, T_C0, T_DONE,
     R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6,
     L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7,
     M_NEXT, M_S0, M_S1, M_S2,
@@ -369,7 +369,7 @@ architecture shell of ssnail is
     A_O_T, A_O_I, A_O_I2, A_O_I3, A_O_I4, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH, D_EMIT, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
-    G_ROW0, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
+    G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
     G_OUT, G_OUT2, G_OUT3, G_OUT4,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
@@ -442,7 +442,25 @@ architecture shell of ssnail is
   signal ex, ey, eb, ev : unsigned(31 downto 0) := (others => '0');  -- element values
   signal s_mu, s_r, s_sc, s_rn : unsigned(31 downto 0) := (others => '0');
   signal mr_r, mr_rows : unsigned(31 downto 0) := (others => '0');  -- MEANROWS
+  signal mr_src_row : unsigned(27 downto 0) := (others => '0'); -- address for current MEANROWS row
   -- table lookup subroutine
+  -- Three functions x 256 segments x {C0,C1}.  A single synchronous ROM
+  -- replaces six independent asynchronous 32-bit coefficient multiplexers.
+  type coeff_rom_t is array (0 to 767) of unsigned(63 downto 0);
+  function init_coeff_rom return coeff_rom_t is
+    variable r : coeff_rom_t;
+  begin
+    for i in 0 to TAB_SEGMENTS - 1 loop
+      r(i)       := SILU_C0(i) & SILU_C1(i);
+      r(256 + i) := GELU_C0(i) & GELU_C1(i);
+      r(512 + i) := EXPT_C0(i) & EXPT_C1(i);
+    end loop;
+    return r;
+  end function;
+  signal coeff_rom : coeff_rom_t := init_coeff_rom;
+  attribute rom_style : string;
+  attribute rom_style of coeff_rom : signal is "block";
+  signal coeff_word : unsigned(63 downto 0) := (others => '0');
   signal tab_id    : unsigned(1 downto 0) := "00";              -- 0 SiLU, 1 GELU, 2 exp
   signal tx, tval, tc0 : unsigned(31 downto 0) := (others => '0');
   -- element fetch subroutine: ef_val = F32 element at ef_addr (F16 if ef_f16)
@@ -468,6 +486,9 @@ architecture shell of ssnail is
   signal at_nh, at_nkv, at_hd, at_fmt, at_pos : unsigned(31 downto 0) := (others => '0');
   signal at_h, at_kvh, at_gc, at_group : unsigned(15 downto 0) := (others => '0');
   signal at_rowb   : unsigned(27 downto 0) := (others => '0');
+  signal at_qhead_addr : unsigned(27 downto 0) := (others => '0'); -- Q head start
+  signal at_kv_stride : unsigned(27 downto 0) := (others => '0'); -- bytes per KV head
+  signal at_kv_offset : unsigned(27 downto 0) := (others => '0'); -- current KV head offset
   signal at_t      : unsigned(15 downto 0) := (others => '0');
   signal at_i      : unsigned(8 downto 0) := (others => '0');
   signal at_rs, at_m, at_r, at_acc, at_w : unsigned(31 downto 0) := (others => '0');
@@ -554,6 +575,12 @@ architecture shell of ssnail is
   signal fpu2_a, fpu2_b, fpu2_res : unsigned(31 downto 0) := (others => '0');
   signal fpu3_start, fpu3_done : std_logic := '0';
   signal fpu3_a, fpu3_b, fpu3_res : unsigned(31 downto 0) := (others => '0');
+  -- Two products from a single 8-bit serial multiplier: the existing
+  -- code intentionally uses only 20 low bits for byte-span calculation,
+  -- but all 32 bits for the streamed block count.  Keep BOTH semantics.
+  signal g_mul_nb : unsigned(7 downto 0) := (others => '0');
+  signal g_mul_a32, g_mul_p32 : unsigned(31 downto 0) := (others => '0');
+  signal g_mul_a28, g_mul_p28 : unsigned(27 downto 0) := (others => '0');
   signal g_rows, g_r : unsigned(31 downto 0) := (others => '0');
   signal g_nb, gblk : unsigned(7 downto 0) := (others => '0');
   signal g_j, g_k  : unsigned(5 downto 0) := (others => '0');
@@ -1278,6 +1305,7 @@ begin
                   when others =>                    -- MEANROWS: row 0 copied to Z
                     mr_rows <= opr_a;
                     mr_r <= to_unsigned(1, 32);
+                    mr_src_row <= ea_x;
                     ve_kind <= K_COPY; ve_ret <= M_NEXT; cstate <= V_CHUNK;
                 end case;
               end if;
@@ -1969,14 +1997,24 @@ begin
           else
             ti := to_integer(fpu_r(15 downto 0));
           end if;
-          fpu_op <= FOP_MUL;                           -- c1[i] * x
-          if tab_id = "00" then
-            fpu_a <= SILU_C1(ti); tc0 <= SILU_C0(ti);
-          elsif tab_id = "01" then
-            fpu_a <= GELU_C1(ti); tc0 <= GELU_C0(ti);
-          else
-            fpu_a <= EXPT_C1(ti); tc0 <= EXPT_C0(ti);
+          -- One synchronous ROM read.  Note that tab_id="11" historically
+          -- chose EXPT as well, so preserve that fallback explicitly.
+          -- Compute the banked ROM address *before* the clocked read,
+          -- ensuring Vivado sees only one physical read port.
+          if tab_id = "01" then
+            ti := ti + 256;
+          elsif tab_id /= "00" then
+            ti := ti + 512;
           end if;
+          coeff_word <= coeff_rom(ti);
+          cstate <= T_COEFF;
+
+        when T_COEFF =>
+          -- Registered ROM output from T_LOOK is now valid.  FPU inputs
+          -- are set exactly as before; one extra cycle of latency only.
+          fpu_op <= FOP_MUL;
+          fpu_a <= coeff_word(31 downto 0);
+          tc0 <= coeff_word(63 downto 32);
           fpu_b <= tx;
           fpu_start <= '1';
           fpu_ret <= T_C0;
@@ -2066,7 +2104,10 @@ begin
           if mr_r = mr_rows then
             cstate <= M_S0;
           else
-            px <= bx + resize(mr_r(25 downto 0) * (n0(25 downto 0) & "00"), 28);
+            -- Induction: before row r, mr_src_row = bx + (r-1)*4*n0 (mod 2^28).
+            -- Thus the addition below is exactly the old bx + r*4*n0.
+            px <= mr_src_row + (n0(25 downto 0) & "00");
+            mr_src_row <= mr_src_row + (n0(25 downto 0) & "00");
             py <= bz; pz <= bz; v_n <= n0;
             ve_kind <= K_ADD; two_ops <= '1'; has_out <= '1'; ve_ret <= M_NEXT;
             mr_r <= mr_r + 1;
@@ -2358,12 +2399,40 @@ begin
           a0 := ps(27 downto 3) & "000";
           str_base <= a0;
           sr_next <= a0;
-          -- total bytes = rows * blocks * block size
+          -- Setup a small serial multiplier.  Full 32-bit rows are needed
+          -- for as_blocks; only low 20 bits were used for byte-span above.
+          g_mul_nb <= g_nb;
+          g_mul_a32 <= g_rows;
+          g_mul_p32 <= (others => '0');
+          g_mul_p28 <= (others => '0');
           if d_fmt = 8 then
-            a2 := ps + resize(g_rows(19 downto 0) * g_nb * to_unsigned(34, 6), 28);
+            -- 34 * rows20 = (rows20 << 5) + (rows20 << 1)
+            g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 5)
+                        + shift_left(resize(g_rows(19 downto 0), 28), 1);
           else
-            a2 := ps + resize(g_rows(19 downto 0) * g_nb * to_unsigned(18, 6), 28);
+            -- 18 * rows20 = (rows20 << 4) + (rows20 << 1)
+            g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 4)
+                        + shift_left(resize(g_rows(19 downto 0), 28), 1);
           end if;
+          cstate <= G_ROW_MUL;
+        when G_ROW_MUL =>
+          -- Add a shifted multiplicand for each set bit of blocks/row.
+          -- Arithmetic is modulo 2^32 and 2^28, as in the old resize().
+          if g_mul_nb(0) = '1' then
+            g_mul_p32 <= g_mul_p32 + g_mul_a32;
+            g_mul_p28 <= g_mul_p28 + g_mul_a28;
+          end if;
+          g_mul_a32 <= g_mul_a32(30 downto 0) & '0';
+          g_mul_a28 <= g_mul_a28(26 downto 0) & '0';
+          g_mul_nb <= '0' & g_mul_nb(7 downto 1);
+          if g_mul_nb(7 downto 1) = 0 then
+            -- Final partial product is registered at this edge.  Consume
+            -- it in the following state, not in this same cycle.
+            cstate <= G_ROW_ADDR;
+          end if;
+        when G_ROW_ADDR =>
+          a0 := ps(27 downto 3) & "000";
+          a2 := ps + g_mul_p28;
           a1 := a2 + 7;
           a1(2 downto 0) := "000";
           sr_end <= a1;
@@ -2396,7 +2465,7 @@ begin
             as_fi <= (others => '0');
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0';
-            as_blocks <= resize(g_rows * g_nb, 32);
+            as_blocks <= g_mul_p32;
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
             mc_scale_ok <= '0';
             tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
@@ -2627,8 +2696,10 @@ begin
             -- K/V row = n_kv_heads * head_dim elements
             if at_fmt = 1 then
               at_rowb <= resize(at_nkv(13 downto 0) * at_hd(13 downto 0), 27) & '0';
+              at_kv_stride <= at_hd(26 downto 0) & '0';
             else
               at_rowb <= resize(at_nkv(12 downto 0) * at_hd(12 downto 0), 26) & "00";
+              at_kv_stride <= at_hd(25 downto 0) & "00";
             end if;
             fpu_op <= FOP_I2F; fpu_a <= at_hd; fpu_start <= '1';
             fpu_ret <= A_RS1; cstate <= C_FPU_WAIT;
@@ -2652,6 +2723,8 @@ begin
           else
             at_h <= (others => '0');
             at_kvh <= (others => '0');
+            at_kv_offset <= (others => '0');
+            at_qhead_addr <= ea_y;
             at_gc <= (others => '0');
             pz <= ea_z; ostart <= ea_z;
             cstate <= A_HEAD;
@@ -2662,7 +2735,8 @@ begin
             cstate <= C_NEXT;
           else
             at_i <= (others => '0');
-            ef_addr <= ea_y + resize(at_h * at_hd(15 downto 0) * 4, 28);
+            -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
+            ef_addr <= at_qhead_addr;
             ef_f16 <= '0';
             cstate <= A_Q;
           end if;
@@ -2691,10 +2765,10 @@ begin
             at_i <= (others => '0');
             ve_first <= '1';
             if at_fmt = 1 then
-              ef_addr <= at_rowaddr + resize(at_kvh * at_hd(15 downto 0) * 2, 28);
+              ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '1';
             else
-              ef_addr <= at_rowaddr + resize(at_kvh * at_hd(15 downto 0) * 4, 28);
+              ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '0';
             end if;
             cstate <= A_S_I;
@@ -2790,10 +2864,10 @@ begin
             at_i <= (others => '0');
             at_w <= sarr(to_integer(at_t(9 downto 0)));
             if at_fmt = 1 then
-              ef_addr <= at_rowaddr + resize(at_kvh * at_hd(15 downto 0) * 2, 28);
+              ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '1';
             else
-              ef_addr <= at_rowaddr + resize(at_kvh * at_hd(15 downto 0) * 4, 28);
+              ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '0';
             end if;
             cstate <= A_O_I;
@@ -2855,9 +2929,11 @@ begin
           cstate <= A_HNEXT;
         when A_HNEXT =>
           at_h <= at_h + 1;
+          at_qhead_addr <= at_qhead_addr + (at_hd(25 downto 0) & "00");
           if at_gc + 1 = at_group then
             at_gc <= (others => '0');
             at_kvh <= at_kvh + 1;
+            at_kv_offset <= at_kv_offset + at_kv_stride;
           else
             at_gc <= at_gc + 1;
           end if;
