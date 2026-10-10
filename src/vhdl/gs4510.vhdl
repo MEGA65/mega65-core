@@ -2037,7 +2037,7 @@ begin
       slow_access_write_drive <= '0';
       slow_access_address_drive <= (others => '1');
       slow_access_wdata_drive <= (others => '1');
-      slow_access_desired_ready_toggle <= slow_access_ready_toggle;
+      slow_access_desired_ready_toggle <= not slow_access_ready_toggle;
 
       wait_states <= (others => '0');
       wait_states_non_zero <= '0';
@@ -2454,7 +2454,7 @@ begin
           mem_reading <= '1';
         else
           slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
-          slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+          slow_access_desired_ready_toggle <= not slow_access_ready_toggle;
           wait_states <= x"FF";
           wait_states_non_zero <= '1';
           proceed <= '0';
@@ -3745,7 +3745,7 @@ begin
 
         -- Tell CPU to wait for response
         slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
-        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+        slow_access_desired_ready_toggle <= not slow_access_ready_toggle;
         wait_states_non_zero <= '1';
         wait_states <= x"FF";
         proceed <= '0';
