@@ -519,7 +519,7 @@ architecture gothic of hyperram is
   -- line when the CPU moves it on (the early next-line fetch: off by default
   -- until the CPU side is known to use it well)
   signal v2_flags : std_logic_vector(7 downto 0) := x"03";
-  signal v2_en    : std_logic;
+  signal v2_en    : std_logic := '1';
   signal v2_ram   : std_logic;          -- the request on the port is v2's
   signal read_request_o, write_request_o : std_logic;  -- the old path's
   signal busy_o   : std_logic := '0';   -- the old path's busy
@@ -623,9 +623,13 @@ architecture gothic of hyperram is
 
 begin
 
-  v2_en <= v2_flags(0);
+  -- Don't allow fall-back to old cache by default, because it eats way too
+  -- many LUTs.
+  -- v2_en <= v2_flags(0);
+  
   -- RAM (not register space) requests are v2's when it is on
   v2_ram <= v2_en and not address(25);
+  
   read_request_o  <= read_request and not v2_ram;
   write_request_o <= write_request and not v2_ram;
   busy <= busy_o or busy_v2;
