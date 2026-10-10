@@ -722,7 +722,7 @@ begin
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
-      expansionram_write => expansionram_write,
+      expansionram_write_hyperram => expansionram_write,
       expansionram_address => expansionram_address,
       expansionram_rdata => expansionram_rdata,
       expansionram_wdata => expansionram_wdata,

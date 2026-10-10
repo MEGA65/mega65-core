@@ -481,7 +481,7 @@ begin
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
       expansionram_read => expansionram_read,
-      expansionram_write => expansionram_write,
+      expansionram_write_hyperram => expansionram_write,
       expansionram_rdata => expansionram_rdata,
       expansionram_wdata => expansionram_wdata,
       expansionram_address => expansionram_address,
