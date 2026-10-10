@@ -218,7 +218,9 @@ architecture gothic of hyperram is
   -- Issue #379 triggers one of those edge cases, so leaving disabled by default.
   -- brave programmers can enable if they dare (its mostly safe for slab DMA
   -- transfers) PGS20210504 #379
-  signal cache_enabled : boolean := false;
+  -- On by default again (#949): the flakiness was the read publish bug
+  -- (read_publish_toggle driven from two clocks), now fixed.
+  signal cache_enabled : boolean := true;
   -- XXX There is a problem with block reads, where it causes the wrong byte to
   -- be returned at the start of the cached block. It instead returns the most
   -- recently WRITTEN byte.  I have no idea why as yet, so for now, we are just
@@ -230,7 +232,11 @@ architecture gothic of hyperram is
   signal enable_current_cache_line : std_logic := '1';
 
   -- These three must be off for reliable operation on current PCBs
+  -- (#949: fast_cmd_mode now comes on by itself once the power-on CR0 write
+  -- has gone out in slow mode: $BFFFFF2 reads $E1 after boot.  Writing
+  -- $BFFFFF2 before then cancels that.)
   signal fast_cmd_mode : std_logic := '0';
+  signal boot_fast_pending : std_logic := '1';
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
 
@@ -458,6 +464,21 @@ architecture gothic of hyperram is
   signal lump_wbuf_hi    : unsigned(7 downto 0) := x"00";
   signal lump_wbe_hi     : std_logic := '0';
   signal lump_flushing   : std_logic := '0';
+  -- LUMP debug capture (#949), read via the $B0000A0-$B0000BA debug window:
+  -- the bus as LumpReadWait sees it from its first cycle, and counters.
+  type lump_dbg_t is array(0 to 15) of unsigned(7 downto 0);
+  signal lump_dbg_raw    : lump_dbg_t := (others => x"00");
+  signal lump_dbg_rwds   : std_logic_vector(15 downto 0) := (others => '0');
+  signal lump_dbg_idx    : integer range 0 to 16 := 16;
+  signal lump_dbg_got    : std_logic := '0';
+  signal lump_dbg_cyc    : unsigned(7 downto 0) := x"00";  -- read: cycles before the first byte
+  signal lump_dbg_rw     : unsigned(7 downto 0) := x"00";  -- read: words delivered
+  signal lump_dbg_wq     : unsigned(7 downto 0) := x"00";  -- write: words requested
+  signal lump_dbg_wb     : unsigned(7 downto 0) := x"00";  -- write: bytes driven
+  signal lump_dbg_wcyc   : unsigned(7 downto 0) := x"00";  -- write: cycles before the first byte
+  signal lump_dbg_wgot   : std_logic := '0';
+  signal lump_dbg_nr     : unsigned(7 downto 0) := x"00";  -- read bursts
+  signal lump_dbg_nw     : unsigned(7 downto 0) := x"00";  -- write bursts
   signal viciv_data_debug : std_logic := '0';
   signal viciv_debug_priority : std_logic := '0';
 
@@ -596,6 +617,12 @@ begin
         busy <= busy_internal or write_blocked or queued_write or queued2_write
                 or read_request or write_request or read_request_latch or write_request_latch
                 or (not start_delay_expired);
+      end if;
+
+      -- Fast command phase from the end of the power-on CR0 write on
+      if boot_fast_pending = '1' and start_delay_expired = '1' and first_transaction = '0' then
+        boot_fast_pending <= '0';
+        fast_cmd_mode <= '1';
       end if;
 
       if write_blocked = '1' and first_transaction='0' then
@@ -977,6 +1004,21 @@ begin
               |  x"9f" => rdata_buf <= current_cache_line_drive(to_integer(address(2 downto 0)));
 
 
+            -- LUMP debug (#949)
+            when x"a0" | x"a1" | x"a2" | x"a3" | x"a4" | x"a5" | x"a6" | x"a7"
+              |  x"a8" | x"a9" | x"aa" | x"ab" | x"ac" | x"ad" | x"ae" | x"af" =>
+              rdata_buf <= lump_dbg_raw(to_integer(address(3 downto 0)));
+            when x"b0" => rdata_buf <= unsigned(lump_dbg_rwds(7 downto 0));
+            when x"b1" => rdata_buf <= unsigned(lump_dbg_rwds(15 downto 8));
+            when x"b2" => rdata_buf <= lump_dbg_cyc;
+            when x"b3" => rdata_buf <= lump_dbg_rw;
+            when x"b4" => rdata_buf <= lump_dbg_wq;
+            when x"b5" => rdata_buf <= lump_dbg_wb;
+            when x"b6" => rdata_buf <= lump_dbg_wcyc;
+            when x"b7" => rdata_buf <= lump_dbg_nr;
+            when x"b8" => rdata_buf <= lump_dbg_nw;
+            when x"b9" => rdata_buf <= "0000" & lump_slow & fast_write_mode & fast_read_mode & fast_cmd_mode;
+            when x"ba" => rdata_buf <= to_unsigned(read_time_adjust, 8);
             when others => rdata_buf <= x"BF";
           end case;
           report "flipping read_publish_toggle";
@@ -1091,6 +1133,7 @@ begin
             when x"1" =>
               viciv_bank <= wdata;
             when x"2" =>
+              boot_fast_pending <= '0';
               fast_cmd_mode <= wdata(0);
               fast_read_mode <= wdata(1);
               fast_write_mode <= wdata(2);
@@ -1996,6 +2039,13 @@ begin
               lump_q_pop <= '1';
               lump_go <= '0';
               is_lump <= '1';
+              lump_dbg_idx <= 0; lump_dbg_got <= '0'; lump_dbg_cyc <= x"00";
+              lump_dbg_wgot <= '0'; lump_dbg_wcyc <= x"00";
+              if lump_is_read = '1' then
+                lump_dbg_rw <= x"00"; lump_dbg_nr <= lump_dbg_nr + 1;
+              else
+                lump_dbg_wq <= x"00"; lump_dbg_wb <= x"00"; lump_dbg_nw <= lump_dbg_nw + 1;
+              end if;
               lump_cnt <= lump_cnt_init;
               lump_byte_odd <= '0';
               lump_flushing <= '0';
@@ -2515,7 +2565,7 @@ begin
                 end if;
                 countdown_timeout <= '0';
                 if is_lump='1' then
-                  lump_wdata_req <= '1';
+                  lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                   state <= LumpDoWrite;
                   if fast_write_mode='1' then
                     lump_slow <= '0';
@@ -2699,7 +2749,7 @@ begin
                 -- Request the first write word now: it is sampled two
                 -- edges later, which is no earlier than the first data
                 -- byte (requires write latency >= 1, as for normal writes)
-                lump_wdata_req <= '1';
+                lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                 state <= LumpDoWrite;
                 if fast_write_mode='1' then
                   lump_slow <= '0';
@@ -3381,6 +3431,18 @@ begin
           hr2_rwds <= 'Z';
           hr_d <= (others => 'Z');
           hr2_d <= (others => 'Z');
+          -- (debug: the bus on each of the first 16 cycles here)
+          if lump_dbg_idx < 16 then
+            if hyperram0_select = '1' then
+              lump_dbg_raw(lump_dbg_idx) <= hr_d; lump_dbg_rwds(lump_dbg_idx) <= hr_rwds;
+            else
+              lump_dbg_raw(lump_dbg_idx) <= hr2_d; lump_dbg_rwds(lump_dbg_idx) <= hr2_rwds;
+            end if;
+            lump_dbg_idx <= lump_dbg_idx + 1;
+          end if;
+          if lump_dbg_got = '0' and lump_dbg_cyc /= x"FF" then
+            lump_dbg_cyc <= lump_dbg_cyc + 1;
+          end if;
           if lump_slow = '1' then
             pause_phase <= not pause_phase;
           end if;
@@ -3393,7 +3455,7 @@ begin
             -- the rest of the words as garbage so the requester's word count
             -- stays consistent.
             lump_rdata <= x"DDDD";
-            lump_rdata_valid <= '1';
+            lump_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
             if lump_cnt(8) = '1' then
               lump_flushing <= '0';
               is_lump <= '0';
@@ -3443,6 +3505,7 @@ begin
                 or ((hr2_rwds='1') and (hyperram1_select='1')))
                or (hr_rwds_high_seen='1')) then
               -- Data byte has arrived
+              lump_dbg_got <= '1';
               countdown <= 63;
               countdown_is_zero <= '0';
               if lump_byte_odd = '0' then
@@ -3458,7 +3521,7 @@ begin
                 else
                   lump_rdata <= hr2_d & lump_rbuf_lo;
                 end if;
-                lump_rdata_valid <= '1';
+                lump_rdata_valid <= '1'; lump_dbg_rw <= lump_dbg_rw + 1;
                 lump_byte_odd <= '0';
                 if lump_cnt(8) = '1' then
                   report "LUMP: Read burst complete";
@@ -3484,6 +3547,9 @@ begin
           hr_clk_phaseshift <= write_phase_shift;
           if lump_slow = '1' then
             pause_phase <= not pause_phase;
+          end if;
+          if lump_dbg_wgot = '0' and lump_dbg_wcyc /= x"FF" then
+            lump_dbg_wcyc <= lump_dbg_wcyc + 1;
           end if;
 
           if lump_slow = '1' and pause_phase = '1' then
@@ -3519,6 +3585,7 @@ begin
               countdown_is_zero <= '0';
             else
               -- RWDS high masks the byte
+              lump_dbg_wb <= lump_dbg_wb + 1; lump_dbg_wgot <= '1';
               if lump_byte_odd = '0' then
                 hr_d <= lump_wdata(7 downto 0);
                 hr2_d <= lump_wdata(7 downto 0);
@@ -3529,7 +3596,7 @@ begin
                 if lump_cnt(8) = '0' then
                   -- Next word is sampled two edges from now, i.e., for the
                   -- next low byte.
-                  lump_wdata_req <= '1';
+                  lump_wdata_req <= '1'; lump_dbg_wq <= lump_dbg_wq + 1;
                 end if;
                 lump_byte_odd <= '1';
               else
