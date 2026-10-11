@@ -181,6 +181,7 @@ architecture tacoma_narrows of sdram_controller is
   signal rdata_hi_buf     : unsigned(7 downto 0);
   signal read_latched     : std_logic := '0';
   signal write_latched    : std_logic := '0';
+  signal write_guard_q    : std_logic := '0'; -- register 81->163 write strobe
   signal wdata_latched    : unsigned(7 downto 0);
   signal wdata_hi_latched : unsigned(7 downto 0);
   signal latched_wen_lo   : std_logic := '0';
@@ -327,6 +328,7 @@ architecture tacoma_narrows of sdram_controller is
   -- otherwise it is fetched into the cache like a CPU line.
   signal vic_bank  : unsigned(7 downto 0) := x"00";   -- $C000024
   signal vic_req_s : std_logic := '0';
+  signal vic_addr_q : unsigned(18 downto 3) := (others => '0');
   signal vic_last  : std_logic := '0';
   signal vic_tag   : unsigned(26 downto 3) := (others => '1');
   signal vic_look, vic_use, vic_want : std_logic := '0';
@@ -940,6 +942,11 @@ begin
         when others => nonram_val <= x"42";
       end case;
 
+
+      -- Capture the slow-device write indication locally before it is used
+      -- by cache-line selection.  Immediate validity withdrawal remains
+      -- below and at the end of this clocked process.
+      write_guard_q <= write_request;
 
       -- Latch incoming requests (those come in on the 81MHz pixel clock)
       if read_request = '1' and write_request = '0' and write_latched = '0' and read_latched = '0' then
@@ -1870,7 +1877,7 @@ begin
             vic_want <= '0';
             vic_ready <= not vic_ready;
           end if;
-          if x_want = '1' and fl_tag = x_addr and write_latched = '0' and write_request = '0' then
+          if x_want = '1' and fl_tag = x_addr and write_latched = '0' and write_guard_q = '0' then
             set_export(x_addr, v_line);
             x_want <= '0';
             if cflags(1) = '1' then prefetch_from(x_addr); end if;
@@ -2017,7 +2024,7 @@ begin
           for i in 0 to NL - 1 loop
             if x_hit(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
           end loop;
-          if v_hit /= -1 and write_latched = '0' and write_request = '0' then
+          if v_hit /= -1 and write_latched = '0' and write_guard_q = '0' then
             set_export(x_addr, c_data(v_hit));
             if cflags(1) = '1' then prefetch_from(x_addr); end if;
           else
@@ -2029,11 +2036,12 @@ begin
         -- held until the 8 bytes are delivered), then the cache look-up in
         -- two steps as for next/prev, then the line or a fill
         vic_req_s <= viciv_request_toggle;
+        vic_addr_q <= viciv_addr; -- same clock163 stage as request toggle
         if vic_req_s /= vic_last and vic_look = '0' and vic_use = '0' and vic_want = '0' then
           vic_last <= vic_req_s;
           vic_tag(26) <= '0';
           vic_tag(25 downto 19) <= vic_bank(6 downto 0);
-          vic_tag(18 downto 3) <= viciv_addr;
+          vic_tag(18 downto 3) <= vic_addr_q;
           vic_look <= '1';
           vic_count <= vic_count + 1;
         elsif vic_look = '1' then
@@ -2090,6 +2098,13 @@ begin
           pf_chk2 <= '0';
           pf_want <= '0';
         end if;
+      end if;
+
+      -- A new 81 MHz write must invalidate the exported line on the very
+      -- first receiving edge.  Keep this priority AFTER any set_export call
+      -- above so the registered data path never makes a stale line valid.
+      if write_request = '1' and read_request = '0' then
+        current_cache_line_valid <= '0';
       end if;
 
       -- slow_devices must wait while we cannot take a request.  A write is

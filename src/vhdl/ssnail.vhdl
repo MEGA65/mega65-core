@@ -635,9 +635,24 @@ architecture shell of ssnail is
   signal as_blocks : unsigned(31 downto 0) := (others => '0');   -- blocks still to assemble
   -- MAC lanes
   signal mc_busy, mc_done : std_logic := '0';
+  signal mc_drain : std_logic := '0'; -- last MAC issued; pipeline not empty
   signal mc_c      : unsigned(3 downto 0) := (others => '0');
   signal mc_blk    : unsigned(7 downto 0) := (others => '0');    -- block within the row
   signal mc_isum   : signed(31 downto 0) := (others => '0');
+  -- Four-lane GEMV MAC, registered after memory selection, multiplication,
+  -- pair summation and final lane summation.  One group enters per 163 MHz
+  -- cycle; mc_done is asserted only AFTER the final accumulation commits.
+  type mc_w4_t is array (0 to 3) of signed(8 downto 0);
+  type mc_x4_t is array (0 to 3) of signed(7 downto 0);
+  type mc_p4_t is array (0 to 3) of signed(16 downto 0);
+  type mc_p2_t is array (0 to 1) of signed(17 downto 0);
+  signal mc_w_q : mc_w4_t := (others => (others => '0'));
+  signal mc_x_q : mc_x4_t := (others => (others => '0'));
+  signal mc_p_q : mc_p4_t := (others => (others => '0'));
+  signal mc_pair_q : mc_p2_t := (others => (others => '0'));
+  signal mc_sum_q : signed(18 downto 0) := (others => '0');
+  signal mc_v0, mc_v1, mc_v2, mc_v3 : std_logic := '0';
+  signal mc_last0, mc_last1, mc_last2, mc_last3 : std_logic := '0';
   signal mc_scale_ok : std_logic := '0';
   signal mc_scale  : unsigned(31 downto 0) := (others => '0');
   -- term stage (second FP unit): term = F32(isum) * scale
@@ -3201,11 +3216,12 @@ begin
         end if;
 
         -- Swap: a full fill set goes to the lanes when they are free
-        if as_full = '1' and mc_busy = '0' and mc_done = '0' then
+        if as_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
           grpc <= grpf;
           as_full <= '0';
           as_blocks <= as_blocks - 1;
           mc_busy <= '1';
+          mc_drain <= '0';
           mc_c <= (others => '0');
           mc_isum <= (others => '0');
           mc_scale_ok <= '0';
@@ -3215,9 +3231,11 @@ begin
           fpu3_start <= '1';
         end if;
 
-        -- 4 MAC lanes: elements 4c .. 4c+3 of the block per cycle
+        -- Stage 0: read/select operands.  Do not put the four multiplies
+        -- and carry-chain accumulation on the RAM/address selection path.
+        mc_v0 <= mc_busy;
+        mc_last0 <= '0';
         if mc_busy = '1' then
-          lsum := (others => '0');
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
             if d_fmt = 8 then
@@ -3233,14 +3251,45 @@ begin
               when 2 => qxv := qx2(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
               when others => qxv := qx3(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
             end case;
-            lsum := lsum + resize(qwv * qxv, 32);
+            mc_w_q(k) <= qwv;
+            mc_x_q(k) <= qxv;
           end loop;
-          mc_isum <= mc_isum + lsum;
           if mc_c = 7 then
             mc_busy <= '0';
-            mc_done <= '1';
+            mc_drain <= '1';
+            mc_last0 <= '1';
           end if;
           mc_c <= mc_c + 1;
+        end if;
+
+        -- Stages 1..3: parallel products, two pair sums, final group sum.
+        -- 9x8 products fit signed(16 downto 0); the 4-product sum fits 19
+        -- bits.  Accumulation stays 32-bit and wraps exactly as previously.
+        mc_v1 <= mc_v0;
+        mc_last1 <= mc_last0;
+        if mc_v0 = '1' then
+          for k in 0 to 3 loop
+            mc_p_q(k) <= mc_w_q(k) * mc_x_q(k);
+          end loop;
+        end if;
+        mc_v2 <= mc_v1;
+        mc_last2 <= mc_last1;
+        if mc_v1 = '1' then
+          mc_pair_q(0) <= resize(mc_p_q(0), 18) + resize(mc_p_q(1), 18);
+          mc_pair_q(1) <= resize(mc_p_q(2), 18) + resize(mc_p_q(3), 18);
+        end if;
+        mc_v3 <= mc_v2;
+        mc_last3 <= mc_last2;
+        if mc_v2 = '1' then
+          mc_sum_q <= resize(mc_pair_q(0), 19) + resize(mc_pair_q(1), 19);
+        end if;
+        -- Accumulator must drain before the F32 conversion sees mc_done.
+        if mc_v3 = '1' then
+          mc_isum <= mc_isum + resize(mc_sum_q, 32);
+          if mc_last3 = '1' then
+            mc_drain <= '0';
+            mc_done <= '1';
+          end if;
         end if;
         -- the second FP unit: scale for the block in the lanes, then that
         -- block's term once its dot product is done
@@ -3280,6 +3329,10 @@ begin
             mc_blk <= mc_blk + 1;
           end if;
         end if;
+      else
+        mc_drain <= '0';
+        mc_v0 <= '0'; mc_v1 <= '0'; mc_v2 <= '0'; mc_v3 <= '0';
+        mc_last0 <= '0'; mc_last1 <= '0'; mc_last2 <= '0'; mc_last3 <= '0';
       end if;
 
       -- read-tag queue and in-flight count bookkeeping

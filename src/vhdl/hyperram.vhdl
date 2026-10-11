@@ -590,6 +590,8 @@ architecture gothic of hyperram is
   signal v2_hits, v2_misses : unsigned(15 downto 0) := (others => '0');
   -- VIC-IV fetches
   signal vic_tag : unsigned(26 downto 3) := (others => '1');
+  signal vic_addr_q : unsigned(18 downto 3) := (others => '0');
+  signal vic_req_q : std_logic := '0';
   signal vic_look, vic_use, vic_want : std_logic := '0';
   signal vic_hit : std_logic_vector(0 to H_NL - 1) := (others => '0');
   -- LUMP-engine jobs: cj_req waits for the Idle dispatch, cj_busy until done
@@ -4331,6 +4333,11 @@ begin
       v2_pf_go := false;
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
+      -- VIC 40 MHz request/address arrive together and are held until
+      -- completion.  This registered stage removes their combinational
+      -- crossing into the tag/lookup logic; latency is one 163 MHz cycle.
+      vic_addr_q <= viciv_addr;
+      vic_req_q <= viciv_request_toggle;
       rd_req_v2_q <= read_request and v2_ram;
       wr_req_v2_q <= write_request and v2_ram;
       v2_idx := to_integer(l_addr(2 downto 0));
@@ -4598,12 +4605,12 @@ begin
 
       -- VIC-IV fetches: the request (its address is held until the 8 bytes
       -- are delivered), the look-up in two steps, then the line or a fill
-      if v2_en = '1' and viciv_request_toggle /= viciv_last_request_toggle
+      if v2_en = '1' and vic_req_q /= viciv_last_request_toggle
         and vic_look = '0' and vic_use = '0' and vic_want = '0' then
-        viciv_last_request_toggle <= viciv_request_toggle;
+        viciv_last_request_toggle <= vic_req_q;
         viciv_request_count <= viciv_request_count + 1;
         vic_tag(26 downto 19) <= viciv_bank;
-        vic_tag(18 downto 3) <= viciv_addr;
+        vic_tag(18 downto 3) <= vic_addr_q;
         vic_look <= '1';
       elsif vic_look = '1' then
         vic_look <= '0';

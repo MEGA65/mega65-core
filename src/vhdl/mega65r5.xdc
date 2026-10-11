@@ -413,9 +413,13 @@ set_multicycle_path $n_hold  -hold  -start -from clock163 -to clock41
 # cycle with the MMCM fine phase shift, so the crossing from the IOB capture
 # registers into clock163 (direct, or via a falling-edge stage) has no fixed
 # relationship to time against.  Keep it a short plain delay instead.
+# The capture-side mux has been moved *after* the receiving registers.
+# Retain the original path into dq_f and add the direct registered bank.
+# -datapath_only is appropriate only because the MMCM phase is trained;
+# validate the trained read window separately from static timing closure.
 set_max_delay -datapath_only 2.0 \
   -from [get_cells -hier -filter {NAME =~ *sdramctrl0/sdram_dq_latched_reg*}] \
-  -to   [get_cells -hier -filter {NAME =~ *sdramctrl0/dq_[xf]_reg*}]
+  -to   [get_cells -hier -filter {NAME =~ *sdramctrl0/dq_f_reg* || NAME =~ *sdramctrl0/dq_direct_q_reg*}]
 
 
 ## Hyper RAM
