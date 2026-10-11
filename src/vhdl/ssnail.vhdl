@@ -436,7 +436,7 @@ architecture shell of ssnail is
     C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
     C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
-    V_CHUNK, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
+    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
     E_K1, E_K2, E_K3, E_ACC, E_ACC2,
     T_START, T_K, T_I, T_LOOK, T_COEFF, T_C0, T_DONE,
     R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6,
@@ -511,6 +511,12 @@ architecture shell of ssnail is
   signal v_n       : unsigned(31 downto 0) := (others => '0');  -- elements left
   signal px, py, pz, ps, ostart : unsigned(27 downto 0) := (others => '0');
   signal v_e, v_i  : unsigned(7 downto 0) := (others => '0');   -- chunk size, index
+  -- Vector chunk limits are computed independently before the minimum tree.
+  -- 0xFF is the neutral limit for a disabled operand; every real boundary
+  -- limit is <= 128.  These registers isolate the full-width v_n test and
+  -- address-boundary calculations from the chunk-size minimum network.
+  signal vc_rem_q, vc_x_q, vc_y_q, vc_b_q, vc_z_q : unsigned(7 downto 0) := (others => '0');
+  signal vc_left_q, vc_right_q : unsigned(7 downto 0) := (others => '0');
   signal o16       : std_logic := '0';                          -- F16 output
   signal two_ops   : std_logic := '0';                          -- Y input stream
   signal has_b     : std_logic := '0';                          -- B input stream
@@ -1902,40 +1908,66 @@ begin
         -- Y or Z; read X (and Y), run each element through the FPU into buf,
         -- write Z with byte masks.
         when V_CHUNK =>
-          -- Compute the minimum of the remaining element count and all
-          -- relevant 256-byte boundary limits.  Every boundary limit is
-          -- <= 128 elements, so the minimum needs only eight bits, even
-          -- when v_n is a full 32-bit length.  Saturating at 255 before
-          -- taking the minimum is equivalent for every v_n value.
+          -- First stage: independently register each 256-byte boundary limit,
+          -- and saturate the full-width element count.  No chained minimum
+          -- comparisons on this clock edge.
           if v_n = 0 then
             cstate <= ve_ret;
           else
             if v_n(31 downto 8) = 0 then
-              vlen8 := v_n(7 downto 0);
+              vc_rem_q <= v_n(7 downto 0);
             else
-              vlen8 := x"FF";
+              vc_rem_q <= x"FF";
             end if;
-            room8 := resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 8);
-            if room8 < vlen8 then vlen8 := room8; end if;
+            vc_x_q <= resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 8);
             if two_ops = '1' then
-              room8 := resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 8);
-              if room8 < vlen8 then vlen8 := room8; end if;
+              vc_y_q <= resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 8);
+            else
+              vc_y_q <= x"FF";
             end if;
             if has_b = '1' then
-              room8 := resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 8);
-              if room8 < vlen8 then vlen8 := room8; end if;
+              vc_b_q <= resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 8);
+            else
+              vc_b_q <= x"FF";
             end if;
             if has_out = '1' then
               if o16 = '1' then
-                room8 := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 8);
+                vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 8);
               else
-                room8 := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 8);
+                vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 8);
               end if;
-              if room8 < vlen8 then vlen8 := room8; end if;
+            else
+              vc_z_q <= x"FF";
             end if;
-            v_e <= vlen8;
-            cstate <= V_CHUNK_ADDR;
+            cstate <= V_CHUNK_MIN1;
           end if;
+
+        when V_CHUNK_MIN1 =>
+          -- Second stage: two independent 8-bit minimum comparisons.
+          if vc_rem_q < vc_x_q then
+            vc_left_q <= vc_rem_q;
+          else
+            vc_left_q <= vc_x_q;
+          end if;
+          if vc_y_q < vc_b_q then
+            vc_right_q <= vc_y_q;
+          else
+            vc_right_q <= vc_b_q;
+          end if;
+          cstate <= V_CHUNK_MIN2;
+
+        when V_CHUNK_MIN2 =>
+          -- Third stage: select the remaining minimum, including Z.
+          -- Keeping the same strict-less-than preference as the original
+          -- comparison chain preserves numeric behavior for equal limits.
+          if vc_left_q < vc_right_q then
+            vlen8 := vc_left_q;
+          else
+            vlen8 := vc_right_q;
+          end if;
+          if vc_z_q < vlen8 then vlen8 := vc_z_q; end if;
+          v_e <= vlen8;
+          cstate <= V_CHUNK_ADDR;
 
         when V_CHUNK_ADDR =>
           a0 := px(27 downto 3) & "000";
