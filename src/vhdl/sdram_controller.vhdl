@@ -374,6 +374,9 @@ architecture tacoma_narrows of sdram_controller is
   -- The one place read data crosses from clock162r to clock162.  Both the
   -- CPU line fill and LUMP read from here, so they can never disagree.
   signal dq_x          : unsigned(15 downto 0) := (others => '0');
+  signal dq_direct_q   : unsigned(15 downto 0) := (others => '0');
+  signal dq_fall_q     : unsigned(15 downto 0) := (others => '0');
+  signal x_h_q         : std_logic := '0';
   -- Read data cycle: words are taken from dq_x at T+7-rd_c .. T+10-rd_c
   -- after a READ at T.  Set by training; until training succeeds (or with
   -- no phase shifter) it is 0 or 1 from identical_clocks ($D7FE bit 5), the
@@ -418,7 +421,7 @@ architecture tacoma_narrows of sdram_controller is
                       T_FL_STEP, T_FL_T, T_FL_REC, T_FR_GO, T_FR_STEP, T_FR_T, T_FR_REC,
                       T_MID, T_MID2, T_MID3, T_PATH_GO, T_PATH_T, T_PATH_REC,
                       T_RESTORE, T_RESTORE_W, T_FINISH, T_ABORT,
-                      T_TEST0, T_TEST1, T_TEST2, T_TEST3,
+                      T_TEST0, T_TEST1, T_TEST2, T_TEST3, T_SCAN, T_SCAN_B_INIT, T_TEST_EVAL,
                       M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE,
                       M_SEEK, M_SEEK2, M_STEPN);
   signal tr_st         : tr_state_t := T_START;
@@ -481,17 +484,15 @@ architecture tacoma_narrows of sdram_controller is
   signal tr_width      : integer range 0 to TR_STEPS := 0;
   signal tr_centre     : integer range 0 to TR_STEPS-1 := 0;
 
-  -- Where the pattern starts in 7 captured words: j = 0..3, or 7 if not
-  -- there.  (The 4 words are all different, so at most one j matches.)
-  function tr_find(w : unsigned(111 downto 0)) return integer is
-  begin
-    for j in 0 to 3 loop
-      if w(16*j+63 downto 16*j) = TR_PATTERN then
-        return j;
-      end if;
-    end loop;
-    return 7;
-  end function;
+  -- Sequential training matcher: one captured 16-bit word each clock.
+  -- The four constant comparisons run in parallel but only across one
+  -- word, rather than eight 64-bit comparisons in the old tr_find().
+  -- A and B are scanned in 7 clocks apiece, after each data capture.
+  signal tr_scan_data : unsigned(111 downto 0) := (others => '0');
+  signal tr_scan_idx  : integer range 0 to 6 := 0;
+  signal tr_match0, tr_match1, tr_match2 : boolean := false;
+  signal tr_found_a, tr_found_b : integer range 0 to 7 := 7;
+  signal tr_scan_b : std_logic := '0';
   -- A test result is clean on path h at read cycle c
   function tr_clean(h : std_logic; va : std_logic; ca : unsigned(1 downto 0);
                     vb : std_logic; cb : unsigned(1 downto 0);
@@ -565,6 +566,13 @@ begin
       dq_f <= sdram_dq_latched;
     end if;
   end process;
+
+  -- No combinational selection between the phase-adjustable ILOGIC FF and
+  -- the clock162 FF: both paths terminate at registers first.  The mux is
+  -- moved to the far side of those registers, where it has a full cycle.
+  -- x_h_q registers the *old* selection at the same edge as the two data
+  -- banks, preserving dq_x's original one-cycle observable pipeline.
+  dq_x <= dq_fall_q when x_h_q = '1' else dq_direct_q;
 
   process(clock162, pixelclock) is
     procedure sdram_emit_command(cmd : sdram_cmd_t) is
@@ -760,11 +768,9 @@ begin
       -- at edge T, so at edge T+k we see lump_rd_pipe(k-2).
       -- (Words reach dq_x one cycle after sdram_dq_latched: they are taken
       -- at T+7-rd_c .. T+10-rd_c.)
-      if x_h = '1' then
-        dq_x <= dq_f;
-      else
-        dq_x <= sdram_dq_latched;
-      end if;
+      dq_direct_q <= sdram_dq_latched;
+      dq_fall_q <= dq_f;
+      x_h_q <= x_h;
       if tr_active = '1' then
         -- training measures the direct path through dq_x itself
         x_h  <= '0';
@@ -1476,10 +1482,61 @@ begin
                 tr_ret <= T_TEST3;
                 tr_st <= M_RWAIT;
               when T_TEST3 =>
-                tj := tr_find(wa);
+                tr_scan_data <= wa;
+                tr_scan_idx <= 0;
+                tr_scan_b <= '0';
+                tr_match0 <= false;
+                tr_match1 <= false;
+                tr_match2 <= false;
+                tr_found_a <= 7;
+                tr_found_b <= 7;
+                tr_st <= T_SCAN;
+
+              when T_SCAN =>
+                -- Consume words in increasing address order: low 16 bits
+                -- of wa/wb are oldest after the seven shift captures.
+                if tr_scan_idx >= 3 and tr_match2
+                  and tr_scan_data(15 downto 0) = TR_PATTERN(63 downto 48) then
+                  if tr_scan_b = '0' then
+                    tr_found_a <= tr_scan_idx - 3;
+                  else
+                    tr_found_b <= tr_scan_idx - 3;
+                  end if;
+                end if;
+                tr_match2 <= tr_match1 and
+                  (tr_scan_data(15 downto 0) = TR_PATTERN(47 downto 32));
+                tr_match1 <= tr_match0 and
+                  (tr_scan_data(15 downto 0) = TR_PATTERN(31 downto 16));
+                if tr_scan_data(15 downto 0) = TR_PATTERN(15 downto 0) then
+                  tr_match0 <= true;
+                else
+                  tr_match0 <= false;
+                end if;
+                tr_scan_data <= x"0000" & tr_scan_data(111 downto 16);
+                if tr_scan_idx = 6 then
+                  if tr_scan_b = '0' then
+                    tr_st <= T_SCAN_B_INIT;
+                  else
+                    tr_st <= T_TEST_EVAL;
+                  end if;
+                else
+                  tr_scan_idx <= tr_scan_idx + 1;
+                end if;
+
+              when T_SCAN_B_INIT =>
+                tr_scan_data <= wb;
+                tr_scan_idx <= 0;
+                tr_scan_b <= '1';
+                tr_match0 <= false;
+                tr_match1 <= false;
+                tr_match2 <= false;
+                tr_st <= T_SCAN;
+
+              when T_TEST_EVAL =>
+                tj := tr_found_a;
                 if tj < 4 then tva := '1'; tca := to_unsigned(3 - tj, 2);
                 else tva := '0'; tca := "00"; end if;
-                tj := tr_find(wb);
+                tj := tr_found_b;
                 if tj < 4 then tvb := '1'; tcb := to_unsigned(3 - tj, 2);
                 else tvb := '0'; tcb := "00"; end if;
                 if tr_r = '0' then

@@ -436,7 +436,7 @@ architecture shell of ssnail is
     C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
     C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
-    V_CHUNK, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
+    V_CHUNK, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
     E_K1, E_K2, E_K3, E_ACC, E_ACC2,
     T_START, T_K, T_I, T_LOOK, T_COEFF, T_C0, T_DONE,
     R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6,
@@ -1037,10 +1037,12 @@ begin
   process (clock162) is
     variable mb : unsigned(7 downto 0);
     variable room_s, room_d, rem9 : unsigned(8 downto 0);
+    variable span9 : unsigned(8 downto 0);
     variable hr_issue, sd_issue : std_logic;
     variable lp_inc, lp_dec : std_logic;
     variable st_al, en_al : unsigned(27 downto 0);
     variable room, vlen : unsigned(31 downto 0);
+    variable vlen8, room8 : unsigned(7 downto 0);
     variable a0, a1, a2 : unsigned(27 downto 0);
     variable ix, iy, ib : unsigned(7 downto 0);
     variable xv, lo, hi : unsigned(31 downto 0);
@@ -1885,36 +1887,51 @@ begin
         -- Y or Z; read X (and Y), run each element through the FPU into buf,
         -- write Z with byte masks.
         when V_CHUNK =>
-          -- A chunk of elements crossing no 256-byte boundary in any stream
+          -- Compute the minimum of the remaining element count and all
+          -- relevant 256-byte boundary limits.  Every boundary limit is
+          -- <= 128 elements, so the minimum needs only eight bits, even
+          -- when v_n is a full 32-bit length.  Saturating at 255 before
+          -- taking the minimum is equivalent for every v_n value.
           if v_n = 0 then
             cstate <= ve_ret;
           else
-            room := resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 32);
-            vlen := v_n;
-            if room < vlen then vlen := room; end if;
+            if v_n(31 downto 8) = 0 then
+              vlen8 := v_n(7 downto 0);
+            else
+              vlen8 := x"FF";
+            end if;
+            room8 := resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 8);
+            if room8 < vlen8 then vlen8 := room8; end if;
             if two_ops = '1' then
-              room := resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 32);
-              if room < vlen then vlen := room; end if;
+              room8 := resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 8);
+              if room8 < vlen8 then vlen8 := room8; end if;
             end if;
             if has_b = '1' then
-              room := resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 32);
-              if room < vlen then vlen := room; end if;
+              room8 := resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 8);
+              if room8 < vlen8 then vlen8 := room8; end if;
             end if;
             if has_out = '1' then
               if o16 = '1' then
-                room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 32);
+                room8 := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 8);
               else
-                room := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 32);
+                room8 := resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 8);
               end if;
-              if room < vlen then vlen := room; end if;
+              if room8 < vlen8 then vlen8 := room8; end if;
             end if;
-            v_e <= vlen(7 downto 0);
-            a0 := px(27 downto 3) & "000";
-            a1 := px + (vlen(25 downto 0) & "00") + 7;
-            a1(2 downto 0) := "000";
-            rd_addr <= a0;
-            rd_len <= resize(a1 - a0, 9);
-            rd_sel <= "01";
+            v_e <= vlen8;
+            cstate <= V_CHUNK_ADDR;
+          end if;
+
+        when V_CHUNK_ADDR =>
+          a0 := px(27 downto 3) & "000";
+          -- Original expression, modulo 2**9:
+          -- align8(px + 4*v_e + 7) - align8(px).
+          -- Only px(2:0) and v_e(6:0) influence these nine bits.
+          span9 := resize(px(2 downto 0), 9)
+                 + (v_e(6 downto 0) & "00") + 7;
+          rd_addr <= a0;
+          rd_len <= span9(8 downto 3) & "000";
+          rd_sel <= "01";
             dec_addr <= a0;
             if two_ops = '1' then
               rd_ret <= V_LDY;
@@ -1924,14 +1941,13 @@ begin
               rd_ret <= V_EL0;
             end if;
             cstate <= C_RD_DEC;
-          end if;
 
         when V_LDY =>
           a0 := py(27 downto 3) & "000";
-          a1 := py + (resize(v_e, 26) & "00") + 7;
-          a1(2 downto 0) := "000";
+          span9 := resize(py(2 downto 0), 9)
+                 + (v_e(6 downto 0) & "00") + 7;
           rd_addr <= a0;
-          rd_len <= resize(a1 - a0, 9);
+          rd_len <= span9(8 downto 3) & "000";
           rd_sel <= "10";
           dec_addr <= a0;
           if has_b = '1' then
@@ -1943,10 +1959,10 @@ begin
 
         when V_LDB =>
           a0 := pb(27 downto 3) & "000";
-          a1 := pb + (resize(v_e, 26) & "00") + 7;
-          a1(2 downto 0) := "000";
+          span9 := resize(pb(2 downto 0), 9)
+                 + (v_e(6 downto 0) & "00") + 7;
           rd_addr <= a0;
-          rd_len <= resize(a1 - a0, 9);
+          rd_len <= span9(8 downto 3) & "000";
           rd_sel <= "11";
           dec_addr <= a0;
           rd_ret <= V_EL0;

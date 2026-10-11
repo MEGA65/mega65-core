@@ -518,12 +518,8 @@ architecture gothic of hyperram is
   -- bit 1 prefetch after CPU reads, bit 2 also prefetch past the exported
   -- line when the CPU moves it on (the early next-line fetch: off by default
   -- until the CPU side is known to use it well)
-  -- Disable prefetches if only using 4 cache lines, because otherwise the prefetch
-  -- stomps on the entire cache causing performance to go through the floor.
-  -- In fact, prefetch in the hyperramtest benchmark shows zero benefit, only
-  -- this negative impact.
-  signal v2_flags : std_logic_vector(7 downto 0) := x"01";
-  signal v2_en    : std_logic := '1';
+  signal v2_flags : std_logic_vector(7 downto 0) := x"01"; -- automatic prefetch off: H_NL=H_FILL=4
+  constant v2_en  : std_logic := '1'; -- v2 is the only normal RAM path
   signal v2_ram   : std_logic;          -- the request on the port is v2's
   signal read_request_o, write_request_o : std_logic;  -- the old path's
   signal busy_o   : std_logic := '0';   -- the old path's busy
@@ -580,6 +576,9 @@ architecture gothic of hyperram is
   signal x_addr : unsigned(26 downto 3) := (others => '1');
   signal x_hit  : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal next_toggle_drive, prev_toggle_drive : std_logic := '0';
+  -- Stage slow_devices' control strobes in clock163 before v2 arbitration.
+  -- slow_devices holds the address and write data until acknowledged.
+  signal rd_req_v2_q, wr_req_v2_q : std_logic := '0';
   signal next_toggle_seen, prev_toggle_seen : std_logic := '0';
   -- prefetch
   signal pf_base : unsigned(26 downto 3) := (others => '1');
@@ -632,7 +631,7 @@ begin
   -- v2_en <= v2_flags(0);
   
   -- RAM (not register space) requests are v2's when it is on
-  v2_ram <= v2_en and not address(25);
+  v2_ram <= not address(25); -- legacy path handles *register space* only
   
   read_request_o  <= read_request and not v2_ram;
   write_request_o <= write_request and not v2_ram;
@@ -1015,138 +1014,20 @@ begin
 
         read_request_latch <= '0';
 
-        -- Check for cache read
-        -- We check the write buffers first, as any contents that they have
-        -- must take priority over everything else
-        if (block_valid='1') and (block_address_matches_address='1') then
-          report "flipping read_publish_toggle";
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
-          if rdata_16en='1' then
-            rdata_hi_buf <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))+1);
-          end if;
-          report "DISPATCH: Returning data $"
-            & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
-            & " from read block.";
-          -- Now update current cache line to speed up subsequent reads
-          current_cache_line_update <= block_data(to_integer(address(4 downto 3)));
-          current_cache_line_new_address <= address(26 downto 3);
-          current_cache_line_update_all <= not current_cache_line_update_all;
-
-          if (address(4 downto 3) = "11") and (flag_prefetch='1')
-          and (viciv_request_toggle = viciv_last_request_toggle) then
-            -- When attempting to read from the last 8 bytes of a block read,
-            -- we schedule a pre-fetch of the next 32 bytes, so that we can hide
-            -- the read latency as much as possible.
-            ram_reading <= '1';
-            tempaddr(26 downto 5) := address(26 downto 5) + 1;
-            tempaddr(4 downto 0) := "00000";
-            ram_address <= tempaddr;
-            request_toggle <= not request_toggle;
-            ram_prefetch <= true;
-            ram_normalfetch <= false;
-
-            report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr);
-            -- Mark a cache line to receive the pre-fetched data, so that we don't
-            -- have to wait for it all to turn up, before being able to return
-            -- the first 8 bytes
-            mark_cache_for_prefetch <= not mark_cache_for_prefetch;
-          end if;
-
-        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
-          -- Write cache read-back
-          report "flipping read_publish_toggle";
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= write_collect0_data(to_integer(address(2 downto 0)));
-          report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
-        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = write_collect0_address
-                                                    and write_collect0_valids(to_integer(address(2 downto 1)&"0")) = '1'
-                                                    and write_collect0_valids(to_integer(address(2 downto 1)&"1")) = '1') then
-          -- Write cache read-back
-          report "flipping read_publish_toggle";
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= write_collect0_data(to_integer(address(2 downto 1)&"0"));
-          rdata_hi_buf <= write_collect0_data(to_integer(address(2 downto 1)&"1"));
-          report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
-        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
-          -- Write cache read-back
-          report "flipping read_publish_toggle";
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= write_collect1_data(to_integer(address(2 downto 0)));
-          report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
-        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = write_collect1_address
-                                                    and write_collect1_valids(to_integer(address(2 downto 1)&"0")) = '1'
-                                                    and write_collect1_valids(to_integer(address(2 downto 1)&"1")) = '1') then
-          -- Write cache read-back
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= write_collect1_data(to_integer(address(2 downto 1)&"0"));
-          rdata_hi_buf <= write_collect1_data(to_integer(address(2 downto 1)&"1"));
-          report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
-        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
-          -- Cache reads
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= cache_row0_data(to_integer(address(2 downto 0)));
-          report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
-        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = cache_row0_address
-                                                    and cache_row0_valids(to_integer(address(2 downto 1)&"0")) = '1'
-                                                    and cache_row0_valids(to_integer(address(2 downto 1)&"1")) = '1') then
-          -- Cache reads
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= cache_row0_data(to_integer(address(2 downto 1)&"0"));
-          rdata_hi_buf <= cache_row0_data(to_integer(address(2 downto 1)&"1"));
-          report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
-        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
-          -- Cache read
-          report "flipping read_publish_toggle";
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= cache_row1_data(to_integer(address(2 downto 0)));
-          report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
-        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = cache_row1_address
-                                                    and cache_row1_valids(to_integer(address(2 downto 1)&"0"))='1'
-                                                    and cache_row1_valids(to_integer(address(2 downto 1)&"1"))='1') then
-
-          -- Cache read
-          read_publish_toggle <= not read_publish_toggle;
-          rdata_buf <= cache_row1_data(to_integer(address(2 downto 1)&"0"));
-          rdata_hi_buf <= cache_row1_data(to_integer(address(2 downto 1)&"1"));
-          report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
-        elsif address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
+        -- The old 8-byte/32-byte CPU read cache and the legacy write-cache
+        -- forwarding path are retired. Normal RAM reads use v2, including its
+        -- write forwarding. Only register-space reads arrive here now.
+        if address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
           -- $B0000xx for now for debugging caches etc
           case address(7 downto 0) is
-            when x"00" => rdata_buf(7) <= '1';
-                          rdata_buf(6 downto 3) <= (others => '0');
-                          rdata_buf(2 downto 0) <= cache_row0_address(23 downto 21);
-            when x"01" => rdata_buf <= cache_row0_address(20 downto 13);
-            when x"02" => rdata_buf <= cache_row0_address(12 downto 5);
-            when x"03" => rdata_buf(7 downto 3) <= cache_row0_address(4 downto 0);
-                          rdata_buf(2 downto 0) <= "000";
-            when x"04" => rdata_buf <= unsigned(cache_row0_valids);
-            when x"05" => rdata_buf <= x"AA";
-            when x"06" => rdata_buf <= x"AA";
-            when x"07" => rdata_buf <= x"AA";
-            when x"08"|x"09"|x"0a"|x"0b"|x"0c"|x"0d"|x"0e"|x"0f" =>
-              rdata_buf <= cache_row0_data(to_integer(address(2 downto 0)));
-
-            when x"10" => rdata_buf(7) <= '1';
-                          rdata_buf(6 downto 3) <= (others => '0');
-                          rdata_buf(2 downto 0) <= cache_row1_address(23 downto 21);
-            when x"11" => rdata_buf <= cache_row1_address(20 downto 13);
-            when x"12" => rdata_buf <= cache_row1_address(12 downto 5);
-            when x"13" => rdata_buf(7 downto 3) <= cache_row1_address(4 downto 0);
-                          rdata_buf(2 downto 0) <= "000";
-            when x"14" => rdata_buf <= unsigned(cache_row1_valids);
-            when x"15" => rdata_buf <= x"AA";
-            when x"16" => rdata_buf <= x"AA";
-            when x"17" => rdata_buf <= x"AA";
-            when x"18"
-              |  x"19"
-              |  x"1a"
-              |  x"1b"
-              |  x"1c"
-              |  x"1d"
-              |  x"1e"
-              |  x"1f" => rdata_buf <= cache_row1_data(to_integer(address(2 downto 0)));
-
+            -- Retired v1 cache-row diagnostics.  These addresses remain
+            -- reserved, but must not keep old cache data structures alive.
+            when x"00" | x"01" | x"02" | x"03" | x"04" | x"05" |
+                 x"06" | x"07" | x"08" | x"09" | x"0a" | x"0b" |
+                 x"0c" | x"0d" | x"0e" | x"0f" | x"10" | x"11" |
+                 x"12" | x"13" | x"14" | x"15" | x"16" | x"17" |
+                 x"18" | x"19" | x"1a" | x"1b" | x"1c" | x"1d" |
+                 x"1e" | x"1f" => rdata_buf <= x"00";
             when x"20" => rdata_buf <= write_collect0_address(23 downto 16);
             when x"21" => rdata_buf <= write_collect0_address(15 downto 8);
             when x"22" => rdata_buf(7 downto 3) <= write_collect0_address(7 downto 3);
@@ -1189,72 +1070,26 @@ begin
               |  x"3e"
               |  x"3f" => rdata_buf <= write_collect1_data(to_integer(address(2 downto 0)));
 
-            when x"40" => rdata_buf <= block_address(23 downto 16);
-            when x"41" => rdata_buf <= block_address(15 downto 8);
-            when x"42" => rdata_buf(7 downto 5) <= block_address(7 downto 5);
-                          rdata_buf(4 downto 0) <= "00000";
-            when x"43" => rdata_buf <= x"AA";
-            when x"44" => rdata_buf <= x"00";
-                          if (block_valid='1') then rdata_buf <= x"FF"; end if;
-
-            when x"50"
-              |  x"51"
-              |  x"52"
-              |  x"53"
-              |  x"54"
-              |  x"55"
-              |  x"56"
-              |  x"57" => rdata_buf <= block_data(0)(to_integer(address(2 downto 0)));
-            when x"58"
-              |  x"59"
-              |  x"5a"
-              |  x"5b"
-              |  x"5c"
-              |  x"5d"
-              |  x"5e"
-              |  x"5f" => rdata_buf <= block_data(1)(to_integer(address(2 downto 0)));
-
-
-            when x"60"
-              |  x"61"
-              |  x"62"
-              |  x"63"
-              |  x"64"
-              |  x"65"
-              |  x"66"
-              |  x"67" => rdata_buf <= block_data(2)(to_integer(address(2 downto 0)));
-            when x"68"
-              |  x"69"
-              |  x"6a"
-              |  x"6b"
-              |  x"6c"
-              |  x"6d"
-              |  x"6e"
-              |  x"6f" => rdata_buf <= block_data(3)(to_integer(address(2 downto 0)));
+            -- Retired 32-byte v1 read-block diagnostics.
+            when x"40" | x"41" | x"42" | x"43" | x"44" | x"45" |
+                 x"46" | x"47" | x"48" | x"49" | x"4a" | x"4b" |
+                 x"4c" | x"4d" | x"4e" | x"4f" | x"50" | x"51" |
+                 x"52" | x"53" | x"54" | x"55" | x"56" | x"57" |
+                 x"58" | x"59" | x"5a" | x"5b" | x"5c" | x"5d" |
+                 x"5e" | x"5f" | x"60" | x"61" | x"62" | x"63" |
+                 x"64" | x"65" | x"66" | x"67" | x"68" | x"69" |
+                 x"6a" | x"6b" | x"6c" | x"6d" | x"6e" | x"6f" => rdata_buf <= x"00";
 
             when x"80" => rdata_buf <= viciv_request_count(31 downto 24);
             when x"81" => rdata_buf <= viciv_request_count(23 downto 16);
             when x"82" => rdata_buf <= viciv_request_count(15 downto 8);
             when x"83" => rdata_buf <= viciv_request_count( 7 downto 0);
 
-            when x"90" => rdata_buf(2 downto 0) <= current_cache_line_address_drive(26 downto 24);
-                          rdata_buf(7) <= '1';
-                          rdata_buf(6 downto 3) <= "0000";
-            when x"91" => rdata_buf <= current_cache_line_address_drive(23 downto 16);
-            when x"92" => rdata_buf <= current_cache_line_address_drive(15 downto 8);
-            when x"93" => rdata_buf(7 downto 3) <= current_cache_line_address_drive( 7 downto 3);
-                          rdata_buf(2 downto 0) <= "000";
-            when x"94" => rdata_buf <= (others => current_cache_line_valid_drive);
-
-            when x"98"
-              |  x"99"
-              |  x"9a"
-              |  x"9b"
-              |  x"9c"
-              |  x"9d"
-              |  x"9e"
-              |  x"9f" => rdata_buf <= current_cache_line_drive(to_integer(address(2 downto 0)));
-
+            -- Retired legacy exported-line diagnostics.  The live exported
+            -- line is owned by v2; these addresses no longer refer to it.
+            when x"90" | x"91" | x"92" | x"93" | x"94" | x"95" |
+                 x"96" | x"97" | x"98" | x"99" | x"9a" | x"9b" |
+                 x"9c" | x"9d" | x"9e" | x"9f" => rdata_buf <= x"00";
 
             -- LUMP debug (#949)
             when x"a0" | x"a1" | x"a2" | x"a3" | x"a4" | x"a5" | x"a6" | x"a7"
@@ -1317,11 +1152,11 @@ begin
               rdata_buf <= conf_buf1;
 
             when x"a" =>
-              rdata_buf <= cache_row0_address(7 downto 0);
+              rdata_buf <= x"00"; -- retired v1 cache tag
             when x"b" =>
-              rdata_buf <= cache_row0_address(15 downto 8);
+              rdata_buf <= x"00"; -- retired v1 cache tag
             when x"c" =>
-              rdata_buf <= cache_row0_address(23 downto 16);
+              rdata_buf <= x"00"; -- retired v1 cache tag
 
             when x"d" =>
               rdata_buf <= write_latency2;
@@ -2114,59 +1949,10 @@ begin
         last_current_cache_line_update_flags <= current_cache_line_update_flags;
       end if;
 
-      -- See if slow_devices is asking for the next 8 bytes.
-      -- If we have it, then pre-present it if we have it in our data block
-      -- (If it isn't in the data block, then we will have presumably already
-      -- started a pre-fetch when we serviced the access that created the current
-      -- data value in the current cache line entry.
-      -- This has to happen below the above single-byte update stuff, so that
-      -- we end retain cache coherency
-      if expansionram_current_cache_line_next_toggle /= last_current_cache_next_toggle then
-        last_current_cache_next_toggle <= expansionram_current_cache_line_next_toggle;
-        if current_cache_line_plus_1_matches_block = '1'
-        then
-          report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
-            & to_hstring(current_cache_line_address&"000") & ", new is $"
-            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000");
-          current_cache_line_address_drive(26 downto 5) <= block_address;
-          current_cache_line_address_drive(4 downto 3) <= "00";
-          current_cache_line_drive <= block_data(0);
-          current_cache_line_valid_drive <= '1';
-          -- Cancel any other updates that might be scheduled for this
-          last_current_cache_line_update_all <= current_cache_line_update_all;
-          last_current_cache_line_update_flags <= current_cache_line_update_flags;
-        end if;
-        if current_cache_line_matches_block = '1'
-        then
-          report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
-            & to_hstring(current_cache_line_address&"000") & ", new is $"
-            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000")
-            & ", data is:"
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(0))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(1))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(2))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(3))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(4))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(5))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(6))
-            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(7));
-          current_cache_line_address_drive(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
-          current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
-          current_cache_line_valid_drive <= '1';
-          -- Cancel any other updates that might be scheduled for this
-          last_current_cache_line_update_all <= current_cache_line_update_all;
-          last_current_cache_line_update_flags <= current_cache_line_update_flags;
-
-          -- If it was the last row in the block that we have just presented,
-          -- it would be a really good idea to dispatch a pre-fetch right now.
-          -- The trick is that we can only safely do this, if we are idle.
-          if current_cache_line_address(4 downto 3) = "10" and flag_prefetch='1' then
-            report "DISPATCHER: Queuing chained pre-fetch";
-            prefetch_when_idle <= true;
-          end if;
-
-        end if;
-      end if;
+      -- Legacy cache-line advance dispatcher removed.  RAM accesses use
+      -- v2, which registers the next/prev toggle in next_toggle_drive and
+      -- uses a separate registered tag-lookup state machine.  Keeping the
+      -- old dispatcher needlessly connected clock41 to old cache-line muxes.
 
       -- Keep read request when required
       read_request_held <= read_request_o;
@@ -2805,14 +2591,8 @@ begin
           hr_rwds <= 'Z';
           hr2_rwds <= 'Z';
 
-          -- Prepare for reading block data
+          -- The deprecated v1 block-read path is retired.
           is_block_read <= false;
-          if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
-            and (is_vic_fetch = false) and is_lump='0' then
-            block_valid <= '0';
-            block_address <= hyperram_access_address(26 downto 5);
-            is_block_read <= true;
-          end if;
 
           pause_phase <= not pause_phase;
 
@@ -2985,14 +2765,8 @@ begin
 
           hr_clk_phaseshift <= write_byte_phase;
 
-          -- Prepare for reading block data
+          -- The deprecated v1 block-read path is retired.
           is_block_read <= false;
-          if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
-            and (is_vic_fetch = false) and is_lump='0' then
-            block_valid <= '0';
-            block_address <= hyperram_access_address(26 downto 5);
-            is_block_read <= true;
-          end if;
 
           pause_phase <= not pause_phase;
 
@@ -4557,20 +4331,22 @@ begin
       v2_pf_go := false;
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
+      rd_req_v2_q <= read_request and v2_ram;
+      wr_req_v2_q <= write_request and v2_ram;
       v2_idx := to_integer(l_addr(2 downto 0));
       for j in 0 to H_NW - 1 loop
         if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
       end loop;
 
       -- Requests (from the pixelclock side; each lasts two of our cycles)
-      if read_request = '1' and write_request = '0' and v2_ram = '1'
+      if rd_req_v2_q = '1' and wr_req_v2_q = '0'
         and rd_l = '0' and wr_l = '0' then
         rd_l <= '1';
         l_addr <= address;
         busy_v2 <= '1';
         rs <= R_LOOK;
       end if;
-      if read_request = '0' and write_request = '1' and v2_ram = '1'
+      if rd_req_v2_q = '0' and wr_req_v2_q = '1'
         and rd_l = '0' and wr_l = '0' then
         wr_l <= '1';
         l_addr <= address;
@@ -4657,7 +4433,7 @@ begin
         elsif rs = R_WAIT or rs = R_DECIDE then
           rs <= R_LOOK;
         end if;
-        if x_want = '1' and v2_tag = x_addr and wr_l = '0' and write_request = '0' then
+        if x_want = '1' and v2_tag = x_addr and wr_l = '0' and wr_req_v2_q = '0' then
           v2_set_export(x_addr, v2_line);
           x_want <= '0';
           if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
@@ -4812,7 +4588,7 @@ begin
         for i in 0 to H_NL - 1 loop
           if x_hit(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;
         end loop;
-        if v2_hit /= -1 and wr_l = '0' and write_request = '0' then
+        if v2_hit /= -1 and wr_l = '0' and wr_req_v2_q = '0' then
           v2_set_export(x_addr, c_data(v2_hit));
           if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
         elsif v2_en = '1' then
@@ -4951,9 +4727,9 @@ begin
       if v2_en = '0' then
         busy_v2 <= '0';
       elsif start_delay_expired = '0' or first_transaction = '1'
-        or rd_l = '1' or (read_request = '1' and v2_ram = '1')
+        or rd_l = '1' or (rd_req_v2_q = '1')
         or (wr_l = '1' and w_stall = '1')
-        or ((wr_l = '1' or (write_request = '1' and v2_ram = '1'))
+        or ((wr_l = '1' or (wr_req_v2_q = '1'))
             and w_mask(0) /= x"00" and w_mask(1) /= x"00") then
         busy_v2 <= '1';
       else
