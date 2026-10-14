@@ -300,6 +300,14 @@ architecture tacoma_narrows of sdram_controller is
   -- buffer's flag itself, so the flag is never stale on the next edge (a
   -- new fl_tag is many cycles ahead of its fill completing).
   signal fl_whit : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- fl_tag against the CPU's, the VIC-IV's and the exported line's next
+  -- address, registered for the fill-complete handler.  vic_tag and x_addr
+  -- only change while their want flag is clear, so those are always fresh
+  -- when used.  latched_addr comes straight from the pixel clock domain,
+  -- so fm_cpu is a cycle late after a new read is latched (lat_new): such a
+  -- read is not served by the fill, but by the cache look-up it starts.
+  signal fm_cpu, fm_vic, fm_x : boolean := false;
+  signal lat_new : std_logic := '0';
   signal want_fill : std_logic := '0';          -- fill the latched line
   signal last_pub : unsigned(26 downto 3) := (others => '1');
 
@@ -829,6 +837,10 @@ begin
       for j in 0 to NW - 1 loop
         if w_tag(j) = fl_tag then fl_whit(j) <= '1'; else fl_whit(j) <= '0'; end if;
       end loop;
+      fm_cpu <= fl_tag = latched_addr(26 downto 3);
+      fm_vic <= fl_tag = vic_tag;
+      fm_x <= fl_tag = x_addr;
+      lat_new <= '0';
 
       -- Line fill data capture, timed exactly as for LUMP (see below)
       fl_rd_pipe(0) <= fl_rd_issue;
@@ -988,6 +1000,7 @@ begin
         busy         <= '1';
         read_latched <= '1';
         latched_addr <= address;
+        lat_new <= '1';
         -- (look-up next cycle: not here, as address comes from the pixel
         -- clock domain and the compare would lengthen that crossing)
         if address(26) = '0' then rs <= R_LOOK; end if;
@@ -1898,19 +1911,25 @@ begin
         -- A fill has just completed: a read waiting for that line gets it
         -- now; the exported line moves to it if the CPU asked for it
         if v_fill_done then
-          if rs /= R_IDLE and read_latched = '1' and fl_tag = latched_addr(26 downto 3) then
+          assert lat_new = '1' or fm_cpu = (fl_tag = latched_addr(26 downto 3))
+            report "SDRAM: stale fm_cpu" severity failure;
+          assert vic_want = '0' or fm_vic = (fl_tag = vic_tag)
+            report "SDRAM: stale fm_vic" severity failure;
+          assert x_want = '0' or fm_x = (fl_tag = x_addr)
+            report "SDRAM: stale fm_x" severity failure;
+          if rs /= R_IDLE and read_latched = '1' and fm_cpu and lat_new = '0' then
             publish(byte_of(v_line, v_idx), byte_of(v_line, (v_idx + 1) mod 8));
             set_export(fl_tag, v_line);
             prefetch_from(fl_tag);
           elsif rs = R_WAIT or rs = R_DECIDE then
             rs <= R_LOOK;               -- (look again)
           end if;
-          if vic_want = '1' and fl_tag = vic_tag then
+          if vic_want = '1' and fm_vic then
             vic_buf <= v_line;
             vic_want <= '0';
             vic_ready <= not vic_ready;
           end if;
-          if x_want = '1' and fl_tag = x_addr and write_latched = '0' and write_guard_q = '0' then
+          if x_want = '1' and fm_x and write_latched = '0' and write_guard_q = '0' then
             set_export(x_addr, v_line);
             x_want <= '0';
             if cflags(1) = '1' then prefetch_from(x_addr); end if;

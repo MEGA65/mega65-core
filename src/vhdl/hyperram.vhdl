@@ -574,6 +574,14 @@ architecture gothic of hyperram is
   -- buffer sets that buffer's flag itself, so it is never stale on the next
   -- edge (fl_cur_tag moves at least four words before the next merge).
   signal fl_whit : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  -- fl_cur_tag against the CPU's, the exported line's next and the VIC-IV's
+  -- address, registered for the line-complete handler.  x_addr and vic_tag
+  -- only change while their want flag is clear, so those are always fresh
+  -- when used.  l_addr comes straight from the pixel clock side, so fm_cpu
+  -- is a cycle late after a new read is latched (lat_new): such a read is
+  -- not served by the fill, but by the cache look-up it starts.
+  signal fm_cpu, fm_vic, fm_x : boolean := false;
+  signal lat_new : std_logic := '0';
   signal want_fill : std_logic := '0';
   signal last_pub : unsigned(26 downto 3) := (others => '1');
   -- the exported line, and next/prev
@@ -4354,11 +4362,13 @@ begin
         if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
       end loop;
 
+      lat_new <= '0';
       -- Requests (from the pixelclock side; each lasts two of our cycles)
       if rd_req_v2_q = '1' and wr_req_v2_q = '0'
         and rd_l = '0' and wr_l = '0' then
         rd_l <= '1';
         l_addr <= address;
+        lat_new <= '1';
         busy_v2 <= '1';
         rs <= R_LOOK;
       end if;
@@ -4387,6 +4397,9 @@ begin
       for j in 0 to H_NW - 1 loop
         if w_tag(j) = fl_cur_tag then fl_whit(j) <= '1'; else fl_whit(j) <= '0'; end if;
       end loop;
+      fm_cpu <= fl_cur_tag = l_addr(26 downto 3);
+      fm_vic <= fl_cur_tag = vic_tag;
+      fm_x <= fl_cur_tag = x_addr;
 
       -- Fill data from the engine: word fl_word of line fl_line
       if le_error = '1' and lump_owner_cpu = '1' then fl_err <= '1'; end if;
@@ -4446,21 +4459,27 @@ begin
       end if;
 
       if v2_done then
+        assert lat_new = '1' or fm_cpu = (v2_tag = l_addr(26 downto 3))
+          report "HYPERRAM: stale fm_cpu" severity failure;
+        assert x_want = '0' or fm_x = (v2_tag = x_addr)
+          report "HYPERRAM: stale fm_x" severity failure;
+        assert vic_want = '0' or fm_vic = (v2_tag = vic_tag)
+          report "HYPERRAM: stale fm_vic" severity failure;
         -- a read waiting for this line gets it now; the exported line moves
         -- to it if the CPU asked for it; the VIC-IV gets its line
-        if rs /= R_IDLE and rd_l = '1' and v2_tag = l_addr(26 downto 3) then
+        if rs /= R_IDLE and rd_l = '1' and fm_cpu and lat_new = '0' then
           v2_publish(byte_of(v2_line, v2_idx), byte_of(v2_line, (v2_idx + 1) mod 8));
           v2_set_export(v2_tag, v2_line);
           v2_prefetch_from(v2_tag);
         elsif rs = R_WAIT or rs = R_DECIDE then
           rs <= R_LOOK;
         end if;
-        if x_want = '1' and v2_tag = x_addr and wr_l = '0' and wr_req_v2_q = '0' then
+        if x_want = '1' and fm_x and wr_l = '0' and wr_req_v2_q = '0' then
           v2_set_export(x_addr, v2_line);
           x_want <= '0';
           if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
         end if;
-        if vic_want = '1' and v2_tag = vic_tag then
+        if vic_want = '1' and fm_vic then
           for k in 0 to 7 loop
             viciv_data_buffer(k) <= v2_line(8 * k + 7 downto 8 * k);
           end loop;
