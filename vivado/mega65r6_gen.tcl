@@ -1006,6 +1006,8 @@ if {[string equal [get_runs -quiet synth_1] ""]} {
   set_property flow "Vivado Synthesis 2017" [get_runs synth_1]
 }
 set obj [get_runs synth_1]
+# Stop after synthesis if a LUT RAM came out as flip-flops
+set_property -name "steps.synth_design.tcl.post" -value "[file normalize "$origin_dir/scripts/check_ram_inference.tcl"]" -objects $obj
 set_property set_report_strategy_name 1 $obj
 set_property report_strategy {Vivado Synthesis Default Reports} $obj
 set_property set_report_strategy_name 0 $obj

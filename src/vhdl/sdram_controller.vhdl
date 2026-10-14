@@ -285,6 +285,9 @@ architecture tacoma_narrows of sdram_controller is
   signal w_data : wdata_t := (others => (others => '0'));
   signal w_mask : wmask_t := (others => (others => '0'));
   signal w_age  : wage_t := (others => 0);
+  -- w_ne(j) = (w_mask(j) /= x"00"), registered (it gates every posted-write
+  -- decision); written alongside w_mask, asserted every cycle
+  signal w_ne   : std_logic_vector(0 to NW - 1) := (others => '0');
   signal w_cur  : integer range 0 to NW - 1 := 0;
   signal w_stall : std_logic := '0';            -- a write waits for a buffer
   -- the buffer being written out by FLUSH_WR (copied out of w_*)
@@ -654,6 +657,7 @@ begin
     variable v_hit    : integer range -1 to NL - 1;
     variable v_wh     : integer range -1 to NW - 1;
     variable v_free   : integer range -1 to NW - 1;
+    variable v_reuse  : boolean;
     variable v_idx    : integer range 0 to 7;
     variable v_b      : integer range 0 to 3;
     variable v_byte   : unsigned(7 downto 0);
@@ -722,6 +726,7 @@ begin
       f_mask <= w_mask(j);
       f_word <= 0;
       w_mask(j) <= (others => '0');
+      w_ne(j) <= '0';
       o_bank <= l_bank(w_tag(j));
       o_row  <= l_row(w_tag(j));
       o_ret  <= FLUSH_WR;
@@ -749,6 +754,10 @@ begin
     variable tca, tcb : unsigned(1 downto 0);
   begin
     if rising_edge(clock162) then
+      for j in 0 to NW - 1 loop
+        assert w_ne(j) = '1' xor w_mask(j) = x"00"
+          report "SDRAM: stale w_ne" severity failure;
+      end loop;
 
       sdram_dq_oe_n <= (others => '1');
       sdram_dqml <= '1';
@@ -1121,7 +1130,7 @@ begin
               -- urgently: a write waits for a buffer, or LUMP waits for
               -- the buffers to be empty
               for j in 0 to NW - 1 loop
-                if w_mask(j) /= x"00" and (j /= w_cur or v_wh = -1) then v_wh := j; end if;
+                if w_ne(j) = '1' and (j /= w_cur or v_wh = -1) then v_wh := j; end if;
               end loop;
             end if;
             if tr_req = '1' and ps_locked_s2 = '1' then
@@ -1212,7 +1221,7 @@ begin
               start_fill(x_addr);
             elsif v_wh /= -1 then
               start_flush(v_wh);
-            elsif (lump_go or lump_inv_go) = '1' and w_mask(0) = x"00" and w_mask(1) = x"00" then
+            elsif (lump_go or lump_inv_go) = '1' and w_ne(0) = '0' and w_ne(1) = '0' then
               -- LUMP has the lowest priority: refresh, CPU requests and
               -- posted writes are always served first.
               lump_q_pop <= '1';
@@ -1251,7 +1260,7 @@ begin
               -- background: posted writes the CPU has moved on from, then
               -- prefetch
               for j in 0 to NW - 1 loop
-                if w_mask(j) /= x"00" and v_wh = -1
+                if w_ne(j) = '1' and v_wh = -1
                   and (j /= w_cur or w_mask(j) = x"FF" or w_age(j) >= 32) then
                   v_wh := j;
                 end if;
@@ -2004,9 +2013,10 @@ begin
               v_wh := -1;
               v_free := -1;
               for j in 0 to NW - 1 loop
-                if lk_w(j) = '1' and w_mask(j) /= x"00" then v_wh := j; end if;
-                if w_mask(j) = x"00" and v_free = -1 then v_free := j; end if;
+                if lk_w(j) = '1' and w_ne(j) = '1' then v_wh := j; end if;
+                if w_ne(j) = '0' and v_free = -1 then v_free := j; end if;
               end loop;
+              v_reuse := v_wh /= -1;
               if v_wh = -1 and v_free /= -1 then
                 v_wh := v_free;
                 v_line := (others => '0');
@@ -2041,6 +2051,13 @@ begin
                 end if;
                 w_data(v_wh) <= v_line;
                 w_mask(v_wh) <= v_mask;
+                -- (a buffer already in use stays non-empty)
+                if v_reuse or rdata_16en = '0' or latched_wen_lo = '1'
+                  or (latched_wen_hi = '1' and v_idx /= 7) then
+                  w_ne(v_wh) <= '1';
+                else
+                  w_ne(v_wh) <= '0';
+                end if;
                 w_age(v_wh)  <= 0;
                 w_cur <= v_wh;
                 -- write through into the cached copy (also one completing
@@ -2198,7 +2215,7 @@ begin
         or read_latched = '1' or read_request = '1'
         or (latched_addr(26) = '1' and (write_latched = '1' or write_request = '1'))
         or ((write_latched = '1' or write_request = '1')
-            and w_mask(0) /= x"00" and w_mask(1) /= x"00") then
+            and w_ne(0) = '1' and w_ne(1) = '1') then
         busy <= '1';
       else
         busy <= '0';

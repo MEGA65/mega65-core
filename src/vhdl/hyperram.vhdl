@@ -556,6 +556,9 @@ architecture gothic of hyperram is
   signal w_mask : h_wmask_t := (others => (others => '0'));
   signal w_age  : h_wage_t := (others => 0);
   signal w_fl   : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  -- w_ne(j) = (w_mask(j) /= x"00"), registered (it gates every posted-write
+  -- decision); written alongside w_mask, asserted every cycle
+  signal w_ne   : std_logic_vector(0 to H_NW - 1) := (others => '0');
   signal w_cur  : integer range 0 to H_NW - 1 := 0;
   signal w_stall : std_logic := '0';
   signal f_j    : integer range 0 to H_NW - 1 := 0;
@@ -696,6 +699,7 @@ begin
     variable v2_tag       : unsigned(26 downto 3);
     variable v2_wh, v2_hit, v2_free : integer range -1 to H_NL;
     variable v2_frozen    : boolean;
+    variable v2_reuse     : boolean;
     variable v2_mask      : std_logic_vector(7 downto 0);
 
     function byte_of(d : unsigned(63 downto 0); i : integer) return unsigned is
@@ -1673,7 +1677,7 @@ begin
         -- resume the paused LUMP command
         lump_pre_cpu <= '0';
         lump_pre_res <= '1';
-        if w_mask(0) = x"00" and w_mask(1) = x"00" and cj_busy = '0' then
+        if w_ne(0) = '0' and w_ne(1) = '0' and cj_busy = '0' then
           lump_go <= '1';
         else
           lump_go <= '0';
@@ -1688,7 +1692,7 @@ begin
       else
         lump_pre_cpu <= '0';
         lump_pre_res <= '0';
-        if w_mask(0) = x"00" and w_mask(1) = x"00" and cj_busy = '0' then
+        if w_ne(0) = '0' and w_ne(1) = '0' and cj_busy = '0' then
           lump_go <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
         else
           lump_go <= '0';
@@ -4441,6 +4445,10 @@ begin
           end if;
         end if;
       end if;
+      for j in 0 to H_NW - 1 loop
+        assert w_ne(j) = '1' xor w_mask(j) = x"00"
+          report "HYPERRAM: stale w_ne" severity failure;
+      end loop;
       -- Write-out data for the engine (sampled two edges after its request)
       if le_wdata_req = '1' and lump_owner_cpu = '1' then
         cj_wdata <= w_data(f_j)(16 * f_word + 15 downto 16 * f_word);
@@ -4453,6 +4461,7 @@ begin
         cj_busy <= '0';
         if cj_read = '0' then
           w_mask(f_j) <= (others => '0');
+          w_ne(f_j) <= '0';
           w_fl(f_j) <= '0';
         end if;
         fill_active <= '0';
@@ -4535,11 +4544,12 @@ begin
             v2_free := -1;
             v2_frozen := false;
             for j in 0 to H_NW - 1 loop
-              if lk_w(j) = '1' and w_mask(j) /= x"00" then
+              if lk_w(j) = '1' and w_ne(j) = '1' then
                 if w_fl(j) = '1' then v2_frozen := true; else v2_wh := j; end if;
               end if;
-              if w_mask(j) = x"00" and v2_free = -1 then v2_free := j; end if;
+              if w_ne(j) = '0' and v2_free = -1 then v2_free := j; end if;
             end loop;
+            v2_reuse := v2_wh /= -1;
             if v2_wh = -1 and v2_free /= -1 and not v2_frozen then
               v2_wh := v2_free;
               v2_line := (others => '0');
@@ -4571,6 +4581,12 @@ begin
               end if;
               w_data(v2_wh) <= v2_line;
               w_mask(v2_wh) <= v2_mask;
+              -- (a buffer already in use stays non-empty)
+              if v2_reuse or l_wen_lo = '1' or (l_wen_hi = '1' and v2_idx /= 7) then
+                w_ne(v2_wh) <= '1';
+              else
+                w_ne(v2_wh) <= '0';
+              end if;
               w_age(v2_wh)  <= 0;
               w_cur <= v2_wh;
               -- write through into the cached copy (also one completing now)
@@ -4738,14 +4754,14 @@ begin
         v2_wh := -1;
         if w_stall = '1' or lump_q_valid = '1' or lump_res = '1' or v2_en = '0' then
           for j in 0 to H_NW - 1 loop
-            if w_mask(j) /= x"00" and w_fl(j) = '0' and (j /= w_cur or v2_wh = -1) then
+            if w_ne(j) = '1' and w_fl(j) = '0' and (j /= w_cur or v2_wh = -1) then
               v2_wh := j;
             end if;
           end loop;
         end if;
         v2_free := -1;
         for j in 0 to H_NW - 1 loop
-          if w_mask(j) /= x"00" and w_fl(j) = '0' and v2_free = -1
+          if w_ne(j) = '1' and w_fl(j) = '0' and v2_free = -1
             and (j /= w_cur or w_mask(j) = x"FF" or w_age(j) >= 32) then
             v2_free := j;
           end if;
@@ -4781,7 +4797,7 @@ begin
         or rd_l = '1' or (rd_req_v2_q = '1')
         or (wr_l = '1' and w_stall = '1')
         or ((wr_l = '1' or (wr_req_v2_q = '1'))
-            and w_mask(0) /= x"00" and w_mask(1) /= x"00") then
+            and w_ne(0) = '1' and w_ne(1) = '1') then
         busy_v2 <= '1';
       else
         busy_v2 <= '0';
