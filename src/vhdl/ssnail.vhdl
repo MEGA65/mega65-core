@@ -441,7 +441,7 @@ architecture shell of ssnail is
 
   type core_state_t is (
     C_IDLE,
-    C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE,
+    C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE, C_DEC2,
     C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
     V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
@@ -607,7 +607,7 @@ architecture shell of ssnail is
   signal at_kv_stride : unsigned(27 downto 0) := (others => '0'); -- bytes per KV head
   signal at_kv_offset : unsigned(27 downto 0) := (others => '0'); -- current KV head offset
   signal at_t      : unsigned(15 downto 0) := (others => '0');
-  -- Set alongside at_t (at_tgo): at_t = at_pos + 1 (the last position is
+  -- Reloaded by the states that write at_t: at_t = at_pos + 1 (the last position is
   -- done), and sarr(at_t), read ahead so the FPU operands come from a register
   signal at_tend   : boolean := false;
   signal at_iend   : boolean := false;    -- at_i = at_hd, set alongside at_i
@@ -635,6 +635,9 @@ architecture shell of ssnail is
   signal ld_block  : unsigned(27 downto 8) := (others => '0');
   signal ea_z      : unsigned(27 downto 0) := (others => '0');
   signal fetch_ret : core_state_t := C_IDLE;
+  -- C_DECODE's choice of next state, taken in C_DEC2: one cycle per
+  -- instruction keeps the opcode decode off cstate's next-state logic
+  signal dec_next : core_state_t := C_IDLE;
   -- Q8_0 / Q4_0 element d_j of grp, as a signed integer: recomputed every
   -- cycle; grp and d_j are never written in the state just before D_EMIT
   -- (D_STORE goes through D_EMIT_W), asserted there
@@ -646,6 +649,9 @@ architecture shell of ssnail is
   -- pz(27:8) = out_block) and the old value at pz, recomputed every cycle:
   -- none of them changes in the state just before G_OUT (asserted there)
   signal g_have_old : boolean := false;
+  -- GEMV quantise: px's 256-byte block is loaded (ld_valid and ld_block),
+  -- set in G_QFILL0 and kept up to date by G_QFILL
+  signal qf_hit : boolean := false;
   signal g_oldv : unsigned(31 downto 0) := (others => '0');
 
   -- GEMV
@@ -690,6 +696,9 @@ architecture shell of ssnail is
   -- with sr_len_q from sr_used_q: after an issue it includes it two edges
   -- later, when sr_ok2 lets the next one through
   signal sr_fit_q : boolean := false;
+  -- cstate was C_RD_DEC/ISSUE or C_WR_DEC/ISSUE last cycle: covers every
+  -- cycle the main FSM may issue (its ISSUE states follow their DEC ones)
+  signal fsm_iss_q : boolean := false;
   signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
   -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
   type rq_tag_t is array (0 to 3) of std_logic;
@@ -1200,10 +1209,8 @@ begin
     variable pf_go : boolean;                   -- read the operands at pf_x/y/b
     variable pf_x, pf_y, pf_b : unsigned(7 downto 0);
     variable pf_i : unsigned(7 downto 0);       -- ... and the v_i that goes with them
-    variable at_tgo : boolean;                  -- at_t <= at_tn this cycle
-    variable at_tn  : unsigned(15 downto 0);
-    variable at_igo : boolean;                  -- at_i <= at_in this cycle
-    variable at_in  : unsigned(8 downto 0);
+    variable pf_ok : boolean;
+    variable vck_x, vck_y : unsigned(7 downto 0);  -- (simulation checks only)
     variable xv, lo, hi : unsigned(31 downto 0);
     variable ra, rb : unsigned(31 downto 0);     -- R[a], R[b] in C_RESOLVE
     variable ti : integer range 0 to 1023;
@@ -1233,10 +1240,6 @@ begin
       pf_go := false;
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
-      at_tgo := false;
-      at_tn := at_t;
-      at_igo := false;
-      at_in := at_i;
       sd_issue := '0';
       lp_inc := '0';
       lp_dec := '0';
@@ -1442,6 +1445,9 @@ begin
       g_have_old <= out_loaded = '1' and pz(27 downto 8) = out_block;
       g_oldv <= buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)));
 
+      fsm_iss_q <= cstate = C_RD_DEC or cstate = C_RD_ISSUE
+                   or cstate = C_WR_DEC or cstate = C_WR_ISSUE;
+
       -- SETN operand checks for C_DECODE (see n0_z)
       n0_z <= n0 = 0;
       ef_miss <= ld_valid = '0' or ef_addr(27 downto 8) /= ld_block;
@@ -1625,21 +1631,23 @@ begin
           cstate <= C_DECODE;
 
         when C_DECODE =>
+          cstate <= C_DEC2;
+          dec_next <= C_DECODE;                     -- (as if cstate were unchanged)
           assert n0_z = (n0 = 0) and n0_big = (n0 > 4096) and n0_one = (n0 = 1)
             and n1_z = (n1 = 0) and n1_big = (n1 > 256)
             report "SSNAIL: stale n0/n1 flags" severity failure;
           assert opr_a_z = (opr_a = 0) and opr_eq = (opr_a = opr_b) and opr_lt = (opr_a < opr_b)
             report "SSNAIL: stale operand flags" severity failure;
           if err /= ERR_NONE then
-            cstate <= C_END;
+            dec_next <= C_END;
           else
           case instr(7 downto 0) is
             when x"00" =>             -- NOP
-              cstate <= C_NEXT;
+              dec_next <= C_NEXT;
             when x"01" =>             -- HALT
-              cstate <= C_END;
+              dec_next <= C_END;
             when x"02" =>             -- SYNC
-              cstate <= C_SYNC_ISSUE;
+              dec_next <= C_SYNC_ISSUE;
             when x"03" =>             -- COPY
               cp_src <= ea_x;
               cp_dst <= ea_y;
@@ -1647,37 +1655,37 @@ begin
               if ea_x(2 downto 0) /= "000" or ea_y(2 downto 0) /= "000"
                 or instr(98 downto 96) /= "000" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               else
-                cstate <= C_COPY_CALC;
+                dec_next <= C_COPY_CALC;
               end if;
             when x"07" =>             -- SETN
               n0 <= instr(63 downto 32);
               n1 <= instr(95 downto 64);
               n2 <= instr(127 downto 96);
-              cstate <= C_NEXT;
+              dec_next <= C_NEXT;
             when x"08" =>             -- LI
               if instr(11 downto 8) /= x"F" then
                 rf_r(to_integer(instr(11 downto 8))) <= instr(127 downto 96);
               end if;
-              cstate <= C_NEXT;
+              dec_next <= C_NEXT;
             when x"0B" =>             -- ADDI
               if instr(11 downto 8) /= x"F" then
                 rf_r(to_integer(instr(11 downto 8))) <= opr_b + instr(127 downto 96);
               end if;
-              cstate <= C_NEXT;
+              dec_next <= C_NEXT;
             when x"0C" =>             -- LEA: A[a] = addr(X) + R[b] * Z
               mul_acc <= ea_x;
               mul_m <= opr_b(27 downto 0);
               mul_z <= instr(127 downto 96);
-              cstate <= C_LEA_MUL;
+              dec_next <= C_LEA_MUL;
             when x"0D" | x"0E" | x"0F" =>   -- BEQ / BNE / BLT
               if (instr(7 downto 0) = x"0D" and opr_eq)          -- R[a] = R[b]
                 or (instr(7 downto 0) = x"0E" and not opr_eq)
                 or (instr(7 downto 0) = x"0F" and opr_lt) then   -- R[a] < R[b]
                 br_taken <= '1';
               end if;
-              cstate <= C_NEXT;
+              dec_next <= C_NEXT;
             when x"20" | x"21" | x"29" | x"23" | x"27" | x"22" | x"26" | x"28" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
@@ -1687,9 +1695,9 @@ begin
                 or (instr(7 downto 0) = x"29" and ea_z(0) /= '0')
                 or (instr(7 downto 0) /= x"29" and ea_z(1 downto 0) /= "00") then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
-                cstate <= C_NEXT;                       -- nothing to do
+                dec_next <= C_NEXT;                       -- nothing to do
               else
                 bx <= ea_x; by <= ea_y; bz <= ea_z;
                 px <= ea_x; py <= ea_y; pz <= ea_z;
@@ -1698,20 +1706,20 @@ begin
                 ve_first <= '1';
                 ve_ret <= C_NEXT;
                 case instr(7 downto 0) is
-                  when x"20" => ve_kind <= K_ADD; two_ops <= '1'; cstate <= V_CHUNK;
-                  when x"21" => ve_kind <= K_MUL; two_ops <= '1'; cstate <= V_CHUNK;
-                  when x"29" => ve_kind <= K_CVT16; o16 <= '1'; cstate <= V_CHUNK;
-                  when x"23" => ve_kind <= K_SILUMUL; two_ops <= '1'; cstate <= V_CHUNK;
-                  when x"27" => ve_kind <= K_GELU; cstate <= V_CHUNK;
+                  when x"20" => ve_kind <= K_ADD; two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"21" => ve_kind <= K_MUL; two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"29" => ve_kind <= K_CVT16; o16 <= '1'; dec_next <= V_CHUNK;
+                  when x"23" => ve_kind <= K_SILUMUL; two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"27" => ve_kind <= K_GELU; dec_next <= V_CHUNK;
                   when x"22" =>                     -- RMSNORM pass 1: sum of squares
-                    ve_kind <= K_SUMSQ; has_out <= '0'; ve_ret <= R_S0; cstate <= V_CHUNK;
+                    ve_kind <= K_SUMSQ; has_out <= '0'; ve_ret <= R_S0; dec_next <= V_CHUNK;
                   when x"26" =>                     -- LAYERNORM pass 1: sum
-                    ve_kind <= K_SUM; has_out <= '0'; ve_ret <= L_S0; cstate <= V_CHUNK;
+                    ve_kind <= K_SUM; has_out <= '0'; ve_ret <= L_S0; dec_next <= V_CHUNK;
                   when others =>                    -- MEANROWS: row 0 copied to Z
                     mr_rows <= opr_a;
                     mr_r <= to_unsigned(1, 32);
                     mr_src_row <= ea_x;
-                    ve_kind <= K_COPY; ve_ret <= M_NEXT; cstate <= V_CHUNK;
+                    ve_kind <= K_COPY; ve_ret <= M_NEXT; dec_next <= V_CHUNK;
                 end case;
               end if;
             when x"10" =>             -- GEMV
@@ -1720,16 +1728,16 @@ begin
               g_f16 <= instr(17);
               if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8) then
                 err <= ERR_FORMAT;                -- float weights: not yet
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1' then
                 err <= ERR_OPCODE;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
                 or (instr(17) = '0' and ea_z(1 downto 0) /= "00") then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n1_z then
-                cstate <= C_NEXT;
+                dec_next <= C_NEXT;
               else
                 g_rows <= n1;
                 g_nb <= n0(12 downto 5);
@@ -1741,67 +1749,67 @@ begin
                 end if;
                 ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
                 ld_valid <= '0';
-                cstate <= G_QFILL0;
+                dec_next <= G_QFILL0;
               end if;
             when x"24" =>             -- ROPE
               if ea_x(2 downto 0) /= "000" or ea_y(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n0(0) /= '0' or n1(0) /= '0' or n1_z or n1_big then
                 err <= ERR_OPCODE;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n0_z then
-                cstate <= C_NEXT;
+                dec_next <= C_NEXT;
               else
                 rope_hd <= n1(8 downto 0);
                 ef_addr <= ea_y; ef_f16 <= '0';
                 cs_i <= (others => '0');
                 ld_valid <= '0';
-                cstate <= RO_CS;
+                dec_next <= RO_CS;
               end if;
             when x"12" =>             -- ARGMAX
               if ea_x(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif n0_z then
-                cstate <= C_NEXT;
+                dec_next <= C_NEXT;
               else
                 bx <= ea_x; px <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
                 o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '0';
                 ve_kind <= K_ARGMAX; ve_first <= '1'; ve_g <= (others => '0');
                 ve_ret <= AM_DONE;
-                cstate <= V_CHUNK;
+                dec_next <= V_CHUNK;
               end if;
             when x"25" =>             -- ATTN: read the parameter block first
               if ea_x(1 downto 0) /= "00" or ea_y(1 downto 0) /= "00" or ea_z(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               else
                 at_pos <= opr_a;
                 at_pi <= (others => '0');
                 ef_addr <= ea_x; ef_f16 <= '0';
                 ld_valid <= '0';
-                cstate <= A_PRM;
+                dec_next <= A_PRM;
               end if;
             when x"11" =>             -- DEQROW
               d_fmt <= instr(15 downto 8);
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
                       or instr(15 downto 8) = 8 or instr(15 downto 8) = 30) then
                 err <= ERR_OPCODE;
-                cstate <= C_END;
+                dec_next <= C_END;
               elsif ea_z(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               else
                 v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
                 ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
                 ld_valid <= '0';
-                cstate <= D_GROUP;
+                dec_next <= D_GROUP;
               end if;
             when x"09" | x"0A" =>     -- LDR / STR
               if ea_x(1 downto 0) /= "00" then
                 err <= ERR_ALIGNMENT;
-                cstate <= C_END;
+                dec_next <= C_END;
               else
                 if instr(7 downto 0) = x"0A" then
                   mem_is_store <= '1';
@@ -1809,13 +1817,16 @@ begin
                   mem_is_store <= '0';
                 end if;
                 dec_addr <= ea_x(27 downto 3) & "000";
-                cstate <= C_MEM_DECODE;
+                dec_next <= C_MEM_DECODE;
               end if;
             when others =>
               err <= ERR_OPCODE;
-              cstate <= C_END;
+              dec_next <= C_END;
           end case;
           end if;
+
+        when C_DEC2 =>
+          cstate <= dec_next;
 
         when C_LEA_MUL =>
           -- Shift-and-add, one bit of Z per cycle (LEA is rare)
@@ -2269,6 +2280,11 @@ begin
             end if;
           else
             -- operands already read (pre_*) by the state that came here
+            vck_x := px(7 downto 0) + (v_i(5 downto 0) & "00");
+            vck_y := py(7 downto 0) + (v_i(5 downto 0) & "00");
+            assert pre_x = bufx(to_integer(vck_x(7 downto 1) + 1)) & bufx(to_integer(vck_x(7 downto 1)))
+              and (two_ops = '0' or pre_y = bufy(to_integer(vck_y(7 downto 1) + 1)) & bufy(to_integer(vck_y(7 downto 1))))
+              report "SSNAIL: stale V_EL operands" severity failure;
             xv := pre_x;
             ex <= pre_x;
             ey <= pre_y;
@@ -2721,7 +2737,8 @@ begin
           v_n_z <= v_n_one;
           v_n_one <= v_n = 2;
           d_j <= d_j + 1;
-          if a2(7 downto 0) = 0 or v_n_one then        -- v_n = 1
+          -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
+          if pz(7 downto 0) = 252 or v_n_one then      -- v_n = 1
             -- flush the output written since ostart
             a0 := ostart(27 downto 3) & "000";
             a1 := a2 + 7;
@@ -2758,9 +2775,12 @@ begin
         when G_QFILL0 =>
           g_j <= (others => '0');
           g_amax <= (others => '0');
+          qf_hit <= ld_valid = '1' and px(27 downto 8) = ld_block;
           cstate <= G_QFILL;
 
         when G_QFILL =>
+          assert qf_hit = (ld_valid = '1' and px(27 downto 8) = ld_block)
+            report "SSNAIL: stale qf_hit" severity failure;
           if g_j = 32 then
             fpu_op <= FOP_DIV;                         -- d = amax / 127
             fpu_a <= '0' & g_amax;
@@ -2768,7 +2788,7 @@ begin
             fpu_start <= '1';
             fpu_ret <= G_QID;
             cstate <= C_FPU_WAIT;
-          elsif ld_valid = '0' or px(27 downto 8) /= ld_block then
+          elsif not qf_hit then                       -- px's block is not loaded
             a0 := px(27 downto 3) & "000";
             a1 := (px(27 downto 8) + 1) & x"00";
             rd_addr <= a0;
@@ -2777,6 +2797,7 @@ begin
             dec_addr <= a0;
             ld_block <= px(27 downto 8);
             ld_valid <= '1';
+            qf_hit <= true;
             rd_ret <= G_QFILL;
             cstate <= C_RD_DEC;
           else
@@ -2787,6 +2808,7 @@ begin
               g_amax <= fv(30 downto 0);
             end if;
             px <= px + 4;
+            qf_hit <= px(7 downto 0) < 252;             -- px + 4 in the same block
             g_j <= g_j + 1;
           end if;
 
@@ -3050,7 +3072,9 @@ begin
           assert g_last = (g_r + 1 = g_rows) report "SSNAIL: stale g_last" severity failure;
           g_end <= g_last;
           g_last <= g_r + 2 = g_rows;
-          if a2(7 downto 0) = 0 or g_last then        -- g_r + 1 = g_rows
+          -- (a2 ends a 256-byte block: tested on pz, without the carry)
+          if (g_f16 = '1' and pz(7 downto 0) = 254) or (g_f16 = '0' and pz(7 downto 0) = 252)
+            or g_last then                            -- g_r + 1 = g_rows
             a0 := ostart(27 downto 3) & "000";
             a1 := a2 + 7;
             a1(2 downto 0) := "000";
@@ -3229,7 +3253,7 @@ begin
           if at_hend then                           -- at_h = at_nh
             cstate <= C_NEXT;
           else
-            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
+            at_i <= (others => '0');
             -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
             ef_addr <= at_qhead_addr;
             ef_f16 <= '0';
@@ -3238,7 +3262,7 @@ begin
         when A_Q =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
-            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
+            at_t <= (others => '0');
             at_rowaddr <= at_k;
             cstate <= A_S_T;
           else
@@ -3247,7 +3271,7 @@ begin
           end if;
         when A_Q2 =>
           qv(to_integer(at_i)) <= ef_val;
-          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
+          at_i <= at_i + 1;
           ef_addr <= ef_addr + 4;
           cstate <= A_Q;
 
@@ -3256,11 +3280,11 @@ begin
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
-            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
+            at_t <= (others => '0');
             ve_first <= '1';
             cstate <= A_E_T;
           else
-            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
+            at_i <= (others => '0');
             ve_first <= '1';
             if at_fmt = 1 then
               ef_addr <= at_rowaddr + at_kv_offset;
@@ -3295,7 +3319,7 @@ begin
           at_acc <= fpu_r;
           cstate <= A_S_I4;
         when A_S_I4 =>
-          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
+          at_i <= at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
           cstate <= A_S_I;
         when A_S_SC =>
@@ -3303,7 +3327,7 @@ begin
           if at_t = 0 or flt(at_m, fpu_r) then
             at_m <= fpu_r;
           end if;
-          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
+          at_t <= at_t + 1;
           at_rowaddr <= at_rowaddr + at_rowb;
           cstate <= A_S_T;
 
@@ -3327,7 +3351,7 @@ begin
           sarr(to_integer(at_t(9 downto 0))) <= tval;
           if ve_first = '1' then
             at_acc <= tval; ve_first <= '0';
-            at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
+            at_t <= at_t + 1;
             cstate <= A_E_T;
           else
             fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= tval; fpu_start <= '1';
@@ -3335,17 +3359,17 @@ begin
           end if;
         when A_E_3 =>
           at_acc <= fpu_r;
-          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
+          at_t <= at_t + 1;
           cstate <= A_E_T;
         when A_E_R =>                               -- r = 1 / z; w_t = e_t * r
           at_r <= fpu_r;
-          at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
+          at_t <= (others => '0');
           cstate <= A_W_T;
         when A_W_T =>
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
-            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
+            at_t <= (others => '0');
             at_rowaddr <= at_v;
             cstate <= A_O_T;
           else
@@ -3354,7 +3378,7 @@ begin
           end if;
         when A_W_1 =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
-          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
+          at_t <= at_t + 1;
           cstate <= A_W_T;
         when A_E_R2 =>
           cstate <= A_W_T;
@@ -3364,10 +3388,10 @@ begin
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
-            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
+            at_i <= (others => '0');
             cstate <= A_WR;
           else
-            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
+            at_i <= (others => '0');
             at_w <= at_sv;
             if at_fmt = 1 then
               ef_addr <= at_rowaddr + at_kv_offset;
@@ -3381,7 +3405,7 @@ begin
         when A_O_I =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
-            at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
+            at_t <= at_t + 1;
             at_rowaddr <= at_rowaddr + at_rowb;
             cstate <= A_O_T;
           else
@@ -3402,7 +3426,7 @@ begin
           fpu_ret <= A_O_I4; cstate <= C_FPU_WAIT;
         when A_O_I4 =>
           outv(to_integer(at_i)) <= fpu_r;
-          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
+          at_i <= at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
           cstate <= A_O_I;
 
@@ -3415,8 +3439,9 @@ begin
           else
             a2 := pz + 4;
             pz <= a2;
-            at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
-            if a2(7 downto 0) = 0 or at_i + 1 = at_hd(8 downto 0) then
+            at_i <= at_i + 1;
+            -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
+            if pz(7 downto 0) = 252 or at_i + 1 = at_hd(8 downto 0) then
               a0 := ostart(27 downto 3) & "000";
               a1 := a2 + 7;
               a1(2 downto 0) := "000";
@@ -3473,18 +3498,49 @@ begin
       -- ATTN position state (see at_tend): sarr is written at the old at_t
       -- only, so the read at the new one sees the value it will hold
       at_pos1 <= at_pos(15 downto 0) + 1;
-      if at_igo then
-        at_iend <= at_in = at_hd(8 downto 0);
-      end if;
-      if at_tgo then
-        at_tend <= at_tn = at_pos1;
-        at_sv <= sarr(to_integer(at_tn(9 downto 0)));
-      end if;
+      -- These read-aheads are addressed by the state alone (never by the
+      -- branch taken in it), so no condition reaches a RAM address.  Every
+      -- state that resets or advances the counter reloads them as if it
+      -- had; when a branch does not, the counter's next writer reloads them
+      -- before any use (asserted at each use).
+      case cstate is
+        when A_HEAD | A_S_T | A_O_T =>                 -- at_i <= 0
+          at_iend <= at_hd(8 downto 0) = 0;
+        when A_Q2 | A_S_I4 | A_O_I4 | A_WR =>          -- at_i <= at_i + 1
+          at_iend <= at_i + 1 = at_hd(8 downto 0);
+        when others => null;
+      end case;
+      case cstate is
+        when A_Q | A_S_T | A_E_R | A_W_T =>            -- at_t <= 0
+          at_tend <= at_pos1 = 0;
+          at_sv <= sarr(0);
+        when A_S_SC | A_E_2 | A_E_3 | A_W_1 | A_O_I => -- at_t <= at_t + 1
+          -- (these states write sarr at at_t, not at at_t + 1)
+          at_tend <= at_t + 1 = at_pos1;
+          at_sv <= sarr(to_integer(at_t(9 downto 0) + 1));
+        when others => null;
+      end case;
 
       -- Element operands for V_EL (see pre_x): element v_i's X (and the next
-      -- X, for ROPE), Y and B, at the byte offsets the entering state chose
+      -- X, for ROPE), Y and B, and v_i = v_e, likewise by state
       if pf_go then
         vix <= pf_x; viy <= pf_y; vib <= pf_b;
+      end if;
+      pf_ok := true;
+      case cstate is
+        when V_EL0 =>                                  -- v_i <= 0
+          pf_x := px(7 downto 0); pf_y := py(7 downto 0); pf_b := pb(7 downto 0);
+          pf_i := (others => '0');
+        when V_EL | V_ELST | E_ACC | E_ACC2 =>         -- v_i <= v_i + 1
+          pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4;
+          pf_i := v_i + 1;
+        when E_R6 =>                                   -- v_i <= v_i + 2
+          pf_x := vix + 8; pf_y := viy + 8; pf_b := vib + 8;
+          pf_i := v_i + 2;
+        when others =>
+          pf_ok := false;
+      end case;
+      if pf_ok then
         v_done <= pf_i = v_e;
         pre_x  <= bufx(to_integer(pf_x(7 downto 1) + 1)) & bufx(to_integer(pf_x(7 downto 1)));
         pre_x1 <= bufx(to_integer(pf_x(7 downto 1) + 3)) & bufx(to_integer(pf_x(7 downto 1) + 2));
@@ -3523,7 +3579,9 @@ begin
         sr_ok2 <= sr_ok1;
         sr_used_q <= resize(wf_w - wf_r, 10) + resize(sr_inflight, 10);
 
-        if cstate /= C_RD_ISSUE and cstate /= C_WR_ISSUE
+        assert fsm_iss_q or (cstate /= C_RD_ISSUE and cstate /= C_WR_ISSUE)
+          report "SSNAIL: fsm_iss_q misses an issue state" severity failure;
+        if not fsm_iss_q
           and sr_ok2 = '1' and sr_more_q = '1'
           and hr_valid_i = '0' and sd_valid_i = '0'
           and rq_w - rq_r < 3 then
