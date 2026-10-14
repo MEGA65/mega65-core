@@ -329,6 +329,7 @@ architecture tacoma_narrows of sdram_controller is
   signal lat_new : std_logic := '0';
   signal want_fill : std_logic := '0';          -- fill the latched line
   signal last_pub : unsigned(26 downto 3) := (others => '1');
+  signal last_pub_m1 : unsigned(26 downto 3) := (3 => '0', others => '1');  -- last_pub - 1
 
   -- The exported line (current_cache_line*), and the next/prev requests
   signal exp_addr  : unsigned(26 downto 3) := (others => '1');
@@ -709,8 +710,10 @@ begin
         v_pf_go := true;
         v_pf_base := t;
         v_pf_down := '0';
-        if t = last_pub - 1 then v_pf_down := '1'; end if;
+        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
+        if t = last_pub_m1 then v_pf_down := '1'; end if;
         last_pub <= t;
+        last_pub_m1 <= t - 1;
       end if;
     end procedure;
 

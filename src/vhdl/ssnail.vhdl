@@ -659,6 +659,12 @@ architecture shell of ssnail is
   -- GEMV quantise: px's 256-byte block is loaded (ld_valid and ld_block),
   -- set in G_QFILL0 and kept up to date by G_QFILL
   signal qf_hit : boolean := false;
+  -- FSM branch conditions, registered (each asserted where it is used):
+  -- gblk + 1 = g_nb and tl_blk + 1 = g_nb (recomputed every cycle);
+  -- mr_r = mr_rows (likewise); at_i + 1 = at_hd (set by state, as at_iend);
+  -- and tests of an FPU result, made as fpu_r is loaded from it
+  signal g_qlast, tl_last, mr_end, at_inx : boolean := false;
+  signal fr_neg, fr_big, fr_z, fr_mlt : boolean := false;
   -- G_QFILL's element, folded into g_amax the cycle after it is read
   signal qf_v   : unsigned(30 downto 0) := (others => '0');
   signal qf_vld : boolean := false;
@@ -1477,6 +1483,10 @@ begin
         end if;
       end if;
 
+      g_qlast <= gblk + 1 = g_nb;
+      tl_last <= tl_blk + 1 = g_nb;
+      mr_end  <= mr_r = mr_rows;
+
       -- GEMV quantise |x| maximum, a cycle behind the reads (G_QFILL)
       qf_vld <= false;
       if qf_vld and qf_v > g_amax then
@@ -2085,6 +2095,10 @@ begin
         when C_FPU_WAIT =>
           if fpu_done = '1' then
             fpu_r <= fpu_res;
+            fr_neg <= fpu_res(31) = '1';
+            fr_big <= fpu_res > TAB_SEGMENTS - 1;
+            fr_z   <= fpu_res(30 downto 0) = 0;
+            fr_mlt <= flt(at_m, fpu_res);
             cstate <= fpu_ret;
           end if;
 
@@ -2488,9 +2502,11 @@ begin
           cstate <= C_FPU_WAIT;
 
         when T_LOOK =>
-          if fpu_r(31) = '1' then
+          assert fr_neg = (fpu_r(31) = '1') and fr_big = (fpu_r > TAB_SEGMENTS - 1)
+            report "SSNAIL: stale fr_neg/fr_big" severity failure;
+          if fr_neg then
             ti := 0;
-          elsif fpu_r > TAB_SEGMENTS - 1 then
+          elsif fr_big then
             ti := TAB_SEGMENTS - 1;
           else
             ti := to_integer(fpu_r(15 downto 0));
@@ -2599,7 +2615,8 @@ begin
 
         -- MEANROWS: Z = row 0; Z = Z + row r for r = 1 .. R-1; Z = Z * (1/R)
         when M_NEXT =>
-          if mr_r = mr_rows then
+          assert mr_end = (mr_r = mr_rows) report "SSNAIL: stale mr_end" severity failure;
+          if mr_end then
             cstate <= M_S0;
           else
             -- Induction: before row r, mr_src_row = bx + (r-1)*4*n0 (mod 2^28).
@@ -2836,7 +2853,8 @@ begin
 
         when G_QID =>
           g_d <= fpu_r;
-          if fpu_r(30 downto 0) = 0 then
+          assert fr_z = (fpu_r(30 downto 0) = 0) report "SSNAIL: stale fr_z" severity failure;
+          if fr_z then
             g_id <= (others => '0');                   -- id = d ? 1/d : 0
             cstate <= G_QD16;
           else
@@ -2874,7 +2892,8 @@ begin
         when G_QQ =>
           if g_j = 32 then
             gblk <= gblk + 1;
-            if gblk + 1 = g_nb then
+            assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
+            if g_qlast then
               cstate <= G_ROW0;
             else
               cstate <= G_QFILL0;
@@ -3026,7 +3045,8 @@ begin
           cstate <= G2_T3;
         when G2_T3 =>
           tl_full_clr := '1';
-          if tl_blk + 1 = g_nb then
+          assert tl_last = (tl_blk + 1 = g_nb) report "SSNAIL: stale tl_last" severity failure;
+          if tl_last then
             cstate <= G_OUT;                        -- row done: output it
           else
             cstate <= G2_WAIT;
@@ -3347,7 +3367,8 @@ begin
         when A_S_SC =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
           if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
-          if at_t = 0 or flt(at_m, fpu_r) then
+          assert fr_mlt = flt(at_m, fpu_r) report "SSNAIL: stale fr_mlt" severity failure;
+          if at_t = 0 or fr_mlt then
             at_m <= fpu_r;
           end if;
           at_t <= at_t + 1;
@@ -3466,7 +3487,8 @@ begin
             pz <= a2;
             at_i <= at_i + 1;
             -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
-            if pz(7 downto 0) = 252 or at_i + 1 = at_hd(8 downto 0) then
+            assert at_inx = (at_i + 1 = at_hd(8 downto 0)) report "SSNAIL: stale at_inx" severity failure;
+            if pz(7 downto 0) = 252 or at_inx then
               a0 := ostart(27 downto 3) & "000";
               a1 := a2 + 7;
               a1(2 downto 0) := "000";
@@ -3531,8 +3553,10 @@ begin
       case cstate is
         when A_HEAD | A_S_T | A_O_T =>                 -- at_i <= 0
           at_iend <= at_hd(8 downto 0) = 0;
+          at_inx  <= at_hd(8 downto 0) = 1;
         when A_Q2 | A_S_I4 | A_O_I4 | A_WR =>          -- at_i <= at_i + 1
           at_iend <= at_i + 1 = at_hd(8 downto 0);
+          at_inx  <= at_i + 2 = at_hd(8 downto 0);
         when others => null;
       end case;
       -- sarr is read only at at_t + 1 (a second, constant-index read would

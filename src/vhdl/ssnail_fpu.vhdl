@@ -196,7 +196,11 @@ begin
                 unpack32(b, sb, eb, mb);
                 wa := "0" & ma & "00000000000000000000000";   -- hidden bit at 46
                 wb := "0" & mb & "00000000000000000000000";
-                swap := (eb > ea) or (eb = ea and mb > ma);
+                -- (eb, mb) > (ea, ma) is the integer order of the magnitude
+                -- bits, subnormals included: one comparison of the inputs
+                swap := b(30 downto 0) > a(30 downto 0);
+                assert swap = ((eb > ea) or (eb = ea and mb > ma))
+                  report "FPU: swap order" severity failure;
                 if swap then
                   big_m <= wb; small_m <= wa; big_e <= eb;
                   sh_d <= eb - ea;

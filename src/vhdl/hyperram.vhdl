@@ -595,6 +595,7 @@ architecture gothic of hyperram is
   signal lat_new : std_logic := '0';
   signal want_fill : std_logic := '0';
   signal last_pub : unsigned(26 downto 3) := (others => '1');
+  signal last_pub_m1 : unsigned(26 downto 3) := (3 => '0', others => '1');  -- last_pub - 1
   -- the exported line, and next/prev
   signal exp_addr  : unsigned(26 downto 3) := (others => '1');
   signal exp_valid : std_logic := '0';
@@ -753,8 +754,10 @@ begin
         v2_pf_go := true;
         v2_pf_base := t;
         v2_pf_down := '0';
-        if t = last_pub - 1 then v2_pf_down := '1'; end if;
+        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
+        if t = last_pub_m1 then v2_pf_down := '1'; end if;
         last_pub <= t;
+        last_pub_m1 <= t - 1;
       end if;
     end procedure;
     -- Fill the lines around t (upwards from t, or ending at t if down),
