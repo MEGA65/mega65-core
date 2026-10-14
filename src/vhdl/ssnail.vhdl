@@ -1667,6 +1667,11 @@ begin
         when C_DECODE =>
           cstate <= C_DEC2;
           dec_next <= C_DECODE;                     -- (as if cstate were unchanged)
+          -- MEANROWS set-up, for every instruction (only MEANROWS uses them),
+          -- so the opcode and fault checks do not gate it
+          mr_rows <= opr_a;
+          mr_r <= to_unsigned(1, 32);
+          mr_src_row <= ea_x;
           assert n0_z = (n0 = 0) and n0_big = (n0 > 4096) and n0_one = (n0 = 1)
             and n1_z = (n1 = 0) and n1_big = (n1 > 256)
             report "SSNAIL: stale n0/n1 flags" severity failure;
@@ -1750,9 +1755,7 @@ begin
                   when x"26" =>                     -- LAYERNORM pass 1: sum
                     ve_kind <= K_SUM; has_out <= '0'; ve_ret <= L_S0; dec_next <= V_CHUNK;
                   when others =>                    -- MEANROWS: row 0 copied to Z
-                    mr_rows <= opr_a;
-                    mr_r <= to_unsigned(1, 32);
-                    mr_src_row <= ea_x;
+                    -- (mr_rows, mr_r, mr_src_row: set above)
                     ve_kind <= K_COPY; ve_ret <= M_NEXT; dec_next <= V_CHUNK;
                 end case;
               end if;

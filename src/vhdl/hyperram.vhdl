@@ -585,6 +585,28 @@ architecture gothic of hyperram is
   signal lk_cb, lk_cbh : h_b8_nl_t := (others => (others => '0'));
   signal lk_wb, lk_wbh : h_b8_nw_t := (others => (others => '0'));
   signal lk_fd : boolean := false;
+
+  -- The line of the one valid slot a look-up matched, as an AND-OR of the
+  -- slots rather than a priority choice then a mux (a tag is held by at
+  -- most one valid slot: a completing fill invalidates any other copy)
+  function hit_line(d : h_ldata_t; m, v : std_logic_vector) return unsigned is
+    variable r : unsigned(63 downto 0) := (others => '0');
+    variable n : integer := 0;
+  begin
+    for i in d'range loop
+      if m(i) = '1' and v(i) = '1' then r := r or d(i); n := n + 1; end if;
+    end loop;
+    assert n <= 1 report "two valid cache slots hold one line" severity failure;
+    return r;
+  end function;
+  function hit_byte(d : h_b8_nl_t; m, v : std_logic_vector) return unsigned is
+    variable r : unsigned(7 downto 0) := (others => '0');
+  begin
+    for i in d'range loop
+      if m(i) = '1' and v(i) = '1' then r := r or d(i); end if;
+    end loop;
+    return r;
+  end function;
   -- w_tag(j) = fl_cur_tag, registered for the merge when a fill line
   -- completes.  Recomputed every cycle; a posted write that (re)tags a
   -- buffer sets that buffer's flag itself, so it is never stale on the next
@@ -717,7 +739,7 @@ begin
     variable v2_pf_base   : unsigned(26 downto 3);
     variable v2_pf_down   : std_logic;
     variable v2_idx       : integer range 0 to 7;
-    variable v2_line, v2_line2 : unsigned(63 downto 0);
+    variable v2_line, v2_line2, v2_vline : unsigned(63 downto 0);
     variable v2_tag       : unsigned(26 downto 3);
     variable v2_wh, v2_hit, v2_free : integer range -1 to H_NL;
     variable v2_frozen    : boolean;
@@ -4559,8 +4581,8 @@ begin
               assert lk_cb(v2_hit) = byte_of(c_data(v2_hit), v2_idx)
                 and lk_cbh(v2_hit) = byte_of(c_data(v2_hit), (v2_idx + 1) mod 8)
                 report "HYPERRAM: stale lk_cb" severity failure;
-              v2_publish(lk_cb(v2_hit), lk_cbh(v2_hit));
-              v2_set_export(l_addr(26 downto 3), c_data(v2_hit));
+              v2_publish(hit_byte(lk_cb, lk_c, c_val), hit_byte(lk_cbh, lk_c, c_val));
+              v2_set_export(l_addr(26 downto 3), hit_line(c_data, lk_c, c_val));
               v2_prefetch_from(l_addr(26 downto 3));
             elsif v2_wh /= -1 then
               v2_hits <= v2_hits + 1;
@@ -4695,7 +4717,7 @@ begin
           if x_hit(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;
         end loop;
         if v2_hit /= -1 and wr_l = '0' and wr_req_v2_q = '0' then
-          v2_set_export(x_addr, c_data(v2_hit));
+          v2_set_export(x_addr, hit_line(c_data, x_hit, c_val));
           if v2_flags(2) = '1' then v2_prefetch_from(x_addr); end if;
         elsif v2_en = '1' then
           x_want <= '1';                -- (fetched, then exported)
@@ -4725,8 +4747,9 @@ begin
         end loop;
         if v2_hit /= -1 then
           -- (cached lines have the CPU's writes in them)
+          v2_vline := hit_line(c_data, vic_hit, c_val);
           for k in 0 to 7 loop
-            viciv_data_buffer(k) <= c_data(v2_hit)(8 * k + 7 downto 8 * k);
+            viciv_data_buffer(k) <= v2_vline(8 * k + 7 downto 8 * k);
           end loop;
           viciv_buffer_toggle <= not viciv_buffer_toggle;
         else

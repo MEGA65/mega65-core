@@ -84,6 +84,10 @@ architecture multicycle of ssnail_fpu is
   -- Rounding, first stage: rounded significand and exponent field
   signal rd_keep : unsigned(24 downto 0) := (others => '0');
   signal rd_ef   : integer range -4096 to 4095 := 0;
+  -- ... and, for S_PACK: rd_ef + 1, rd_ef = 0, rm = 0, and overflow of the
+  -- exponent field with and without the carry-out of rounding
+  signal rd_ef1  : integer range -4096 to 4096 := 0;
+  signal rd_ef0, rd_rz, rd_big, rd_big1 : boolean := false;
   -- ROUNDF / TRUNC: round to integer, then negate
   signal int_rnd, int_neg : std_logic := '0';
   signal mul_nrm : std_logic := '0';        -- both significands normal
@@ -172,12 +176,26 @@ begin
     variable ri     : unsigned(31 downto 0);
     variable la, lb : integer range 0 to 24;
     variable v33    : unsigned(32 downto 0);
+    variable big    : boolean;
   begin
     if rising_edge(clock) then
       done <= '0';
       case state is
 
         when S_IDLE =>
+          -- Datapath set-up for MUL, DIV and SQRT, whatever the operation and
+          -- whether or not a special case is taken (then they go unused), so
+          -- the special-case tests do not gate it.  Every operation sets re
+          -- before using it (later assignments below override this one).
+          unpack32(a, sa, ea, ma);
+          unpack32(b, sb, eb, mb);
+          mul_a <= ma;
+          mul_b <= mb;
+          mul_nrm <= ma(23) and mb(23);
+          re <= ea + eb - 127;
+          dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
+          dv_r <= "00" & ma;
+          dv_i <= 46;
           if start = '1' then
             special <= '0';
             to_f16 <= '0';
@@ -238,10 +256,7 @@ begin
                 zero_sign <= sa xor sb;
                 -- 24 x 24 -> 48 bits (in S_MUL); with the hidden bits at 23,
                 -- the product's point is at 46, matching the back end
-                mul_a <= ma;
-                mul_b <= mb;
-                mul_nrm <= ma(23) and mb(23);
-                re <= ea + eb - 127;
+                -- (mul_a, mul_b, mul_nrm and re: set above)
                 state <= S_MUL;
               end if;
             elsif op = FOP_F16TOF32 then
@@ -306,11 +321,9 @@ begin
                 unpack32(a, sa, ea, ma);
                 unpack32(b, sb, eb, mb);
                 rs <= sa xor sb;
-                dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
+                -- (dv_ma, dv_mb, dv_ea, dv_eb, dv_r, dv_i: set above)
                 if ma(23) = '1' and mb(23) = '1' then
-                  dv_r <= "00" & ma;              -- (normal: nothing to shift)
-                  dv_i <= 46;
-                  state <= S_DIV;
+                  state <= S_DIV;                 -- (normal: nothing to shift)
                 else
                   state <= S_DNORM;
                 end if;
@@ -326,7 +339,7 @@ begin
               else
                 unpack32(a, sa, ea, ma);
                 rs <= '0';
-                dv_ma <= ma; dv_ea <= ea;
+                -- (dv_ma, dv_ea: set above)
                 if ma(23) = '1' then
                   state <= S_SQNORM2;             -- (normal: nothing to shift)
                 else
@@ -657,39 +670,56 @@ begin
           if up = '1' then keep := keep + 1; end if;
           rd_keep <= keep;
           rd_ef <= efield;
+          rd_ef1 <= efield + 1;
+          rd_ef0 <= efield = 0;
+          rd_rz <= rm = 0;
+          if to_f16 = '0' then
+            rd_big <= efield >= 255; rd_big1 <= efield + 1 >= 255;
+          else
+            rd_big <= efield >= 31; rd_big1 <= efield + 1 >= 31;
+          end if;
           state <= S_PACK;
 
         when S_PACK =>
+          -- (the comparisons were made in S_ROUND: rd_*)
           keep := rd_keep;
           efield := rd_ef;
+          if special = '0' then
+            assert rd_ef1 = rd_ef + 1 and rd_ef0 = (rd_ef = 0) and rd_rz = (rm = 0)
+              and rd_big = ((to_f16 = '0' and rd_ef >= 255) or (to_f16 = '1' and rd_ef >= 31))
+              and rd_big1 = ((to_f16 = '0' and rd_ef + 1 >= 255) or (to_f16 = '1' and rd_ef + 1 >= 31))
+              report "FPU: stale rd_* flags" severity failure;
+          end if;
           if special = '1' then
             result <= sp_val;
-          elsif rm = 0 then
+          elsif rd_rz then
             if to_f16 = '1' then
               result <= x"0000" & rs & "000000000000000";
             else
               result <= rs & "0000000000000000000000000000000";
             end if;
           elsif to_f16 = '0' then
+            big := rd_big;
             if keep(24) = '1' then
               keep := '0' & keep(24 downto 1);
-              efield := efield + 1;
-            elsif efield = 0 and keep(23) = '1' then
-              efield := 1;
+              efield := rd_ef1; big := rd_big1;
+            elsif rd_ef0 and keep(23) = '1' then
+              efield := 1; big := false;
             end if;
-            if efield >= 255 then
+            if big then
               result <= rs & "1111111100000000000000000000000";
             else
               result <= rs & to_unsigned(efield, 8) & keep(22 downto 0);
             end if;
           else
+            big := rd_big;
             if keep(11) = '1' then
               keep := '0' & keep(24 downto 1);
-              efield := efield + 1;
-            elsif efield = 0 and keep(10) = '1' then
-              efield := 1;
+              efield := rd_ef1; big := rd_big1;
+            elsif rd_ef0 and keep(10) = '1' then
+              efield := 1; big := false;
             end if;
-            if efield >= 31 then
+            if big then
               result <= x"0000" & rs & "111110000000000";
             else
               result <= x"0000" & rs & to_unsigned(efield, 5) & keep(9 downto 0);

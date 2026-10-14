@@ -319,6 +319,28 @@ architecture tacoma_narrows of sdram_controller is
   signal lk_cb, lk_cbh : b8_nl_t := (others => (others => '0'));
   signal lk_wb, lk_wbh : b8_nw_t := (others => (others => '0'));
   signal lk_fd : boolean := false;
+
+  -- The line of the one valid slot a look-up matched, as an AND-OR of the
+  -- slots rather than a priority choice then a mux (a tag is held by at
+  -- most one valid slot: a completing fill invalidates any other copy)
+  function hit_line(d : ldata_t; m, v : std_logic_vector) return unsigned is
+    variable r : unsigned(63 downto 0) := (others => '0');
+    variable n : integer := 0;
+  begin
+    for i in d'range loop
+      if m(i) = '1' and v(i) = '1' then r := r or d(i); n := n + 1; end if;
+    end loop;
+    assert n <= 1 report "two valid cache slots hold one line" severity failure;
+    return r;
+  end function;
+  function hit_byte(d : b8_nl_t; m, v : std_logic_vector) return unsigned is
+    variable r : unsigned(7 downto 0) := (others => '0');
+  begin
+    for i in d'range loop
+      if m(i) = '1' and v(i) = '1' then r := r or d(i); end if;
+    end loop;
+    return r;
+  end function;
   -- w_tag(j) = fl_tag, registered for the merge when a line fill completes.
   -- Recomputed every cycle; a posted write that (re)tags a buffer sets that
   -- buffer's flag itself, so the flag is never stale on the next edge (a
@@ -2023,8 +2045,8 @@ begin
                 assert lk_cb(v_hit) = byte_of(c_data(v_hit), v_idx)
                   and lk_cbh(v_hit) = byte_of(c_data(v_hit), (v_idx + 1) mod 8)
                   report "SDRAM: stale lk_cb" severity failure;
-                publish(lk_cb(v_hit), lk_cbh(v_hit));
-                set_export(latched_addr(26 downto 3), c_data(v_hit));
+                publish(hit_byte(lk_cb, lk_c, c_val), hit_byte(lk_cbh, lk_c, c_val));
+                set_export(latched_addr(26 downto 3), hit_line(c_data, lk_c, c_val));
                 prefetch_from(latched_addr(26 downto 3));
               elsif v_wh /= -1 then
                 hits <= hits + 1;
@@ -2190,7 +2212,7 @@ begin
           end loop;
           if v_hit /= -1 then
             -- (cached lines have the CPU's writes in them)
-            vic_buf <= c_data(v_hit);
+            vic_buf <= hit_line(c_data, vic_hit, c_val);
             vic_ready <= not vic_ready;
           else
             vic_want <= '1';
