@@ -632,6 +632,32 @@ architecture shell of ssnail is
   signal mw_idx    : unsigned(6 downto 0) := (others => '0');
   -- DEQROW
   type grp_t is array (0 to 33) of unsigned(7 downto 0);
+
+  -- GEMV weight block unpacking: the one place that knows the block
+  -- formats.  A block as the assembler leaves it (grpf; Q8_0 is
+  -- grpf(0 to 33), Q4_0 grpf(16 to 33)) becomes 32 signed weights and its
+  -- F16 scale; the MAC lanes see only that.  (New formats: here, and the
+  -- block length in the assembler.)
+  type qw32_t is array (0 to 31) of signed(8 downto 0);
+  function unpack_w(g : grp_t; fmt : unsigned(7 downto 0)) return qw32_t is
+    variable w : qw32_t;
+  begin
+    for j in 0 to 31 loop
+      if fmt = 8 then                                -- Q8_0: d, then 32 x int8
+        w(j) := resize(signed(g(2 + j)), 9);
+      elsif j < 16 then                              -- Q4_0: d, then 16 bytes,
+        w(j) := resize(signed('0' & g(18 + j)(3 downto 0)), 9) - 8;  -- low
+      else                                           -- nibbles first
+        w(j) := resize(signed('0' & g(18 + j - 16)(7 downto 4)), 9) - 8;
+      end if;
+    end loop;
+    return w;
+  end function;
+  function unpack_d(g : grp_t; fmt : unsigned(7 downto 0)) return unsigned is
+  begin
+    if fmt = 8 then return g(1) & g(0); else return g(17) & g(16); end if;
+  end function;
+
   signal grp       : grp_t := (others => x"00");
   signal gi, gbytes : unsigned(5 downto 0) := (others => '0');
   signal d_j, epg  : unsigned(5 downto 0) := (others => '0');
@@ -723,7 +749,12 @@ architecture shell of ssnail is
   signal rq_cnt    : rq_cnt_t := (others => (others => '0'));
   signal rq_w, rq_r : unsigned(2 downto 0) := (others => '0');
   -- assembler
-  signal grpf, grpc : grp_t := (others => x"00");
+  signal grpf      : grp_t := (others => x"00");
+  -- unpack stage: an unpacked block waiting for the lanes (ub_full), and
+  -- the one the lanes are working through
+  signal ub_w, mc_wb : qw32_t := (others => (others => '0'));
+  signal ub_d      : unsigned(31 downto 0) := (others => '0');   -- its scale, F32
+  signal ub_full   : std_logic := '0';
   signal as_rem    : unsigned(5 downto 0) := (others => '0');   -- bytes left in this block
   signal as_any    : std_logic := '0';                          -- as_blocks /= 0
   -- as_flags(as_skip, as_rem): skip >= 1, 2, 3; skip + rem >= 2, 3;
@@ -3017,7 +3048,7 @@ begin
               as_f <= as_flags(to_integer(ps(2 downto 0)), 18);
             end if;
             as_skip <= ps(2 downto 0);
-            as_full <= '0'; pb_v <= '0';
+            as_full <= '0'; pb_v <= '0'; ub_full <= '0';
             as_blocks <= g_mul_p32;
             if g_mul_p32 /= 0 then as_any <= '1'; else as_any <= '0'; end if;
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
@@ -3785,21 +3816,24 @@ begin
           end if;
         end if;
 
-        -- Swap: a full fill set goes to the lanes when they are free
-        if as_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
-          if d_fmt = 8 then
-            grpc <= grpf;
-            -- scale = d_w * d_x on the third FP unit, while the lanes work
-            fpu3_a <= f16_to_f32(grpf(1) & grpf(0));
-          else
-            for i in 0 to 17 loop
-              grpc(i) <= grpf(16 + i);
-            end loop;
-            fpu3_a <= f16_to_f32(grpf(17) & grpf(16));
-          end if;
+        -- Unpack: a full block becomes 32 weights and an F32 scale, and the
+        -- assembler is free again at once (as it was when the lanes took the
+        -- block directly)
+        if as_full = '1' and ub_full = '0' then
+          ub_w <= unpack_w(grpf, d_fmt);
+          ub_d <= f16_to_f32(unpack_d(grpf, d_fmt));
+          ub_full <= '1';
           as_full <= '0';
           as_blocks <= as_blocks - 1;
           if as_blocks = 1 then as_any <= '0'; end if;
+        end if;
+
+        -- Swap: an unpacked block goes to the lanes when they are free
+        if ub_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
+          mc_wb <= ub_w;
+          -- scale = d_w * d_x on the third FP unit, while the lanes work
+          fpu3_a <= ub_d;
+          ub_full <= '0';
           mc_busy <= '1';
           mc_drain <= '0';
           mc_c <= (others => '0');
@@ -3816,13 +3850,7 @@ begin
         if mc_busy = '1' then
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
-            if d_fmt = 8 then
-              qwv := resize(signed(grpc(2 + jj)), 9);
-            elsif jj < 16 then
-              qwv := resize(signed('0' & grpc(2 + jj)(3 downto 0)), 9) - 8;
-            else
-              qwv := resize(signed('0' & grpc(2 + jj - 16)(7 downto 4)), 9) - 8;
-            end if;
+            qwv := mc_wb(jj);
             case k is
               when 0 => qxv := qx0(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
               when 1 => qxv := qx1(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
