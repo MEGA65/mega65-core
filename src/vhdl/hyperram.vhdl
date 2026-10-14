@@ -572,6 +572,14 @@ architecture gothic of hyperram is
   signal rs : h_rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  -- R_LOOK also picks the read's two bytes out of every line and buffer,
+  -- so R_DECIDE only chooses between registers.  c_data and w_data do not
+  -- change between the two except by a fill completing (lk_fd: look again).
+  type h_b8_nl_t is array (0 to H_NL - 1) of unsigned(7 downto 0);
+  type h_b8_nw_t is array (0 to H_NW - 1) of unsigned(7 downto 0);
+  signal lk_cb, lk_cbh : h_b8_nl_t := (others => (others => '0'));
+  signal lk_wb, lk_wbh : h_b8_nw_t := (others => (others => '0'));
+  signal lk_fd : boolean := false;
   -- w_tag(j) = fl_cur_tag, registered for the merge when a fill line
   -- completes.  Recomputed every cycle; a posted write that (re)tags a
   -- buffer sets that buffer's flag itself, so it is never stale on the next
@@ -595,6 +603,10 @@ architecture gothic of hyperram is
   signal x_addr : unsigned(26 downto 3) := (others => '1');
   signal x_hit  : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal next_toggle_drive, prev_toggle_drive : std_logic := '0';
+  -- (the SDRAM controller registers the same inputs: kept apart, or synthesis
+  -- merges the two and one controller's logic reaches across the chip)
+  attribute dont_touch : string;
+  attribute dont_touch of next_toggle_drive, prev_toggle_drive : signal is "true";
   -- Stage slow_devices' control strobes in clock163 before v2 arbitration.
   -- slow_devices holds the address and write data until acknowledged.
   signal rd_req_v2_q, wr_req_v2_q : std_logic := '0';
@@ -4497,20 +4509,27 @@ begin
         end if;
       end if;
 
+      lk_fd <= v2_done;
       case rs is
         when R_IDLE =>
           null;
         when R_LOOK =>
           for i in 0 to H_NL - 1 loop
             if c_tag(i) = l_addr(26 downto 3) then lk_c(i) <= '1'; else lk_c(i) <= '0'; end if;
+            lk_cb(i)  <= byte_of(c_data(i), v2_idx);
+            lk_cbh(i) <= byte_of(c_data(i), (v2_idx + 1) mod 8);
           end loop;
           for j in 0 to H_NW - 1 loop
             if w_tag(j) = l_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
+            lk_wb(j)  <= byte_of(w_data(j), v2_idx);
+            lk_wbh(j) <= byte_of(w_data(j), (v2_idx + 1) mod 8);
           end loop;
           rs <= R_DECIDE;
         when R_DECIDE =>
           if v2_done then
             null;                       -- (handled above)
+          elsif rd_l = '1' and lk_fd then
+            rs <= R_LOOK;               -- (a line changed under R_LOOK's bytes)
           elsif rd_l = '1' then
             v2_wh := -1;
             v2_hit := -1;
@@ -4523,12 +4542,18 @@ begin
             if v2_hit /= -1 then
               -- (a cached line already has the posted writes in it)
               v2_hits <= v2_hits + 1;
-              v2_publish(byte_of(c_data(v2_hit), v2_idx), byte_of(c_data(v2_hit), (v2_idx + 1) mod 8));
+              assert lk_cb(v2_hit) = byte_of(c_data(v2_hit), v2_idx)
+                and lk_cbh(v2_hit) = byte_of(c_data(v2_hit), (v2_idx + 1) mod 8)
+                report "HYPERRAM: stale lk_cb" severity failure;
+              v2_publish(lk_cb(v2_hit), lk_cbh(v2_hit));
               v2_set_export(l_addr(26 downto 3), c_data(v2_hit));
               v2_prefetch_from(l_addr(26 downto 3));
             elsif v2_wh /= -1 then
               v2_hits <= v2_hits + 1;
-              v2_publish(byte_of(w_data(v2_wh), v2_idx), byte_of(w_data(v2_wh), (v2_idx + 1) mod 8));
+              assert lk_wb(v2_wh) = byte_of(w_data(v2_wh), v2_idx)
+                and lk_wbh(v2_wh) = byte_of(w_data(v2_wh), (v2_idx + 1) mod 8)
+                report "HYPERRAM: stale lk_wb" severity failure;
+              v2_publish(lk_wb(v2_wh), lk_wbh(v2_wh));
             else
               v2_misses <= v2_misses + 1;
               -- (unless the fill under way brings this line)

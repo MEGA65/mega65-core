@@ -543,6 +543,12 @@ architecture shell of ssnail is
   signal tx_below, tx_above : boolean := false;
   signal pre_x, pre_x1, pre_y, pre_b : unsigned(31 downto 0) := (others => '0');
   signal vix, viy, vib : unsigned(7 downto 0) := (others => '0');
+  -- Their word addresses plus 0..7, kept with them, so the read-ahead's RAM
+  -- addresses are a choice between registers (no adder in front of the RAM)
+  type w7x8_t is array (0 to 7) of unsigned(6 downto 0);
+  constant W7_INIT : w7x8_t := ("0000000", "0000001", "0000010", "0000011",
+                                "0000100", "0000101", "0000110", "0000111");
+  signal vxw, vyw, vbw : w7x8_t := W7_INIT;
   signal v_done : boolean := false;             -- v_i = v_e (chunk finished)
   -- v_n = 0 and v_n = 1, set wherever v_n is
   signal v_n_z : boolean := true;
@@ -653,6 +659,9 @@ architecture shell of ssnail is
   -- GEMV quantise: px's 256-byte block is loaded (ld_valid and ld_block),
   -- set in G_QFILL0 and kept up to date by G_QFILL
   signal qf_hit : boolean := false;
+  -- G_QFILL's element, folded into g_amax the cycle after it is read
+  signal qf_v   : unsigned(30 downto 0) := (others => '0');
+  signal qf_vld : boolean := false;
   signal g_oldv : unsigned(31 downto 0) := (others => '0');
 
   -- GEMV
@@ -1211,6 +1220,7 @@ begin
     variable pf_x, pf_y, pf_b : unsigned(7 downto 0);
     variable pf_i : unsigned(7 downto 0);       -- ... and the v_i that goes with them
     variable pf_ok : boolean;
+    variable pa_x, pa_y, pa_b : w7x8_t;         -- read-ahead word addresses (0..3 used)
     variable vck_x, vck_y : unsigned(7 downto 0);  -- (simulation checks only)
     variable xv, lo, hi : unsigned(31 downto 0);
     variable ra, rb : unsigned(31 downto 0);     -- R[a], R[b] in C_RESOLVE
@@ -1465,6 +1475,12 @@ begin
           am_best <= am_x_q;
           am_idx <= am_g_q;
         end if;
+      end if;
+
+      -- GEMV quantise |x| maximum, a cycle behind the reads (G_QFILL)
+      qf_vld <= false;
+      if qf_vld and qf_v > g_amax then
+        g_amax <= qf_v;
       end if;
 
       -- Command acceptance: drop valid on the edge where ready is seen
@@ -2774,6 +2790,7 @@ begin
         -- ------------------------------------------------------------------
         -- GEMV, phase 1: quantise x to Q8_0 (ssnail_hw.quantize_q8_0)
         when G_QFILL0 =>
+          assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
           g_j <= (others => '0');
           g_amax <= (others => '0');
           qf_hit <= ld_valid = '1' and px(27 downto 8) = ld_block;
@@ -2784,7 +2801,12 @@ begin
             report "SSNAIL: stale qf_hit" severity failure;
           if g_j = 32 then
             fpu_op <= FOP_DIV;                         -- d = amax / 127
-            fpu_a <= '0' & g_amax;
+            -- (the last element's qf_v lands in g_amax only now)
+            if qf_vld and qf_v > g_amax then
+              fpu_a <= '0' & qf_v;
+            else
+              fpu_a <= '0' & g_amax;
+            end if;
             fpu_b <= x"42FE0000";
             fpu_start <= '1';
             fpu_ret <= G_QID;
@@ -2805,9 +2827,8 @@ begin
             fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
             xb(to_integer(g_j)) <= fv;
             -- |x| ordering = integer ordering of the low 31 bits
-            if fv(30 downto 0) > g_amax then
-              g_amax <= fv(30 downto 0);
-            end if;
+            qf_v <= fv(30 downto 0);
+            qf_vld <= true;
             px <= px + 4;
             qf_hit <= px(7 downto 0) < 252;             -- px + 4 in the same block
             g_j <= g_j + 1;
@@ -3529,29 +3550,52 @@ begin
 
       -- Element operands for V_EL (see pre_x): element v_i's X (and the next
       -- X, for ROPE), Y and B, and v_i = v_e, likewise by state
+      for n in 0 to 7 loop
+        assert vxw(n) = vix(7 downto 1) + n and vyw(n) = viy(7 downto 1) + n
+          and vbw(n) = vib(7 downto 1) + n
+          report "SSNAIL: stale vxw/vyw/vbw" severity failure;
+      end loop;
       if pf_go then
         vix <= pf_x; viy <= pf_y; vib <= pf_b;
+        for n in 0 to 7 loop
+          vxw(n) <= pf_x(7 downto 1) + n;
+          vyw(n) <= pf_y(7 downto 1) + n;
+          vbw(n) <= pf_b(7 downto 1) + n;
+        end loop;
       end if;
+      -- Word addresses of the four X halves, two Y and two B halves
       pf_ok := true;
       case cstate is
         when V_EL0 =>                                  -- v_i <= 0
-          pf_x := px(7 downto 0); pf_y := py(7 downto 0); pf_b := pb(7 downto 0);
+          for k in 0 to 3 loop
+            pa_x(k) := px(7 downto 1) + k;
+            pa_y(k) := py(7 downto 1) + k;
+            pa_b(k) := pb(7 downto 1) + k;
+          end loop;
           pf_i := (others => '0');
         when V_EL | V_ELST | E_ACC | E_ACC2 =>         -- v_i <= v_i + 1
-          pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4;
+          for k in 0 to 3 loop
+            pa_x(k) := vxw(2 + k); pa_y(k) := vyw(2 + k); pa_b(k) := vbw(2 + k);
+          end loop;
           pf_i := v_i + 1;
         when E_R6 =>                                   -- v_i <= v_i + 2
-          pf_x := vix + 8; pf_y := viy + 8; pf_b := vib + 8;
+          for k in 0 to 3 loop
+            pa_x(k) := vxw(4 + k); pa_y(k) := vyw(4 + k); pa_b(k) := vbw(4 + k);
+          end loop;
           pf_i := v_i + 2;
         when others =>
+          for k in 0 to 3 loop          -- (unused: the same as above)
+            pa_x(k) := vxw(2 + k); pa_y(k) := vyw(2 + k); pa_b(k) := vbw(2 + k);
+          end loop;
+          pf_i := v_i + 1;
           pf_ok := false;
       end case;
       if pf_ok then
         v_done <= pf_i = v_e;
-        pre_x  <= bufx(to_integer(pf_x(7 downto 1) + 1)) & bufx(to_integer(pf_x(7 downto 1)));
-        pre_x1 <= bufx(to_integer(pf_x(7 downto 1) + 3)) & bufx(to_integer(pf_x(7 downto 1) + 2));
-        pre_y  <= bufy(to_integer(pf_y(7 downto 1) + 1)) & bufy(to_integer(pf_y(7 downto 1)));
-        pre_b  <= bufb(to_integer(pf_b(7 downto 1) + 1)) & bufb(to_integer(pf_b(7 downto 1)));
+        pre_x  <= bufx(to_integer(pa_x(1))) & bufx(to_integer(pa_x(0)));
+        pre_x1 <= bufx(to_integer(pa_x(3))) & bufx(to_integer(pa_x(2)));
+        pre_y  <= bufy(to_integer(pa_y(1))) & bufy(to_integer(pa_y(0)));
+        pre_b  <= bufb(to_integer(pa_b(1))) & bufb(to_integer(pa_b(0)));
       end if;
 
       -- ======================================================================

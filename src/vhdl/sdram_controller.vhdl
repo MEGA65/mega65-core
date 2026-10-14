@@ -199,6 +199,10 @@ architecture tacoma_narrows of sdram_controller is
 
   signal next_toggle_drive : std_logic := '0';
   signal prev_toggle_drive : std_logic := '0';
+  -- (the HyperRAM controller registers the same inputs: kept apart, or
+  -- synthesis merges the two and one controller's logic reaches across)
+  attribute dont_touch : string;
+  attribute dont_touch of next_toggle_drive, prev_toggle_drive : signal is "true";
 
   signal prev_current_cache_line_next_toggle : std_logic := '0';
   signal prev_current_cache_line_prev_toggle : std_logic := '0';
@@ -302,6 +306,14 @@ architecture tacoma_narrows of sdram_controller is
   signal rs : rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- R_LOOK also picks the read's two bytes out of every line and buffer,
+  -- so R_DECIDE only chooses between registers.  c_data and w_data do not
+  -- change between the two except by a fill completing (lk_fd: look again).
+  type b8_nl_t is array (0 to NL - 1) of unsigned(7 downto 0);
+  type b8_nw_t is array (0 to NW - 1) of unsigned(7 downto 0);
+  signal lk_cb, lk_cbh : b8_nl_t := (others => (others => '0'));
+  signal lk_wb, lk_wbh : b8_nw_t := (others => (others => '0'));
+  signal lk_fd : boolean := false;
   -- w_tag(j) = fl_tag, registered for the merge when a line fill completes.
   -- Recomputed every cycle; a posted write that (re)tags a buffer sets that
   -- buffer's flag itself, so the flag is never stale on the next edge (a
@@ -1932,6 +1944,7 @@ begin
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
       v_idx := to_integer(latched_addr(2 downto 0));
+      lk_fd <= v_fill_done;
       for j in 0 to NW - 1 loop
         if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
       end loop;
@@ -1974,14 +1987,20 @@ begin
           when R_LOOK =>
             for i in 0 to NL - 1 loop
               if c_tag(i) = latched_addr(26 downto 3) then lk_c(i) <= '1'; else lk_c(i) <= '0'; end if;
+              lk_cb(i)  <= byte_of(c_data(i), v_idx);
+              lk_cbh(i) <= byte_of(c_data(i), (v_idx + 1) mod 8);
             end loop;
             for j in 0 to NW - 1 loop
               if w_tag(j) = latched_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
+              lk_wb(j)  <= byte_of(w_data(j), v_idx);
+              lk_wbh(j) <= byte_of(w_data(j), (v_idx + 1) mod 8);
             end loop;
             rs <= R_DECIDE;
           when R_DECIDE =>
             if v_fill_done then
               null;                     -- (handled above)
+            elsif read_latched = '1' and lk_fd then
+              rs <= R_LOOK;             -- (a line changed under R_LOOK's bytes)
             elsif read_latched = '1' then
               v_wh := -1;
               v_hit := -1;
@@ -1994,12 +2013,18 @@ begin
               if v_hit /= -1 then
                 -- (a cached line already has any posted writes in it)
                 hits <= hits + 1;
-                publish(byte_of(c_data(v_hit), v_idx), byte_of(c_data(v_hit), (v_idx + 1) mod 8));
+                assert lk_cb(v_hit) = byte_of(c_data(v_hit), v_idx)
+                  and lk_cbh(v_hit) = byte_of(c_data(v_hit), (v_idx + 1) mod 8)
+                  report "SDRAM: stale lk_cb" severity failure;
+                publish(lk_cb(v_hit), lk_cbh(v_hit));
                 set_export(latched_addr(26 downto 3), c_data(v_hit));
                 prefetch_from(latched_addr(26 downto 3));
               elsif v_wh /= -1 then
                 hits <= hits + 1;
-                publish(byte_of(w_data(v_wh), v_idx), byte_of(w_data(v_wh), (v_idx + 1) mod 8));
+                assert lk_wb(v_wh) = byte_of(w_data(v_wh), v_idx)
+                  and lk_wbh(v_wh) = byte_of(w_data(v_wh), (v_idx + 1) mod 8)
+                  report "SDRAM: stale lk_wb" severity failure;
+                publish(lk_wb(v_wh), lk_wbh(v_wh));
               else
                 misses <= misses + 1;
                 if not (fill_active = '1' and fl_tag = latched_addr(26 downto 3)) then
