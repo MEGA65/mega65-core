@@ -264,6 +264,11 @@ architecture tacoma_narrows of sdram_controller is
   signal fl_word  : integer range 0 to 3 := 0;
   signal fl_rd_issue : std_logic := '0';
   signal fl_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
+  -- "a fill word is on dq_x now" (see the capture below), worked out a cycle
+  -- ahead from the values rd_c and fl_rd_pipe take on the next edge
+  signal fl_cap      : std_logic := '0';
+  -- PSDONE, registered once: it comes straight from the MMCM
+  signal ps_done_q   : std_logic := '0';
 
   -- Posted writes: NW line buffers with byte masks.  w_cur is the one last
   -- written; the others are written out as soon as the bus is free.
@@ -629,6 +634,7 @@ begin
     variable tj       : integer range 0 to 7;
     variable v_line   : unsigned(63 downto 0);
     variable v_fill_done : boolean;
+    variable v_rd_c : unsigned(1 downto 0);
     variable v_hit    : integer range -1 to NL - 1;
     variable v_wh     : integer range -1 to NW - 1;
     variable v_free   : integer range -1 to NW - 1;
@@ -791,6 +797,7 @@ begin
         rd_c <= '0' & identical_clocks;
       end if;
       ps_en <= '0';
+      ps_done_q <= ps_done;
       ps_locked_s1 <= ps_locked;
       ps_locked_s2 <= ps_locked_s1;
       lump_rd_pipe(0) <= lump_rd_issue;
@@ -826,13 +833,30 @@ begin
       -- Line fill data capture, timed exactly as for LUMP (see below)
       fl_rd_pipe(0) <= fl_rd_issue;
       fl_rd_pipe(1 to 8) <= fl_rd_pipe(0 to 7);
-      v_fill_done := false;
-      v_pf_go := false;
-      if (rd_c = "00" and (fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7) or fl_rd_pipe(8)) = '1')
+      -- next edge's rd_c (as assigned above), and fl_rd_pipe(k) is now in k-1
+      if tr_active = '1' or tr_ok = '1' then
+        v_rd_c := trained_c;
+      else
+        v_rd_c := '0' & identical_clocks;
+      end if;
+      if (v_rd_c = "00" and (fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7)) = '1')
+        or (v_rd_c = "01" and (fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6)) = '1')
+        or (v_rd_c = "10" and (fl_rd_pipe(2) or fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5)) = '1')
+        or (v_rd_c = "11" and (fl_rd_pipe(1) or fl_rd_pipe(2) or fl_rd_pipe(3) or fl_rd_pipe(4)) = '1')
+      then
+        fl_cap <= '1';
+      else
+        fl_cap <= '0';
+      end if;
+      assert (fl_cap = '1') = (
+        (rd_c = "00" and (fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7) or fl_rd_pipe(8)) = '1')
         or (rd_c = "01" and (fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6) or fl_rd_pipe(7)) = '1')
         or (rd_c = "10" and (fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5) or fl_rd_pipe(6)) = '1')
-        or (rd_c = "11" and (fl_rd_pipe(2) or fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5)) = '1')
-      then
+        or (rd_c = "11" and (fl_rd_pipe(2) or fl_rd_pipe(3) or fl_rd_pipe(4) or fl_rd_pipe(5)) = '1'))
+        report "SDRAM: fl_cap out of step" severity failure;
+      v_fill_done := false;
+      v_pf_go := false;
+      if fl_cap = '1' then
         if fl_word /= 3 then
           c_data(fl_slot)(16 * fl_word + 15 downto 16 * fl_word) <= dq_x;
           fl_word <= fl_word + 1;
@@ -1387,7 +1411,7 @@ begin
                 tr_to     <= 0;
                 tr_st     <= M_PSW;
               when M_PSW =>
-                if ps_done = '1' then
+                if ps_done_q = '1' then
                   if tr_dec = '1' then
                     tr_pos <= tr_wrap(tr_pos - 1);
                   else

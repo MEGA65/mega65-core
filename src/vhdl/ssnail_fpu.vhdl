@@ -56,7 +56,7 @@ architecture multicycle of ssnail_fpu is
 
   type state_t is (S_IDLE, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
                    S_DN1, S_DN2, S_ROUND, S_PACK, S_INT1,
-                   S_DNORM, S_DIV, S_SQNORM, S_SQRT);
+                   S_DNORM, S_DIV, S_SQNORM, S_SQNORM2, S_SQRT);
   signal state : state_t := S_IDLE;
 
   signal to_f16  : std_logic := '0';        -- round to F16 instead of F32
@@ -404,19 +404,24 @@ begin
           -- value = m * 2^(e - 150), m normalised to bit 23.  Make the
           -- exponent even, then sqrt(m' * 2^69) is the result significand
           -- with its point at bit 46: q = isqrt(m' << 69), in [2^46, 2^47).
+          -- First normalise (as S_DNORM does), then S_SQNORM2.
           la := 0;
           for i in 0 to 23 loop
             if dv_ma(i) = '1' then la := 23 - i; end if;
           end loop;
+          dv_ma <= shift_left(dv_ma, la);
+          dv_ea <= dv_ea - la;
+          state <= S_SQNORM2;
+
+        when S_SQNORM2 =>
           -- unbiased exponent of the normalised value
-          if ((dv_ea - la - 127) mod 2) = 0 then
-            sq_rad <= resize(shift_left(dv_ma, la), 25) & "000000000000000000000000000000000000000000000000000000000000000000000";
-            sq_e <= (dv_ea - la - 127) / 2;
+          if ((dv_ea - 127) mod 2) = 0 then
+            sq_rad <= resize(dv_ma, 25) & "000000000000000000000000000000000000000000000000000000000000000000000";
+            sq_e <= (dv_ea - 127) / 2;
           else
-            sq_rad <= resize(shift_left(dv_ma, la), 25) & "000000000000000000000000000000000000000000000000000000000000000000000";
-            sq_rad <= (shift_left(resize(shift_left(dv_ma, la), 25), 1))
+            sq_rad <= (shift_left(resize(dv_ma, 25), 1))
                       & "000000000000000000000000000000000000000000000000000000000000000000000";
-            sq_e <= (dv_ea - la - 127 - 1) / 2;
+            sq_e <= (dv_ea - 127 - 1) / 2;
           end if;
           sq_rem <= (others => '0');
           sq_res <= (others => '0');

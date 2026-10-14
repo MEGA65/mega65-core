@@ -114,12 +114,17 @@ foreach n [lsort -command hs_by_count [array names net_n]] {
 puts $fh ""
 
 # ---- One detailed path for each of the worst groups -----------------------
-puts $fh "==== Worst path of each of the top $hotspot_detail_groups endpoint groups: see detail section at end ===="
+puts $fh "==== Pblock utilisation, then the worst path of each of the top $hotspot_detail_groups endpoint groups: see the end ===="
 puts $fh ""
 puts $fh "==== All failing endpoints: slack levels datapath srcclk dstclk endpoint <- startpoint ===="
 foreach l $lines { puts $fh $l }
 puts $fh ""
 close $fh
+
+# Fill of each placement block: a crowded pblock forces long routes inside it
+if {[catch {report_utilization -pblocks [get_pblocks] -file $hotspot_out -append} why]} {
+    puts "SKIPPED pblock utilisation: $why"
+}
 
 set i 0
 set done_groups {}
