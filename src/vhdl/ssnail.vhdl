@@ -901,6 +901,11 @@ architecture shell of ssnail is
   attribute async_reg of lp_ack_s1, lp_ack_s2, lp_cack_s1, lp_cack_s2 : signal is "true";
   attribute async_reg of lp_err_s1, lp_err_s2 : signal is "true";
 
+  -- as_flags for each possible (skipped, shifted-in) count of a cycle, and
+  -- for each skipped count when the block completes
+  type asf_t is array (0 to 3, 0 to 3) of std_logic_vector(7 downto 0);
+  type asf4_t is array (0 to 3) of std_logic_vector(7 downto 0);
+
   -- Block assembler thresholds for as_skip = sk, as_rem = rm (see as_f)
   function as_flags(sk, rm : integer) return std_logic_vector is
     variable f : std_logic_vector(7 downto 0) := (others => '0');
@@ -1239,6 +1244,8 @@ begin
     variable lsum : signed(31 downto 0);
     variable jj, nav, sk : integer range 0 to 63;
     variable as_c, as_s, as_w : integer range 0 to 3;
+    variable asf_c : asf_t;
+    variable asf_full : asf4_t;
     variable avb : grp_t;
     variable popw : boolean;
     variable wv : unsigned(15 downto 0);
@@ -3692,6 +3699,18 @@ begin
           assert as_f = as_flags(to_integer(as_skip), to_integer(as_rem))
             report "SSNAIL: stale as_f" severity failure;
           sk := to_integer(as_skip);
+          -- the next as_f for every outcome, from registers only; the
+          -- outcome just picks one
+          for si in 0 to 3 loop
+            for wi in 0 to 3 loop
+              asf_c(si, wi) := as_flags(sk - si, to_integer(as_rem) - wi);
+            end loop;
+            if d_fmt = 8 then
+              asf_full(si) := as_flags(sk - si, 34);
+            else
+              asf_full(si) := as_flags(sk - si, 18);
+            end if;
+          end loop;
           -- c = min(available, skip + rem) bytes taken, s = min(skip, c)
           -- skipped, w = c - s shifted in; from the thresholds in as_f
           nav := 0;
@@ -3753,14 +3772,13 @@ begin
             as_full <= '1';
             if d_fmt = 8 then
               as_rem <= to_unsigned(34, 6);
-              as_f <= as_flags(sk - as_s, 34);
             else
               as_rem <= to_unsigned(18, 6);
-              as_f <= as_flags(sk - as_s, 18);
             end if;
+            as_f <= asf_full(as_s);
           else
             as_rem <= as_rem - as_w;
-            as_f <= as_flags(sk - as_s, to_integer(as_rem) - as_w);
+            as_f <= asf_c(as_s, as_w);
           end if;
         end if;
 
