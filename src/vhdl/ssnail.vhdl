@@ -600,12 +600,18 @@ architecture shell of ssnail is
   signal ef_miss : boolean := true;
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
   signal at_hend : boolean := false;    -- at_h = at_nh: every head done
+  signal at_ge   : boolean := false;    -- at_gc >= at_nkv (A_GRP)
   signal at_h, at_kvh, at_gc, at_group : unsigned(15 downto 0) := (others => '0');
   signal at_rowb   : unsigned(27 downto 0) := (others => '0');
   signal at_qhead_addr : unsigned(27 downto 0) := (others => '0'); -- Q head start
   signal at_kv_stride : unsigned(27 downto 0) := (others => '0'); -- bytes per KV head
   signal at_kv_offset : unsigned(27 downto 0) := (others => '0'); -- current KV head offset
   signal at_t      : unsigned(15 downto 0) := (others => '0');
+  -- Set alongside at_t (at_tgo): at_t = at_pos + 1 (the last position is
+  -- done), and sarr(at_t), read ahead so the FPU operands come from a register
+  signal at_tend   : boolean := false;
+  signal at_sv     : unsigned(31 downto 0) := (others => '0');
+  signal at_pos1   : unsigned(15 downto 0) := (others => '0');   -- at_pos + 1
   signal at_i      : unsigned(8 downto 0) := (others => '0');
   signal at_rs, at_m, at_r, at_acc, at_w : unsigned(31 downto 0) := (others => '0');
   signal at_pi     : unsigned(2 downto 0) := (others => '0');
@@ -1159,6 +1165,8 @@ begin
     variable pf_go : boolean;                   -- read the operands at pf_x/y/b
     variable pf_x, pf_y, pf_b : unsigned(7 downto 0);
     variable pf_i : unsigned(7 downto 0);       -- ... and the v_i that goes with them
+    variable at_tgo : boolean;                  -- at_t <= at_tn this cycle
+    variable at_tn  : unsigned(15 downto 0);
     variable xv, lo, hi : unsigned(31 downto 0);
     variable ra, rb : unsigned(31 downto 0);     -- R[a], R[b] in C_RESOLVE
     variable ti : integer range 0 to 1023;
@@ -1188,6 +1196,8 @@ begin
       pf_go := false;
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
+      at_tgo := false;
+      at_tn := at_t;
       sd_issue := '0';
       lp_inc := '0';
       lp_dec := '0';
@@ -3132,10 +3142,13 @@ begin
           -- group = n_heads / n_kv_heads, by repeated subtraction
           at_group <= (others => '0');
           at_gc <= at_nh(15 downto 0);
+          at_ge <= at_nh(15 downto 0) >= at_nkv(15 downto 0);
           cstate <= A_GRP;
         when A_GRP =>
-          if at_gc >= at_nkv(15 downto 0) then
+          assert at_ge = (at_gc >= at_nkv(15 downto 0)) report "SSNAIL: stale at_ge" severity failure;
+          if at_ge then                             -- at_gc >= at_nkv
             at_gc <= at_gc - at_nkv(15 downto 0);
+            at_ge <= at_gc - at_nkv(15 downto 0) >= at_nkv(15 downto 0);
             at_group <= at_group + 1;
           else
             at_h <= (others => '0');
@@ -3161,7 +3174,7 @@ begin
           end if;
         when A_Q =>
           if at_i = at_hd(8 downto 0) then
-            at_t <= (others => '0');
+            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
             at_rowaddr <= at_k;
             cstate <= A_S_T;
           else
@@ -3176,8 +3189,10 @@ begin
 
         -- scores: s_t = seq_sum(k_t * q) * rs; track the maximum
         when A_S_T =>
-          if at_t = at_pos(15 downto 0) + 1 then
-            at_t <= (others => '0');
+          assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
+          if at_tend then                           -- at_t = at_pos + 1
+            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
             ve_first <= '1';
             cstate <= A_E_T;
           else
@@ -3223,17 +3238,19 @@ begin
           if at_t = 0 or flt(at_m, fpu_r) then
             at_m <= fpu_r;
           end if;
-          at_t <= at_t + 1;
+          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
           at_rowaddr <= at_rowaddr + at_rowb;
           cstate <= A_S_T;
 
         -- e_t = EXP(s_t - m); z = seq_sum(e)
         when A_E_T =>
-          if at_t = at_pos(15 downto 0) + 1 then
+          assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
+          if at_tend then                           -- at_t = at_pos + 1
             fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
             fpu_ret <= A_E_R; cstate <= C_FPU_WAIT;
           else
-            fpu_op <= FOP_ADD; fpu_a <= sarr(to_integer(at_t(9 downto 0)));
+            fpu_op <= FOP_ADD; fpu_a <= at_sv;
             fpu_b <= (not at_m(31)) & at_m(30 downto 0);
             fpu_start <= '1'; fpu_ret <= A_E_1; cstate <= C_FPU_WAIT;
           end if;
@@ -3245,7 +3262,7 @@ begin
           sarr(to_integer(at_t(9 downto 0))) <= tval;
           if ve_first = '1' then
             at_acc <= tval; ve_first <= '0';
-            at_t <= at_t + 1;
+            at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
             cstate <= A_E_T;
           else
             fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= tval; fpu_start <= '1';
@@ -3253,36 +3270,40 @@ begin
           end if;
         when A_E_3 =>
           at_acc <= fpu_r;
-          at_t <= at_t + 1;
+          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
           cstate <= A_E_T;
         when A_E_R =>                               -- r = 1 / z; w_t = e_t * r
           at_r <= fpu_r;
-          at_t <= (others => '0');
+          at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
           cstate <= A_W_T;
         when A_W_T =>
-          if at_t = at_pos(15 downto 0) + 1 then
-            at_t <= (others => '0');
+          assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
+          if at_tend then                           -- at_t = at_pos + 1
+            at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
             at_rowaddr <= at_v;
             cstate <= A_O_T;
           else
-            fpu_op <= FOP_MUL; fpu_a <= sarr(to_integer(at_t(9 downto 0))); fpu_b <= at_r;
+            fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
             fpu_start <= '1'; fpu_ret <= A_W_1; cstate <= C_FPU_WAIT;
           end if;
         when A_W_1 =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
-          at_t <= at_t + 1;
+          at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
           cstate <= A_W_T;
         when A_E_R2 =>
           cstate <= A_W_T;
 
         -- out = out + w_t * v_t, sequentially over t
         when A_O_T =>
-          if at_t = at_pos(15 downto 0) + 1 then
+          assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
+          if at_tend then                           -- at_t = at_pos + 1
             at_i <= (others => '0');
             cstate <= A_WR;
           else
             at_i <= (others => '0');
-            at_w <= sarr(to_integer(at_t(9 downto 0)));
+            at_w <= at_sv;
             if at_fmt = 1 then
               ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '1';
@@ -3294,7 +3315,7 @@ begin
           end if;
         when A_O_I =>
           if at_i = at_hd(8 downto 0) then
-            at_t <= at_t + 1;
+            at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
             at_rowaddr <= at_rowaddr + at_rowb;
             cstate <= A_O_T;
           else
@@ -3381,6 +3402,14 @@ begin
           done_tgl <= not done_tgl;
           cstate <= C_IDLE;
       end case;
+
+      -- ATTN position state (see at_tend): sarr is written at the old at_t
+      -- only, so the read at the new one sees the value it will hold
+      at_pos1 <= at_pos(15 downto 0) + 1;
+      if at_tgo then
+        at_tend <= at_tn = at_pos1;
+        at_sv <= sarr(to_integer(at_tn(9 downto 0)));
+      end if;
 
       -- Element operands for V_EL (see pre_x): element v_i's X (and the next
       -- X, for ROPE), Y and B, at the byte offsets the entering state chose

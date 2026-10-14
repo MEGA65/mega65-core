@@ -122,8 +122,13 @@ puts $fh ""
 close $fh
 
 # Fill of each placement block: a crowded pblock forces long routes inside it
-if {[catch {report_utilization -pblocks [get_pblocks] -file $hotspot_out -append} why]} {
-    puts "SKIPPED pblock utilisation: $why"
+foreach pb [get_pblocks -quiet] {
+    if {[catch {report_utilization -pblocks $pb -file $hotspot_out -append} why]} {
+        set fh [open $hotspot_out a]
+        puts $fh "pblock $pb: utilisation report failed: $why"
+        puts $fh "  range [get_property GRID_RANGES $pb], [llength [get_cells -quiet -of_objects $pb]] cells"
+        close $fh
+    }
 }
 
 set i 0
