@@ -56,7 +56,7 @@ architecture multicycle of ssnail_fpu is
 
   type state_t is (S_IDLE, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
                    S_DN1, S_DN2, S_ROUND, S_PACK, S_INT1,
-                   S_DNORM, S_DIV, S_SQNORM, S_SQNORM2, S_SQRT);
+                   S_DNORM, S_DNORM2, S_DIV, S_SQNORM, S_SQNORM1, S_SQNORM2, S_SQRT);
   signal state : state_t := S_IDLE;
 
   signal to_f16  : std_logic := '0';        -- round to F16 instead of F32
@@ -94,6 +94,9 @@ architecture multicycle of ssnail_fpu is
   signal dv_r  : unsigned(25 downto 0) := (others => '0');
   signal dv_q  : unsigned(46 downto 0) := (others => '0');
   signal dv_i  : integer range -1 to 46 := 0;
+  -- subnormal significands: normalising shifts, counted a state before
+  -- they are applied
+  signal dn_la, dn_lb : integer range 0 to 23 := 0;
   -- Square root: integer square root of a 94-bit radicand, 2 bits per step
   signal sq_rad  : unsigned(93 downto 0) := (others => '0');
   signal sq_rem  : unsigned(49 downto 0) := (others => '0');
@@ -304,7 +307,13 @@ begin
                 unpack32(b, sb, eb, mb);
                 rs <= sa xor sb;
                 dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
-                state <= S_DNORM;
+                if ma(23) = '1' and mb(23) = '1' then
+                  dv_r <= "00" & ma;              -- (normal: nothing to shift)
+                  dv_i <= 46;
+                  state <= S_DIV;
+                else
+                  state <= S_DNORM;
+                end if;
               end if;
             elsif op = FOP_SQRT then
               -- -------------------------------------------------- sqrt
@@ -318,7 +327,11 @@ begin
                 unpack32(a, sa, ea, ma);
                 rs <= '0';
                 dv_ma <= ma; dv_ea <= ea;
-                state <= S_SQNORM;
+                if ma(23) = '1' then
+                  state <= S_SQNORM2;             -- (normal: nothing to shift)
+                else
+                  state <= S_SQNORM;
+                end if;
               end if;
             elsif op = FOP_TRUNC then
               -- -------------------------------------------------- truncate
@@ -390,17 +403,21 @@ begin
 
         when S_DNORM =>
           -- Normalise subnormal operands so both significands have their
-          -- leading 1 at bit 23
+          -- leading 1 at bit 23: count here, shift in S_DNORM2
           la := 0; lb := 0;
           for i in 0 to 23 loop
             if dv_ma(i) = '1' then la := 23 - i; end if;
             if dv_mb(i) = '1' then lb := 23 - i; end if;
           end loop;
-          dv_ma <= shift_left(dv_ma, la);
-          dv_mb <= shift_left(dv_mb, lb);
-          dv_ea <= dv_ea - la;
-          dv_eb <= dv_eb - lb;
-          dv_r <= "00" & shift_left(dv_ma, la);
+          dn_la <= la; dn_lb <= lb;
+          state <= S_DNORM2;
+
+        when S_DNORM2 =>
+          dv_ma <= shift_left(dv_ma, dn_la);
+          dv_mb <= shift_left(dv_mb, dn_lb);
+          dv_ea <= dv_ea - dn_la;
+          dv_eb <= dv_eb - dn_lb;
+          dv_r <= "00" & shift_left(dv_ma, dn_la);
           dv_i <= 46;
           state <= S_DIV;
 
@@ -413,8 +430,12 @@ begin
           for i in 0 to 23 loop
             if dv_ma(i) = '1' then la := 23 - i; end if;
           end loop;
-          dv_ma <= shift_left(dv_ma, la);
-          dv_ea <= dv_ea - la;
+          dn_la <= la;
+          state <= S_SQNORM1;
+
+        when S_SQNORM1 =>
+          dv_ma <= shift_left(dv_ma, dn_la);
+          dv_ea <= dv_ea - dn_la;
           state <= S_SQNORM2;
 
         when S_SQNORM2 =>
