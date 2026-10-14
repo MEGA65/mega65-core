@@ -214,6 +214,8 @@ if [[ ${REPACK} -eq 0 ]]; then
     cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
     cp ${BITPATHBASE}.log ${PKGPATH}/log/
     cp ${BITPATHBASE}.timing.txt ${PKGPATH}/log/
+    # (path hot spots, from scripts/timing_hotspots.tcl, when the build made them)
+    cp ${BITPATHBASE}.hotspots.txt ${PKGPATH}/log/ 2>/dev/null || true
     VIOLATIONS=$( grep -c VIOL ${BITPATHBASE}.timing.txt )
     if [[ $VIOLATIONS -gt 0 ]]; then
         touch ${PKGPATH}/WARNING_${VIOLATIONS}_TIMING_VIOLATIONS
