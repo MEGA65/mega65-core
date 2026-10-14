@@ -624,6 +624,15 @@ architecture shell of ssnail is
   signal sr_next, sr_end, str_base : unsigned(27 downto 0) := (others => '0');
   signal str_local : unsigned(26 downto 0) := (others => '0');
   signal str_is_sd : std_logic := '0';
+  -- Stream reader burst precompute, two register stages from sr_next.
+  -- Stage A: remaining bytes, room to the 256-byte boundary, boundary
+  -- address, offset into the stream.  Stage B: burst end/length and the
+  -- LUMP address.  sr_ok2 is cleared whenever sr_next moves (or g2 = '0')
+  -- and set again two edges later, once stage B reflects the new sr_next.
+  signal sr_rem_q, sr_bnd_q, sr_off_q, sr_a1_q : unsigned(27 downto 0) := (others => '0');
+  signal sr_room_q, sr_len_q : unsigned(8 downto 0) := (others => '0');
+  signal sr_addr_q : unsigned(26 downto 0) := (others => '0');
+  signal sr_more_q, sr_ok1, sr_ok2 : std_logic := '0';
   signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
   -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
   type rq_tag_t is array (0 to 3) of std_logic;
@@ -645,6 +654,17 @@ architecture shell of ssnail is
   signal mc_c      : unsigned(3 downto 0) := (others => '0');
   signal mc_blk    : unsigned(7 downto 0) := (others => '0');    -- block within the row
   signal mc_isum   : signed(31 downto 0) := (others => '0');
+  -- mc_isum -> F32, three register stages (same result as i_to_f32).
+  -- A finished block's sum, scale and index are captured into stage 1,
+  -- which frees the lanes for the next block at once; the term is
+  -- launched on fpu2 from stage 3.  One block in flight (i2f_busy).
+  signal i2f_abs_q, i2f_abs2_q : unsigned(23 downto 0) := (others => '0');
+  signal i2f_neg_q, i2f_neg2_q, i2f_zero_q, i2f_zero2_q : std_logic := '0';
+  signal i2f_p_q   : unsigned(4 downto 0) := (others => '0');
+  signal i2f_res_q : unsigned(31 downto 0) := (others => '0');
+  signal i2f_scale : unsigned(31 downto 0) := (others => '0');
+  signal i2f_blk   : unsigned(7 downto 0) := (others => '0');
+  signal i2f_busy, i2f_ok1, i2f_ok2, i2f_ok3 : std_logic := '0';
   -- Four-lane GEMV MAC, registered after memory selection, multiplication,
   -- pair summation and final lane summation.  One group enters per 163 MHz
   -- cycle; mc_done is asserted only AFTER the final accumulation commits.
@@ -1085,6 +1105,8 @@ begin
     variable sr_inflight_dec, tl_full_clr : std_logic;
     variable tl_free : boolean;
     variable fv : unsigned(31 downto 0);
+    variable i2f_p : integer range 0 to 23;
+    variable i2f_m : unsigned(23 downto 0);
   begin
     if rising_edge(clock162) then
       hr_issue := '0';
@@ -3176,27 +3198,50 @@ begin
         -- Stream reader: issue the next burst (to the next 256-byte
         -- boundary) whenever the FIFO has room, except in the two states
         -- where the main FSM issues commands itself.
+        -- Burst precompute, stage A.  sr_next <= sr_end always holds (it
+        -- starts 8-aligned below the row start and only ever advances to
+        -- min(boundary, sr_end)), so min(boundary, sr_end) - sr_next is
+        -- min(room, rem).
+        sr_rem_q  <= sr_end - sr_next;
+        sr_room_q <= to_unsigned(256, 9) - resize(sr_next(7 downto 0), 9);
+        sr_bnd_q  <= (sr_next(27 downto 8) + 1) & x"00";
+        sr_off_q  <= sr_next - str_base;
+        sr_ok1 <= '1';
+        -- Stage B: burst end, length in bytes, LUMP address.  Ties take the
+        -- boundary, as the original a1 > sr_end test did.
+        if sr_rem_q(27 downto 9) = 0 and sr_rem_q(8 downto 0) < sr_room_q then
+          sr_a1_q  <= sr_end;
+          sr_len_q <= sr_rem_q(8 downto 0);
+        else
+          sr_a1_q  <= sr_bnd_q;
+          sr_len_q <= sr_room_q;
+        end if;
+        sr_addr_q <= str_local + sr_off_q(26 downto 0);
+        if sr_rem_q /= 0 then sr_more_q <= '1'; else sr_more_q <= '0'; end if;
+        sr_ok2 <= sr_ok1;
+
         if cstate /= C_RD_ISSUE and cstate /= C_WR_ISSUE
-          and sr_next /= sr_end and hr_valid_i = '0' and sd_valid_i = '0'
+          and sr_ok2 = '1' and sr_more_q = '1'
+          and hr_valid_i = '0' and sd_valid_i = '0'
           and rq_w - rq_r < 3 then
-          a1 := (sr_next(27 downto 8) + 1) & x"00";
-          if a1 > sr_end then a1 := sr_end; end if;
-          a2 := a1 - sr_next;                       -- bytes
-          if resize(wf_w - wf_r, 10) + resize(sr_inflight, 10) + resize(a2(8 downto 1), 10) <= 256 then
+          if resize(wf_w - wf_r, 10) + resize(sr_inflight, 10) + resize(sr_len_q(8 downto 1), 10) <= 256 then
             if str_is_sd = '1' then
               sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
-              sd_cmd_addr <= str_local + resize(sr_next - str_base, 27); sd_cmd_len <= a2(8 downto 0);
+              sd_cmd_addr <= sr_addr_q; sd_cmd_len <= sr_len_q;
               sd_issue := '1';
             else
               hr_valid_i <= '1'; hr_cmd_op <= LUMP_OP_READ;
-              hr_cmd_addr <= str_local + resize(sr_next - str_base, 27); hr_cmd_len <= a2(8 downto 0);
+              hr_cmd_addr <= sr_addr_q; hr_cmd_len <= sr_len_q;
               hr_issue := '1';
             end if;
             rq_push := true;
             rq_push_tag := '1';
-            rq_push_cnt := resize(a2(8 downto 1), 8);
-            sr_inflight_inc := resize(a2(8 downto 1), 9);
-            sr_next <= a1;
+            rq_push_cnt := resize(sr_len_q(8 downto 1), 8);
+            sr_inflight_inc := resize(sr_len_q(8 downto 1), 9);
+            sr_next <= sr_a1_q;
+            -- stage B must be recomputed from the new sr_next
+            sr_ok1 <= '0';
+            sr_ok2 <= '0';
           end if;
         end if;
 
@@ -3332,6 +3377,50 @@ begin
         if tl_full_clr = '1' then
           tl_full <= '0';
         end if;
+        -- mc_isum -> F32 (i_to_f32, |v| < 2^24), pipelined.  Stage 1
+        -- captures a finished block (sign, zero, magnitude: only the low 24
+        -- bits of |v| reach the result) with its scale and index, and frees
+        -- the lanes; stages 2 and 3 follow from the held stage 1.
+        i2f_ok1 <= '0';
+        if mc_done = '1' and mc_scale_ok = '1' and i2f_busy = '0' then
+          i2f_neg_q  <= mc_isum(31);
+          if mc_isum = 0 then i2f_zero_q <= '1'; else i2f_zero_q <= '0'; end if;
+          if mc_isum(31) = '1' then
+            i2f_abs_q <= unsigned(-mc_isum(23 downto 0));
+          else
+            i2f_abs_q <= unsigned(mc_isum(23 downto 0));
+          end if;
+          i2f_scale <= mc_scale;
+          i2f_blk <= mc_blk;
+          i2f_busy <= '1';
+          i2f_ok1 <= '1';
+          mc_done <= '0';
+          mc_scale_ok <= '0';
+          if mc_blk + 1 = g_nb then
+            mc_blk <= (others => '0');
+          else
+            mc_blk <= mc_blk + 1;
+          end if;
+        end if;
+        -- Stage 2: position of the leading one
+        i2f_p := 0;
+        for i in 0 to 23 loop
+          if i2f_abs_q(i) = '1' then i2f_p := i; end if;
+        end loop;
+        i2f_p_q <= to_unsigned(i2f_p, 5);
+        i2f_abs2_q <= i2f_abs_q;
+        i2f_neg2_q <= i2f_neg_q;
+        i2f_zero2_q <= i2f_zero_q;
+        -- Stage 3: normalise and pack
+        if i2f_zero2_q = '1' then
+          i2f_res_q <= x"00000000";
+        else
+          i2f_m := shift_left(i2f_abs2_q, 23 - to_integer(i2f_p_q));
+          i2f_res_q <= i2f_neg2_q & to_unsigned(127 + to_integer(i2f_p_q), 8)
+                       & i2f_m(22 downto 0);
+        end if;
+        i2f_ok2 <= i2f_ok1;
+        if i2f_ok2 = '1' then i2f_ok3 <= '1'; end if;
         -- finished terms go to the tail, or wait in th_* while it is busy
         tl_free := tl_full = '0' or tl_full_clr = '1';
         if th_v = '1' and tl_free then
@@ -3346,22 +3435,19 @@ begin
             th_v <= '1'; th_val <= fpu2_res; th_blk <= tm_blk;
           end if;
           tm_busy <= '0';
-        elsif mc_done = '1' and mc_scale_ok = '1' and tm_busy = '0' and th_v = '0' then
-          fpu2_a <= i_to_f32(mc_isum);
-          fpu2_b <= mc_scale;
+        elsif i2f_ok3 = '1' and tm_busy = '0' and th_v = '0' then
+          fpu2_a <= i2f_res_q;
+          fpu2_b <= i2f_scale;
           fpu2_start <= '1';
           f2_term <= '1';
           tm_busy <= '1';
-          tm_blk <= mc_blk;
-          mc_done <= '0';
-          mc_scale_ok <= '0';
-          if mc_blk + 1 = g_nb then
-            mc_blk <= (others => '0');
-          else
-            mc_blk <= mc_blk + 1;
-          end if;
+          tm_blk <= i2f_blk;
+          i2f_busy <= '0';
+          i2f_ok3 <= '0';
         end if;
       else
+        sr_ok1 <= '0'; sr_ok2 <= '0';
+        i2f_busy <= '0'; i2f_ok1 <= '0'; i2f_ok2 <= '0'; i2f_ok3 <= '0';
         mc_drain <= '0';
         mc_v0 <= '0'; mc_v1 <= '0'; mc_v2 <= '0'; mc_v3 <= '0';
         mc_last0 <= '0'; mc_last1 <= '0'; mc_last2 <= '0'; mc_last3 <= '0';
