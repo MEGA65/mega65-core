@@ -541,6 +541,11 @@ architecture gothic of hyperram is
   signal fl_n    : integer range 0 to H_FILL := 0;
   signal fl_line : integer range 0 to H_FILL - 1 := 0;
   signal fl_word : integer range 0 to 3 := 0;
+  -- The first three words of a fill, collected here rather than in the
+  -- slot (which is not valid until the line is complete, so nothing reads
+  -- it): the completed line is written to the slot once, and the merge
+  -- needs no read of c_data through the slot mux
+  signal fl_buf  : unsigned(47 downto 0) := (others => '0');
   signal fl_err  : std_logic := '0';
   -- the tag and slot of line fl_line, kept up to date alongside fl_line
   -- so the line-complete logic starts from registers
@@ -4424,12 +4429,11 @@ begin
       if le_error = '1' and lump_owner_cpu = '1' then fl_err <= '1'; end if;
       if le_rdata_valid = '1' and lump_owner_cpu = '1' and fill_active = '1' then
         if fl_word /= 3 then
-          c_data(fl_cur_slot)(16 * fl_word + 15 downto 16 * fl_word) <= le_rdata;
+          fl_buf(16 * fl_word + 15 downto 16 * fl_word) <= le_rdata;
           fl_word <= fl_word + 1;
         else
           -- the line is complete; posted writes to it go over the top
-          v2_line := c_data(fl_cur_slot);
-          v2_line(63 downto 48) := le_rdata;
+          v2_line := le_rdata & fl_buf;
           v2_tag := fl_cur_tag;
           for j in 0 to H_NW - 1 loop
             if fl_whit(j) = '1' then

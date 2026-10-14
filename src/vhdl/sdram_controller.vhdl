@@ -270,6 +270,11 @@ architecture tacoma_narrows of sdram_controller is
   signal fl_tag   : unsigned(26 downto 3) := (others => '1');
   signal fl_slot  : integer range 0 to NL - 1 := 0;
   signal fl_word  : integer range 0 to 3 := 0;
+  -- The first three words of a fill, collected here rather than in the
+  -- slot (which is not valid until the line is complete, so nothing reads
+  -- it): the completed line is written to the slot once, and the merge
+  -- needs no read of c_data through the slot mux
+  signal fl_buf   : unsigned(47 downto 0) := (others => '0');
   signal fl_rd_issue : std_logic := '0';
   signal fl_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
   -- "a fill word is on dq_x now" (see the capture below), worked out a cycle
@@ -902,13 +907,12 @@ begin
       v_pf_go := false;
       if fl_cap = '1' then
         if fl_word /= 3 then
-          c_data(fl_slot)(16 * fl_word + 15 downto 16 * fl_word) <= dq_x;
+          fl_buf(16 * fl_word + 15 downto 16 * fl_word) <= dq_x;
           fl_word <= fl_word + 1;
         else
           -- Last word: the line is complete.  Posted writes to it that are
           -- still buffered go over the top.
-          v_line := c_data(fl_slot);
-          v_line(63 downto 48) := dq_x;
+          v_line := dq_x & fl_buf;
           for j in 0 to NW - 1 loop
             if fl_whit(j) = '1' then
               for k in 0 to 7 loop
