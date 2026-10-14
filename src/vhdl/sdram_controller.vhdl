@@ -161,7 +161,7 @@ architecture tacoma_narrows of sdram_controller is
                          -- explicitly, so their position here only matters
                          -- in that they must come before IDLE.
                          -- CPU path and shared states (#949), likewise
-                         OPEN_CHK,
+                         OPEN_PRE, OPEN_CHK,
                          FILL_RD,
                          FILL_DRAIN,
                          FLUSH_WR,
@@ -245,6 +245,10 @@ architecture tacoma_narrows of sdram_controller is
   -- OPEN_CHK: get o_row open in o_bank (tRCD done), then go to o_ret
   signal o_bank : unsigned(1 downto 0) := "00";
   signal o_row  : unsigned(12 downto 0) := (others => '0');
+  -- Bank o_bank's state for OPEN_CHK, registered in OPEN_PRE and kept up to
+  -- date by OPEN_CHK's own PRECHARGE / ACTIVATE (nothing else touches the
+  -- banks meanwhile): open, and open at o_row
+  signal ob_open, ob_hit : boolean := false;
   signal o_ret  : sdram_state_t := IDLE;
 
   -- Line cache: NL lines of 8 bytes, round-robin replacement.  Written
@@ -317,7 +321,11 @@ architecture tacoma_narrows of sdram_controller is
   signal exp_data  : unsigned(63 downto 0) := (others => '0');
   signal x_look, x_use : std_logic := '0';
   signal x_addr : unsigned(26 downto 3) := (others => '1');
-  signal x_hit  : std_logic_vector(0 to NL - 1) := (others => '0');
+  -- The valid cached copy of x_addr found by the look-up (x_any), in slot
+  -- x_sel.  The use step re-checks c_val there: a copy invalidated (or its
+  -- slot reused) in between is fetched again instead
+  signal x_sel  : integer range 0 to NL - 1 := 0;
+  signal x_any  : boolean := false;
   signal x_want : std_logic := '0';             -- fill x_addr, then export it
   signal x_down : std_logic := '0';
 
@@ -703,7 +711,7 @@ begin
       o_bank <= l_bank(t);
       o_row  <= l_row(t);
       o_ret  <= FILL_RD;
-      sdram_state <= OPEN_CHK;
+      sdram_state <= OPEN_PRE;
     end procedure;
     -- Start writing out posted-write buffer j (copied out, so it is free
     -- again at once)
@@ -717,7 +725,7 @@ begin
       o_bank <= l_bank(w_tag(j));
       o_row  <= l_row(w_tag(j));
       o_ret  <= FLUSH_WR;
-      sdram_state <= OPEN_CHK;
+      sdram_state <= OPEN_PRE;
     end procedure;
 
     -- PRECHARGE ALL allowed in this cycle (tRAS and tWR in every open bank)
@@ -1237,7 +1245,7 @@ begin
                 o_bank <= a_bank(lump_q_addr);
                 o_row  <= lump_q_addr(25 downto 13);
                 if lump_is_write_pre = '1' then o_ret <= LUMP_W1; else o_ret <= LUMP_READ; end if;
-                sdram_state <= OPEN_CHK;
+                sdram_state <= OPEN_PRE;
               end if;
             else
               -- background: posted writes the CPU has moved on from, then
@@ -1256,6 +1264,14 @@ begin
               end if;
             end if;
 
+          when OPEN_PRE =>
+            -- Look up bank o_bank's open row once (see ob_open)
+            sdram_emit_command(CMD_NOP);
+            v_b := to_integer(o_bank);
+            ob_open <= bk_open(v_b) = '1';
+            ob_hit <= bk_row(v_b) = o_row;
+            sdram_state <= OPEN_CHK;
+
           when OPEN_CHK =>
             -- Open o_row in bank o_bank, then on to o_ret once a READ or
             -- WRITE may follow (tRCD).  A different open row there is closed
@@ -1263,17 +1279,20 @@ begin
             sdram_state <= OPEN_CHK;
             sdram_emit_command(CMD_NOP);
             v_b := to_integer(o_bank);
-            if bk_open(v_b) = '1' and bk_row(v_b) = o_row then
+            assert ob_open = (bk_open(v_b) = '1') and (not ob_open or ob_hit = (bk_row(v_b) = o_row))
+              report "SDRAM: stale ob_open / ob_hit" severity failure;
+            if ob_open and ob_hit then
               if bk_act(v_b) >= tRCD_C - 1 then
                 sdram_state <= o_ret;
               end if;
-            elsif bk_open(v_b) = '1' then
+            elsif ob_open then
               if bk_act(v_b) >= tRAS_C and bk_wr(v_b) >= tWR_C then
                 sdram_emit_command(CMD_PRECHARGE);
                 sdram_a(10) <= '0';             -- this bank only
                 sdram_ba <= o_bank;
                 bk_open(v_b) <= '0';
                 bk_pre(v_b) <= 1;
+                ob_open <= false;
               end if;
             elsif bk_pre(v_b) >= tRP_C and g_act >= tRRD_C then
               sdram_emit_command(CMD_ACTIVATE_ROW);
@@ -1283,6 +1302,8 @@ begin
               bk_row(v_b) <= o_row;
               bk_act(v_b) <= 1;
               g_act <= 1;
+              ob_open <= true;
+              ob_hit <= true;
             end if;
 
           when FILL_RD =>
@@ -2072,17 +2093,17 @@ begin
         elsif x_look = '1' then
           x_look <= '0';
           x_use <= '1';
-          for i in 0 to NL - 1 loop
-            if c_tag(i) = x_addr then x_hit(i) <= '1'; else x_hit(i) <= '0'; end if;
-          end loop;
-        elsif x_use = '1' then
-          x_use <= '0';
           v_hit := -1;
           for i in 0 to NL - 1 loop
-            if x_hit(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
+            if c_tag(i) = x_addr and c_val(i) = '1' then v_hit := i; end if;
           end loop;
-          if v_hit /= -1 and write_latched = '0' and write_guard_q = '0' then
-            set_export(x_addr, c_data(v_hit));
+          x_any <= v_hit /= -1;
+          if v_hit /= -1 then x_sel <= v_hit; end if;
+        elsif x_use = '1' then
+          x_use <= '0';
+          if x_any and c_val(x_sel) = '1' and write_latched = '0' and write_guard_q = '0' then
+            assert c_tag(x_sel) = x_addr report "SDRAM: x_sel slot reused" severity failure;
+            set_export(x_addr, c_data(x_sel));
             if cflags(1) = '1' then prefetch_from(x_addr); end if;
           else
             x_want <= '1';              -- (fetched, then exported)
