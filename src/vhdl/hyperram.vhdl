@@ -4574,9 +4574,14 @@ begin
               w_age(v2_wh)  <= 0;
               w_cur <= v2_wh;
               -- write through into the cached copy (also one completing now)
+              -- (lk_c is R_LOOK's c_tag match: a slot retagged since then
+              -- has c_val = 0, and no fill completes in this branch)
               for i in 0 to H_NL - 1 loop
-                if c_tag(i) = l_addr(26 downto 3)
-                  and (c_val(i) = '1' or (v2_done and i = v2_done_slot)) then
+                assert lk_c(i) = '1' or c_tag(i) /= l_addr(26 downto 3) or c_val(i) = '0'
+                  report "HYPERRAM: lk_c misses a valid copy" severity failure;
+                assert lk_c(i) = '0' or c_val(i) = '0' or c_tag(i) = l_addr(26 downto 3)
+                  report "HYPERRAM: lk_c names a reused slot" severity failure;
+                if lk_c(i) = '1' and c_val(i) = '1' then
                   for k in 0 to 7 loop
                     if (k = v2_idx and l_wen_lo = '1') or (k = v2_idx + 1 and l_wen_hi = '1') then
                       c_data(i)(8 * k + 7 downto 8 * k) <= v2_line(8 * k + 7 downto 8 * k);

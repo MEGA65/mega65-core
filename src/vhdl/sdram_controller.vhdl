@@ -2045,9 +2045,14 @@ begin
                 w_cur <= v_wh;
                 -- write through into the cached copy (also one completing
                 -- right now), and the exported line
+                -- (lk_c is R_LOOK's c_tag match: a slot retagged since then
+                -- has c_val = 0, and no fill completes in this branch)
                 for i in 0 to NL - 1 loop
-                  if c_tag(i) = latched_addr(26 downto 3)
-                    and (c_val(i) = '1' or (v_fill_done and i = fl_slot)) then
+                  assert lk_c(i) = '1' or c_tag(i) /= latched_addr(26 downto 3) or c_val(i) = '0'
+                    report "SDRAM: lk_c misses a valid copy" severity failure;
+                  assert lk_c(i) = '0' or c_val(i) = '0' or c_tag(i) = latched_addr(26 downto 3)
+                    report "SDRAM: lk_c names a reused slot" severity failure;
+                  if lk_c(i) = '1' and c_val(i) = '1' then
                     for k in 0 to 7 loop
                       if v_mask(k) = '1' and (k = v_idx or (rdata_16en = '1' and k = v_idx + 1)) then
                         c_data(i)(8 * k + 7 downto 8 * k) <= v_line(8 * k + 7 downto 8 * k);

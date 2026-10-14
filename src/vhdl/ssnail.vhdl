@@ -610,6 +610,7 @@ architecture shell of ssnail is
   -- Set alongside at_t (at_tgo): at_t = at_pos + 1 (the last position is
   -- done), and sarr(at_t), read ahead so the FPU operands come from a register
   signal at_tend   : boolean := false;
+  signal at_iend   : boolean := false;    -- at_i = at_hd, set alongside at_i
   signal at_sv     : unsigned(31 downto 0) := (others => '0');
   signal at_pos1   : unsigned(15 downto 0) := (others => '0');   -- at_pos + 1
   signal at_i      : unsigned(8 downto 0) := (others => '0');
@@ -638,6 +639,14 @@ architecture shell of ssnail is
   -- cycle; grp and d_j are never written in the state just before D_EMIT
   -- (D_STORE goes through D_EMIT_W), asserted there
   signal d_qv : signed(31 downto 0) := (others => '0');
+  -- DEQROW output written since ostart (pz /= ostart), set with every write
+  -- of pz or ostart on the way to D_GROUP
+  signal d_unflushed : boolean := false;
+  -- GEMV accumulate: the old output block is loaded (out_loaded = '1' and
+  -- pz(27:8) = out_block) and the old value at pz, recomputed every cycle:
+  -- none of them changes in the state just before G_OUT (asserted there)
+  signal g_have_old : boolean := false;
+  signal g_oldv : unsigned(31 downto 0) := (others => '0');
 
   -- GEMV
   type f32x32_t is array (0 to 31) of unsigned(31 downto 0);
@@ -677,6 +686,10 @@ architecture shell of ssnail is
   -- and an issue blocks the next two cycles (sr_ok2), so it never
   -- understates the space in use when it is acted on
   signal sr_used_q : unsigned(9 downto 0) := (others => '0');
+  -- the burst in sr_len_q fits: sr_used_q + words <= 256, made in stage B
+  -- with sr_len_q from sr_used_q: after an issue it includes it two edges
+  -- later, when sr_ok2 lets the next one through
+  signal sr_fit_q : boolean := false;
   signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
   -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
   type rq_tag_t is array (0 to 3) of std_logic;
@@ -688,6 +701,9 @@ architecture shell of ssnail is
   signal grpf, grpc : grp_t := (others => x"00");
   signal as_rem    : unsigned(5 downto 0) := (others => '0');   -- bytes left in this block
   signal as_any    : std_logic := '0';                          -- as_blocks /= 0
+  -- as_flags(as_skip, as_rem): skip >= 1, 2, 3; skip + rem >= 2, 3;
+  -- rem = 1, 2, 3.  All the assembler's step needs, as registers
+  signal as_f      : std_logic_vector(7 downto 0) := (others => '0');
   signal as_skip   : unsigned(2 downto 0) := (others => '0');
   signal as_full   : std_logic := '0';
   signal pb_v      : std_logic := '0';
@@ -794,6 +810,10 @@ architecture shell of ssnail is
   signal lp_cmt_s1, lp_cmt_s2, lp_cmt_last : std_logic := '0';
   signal lp_pending   : unsigned(2 downto 0) := (others => '0');  -- complete blocks waiting
   signal lp_drain     : unsigned(27 downto 0) := (others => '0'); -- next address to write
+  -- lp_drain = lp_cmt_end: set with every write of lp_drain, and
+  -- recomputed every cycle for lp_cmt_end (written on the cpuclock side,
+  -- and used only once its commit toggle has been synchronised)
+  signal lp_at_cmt : boolean := true;
   signal lp_end       : unsigned(27 downto 0) := (others => '0'); -- end of current chunk
   signal lp_is_commit : std_logic := '0';
   signal lp_ack_tgl, lp_cack_tgl : std_logic := '0';
@@ -856,6 +876,21 @@ architecture shell of ssnail is
   attribute async_reg of lp_ack_s1, lp_ack_s2, lp_cack_s1, lp_cack_s2 : signal is "true";
   attribute async_reg of lp_err_s1, lp_err_s2 : signal is "true";
 
+  -- Block assembler thresholds for as_skip = sk, as_rem = rm (see as_f)
+  function as_flags(sk, rm : integer) return std_logic_vector is
+    variable f : std_logic_vector(7 downto 0) := (others => '0');
+  begin
+    if sk >= 1 then f(0) := '1'; end if;
+    if sk >= 2 then f(1) := '1'; end if;
+    if sk >= 3 then f(2) := '1'; end if;
+    if sk + rm >= 2 then f(3) := '1'; end if;
+    if sk + rm >= 3 then f(4) := '1'; end if;
+    if rm = 1 then f(5) := '1'; end if;
+    if rm = 2 then f(6) := '1'; end if;
+    if rm = 3 then f(7) := '1'; end if;
+    return f;
+  end function;
+
   function min9(a, b : unsigned(8 downto 0)) return unsigned is
   begin
     if a < b then return a; else return b; end if;
@@ -882,7 +917,7 @@ begin
   -- several states after the last store (C_WR_DEC, C_WR_ISSUE, then the
   -- LUMP data request), so nothing reads a halfword in the cycle it lands.
   process (cstate, o16, pz, v_i, fpu_r, d_val, g_val, g_f16,
-           rp0, outv, at_i, at_hd) is
+           rp0, outv, at_i, at_iend) is
     variable byte_index : unsigned(7 downto 0);
   begin
     ob_c_en   <= '0';
@@ -924,7 +959,7 @@ begin
         ob_c_data <= fpu_r & rp0;
         ob_c_en <= '1';
       when A_WR =>
-        if at_i /= at_hd(8 downto 0) then
+        if not at_iend then                -- at_i /= at_hd
           ob_c_base <= pz(7 downto 1);
           ob_c_mask <= "0011";
           ob_c_data(31 downto 0) <= outv(to_integer(at_i));
@@ -1167,6 +1202,8 @@ begin
     variable pf_i : unsigned(7 downto 0);       -- ... and the v_i that goes with them
     variable at_tgo : boolean;                  -- at_t <= at_tn this cycle
     variable at_tn  : unsigned(15 downto 0);
+    variable at_igo : boolean;                  -- at_i <= at_in this cycle
+    variable at_in  : unsigned(8 downto 0);
     variable xv, lo, hi : unsigned(31 downto 0);
     variable ra, rb : unsigned(31 downto 0);     -- R[a], R[b] in C_RESOLVE
     variable ti : integer range 0 to 1023;
@@ -1176,7 +1213,7 @@ begin
     variable qwv : signed(8 downto 0);
     variable qxv : signed(7 downto 0);
     variable lsum : signed(31 downto 0);
-    variable jj, need, nav, sk : integer range 0 to 63;
+    variable jj, nav, sk : integer range 0 to 63;
     variable as_c, as_s, as_w : integer range 0 to 3;
     variable avb : grp_t;
     variable popw : boolean;
@@ -1198,6 +1235,8 @@ begin
       pf_i := v_i;
       at_tgo := false;
       at_tn := at_t;
+      at_igo := false;
+      at_in := at_i;
       sd_issue := '0';
       lp_inc := '0';
       lp_dec := '0';
@@ -1398,6 +1437,11 @@ begin
         d_qv <= resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32) - 8;
       end if;
 
+      lp_at_cmt <= lp_drain = lp_cmt_end;           -- (overridden where lp_drain is set)
+
+      g_have_old <= out_loaded = '1' and pz(27 downto 8) = out_block;
+      g_oldv <= buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)));
+
       -- SETN operand checks for C_DECODE (see n0_z)
       n0_z <= n0 = 0;
       ef_miss <= ld_valid = '0' or ef_addr(27 downto 8) /= ld_block;
@@ -1435,13 +1479,16 @@ begin
               lp_end <= lp_cmt_end;
               en_al := lp_cmt_end;
               lp_is_commit <= '1';
-              if lp_cmt_clr = '1' and lp_drain = lp_cmt_end then
+              if lp_cmt_clr = '1' and lp_at_cmt then      -- lp_drain = lp_cmt_end
                 lp_error <= '0';
               end if;
             end if;
-            if lp_pending = 0 and lp_drain = lp_cmt_end then
+            assert lp_pending /= 0 or lp_at_cmt = (lp_drain = lp_cmt_end)
+              report "SSNAIL: stale lp_at_cmt" severity failure;
+            if lp_pending = 0 and lp_at_cmt then                -- lp_drain = lp_cmt_end
               -- Nothing (more) to flush: the commit takes effect
               lp_drain <= lp_cmt_new;
+              lp_at_cmt <= lp_cmt_new = lp_cmt_end;
               lp_cmt_last <= lp_cmt_s2;
               lp_cack_tgl <= lp_cmt_s2;
             else
@@ -1747,7 +1794,7 @@ begin
                 cstate <= C_END;
               else
                 v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-                ps <= ea_x; pz <= ea_z; ostart <= ea_z;
+                ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
                 ld_valid <= '0';
                 cstate <= D_GROUP;
               end if;
@@ -1997,6 +2044,7 @@ begin
 
         when C_LP_DONE =>
           lp_drain <= lp_end;
+          lp_at_cmt <= lp_end = lp_cmt_end;
           if lp_is_commit = '0' then
             lp_dec := '1';
             lp_ack_tgl <= not lp_ack_tgl;
@@ -2549,7 +2597,8 @@ begin
         -- boundary or the row ends.
         when D_GROUP =>
           if v_n_z then                                 -- v_n = 0
-            if pz /= ostart then
+            assert d_unflushed = (pz /= ostart) report "SSNAIL: stale d_unflushed" severity failure;
+          if d_unflushed then                         -- pz /= ostart
               a0 := ostart(27 downto 3) & "000";
               a1 := pz + 7;
               a1(2 downto 0) := "000";
@@ -2559,7 +2608,7 @@ begin
               mw_vend <= resize(pz - a0, 9);
               mw_idx <= a0(7 downto 1);
               dec_addr <= a0;
-              ostart <= pz;
+              ostart <= pz; d_unflushed <= false;
               wr_ret <= C_NEXT;
               cstate <= C_WR_DEC;
             else
@@ -2684,6 +2733,7 @@ begin
             mw_idx <= a0(7 downto 1);
             dec_addr <= a0;
             ostart <= a2;
+            d_unflushed <= false;
             if v_n_one then
               wr_ret <= C_NEXT;
             elsif d_j + 1 = epg then
@@ -2693,8 +2743,10 @@ begin
             end if;
             cstate <= C_WR_DEC;
           elsif d_j + 1 = epg then
+            d_unflushed <= a2 /= ostart;
             cstate <= D_GROUP;
           else
+            d_unflushed <= a2 /= ostart;
             cstate <= D_EMIT_W;                     -- (d_qv follows d_j)
           end if;
 
@@ -2884,7 +2936,13 @@ begin
             wf_w <= (others => '0'); wf_r <= (others => '0');
             sr_inflight <= (others => '0');
             rq_w <= (others => '0'); rq_r <= (others => '0');
-            if d_fmt = 8 then as_rem <= to_unsigned(34, 6); else as_rem <= to_unsigned(18, 6); end if;
+            if d_fmt = 8 then
+              as_rem <= to_unsigned(34, 6);
+              as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
+            else
+              as_rem <= to_unsigned(18, 6);
+              as_f <= as_flags(to_integer(ps(2 downto 0)), 18);
+            end if;
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0';
             as_blocks <= g_mul_p32;
@@ -2937,7 +2995,12 @@ begin
           end if;
 
         when G_OUT =>
-          if g_addz = '1' and (out_loaded = '0' or pz(27 downto 8) /= out_block) then
+          assert g_have_old = (out_loaded = '1' and pz(27 downto 8) = out_block)
+            report "SSNAIL: stale g_have_old" severity failure;
+          assert not g_have_old or g_addz = '0'
+            or g_oldv = buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)))
+            report "SSNAIL: stale g_oldv" severity failure;
+          if g_addz = '1' and not g_have_old then
             -- bring in the existing outputs of this 256-byte block
             a0 := pz(27 downto 3) & "000";
             a1 := (pz(27 downto 8) + 1) & x"00";
@@ -2952,7 +3015,7 @@ begin
           elsif g_addz = '1' then
             fpu_op <= FOP_ADD;                         -- y = acc + y_old
             fpu_a <= g_accv;
-            fpu_b <= buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)));
+            fpu_b <= g_oldv;
             fpu_start <= '1';
             fpu_ret <= G_OUT2;
             cstate <= C_FPU_WAIT;
@@ -3166,14 +3229,15 @@ begin
           if at_hend then                           -- at_h = at_nh
             cstate <= C_NEXT;
           else
-            at_i <= (others => '0');
+            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
             -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
             ef_addr <= at_qhead_addr;
             ef_f16 <= '0';
             cstate <= A_Q;
           end if;
         when A_Q =>
-          if at_i = at_hd(8 downto 0) then
+          assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+          if at_iend then                           -- at_i = at_hd
             at_t <= (others => '0'); at_tgo := true; at_tn := (others => '0');
             at_rowaddr <= at_k;
             cstate <= A_S_T;
@@ -3183,7 +3247,7 @@ begin
           end if;
         when A_Q2 =>
           qv(to_integer(at_i)) <= ef_val;
-          at_i <= at_i + 1;
+          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
           ef_addr <= ef_addr + 4;
           cstate <= A_Q;
 
@@ -3196,7 +3260,7 @@ begin
             ve_first <= '1';
             cstate <= A_E_T;
           else
-            at_i <= (others => '0');
+            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
             ve_first <= '1';
             if at_fmt = 1 then
               ef_addr <= at_rowaddr + at_kv_offset;
@@ -3208,7 +3272,8 @@ begin
             cstate <= A_S_I;
           end if;
         when A_S_I =>
-          if at_i = at_hd(8 downto 0) then
+          assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+          if at_iend then                           -- at_i = at_hd
             fpu_op <= FOP_MUL; fpu_a <= at_acc; fpu_b <= at_rs; fpu_start <= '1';
             fpu_ret <= A_S_SC; cstate <= C_FPU_WAIT;
           else
@@ -3230,7 +3295,7 @@ begin
           at_acc <= fpu_r;
           cstate <= A_S_I4;
         when A_S_I4 =>
-          at_i <= at_i + 1;
+          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
           cstate <= A_S_I;
         when A_S_SC =>
@@ -3299,10 +3364,10 @@ begin
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
-            at_i <= (others => '0');
+            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
             cstate <= A_WR;
           else
-            at_i <= (others => '0');
+            at_i <= (others => '0'); at_igo := true; at_in := (others => '0');
             at_w <= at_sv;
             if at_fmt = 1 then
               ef_addr <= at_rowaddr + at_kv_offset;
@@ -3314,7 +3379,8 @@ begin
             cstate <= A_O_I;
           end if;
         when A_O_I =>
-          if at_i = at_hd(8 downto 0) then
+          assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+          if at_iend then                           -- at_i = at_hd
             at_t <= at_t + 1; at_tgo := true; at_tn := at_t + 1;
             at_rowaddr <= at_rowaddr + at_rowb;
             cstate <= A_O_T;
@@ -3336,19 +3402,20 @@ begin
           fpu_ret <= A_O_I4; cstate <= C_FPU_WAIT;
         when A_O_I4 =>
           outv(to_integer(at_i)) <= fpu_r;
-          at_i <= at_i + 1;
+          at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
           cstate <= A_O_I;
 
         -- write this head's output: through buf, flushed at 256-byte
         -- boundaries and at the end of the head
         when A_WR =>
-          if at_i = at_hd(8 downto 0) then
+          assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+          if at_iend then                           -- at_i = at_hd
             cstate <= A_HNEXT;
           else
             a2 := pz + 4;
             pz <= a2;
-            at_i <= at_i + 1;
+            at_i <= at_i + 1; at_igo := true; at_in := at_i + 1;
             if a2(7 downto 0) = 0 or at_i + 1 = at_hd(8 downto 0) then
               a0 := ostart(27 downto 3) & "000";
               a1 := a2 + 7;
@@ -3406,6 +3473,9 @@ begin
       -- ATTN position state (see at_tend): sarr is written at the old at_t
       -- only, so the read at the new one sees the value it will hold
       at_pos1 <= at_pos(15 downto 0) + 1;
+      if at_igo then
+        at_iend <= at_in = at_hd(8 downto 0);
+      end if;
       if at_tgo then
         at_tend <= at_tn = at_pos1;
         at_sv <= sarr(to_integer(at_tn(9 downto 0)));
@@ -3442,9 +3512,11 @@ begin
         if sr_rem_q(27 downto 9) = 0 and sr_rem_q(8 downto 0) < sr_room_q then
           sr_a1_q  <= sr_end;
           sr_len_q <= sr_rem_q(8 downto 0);
+          sr_fit_q <= sr_used_q + resize(sr_rem_q(8 downto 1), 10) <= 256;
         else
           sr_a1_q  <= sr_bnd_q;
           sr_len_q <= sr_room_q;
+          sr_fit_q <= sr_used_q + resize(sr_room_q(8 downto 1), 10) <= 256;
         end if;
         sr_addr_q <= str_local + sr_off_q(26 downto 0);
         if sr_rem_q /= 0 then sr_more_q <= '1'; else sr_more_q <= '0'; end if;
@@ -3455,7 +3527,9 @@ begin
           and sr_ok2 = '1' and sr_more_q = '1'
           and hr_valid_i = '0' and sd_valid_i = '0'
           and rq_w - rq_r < 3 then
-          if sr_used_q + resize(sr_len_q(8 downto 1), 10) <= 256 then
+          if sr_fit_q then                       -- sr_used_q + words <= 256
+            assert resize(wf_w - wf_r, 10) + resize(sr_inflight, 10) + resize(sr_len_q(8 downto 1), 10) <= 256
+              report "SSNAIL: stream burst overfills the FIFO" severity failure;
             if str_is_sd = '1' then
               sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
               sd_cmd_addr <= sr_addr_q; sd_cmd_len <= sr_len_q;
@@ -3483,22 +3557,41 @@ begin
         -- (grpf(33) is the newest).  A finished Q8_0 block (34 bytes) is
         -- grpf(0 to 33), a Q4_0 block (18 bytes) grpf(16 to 33).
         if as_full = '0' and as_any = '1' then
+          assert as_f = as_flags(to_integer(as_skip), to_integer(as_rem))
+            report "SSNAIL: stale as_f" severity failure;
           sk := to_integer(as_skip);
-          need := sk + to_integer(as_rem);          -- bytes this block still takes
+          -- c = min(available, skip + rem) bytes taken, s = min(skip, c)
+          -- skipped, w = c - s shifted in; from the thresholds in as_f
           nav := 0;
           if pb_v = '1' then
             avb(0) := pb_b; nav := 1;
           end if;
           popw := false;
-          if wf_w /= wf_r and need > nav then
+          if wf_w /= wf_r and (pb_v = '0' or as_f(3) = '1') then   -- need > nav
             wv := wf(to_integer(wf_r(7 downto 0)));
             avb(nav) := wv(7 downto 0);
             avb(nav + 1) := wv(15 downto 8);
             nav := nav + 2;
             popw := true;
           end if;
-          if need < nav then as_c := need; else as_c := nav; end if;
-          if sk < as_c then as_s := sk; else as_s := as_c; end if;
+          if nav = 3 and as_f(4) = '1' then
+            as_c := 3;
+          elsif nav >= 2 and as_f(3) = '1' then
+            as_c := 2;
+          elsif nav >= 1 then
+            as_c := 1;
+          else
+            as_c := 0;
+          end if;
+          if as_c = 3 and as_f(2) = '1' then
+            as_s := 3;
+          elsif as_c >= 2 and as_f(1) = '1' then
+            as_s := 2;
+          elsif as_c >= 1 and as_f(0) = '1' then
+            as_s := 1;
+          else
+            as_s := 0;
+          end if;
           as_w := as_c - as_s;
           case as_w is
             when 1 =>
@@ -3523,11 +3616,19 @@ begin
             pb_v <= '0';
           end if;
           as_skip <= to_unsigned(sk - as_s, 3);
-          if to_integer(as_rem) = as_w then
+          if (as_w = 1 and as_f(5) = '1') or (as_w = 2 and as_f(6) = '1')
+            or (as_w = 3 and as_f(7) = '1') then    -- as_rem = as_w: block full
             as_full <= '1';
-            if d_fmt = 8 then as_rem <= to_unsigned(34, 6); else as_rem <= to_unsigned(18, 6); end if;
+            if d_fmt = 8 then
+              as_rem <= to_unsigned(34, 6);
+              as_f <= as_flags(sk - as_s, 34);
+            else
+              as_rem <= to_unsigned(18, 6);
+              as_f <= as_flags(sk - as_s, 18);
+            end if;
           else
             as_rem <= as_rem - as_w;
+            as_f <= as_flags(sk - as_s, to_integer(as_rem) - as_w);
           end if;
         end if;
 
