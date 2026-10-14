@@ -534,15 +534,18 @@ architecture gothic of hyperram is
   signal c_val  : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal c_data : h_ldata_t := (others => (others => '0'));
   signal c_rr   : integer range 0 to H_NL - 1 := 0;
-  -- the fill in progress: fl_n lines from fl_tag, into slots fl_slot
-  type h_slots_t is array (0 to H_FILL - 1) of integer range 0 to H_NL - 1;
+  -- the fill in progress: fl_n lines from fl_tag, into consecutive slots
+  -- (modulo H_NL) from the slot c_rr had when it started
   signal fill_active : std_logic := '0';
   signal fl_tag  : unsigned(26 downto 3) := (others => '1');
   signal fl_n    : integer range 0 to H_FILL := 0;
   signal fl_line : integer range 0 to H_FILL - 1 := 0;
   signal fl_word : integer range 0 to 3 := 0;
-  signal fl_slot : h_slots_t := (others => 0);
   signal fl_err  : std_logic := '0';
+  -- the tag and slot of line fl_line, kept up to date alongside fl_line
+  -- so the line-complete logic starts from registers
+  signal fl_cur_tag  : unsigned(26 downto 3) := (others => '1');
+  signal fl_cur_slot : integer range 0 to H_NL - 1 := 0;
   -- posted writes; w_fl: being written out (frozen until done)
   type h_wtag_t  is array (0 to H_NW - 1) of unsigned(26 downto 3);
   type h_wdata_t is array (0 to H_NW - 1) of unsigned(63 downto 0);
@@ -744,7 +747,6 @@ begin
         n := H_FILL;
       end if;
       for k in 0 to H_FILL - 1 loop
-        fl_slot(k) <= (c_rr + k) mod H_NL;
         if k < n then
           c_val((c_rr + k) mod H_NL) <= '0';
           c_tag((c_rr + k) mod H_NL) <= st + k;
@@ -754,6 +756,8 @@ begin
       report "V2: fill $" & to_hstring(st & "000") & ", " & integer'image(n) & " lines";
       fill_active <= '1';
       fl_tag <= st;
+      fl_cur_tag <= st;
+      fl_cur_slot <= c_rr mod H_NL;
       fl_n <= n;
       fl_line <= 0;
       fl_word <= 0;
@@ -4379,13 +4383,13 @@ begin
       if le_error = '1' and lump_owner_cpu = '1' then fl_err <= '1'; end if;
       if le_rdata_valid = '1' and lump_owner_cpu = '1' and fill_active = '1' then
         if fl_word /= 3 then
-          c_data(fl_slot(fl_line))(16 * fl_word + 15 downto 16 * fl_word) <= le_rdata;
+          c_data(fl_cur_slot)(16 * fl_word + 15 downto 16 * fl_word) <= le_rdata;
           fl_word <= fl_word + 1;
         else
           -- the line is complete; posted writes to it go over the top
-          v2_line := c_data(fl_slot(fl_line));
+          v2_line := c_data(fl_cur_slot);
           v2_line(63 downto 48) := le_rdata;
-          v2_tag := fl_tag + fl_line;
+          v2_tag := fl_cur_tag;
           for j in 0 to H_NW - 1 loop
             if w_tag(j) = v2_tag then
               for k in 0 to 7 loop
@@ -4395,21 +4399,23 @@ begin
               end loop;
             end if;
           end loop;
-          c_data(fl_slot(fl_line)) <= v2_line;
+          c_data(fl_cur_slot) <= v2_line;
           if fl_err = '0' and le_error = '0' then
-            c_val(fl_slot(fl_line)) <= '1';
+            c_val(fl_cur_slot) <= '1';
           end if;
           for i in 0 to H_NL - 1 loop
-            if i /= fl_slot(fl_line) and c_tag(i) = v2_tag then c_val(i) <= '0'; end if;
+            if i /= fl_cur_slot and c_tag(i) = v2_tag then c_val(i) <= '0'; end if;
           end loop;
           v2_done := true;
           report "V2: line $" & to_hstring(v2_tag & "000") & " = $" & to_hstring(v2_line);
-          v2_done_slot := fl_slot(fl_line);
+          v2_done_slot := fl_cur_slot;
           fl_word <= 0;
           if fl_line = fl_n - 1 then
             fill_active <= '0';
           else
             fl_line <= fl_line + 1;
+            fl_cur_tag <= fl_cur_tag + 1;
+            fl_cur_slot <= (fl_cur_slot + 1) mod H_NL;
           end if;
         end if;
       end if;

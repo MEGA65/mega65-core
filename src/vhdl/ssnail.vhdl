@@ -650,7 +650,8 @@ architecture shell of ssnail is
   signal rq_w, rq_r : unsigned(2 downto 0) := (others => '0');
   -- assembler
   signal grpf, grpc : grp_t := (others => x"00");
-  signal as_fi     : unsigned(5 downto 0) := (others => '0');
+  signal as_rem    : unsigned(5 downto 0) := (others => '0');   -- bytes left in this block
+  signal as_any    : std_logic := '0';                          -- as_blocks /= 0
   signal as_skip   : unsigned(2 downto 0) := (others => '0');
   signal as_full   : std_logic := '0';
   signal pb_v      : std_logic := '0';
@@ -777,6 +778,13 @@ architecture shell of ssnail is
   -- Vector engine operand buffers, indexed by address mod 256
   signal bufx, bufy, bufb : buf_t := (others => x"0000");
   signal cap_sel : unsigned(1 downto 0) := "00";   -- read data goes to: buf_in, bufx, bufy, bufb
+  -- capture stage: one word on its way into buf_in / bufx / bufy / bufb
+  signal cap_we, cap_cnt : std_logic := '0';
+  signal cap_d   : unsigned(15 downto 0) := x"0000";
+  signal cap_idx : unsigned(6 downto 0) := (others => '0');
+  signal cap_dst : unsigned(1 downto 0) := "00";
+  type ld_w_t is array (0 to 3) of unsigned(15 downto 0);
+  signal ld_w : ld_w_t := (others => x"0000");      -- words 0-3 of a load (LDR)
   signal buf_ridx : unsigned(6 downto 0) := (others => '0');  -- drain index
   signal wdata_r  : unsigned(15 downto 0) := x"0000";
 
@@ -1104,7 +1112,8 @@ begin
     variable qwv : signed(8 downto 0);
     variable qxv : signed(7 downto 0);
     variable lsum : signed(31 downto 0);
-    variable jj, bsz, need, nav, fi, sk, used : integer range 0 to 63;
+    variable jj, need, nav, sk : integer range 0 to 63;
+    variable as_c, as_s, as_w : integer range 0 to 3;
     variable avb : grp_t;
     variable popw : boolean;
     variable wv : unsigned(15 downto 0);
@@ -1246,7 +1255,12 @@ begin
         end if;
       end if;
 
-      -- Store incoming read data
+      -- Store incoming read data (capture stage registers: see below)
+      cap_we <= '0';
+      cap_cnt <= '0';
+      cap_d <= rdata_r;
+      cap_idx <= buf_widx;
+      cap_dst <= cap_sel;
       if rvalid_r = '1' and g2 = '1' and rq_tag(to_integer(rq_r(1 downto 0))) = '1' then
         -- GEMV weight stream: into the word FIFO
         wf(to_integer(wf_w(7 downto 0))) <= rdata_r;
@@ -1269,17 +1283,32 @@ begin
         if cstate = C_FETCH_WAIT then
           instr <= rdata_r & instr(127 downto 16);
         else
-          if cap_sel = "01" then
-            bufx(to_integer(buf_widx)) <= rdata_r;
-          elsif cap_sel = "10" then
-            bufy(to_integer(buf_widx)) <= rdata_r;
-          elsif cap_sel = "11" then
-            bufb(to_integer(buf_widx)) <= rdata_r;
-          else
-            buf_in(to_integer(buf_widx)) <= rdata_r;
-          end if;
+          cap_we <= '1';
           buf_widx <= buf_widx + 1;
         end if;
+        cap_cnt <= '1';
+      end if;
+      -- Capture stage: the word reaches its buffer (and words_got counts
+      -- it) one edge after rdata_r, so the buffers need not sit next to
+      -- the read-data register.  Waits on words_got therefore still see
+      -- every word written before they finish.
+      if cap_we = '1' then
+        if cap_dst = "01" then
+          bufx(to_integer(cap_idx)) <= cap_d;
+        elsif cap_dst = "10" then
+          bufy(to_integer(cap_idx)) <= cap_d;
+        elsif cap_dst = "11" then
+          bufb(to_integer(cap_idx)) <= cap_d;
+        else
+          buf_in(to_integer(cap_idx)) <= cap_d;
+          -- the first four words also go to ld_w, for LDR: buf_in then
+          -- has only addressed reads and stays in LUT RAM
+          if cap_idx(6 downto 2) = 0 then
+            ld_w(to_integer(cap_idx(1 downto 0))) <= cap_d;
+          end if;
+        end if;
+      end if;
+      if cap_cnt = '1' then
         words_got <= words_got + 1;
       end if;
       if rerror_r = '1' and busy = '1' then
@@ -1679,9 +1708,9 @@ begin
           elsif words_got = words_expected and rvalid_r = '0' then
             if instr(11 downto 8) /= x"F" then
               if ea_x(2) = '0' then
-                rf_r(to_integer(instr(11 downto 8))) <= buf_in(1) & buf_in(0);
+                rf_r(to_integer(instr(11 downto 8))) <= ld_w(1) & ld_w(0);
               else
-                rf_r(to_integer(instr(11 downto 8))) <= buf_in(3) & buf_in(2);
+                rf_r(to_integer(instr(11 downto 8))) <= ld_w(3) & ld_w(2);
               end if;
             end if;
             cstate <= C_NEXT;
@@ -2709,10 +2738,11 @@ begin
             wf_w <= (others => '0'); wf_r <= (others => '0');
             sr_inflight <= (others => '0');
             rq_w <= (others => '0'); rq_r <= (others => '0');
-            as_fi <= (others => '0');
+            if d_fmt = 8 then as_rem <= to_unsigned(34, 6); else as_rem <= to_unsigned(18, 6); end if;
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0';
             as_blocks <= g_mul_p32;
+            if g_mul_p32 /= 0 then as_any <= '1'; else as_any <= '0'; end if;
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
             mc_scale_ok <= '0';
             tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
@@ -3254,11 +3284,14 @@ begin
         end if;
 
         -- Block assembler: up to 2 bytes per cycle from the FIFO (and one
-        -- pending byte) into the fill registers; skip the leading bytes of
-        -- the first, 8-aligned, burst.
-        if as_full = '0' and as_blocks /= 0 then
-          if d_fmt = 8 then bsz := 34; else bsz := 18; end if;
-          need := bsz - to_integer(as_fi) + to_integer(as_skip);
+        -- pending byte); skip the leading bytes of the first, 8-aligned,
+        -- burst.  grpf is a shift register: the c bytes consumed this cycle
+        -- are the first s skipped ones, then w bytes shifted in at the top
+        -- (grpf(33) is the newest).  A finished Q8_0 block (34 bytes) is
+        -- grpf(0 to 33), a Q4_0 block (18 bytes) grpf(16 to 33).
+        if as_full = '0' and as_any = '1' then
+          sk := to_integer(as_skip);
+          need := sk + to_integer(as_rem);          -- bytes this block still takes
           nav := 0;
           if pb_v = '1' then
             avb(0) := pb_b; nav := 1;
@@ -3271,47 +3304,60 @@ begin
             nav := nav + 2;
             popw := true;
           end if;
-          fi := to_integer(as_fi);
-          sk := to_integer(as_skip);
-          used := 0;
-          for k in 0 to 2 loop
-            if k < nav and (sk > 0 or fi < bsz) then
-              if sk > 0 then
-                sk := sk - 1;
-              else
-                grpf(fi) <= avb(k);
-                fi := fi + 1;
-              end if;
-              used := used + 1;
-            end if;
-          end loop;
+          if need < nav then as_c := need; else as_c := nav; end if;
+          if sk < as_c then as_s := sk; else as_s := as_c; end if;
+          as_w := as_c - as_s;
+          case as_w is
+            when 1 =>
+              grpf(0 to 32) <= grpf(1 to 33);
+              grpf(33) <= avb(as_s);
+            when 2 =>
+              grpf(0 to 31) <= grpf(2 to 33);
+              grpf(32) <= avb(as_s);
+              grpf(33) <= avb(as_s + 1);
+            when 3 =>                               -- (then as_s = 0)
+              grpf(0 to 30) <= grpf(3 to 33);
+              grpf(31) <= avb(0);
+              grpf(32) <= avb(1);
+              grpf(33) <= avb(2);
+            when others =>
+              null;
+          end case;
           if popw then wf_r <= wf_r + 1; end if;
-          if used < nav then
+          if as_c < nav then
             pb_v <= '1'; pb_b <= avb(nav - 1);       -- at most one left over
           else
             pb_v <= '0';
           end if;
-          as_skip <= to_unsigned(sk, 3);
-          if fi = bsz then
+          as_skip <= to_unsigned(sk - as_s, 3);
+          if to_integer(as_rem) = as_w then
             as_full <= '1';
-            as_fi <= (others => '0');
+            if d_fmt = 8 then as_rem <= to_unsigned(34, 6); else as_rem <= to_unsigned(18, 6); end if;
           else
-            as_fi <= to_unsigned(fi, 6);
+            as_rem <= as_rem - as_w;
           end if;
         end if;
 
         -- Swap: a full fill set goes to the lanes when they are free
         if as_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
-          grpc <= grpf;
+          if d_fmt = 8 then
+            grpc <= grpf;
+            -- scale = d_w * d_x on the third FP unit, while the lanes work
+            fpu3_a <= f16_to_f32(grpf(1) & grpf(0));
+          else
+            for i in 0 to 17 loop
+              grpc(i) <= grpf(16 + i);
+            end loop;
+            fpu3_a <= f16_to_f32(grpf(17) & grpf(16));
+          end if;
           as_full <= '0';
           as_blocks <= as_blocks - 1;
+          if as_blocks = 1 then as_any <= '0'; end if;
           mc_busy <= '1';
           mc_drain <= '0';
           mc_c <= (others => '0');
           mc_isum <= (others => '0');
           mc_scale_ok <= '0';
-          -- scale = d_w * d_x on the third FP unit, while the lanes work
-          fpu3_a <= f16_to_f32(grpf(1) & grpf(0));
           fpu3_b <= dxs(to_integer(mc_blk));
           fpu3_start <= '1';
         end if;
