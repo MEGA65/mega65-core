@@ -387,7 +387,13 @@ architecture shell of ssnail is
   -- Load port, cpuclock side
   signal lp_ptr       : unsigned(27 downto 0) := (others => '0');  -- live pointer
   signal lp_stage     : unsigned(23 downto 0) := (others => '0');  -- staged bits 0-23
-  signal lp_blk_tgl   : std_logic := '0';   -- flips when the pointer leaves a block
+  -- Data byte hand-off to the core, which writes the ring: the byte, its
+  -- ring address, and whether it completes a 256-byte block.  Held until
+  -- the next data byte (at least four clock162 cycles later).
+  signal lp_wr_tgl    : std_logic := '0';
+  signal lp_wr_addr   : unsigned(9 downto 0) := (others => '0');
+  signal lp_wr_data   : unsigned(7 downto 0) := x"00";
+  signal lp_wr_blk    : std_logic := '0';
   signal lp_cmt_tgl   : std_logic := '0';   -- flips on commit
   signal lp_cmt_end   : unsigned(27 downto 0) := (others => '0');  -- flush up to here
   signal lp_cmt_new   : unsigned(27 downto 0) := (others => '0');  -- then continue here
@@ -398,6 +404,8 @@ architecture shell of ssnail is
   signal lp_cack_s1, lp_cack_s2 : std_logic := '0';
   signal lp_err_s1, lp_err_s2 : std_logic := '0';
   signal lp_ready     : std_logic := '0';
+  -- The ring is written and read only on clock162: no LUT RAM path
+  -- crosses clock domains.
   type ring_t is array (0 to 511) of unsigned(7 downto 0);
   signal ring_lo, ring_hi : ring_t := (others => x"00");   -- even / odd addresses
   attribute ram_style of ring_lo, ring_hi : signal is "distributed";
@@ -737,7 +745,9 @@ architecture shell of ssnail is
   signal cp_chunk       : unsigned(8 downto 0) := (others => '0');
 
   -- Load port, core side
-  signal lp_blk_s1, lp_blk_s2, lp_blk_last : std_logic := '0';
+  signal lp_wr_s1, lp_wr_s2, lp_wr_last : std_logic := '0';
+  signal lp_blk_done  : std_logic := '0';   -- the ring now holds a whole new block
+  signal lp_wr_idle   : boolean;            -- no data byte on its way into the ring
   signal lp_cmt_s1, lp_cmt_s2, lp_cmt_last : std_logic := '0';
   signal lp_pending   : unsigned(2 downto 0) := (others => '0');  -- complete blocks waiting
   signal lp_drain     : unsigned(27 downto 0) := (others => '0'); -- next address to write
@@ -787,7 +797,7 @@ architecture shell of ssnail is
   attribute async_reg of go_s1, go_s2, abort_s1, abort_s2 : signal is "true";
   attribute async_reg of sync_s1, sync_s2, step_s1, step_s2 : signal is "true";
   attribute async_reg of pub_tgl_s1, pub_tgl_s2 : signal is "true";
-  attribute async_reg of lp_blk_s1, lp_blk_s2, lp_cmt_s1, lp_cmt_s2 : signal is "true";
+  attribute async_reg of lp_wr_s1, lp_wr_s2, lp_cmt_s1, lp_cmt_s2 : signal is "true";
   attribute async_reg of lp_ack_s1, lp_ack_s2, lp_cack_s1, lp_cack_s2 : signal is "true";
   attribute async_reg of lp_err_s1, lp_err_s2 : signal is "true";
 
@@ -1016,17 +1026,17 @@ begin
             lp_cmt_tgl <= not lp_cmt_tgl;
             lp_cmt_pend <= '1';
           when "11000" =>
-            -- Data byte into the ring, at its destination address
-            if lp_ptr(0) = '0' then
-              ring_lo(to_integer(lp_ptr(9 downto 1))) <= fastio_wdata;
-            else
-              ring_hi(to_integer(lp_ptr(9 downto 1))) <= fastio_wdata;
-            end if;
+            -- Data byte: the core puts it in the ring at its destination
+            -- address (and, if it completes a 256-byte block, takes the block)
+            lp_wr_addr <= lp_ptr(9 downto 0);
+            lp_wr_data <= fastio_wdata;
+            lp_wr_tgl <= not lp_wr_tgl;
             lp_ptr <= lp_ptr + 1;
             if lp_ptr(7 downto 0) = x"FF" then
-              -- This byte completes a 256-byte block: hand it to the core
-              lp_blk_tgl <= not lp_blk_tgl;
+              lp_wr_blk <= '1';
               lp_out <= lp_out + 1;
+            else
+              lp_wr_blk <= '0';
             end if;
           when others => null;
         end case;
@@ -1193,11 +1203,9 @@ begin
         end if;
       end if;
 
-      -- Load port toggles from the cpuclock side
-      lp_blk_s1 <= lp_blk_tgl; lp_blk_s2 <= lp_blk_s1;
+      -- Load port: blocks completed in the ring, and commits
       lp_cmt_s1 <= lp_cmt_tgl; lp_cmt_s2 <= lp_cmt_s1;
-      if lp_blk_s2 /= lp_blk_last then
-        lp_blk_last <= lp_blk_s2;
+      if lp_blk_done = '1' then
         lp_inc := '1';
       end if;
 
@@ -1288,7 +1296,7 @@ begin
           -- Load port work comes first.  A chunk is [lp_drain, lp_end): a
           -- whole remaining block, or for a commit, whatever is left.
           if lp_pending /= 0
-            or (lp_cmt_s2 /= lp_cmt_last and lp_blk_s2 = lp_blk_last) then
+            or (lp_cmt_s2 /= lp_cmt_last and lp_wr_idle) then
             if lp_pending /= 0 then
               lp_end <= (lp_drain(27 downto 8) + 1) & x"00";
               en_al := (lp_drain(27 downto 8) + 1) & x"00";
@@ -3506,8 +3514,33 @@ begin
     port map (clock => clock162, start => fpu_start, op => fpu_op, a => fpu_a, b => fpu_b,
               done => fpu_done, result => fpu_res);
 
+  -- Ring write port.  Each data byte from the cpuclock side arrives with a
+  -- toggle; the byte and its address were registered on the same cpuclock
+  -- edge and stay put for at least four clock162 cycles, longer than the
+  -- synchroniser takes.  A completed block is announced (lp_blk_done) only
+  -- after its last byte has been written, and a commit is taken only once
+  -- every earlier byte has been written (lp_wr_idle): a commit is always at
+  -- least one cpuclock cycle behind the last byte, so its toggle arrives later.
+  process (clock162) is
+  begin
+    if rising_edge(clock162) then
+      lp_wr_s1 <= lp_wr_tgl; lp_wr_s2 <= lp_wr_s1;
+      lp_blk_done <= '0';
+      if lp_wr_s2 /= lp_wr_last then
+        lp_wr_last <= lp_wr_s2;
+        if lp_wr_addr(0) = '0' then
+          ring_lo(to_integer(lp_wr_addr(9 downto 1))) <= lp_wr_data;
+        else
+          ring_hi(to_integer(lp_wr_addr(9 downto 1))) <= lp_wr_data;
+        end if;
+        lp_blk_done <= lp_wr_blk;
+      end if;
+    end if;
+  end process;
+  lp_wr_idle <= lp_wr_s1 = lp_wr_last and lp_wr_s2 = lp_wr_last and lp_blk_done = '0';
+
   -- Ring read port (asynchronous LUT RAM read, registered in the core).  The
-  -- cpuclock side only writes blocks the core is not reading.
+  -- core only reads bytes that have been written (see above).
   ring_rd_lo <= ring_lo(to_integer(ring_rd_idx));
   ring_rd_hi <= ring_hi(to_integer(ring_rd_idx));
 
