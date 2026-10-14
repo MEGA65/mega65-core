@@ -616,6 +616,7 @@ architecture gothic of hyperram is
   -- Stage slow_devices' control strobes in clock163 before v2 arbitration.
   -- slow_devices holds the address and write data until acknowledged.
   signal rd_req_v2_q, wr_req_v2_q : std_logic := '0';
+  signal address_q : unsigned(26 downto 0) := (others => '0');  -- (with them)
   signal next_toggle_seen, prev_toggle_seen : std_logic := '0';
   -- prefetch
   signal pf_base : unsigned(26 downto 3) := (others => '1');
@@ -629,6 +630,9 @@ architecture gothic of hyperram is
   signal vic_tag : unsigned(26 downto 3) := (others => '1');
   signal vic_addr_q : unsigned(18 downto 3) := (others => '0');
   signal vic_req_q : std_logic := '0';
+  -- (a first stage: the VIC-IV is far away, so placement can put it partway)
+  signal vic_addr_q0 : unsigned(18 downto 3) := (others => '0');
+  signal vic_req_q0 : std_logic := '0';
   signal vic_look, vic_use, vic_want : std_logic := '0';
   signal vic_hit : std_logic_vector(0 to H_NL - 1) := (others => '0');
   -- LUMP-engine jobs: cj_req waits for the Idle dispatch, cj_busy until done
@@ -1734,7 +1738,7 @@ begin
       -- wanted the bus last cycle.  (Something arriving in the very cycle we
       -- dispatch simply waits for one burst.)
       if request_toggle = last_request_toggle
-        and viciv_request_toggle = viciv_last_request_toggle
+        and vic_req_q0 = viciv_last_request_toggle
         and (not prefetch_when_idle)
         and write_collect0_dispatchable = '0'
         and write_collect1_dispatchable = '0' then
@@ -4375,12 +4379,15 @@ begin
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
       -- VIC 40 MHz request/address arrive together and are held until
-      -- completion.  This registered stage removes their combinational
-      -- crossing into the tag/lookup logic; latency is one 163 MHz cycle.
-      vic_addr_q <= viciv_addr;
-      vic_req_q <= viciv_request_toggle;
+      -- completion.  Two registered stages (the VIC-IV is across the chip),
+      -- request and address together; latency is two 163 MHz cycles.
+      vic_addr_q0 <= viciv_addr;
+      vic_req_q0 <= viciv_request_toggle;
+      vic_addr_q <= vic_addr_q0;
+      vic_req_q <= vic_req_q0;
       rd_req_v2_q <= read_request and v2_ram;
       wr_req_v2_q <= write_request and v2_ram;
+      address_q <= address;
       v2_idx := to_integer(l_addr(2 downto 0));
       for j in 0 to H_NW - 1 loop
         if w_age(j) /= 63 then w_age(j) <= w_age(j) + 1; end if;
@@ -4391,7 +4398,7 @@ begin
       if rd_req_v2_q = '1' and wr_req_v2_q = '0'
         and rd_l = '0' and wr_l = '0' then
         rd_l <= '1';
-        l_addr <= address;
+        l_addr <= address_q;
         lat_new <= '1';
         busy_v2 <= '1';
         rs <= R_LOOK;
@@ -4399,7 +4406,7 @@ begin
       if rd_req_v2_q = '0' and wr_req_v2_q = '1'
         and rd_l = '0' and wr_l = '0' then
         wr_l <= '1';
-        l_addr <= address;
+        l_addr <= address_q;
         l_wdata <= wdata;
         busy_v2 <= '1';
         rs <= R_LOOK;
