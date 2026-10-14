@@ -1371,6 +1371,7 @@ $(BINDIR)/%.bit: 	vivado/%.xpr preliminaries $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/
 	VIVADO=$(VIVADO) ./vivado_timing $(subst bin/,,$*)
 	# Make a copy of the timing report named after the commit and datestamp
 	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.timing.txt
+	cp $(subst bin/,,$*).hotspots.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.hotspots.txt || true
 
 $(BINDIR)/%.mcs:	$(BINDIR)/%.bit freezer_files
 	mkdir -p $(SDCARD_DIR)
