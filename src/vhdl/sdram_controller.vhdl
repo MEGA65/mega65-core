@@ -290,6 +290,11 @@ architecture tacoma_narrows of sdram_controller is
   signal rs : rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- w_tag(j) = fl_tag, registered for the merge when a line fill completes.
+  -- Recomputed every cycle; a posted write that (re)tags a buffer sets that
+  -- buffer's flag itself, so the flag is never stale on the next edge (a
+  -- new fl_tag is many cycles ahead of its fill completing).
+  signal fl_whit : std_logic_vector(0 to NW - 1) := (others => '0');
   signal want_fill : std_logic := '0';          -- fill the latched line
   signal last_pub : unsigned(26 downto 3) := (others => '1');
 
@@ -814,6 +819,10 @@ begin
       end loop;
       if g_act /= 15 then g_act <= g_act + 1; end if;
 
+      for j in 0 to NW - 1 loop
+        if w_tag(j) = fl_tag then fl_whit(j) <= '1'; else fl_whit(j) <= '0'; end if;
+      end loop;
+
       -- Line fill data capture, timed exactly as for LUMP (see below)
       fl_rd_pipe(0) <= fl_rd_issue;
       fl_rd_pipe(1 to 8) <= fl_rd_pipe(0 to 7);
@@ -833,7 +842,7 @@ begin
           v_line := c_data(fl_slot);
           v_line(63 downto 48) := dq_x;
           for j in 0 to NW - 1 loop
-            if w_tag(j) = fl_tag then
+            if fl_whit(j) = '1' then
               for k in 0 to 7 loop
                 if w_mask(j)(k) = '1' then
                   v_line(8 * k + 7 downto 8 * k) := w_data(j)(8 * k + 7 downto 8 * k);
@@ -1961,6 +1970,11 @@ begin
                   v_mask(v_idx) := '1';
                 end if;
                 w_tag(v_wh)  <= latched_addr(26 downto 3);
+                if latched_addr(26 downto 3) = fl_tag then
+                  fl_whit(v_wh) <= '1';
+                else
+                  fl_whit(v_wh) <= '0';
+                end if;
                 w_data(v_wh) <= v_line;
                 w_mask(v_wh) <= v_mask;
                 w_age(v_wh)  <= 0;

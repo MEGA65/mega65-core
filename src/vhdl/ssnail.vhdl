@@ -573,6 +573,9 @@ architecture shell of ssnail is
   -- ARGMAX
   signal am_best   : unsigned(31 downto 0) := (others => '0');
   signal am_idx, ve_g : unsigned(31 downto 0) := (others => '0');
+  -- ARGMAX compare stage: the element read in V_EL, compared on the next edge
+  signal am_x_q, am_g_q : unsigned(31 downto 0) := (others => '0');
+  signal am_v_q, am_first_q : std_logic := '0';
   -- ATTN
   type f32x1024_t is array (0 to 1023) of unsigned(31 downto 0);
   signal sarr      : f32x1024_t := (others => (others => '0'));
@@ -641,6 +644,11 @@ architecture shell of ssnail is
   signal sr_room_q, sr_len_q : unsigned(8 downto 0) := (others => '0');
   signal sr_addr_q : unsigned(26 downto 0) := (others => '0');
   signal sr_more_q, sr_ok1, sr_ok2 : std_logic := '0';
+  -- FIFO words held or requested, a cycle old: an arriving word moves one
+  -- from sr_inflight to the FIFO (no change), the assembler only lowers it,
+  -- and an issue blocks the next two cycles (sr_ok2), so it never
+  -- understates the space in use when it is acted on
+  signal sr_used_q : unsigned(9 downto 0) := (others => '0');
   signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
   -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
   type rq_tag_t is array (0 to 3) of std_logic;
@@ -1313,6 +1321,16 @@ begin
       end if;
       if rerror_r = '1' and busy = '1' then
         err <= ERR_READ;
+      end if;
+
+      -- ARGMAX: first maximum, so replace only on strictly greater.  The
+      -- result is read in AM_DONE, several states after the last element.
+      am_v_q <= '0';
+      if am_v_q = '1' then
+        if am_first_q = '1' or flt(am_best, am_x_q) then
+          am_best <= am_x_q;
+          am_idx <= am_g_q;
+        end if;
       end if;
 
       -- Command acceptance: drop valid on the edge where ready is seen
@@ -2111,11 +2129,11 @@ begin
             -- first step of each element operation
             case ve_kind is
               when K_ARGMAX =>
-                -- first maximum: replace only on strictly greater
-                if ve_first = '1' or flt(am_best, xv) then
-                  am_best <= xv;
-                  am_idx <= ve_g;
-                end if;
+                -- compared with am_best on the next edge (see before the case)
+                am_x_q <= xv;
+                am_g_q <= ve_g;
+                am_first_q <= ve_first;
+                am_v_q <= '1';
                 ve_first <= '0';
                 ve_g <= ve_g + 1;
                 v_i <= v_i + 1;
@@ -3257,12 +3275,13 @@ begin
         sr_addr_q <= str_local + sr_off_q(26 downto 0);
         if sr_rem_q /= 0 then sr_more_q <= '1'; else sr_more_q <= '0'; end if;
         sr_ok2 <= sr_ok1;
+        sr_used_q <= resize(wf_w - wf_r, 10) + resize(sr_inflight, 10);
 
         if cstate /= C_RD_ISSUE and cstate /= C_WR_ISSUE
           and sr_ok2 = '1' and sr_more_q = '1'
           and hr_valid_i = '0' and sd_valid_i = '0'
           and rq_w - rq_r < 3 then
-          if resize(wf_w - wf_r, 10) + resize(sr_inflight, 10) + resize(sr_len_q(8 downto 1), 10) <= 256 then
+          if sr_used_q + resize(sr_len_q(8 downto 1), 10) <= 256 then
             if str_is_sd = '1' then
               sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_READ;
               sd_cmd_addr <= sr_addr_q; sd_cmd_len <= sr_len_q;

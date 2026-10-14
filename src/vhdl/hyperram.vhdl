@@ -569,6 +569,11 @@ architecture gothic of hyperram is
   signal rs : h_rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  -- w_tag(j) = fl_cur_tag, registered for the merge when a fill line
+  -- completes.  Recomputed every cycle; a posted write that (re)tags a
+  -- buffer sets that buffer's flag itself, so it is never stale on the next
+  -- edge (fl_cur_tag moves at least four words before the next merge).
+  signal fl_whit : std_logic_vector(0 to H_NW - 1) := (others => '0');
   signal want_fill : std_logic := '0';
   signal last_pub : unsigned(26 downto 3) := (others => '1');
   -- the exported line, and next/prev
@@ -4379,6 +4384,10 @@ begin
         end if;
       end if;
 
+      for j in 0 to H_NW - 1 loop
+        if w_tag(j) = fl_cur_tag then fl_whit(j) <= '1'; else fl_whit(j) <= '0'; end if;
+      end loop;
+
       -- Fill data from the engine: word fl_word of line fl_line
       if le_error = '1' and lump_owner_cpu = '1' then fl_err <= '1'; end if;
       if le_rdata_valid = '1' and lump_owner_cpu = '1' and fill_active = '1' then
@@ -4391,7 +4400,7 @@ begin
           v2_line(63 downto 48) := le_rdata;
           v2_tag := fl_cur_tag;
           for j in 0 to H_NW - 1 loop
-            if w_tag(j) = v2_tag then
+            if fl_whit(j) = '1' then
               for k in 0 to 7 loop
                 if w_mask(j)(k) = '1' then
                   v2_line(8 * k + 7 downto 8 * k) := w_data(j)(8 * k + 7 downto 8 * k);
@@ -4536,6 +4545,11 @@ begin
               report "V2: write $" & to_hstring(l_addr) & " = $" & to_hstring(l_wdata)
                 & " into buffer " & integer'image(v2_wh);
               w_tag(v2_wh)  <= l_addr(26 downto 3);
+              if l_addr(26 downto 3) = fl_cur_tag then
+                fl_whit(v2_wh) <= '1';
+              else
+                fl_whit(v2_wh) <= '0';
+              end if;
               w_data(v2_wh) <= v2_line;
               w_mask(v2_wh) <= v2_mask;
               w_age(v2_wh)  <= 0;

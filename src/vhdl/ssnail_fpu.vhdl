@@ -8,8 +8,9 @@
 --
 -- Every operation reduces to (sign, exponent, 48-bit significand) and goes
 -- through one shared back end: leading-zero count, normalising shift,
--- subnormal shift, rounding.  Each step is its own cycle, to keep the logic
--- between registers shallow at 162 MHz.
+-- subnormal shift (only when needed, in two steps), rounding, packing.
+-- Each step is its own cycle, to keep the logic between registers shallow
+-- at 162 MHz.
 --
 -- Significand convention in the back end: value = m / 2^46 * 2^(e - 127),
 -- i.e. a normalised F32 has its hidden bit at m(46).
@@ -53,7 +54,8 @@ end ssnail_fpu;
 
 architecture multicycle of ssnail_fpu is
 
-  type state_t is (S_IDLE, S_ALIGN, S_ADD, S_LZC, S_SHIFT, S_DENORM, S_ROUND,
+  type state_t is (S_IDLE, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
+                   S_DN1, S_DN2, S_ROUND, S_PACK, S_INT1,
                    S_DNORM, S_DIV, S_SQNORM, S_SQRT);
   signal state : state_t := S_IDLE;
 
@@ -74,6 +76,17 @@ architecture multicycle of ssnail_fpu is
   signal re : integer range -2048 to 2047 := 0;
   signal rm : unsigned(47 downto 0) := (others => '0');
   signal lz_pos : integer range -1 to 47 := -1;
+  signal lz_k   : integer range -1 to 47 := 0;      -- 46 - lz_pos
+  signal dn_sh  : integer range 0 to 4095 := 0;     -- subnormal shift
+  -- Multiply: unpacked significands, then the product
+  signal mul_a, mul_b : unsigned(23 downto 0) := (others => '0');
+  signal mul_p : unsigned(47 downto 0) := (others => '0');
+  -- Rounding, first stage: rounded significand and exponent field
+  signal rd_keep : unsigned(24 downto 0) := (others => '0');
+  signal rd_ef   : integer range -4096 to 4095 := 0;
+  -- ROUNDF / TRUNC: round to integer, then negate
+  signal int_rnd, int_neg : std_logic := '0';
+  signal mul_nrm : std_logic := '0';        -- both significands normal
   signal zero_sign : std_logic := '0';
   -- Division
   signal dv_ma, dv_mb : unsigned(23 downto 0) := (others => '0');
@@ -116,6 +129,19 @@ architecture multicycle of ssnail_fpu is
     return x(30 downto 0) = 0;
   end function;
 
+  -- position of the leading 1, -1 for zero
+  function lzc48(x : unsigned(47 downto 0)) return integer is
+    variable pos : integer range -1 to 47;
+  begin
+    pos := -1;
+    for i in 0 to 47 loop
+      if x(i) = '1' then
+        pos := i;
+      end if;
+    end loop;
+    return pos;
+  end function;
+
   constant NAN32 : unsigned(31 downto 0) := x"7FC00000";
   constant NAN16 : unsigned(31 downto 0) := x"00007E00";
 
@@ -142,6 +168,7 @@ begin
     variable v2     : unsigned(31 downto 0);
     variable ri     : unsigned(31 downto 0);
     variable la, lb : integer range 0 to 24;
+    variable v33    : unsigned(32 downto 0);
   begin
     if rising_edge(clock) then
       done <= '0';
@@ -157,13 +184,13 @@ begin
               if is_nan32(a) or is_nan32(b) or
                 (is_inf32(a) and is_inf32(b) and a(31) /= b(31)) then
                 special <= '1'; sp_val <= NAN32;
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_inf32(a) then
                 special <= '1'; sp_val <= a;
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_inf32(b) then
                 special <= '1'; sp_val <= b;
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 unpack32(a, sa, ea, ma);
                 unpack32(b, sb, eb, mb);
@@ -193,20 +220,22 @@ begin
               if is_nan32(a) or is_nan32(b) or
                 (is_inf32(a) and is_zero32(b)) or (is_zero32(a) and is_inf32(b)) then
                 special <= '1'; sp_val <= NAN32;
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_inf32(a) or is_inf32(b) then
                 special <= '1'; sp_val <= (a(31) xor b(31)) & "1111111100000000000000000000000";
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 unpack32(a, sa, ea, ma);
                 unpack32(b, sb, eb, mb);
                 rs <= sa xor sb;
                 zero_sign <= sa xor sb;
-                -- 24 x 24 -> 48 bits; with the hidden bits at 23, the product's
-                -- point is at 46, matching the back end's convention
-                rm <= ma * mb;
+                -- 24 x 24 -> 48 bits (in S_MUL); with the hidden bits at 23,
+                -- the product's point is at 46, matching the back end
+                mul_a <= ma;
+                mul_b <= mb;
+                mul_nrm <= ma(23) and mb(23);
                 re <= ea + eb - 127;
-                state <= S_LZC;
+                state <= S_MUL;
               end if;
             elsif op = FOP_F16TOF32 then
               h := a(15 downto 0);
@@ -217,7 +246,7 @@ begin
                 else
                   sp_val <= h(15) & "1111111100000000000000000000000";
                 end if;
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 rs <= h(15);
                 zero_sign <= h(15);
@@ -237,15 +266,15 @@ begin
               else
                 sp_val <= a(15 downto 0) & x"0000";
               end if;
-              state <= S_ROUND;
+              state <= S_PACK;
             elsif op = FOP_F32TOF16 then
               to_f16 <= '1';
               if is_nan32(a) then
                 special <= '1'; sp_val <= NAN16;
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_inf32(a) then
                 special <= '1'; sp_val <= x"0000" & a(31) & "111110000000000";
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 unpack32(a, sa, ea, ma);
                 rs <= sa;
@@ -259,13 +288,13 @@ begin
               if is_nan32(a) or is_nan32(b) or (is_inf32(a) and is_inf32(b))
                 or (is_zero32(a) and is_zero32(b)) then
                 special <= '1'; sp_val <= NAN32;
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_inf32(a) or is_zero32(b) then
                 special <= '1'; sp_val <= (a(31) xor b(31)) & "1111111100000000000000000000000";
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_zero32(a) or is_inf32(b) then
                 special <= '1'; sp_val <= (a(31) xor b(31)) & "0000000000000000000000000000000";
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 unpack32(a, sa, ea, ma);
                 unpack32(b, sb, eb, mb);
@@ -277,10 +306,10 @@ begin
               -- -------------------------------------------------- sqrt
               if is_nan32(a) or (a(31) = '1' and not is_zero32(a)) then
                 special <= '1'; sp_val <= NAN32;      -- NaN, or negative
-                state <= S_ROUND;
+                state <= S_PACK;
               elsif is_zero32(a) or is_inf32(a) then
                 special <= '1'; sp_val <= a;          -- +-0, +inf
-                state <= S_ROUND;
+                state <= S_PACK;
               else
                 unpack32(a, sa, ea, ma);
                 rs <= '0';
@@ -303,14 +332,17 @@ begin
                   else
                     ri := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
                   end if;
-                  if a(31) = '1' then
-                    sp_val <= (not ri) + 1;
-                  else
-                    sp_val <= ri;
-                  end if;
+                  sp_val <= ri;                   -- negated in S_INT1
+                  int_rnd <= '0';
+                  int_neg <= a(31);
                 end if;
               end if;
-              state <= S_ROUND;
+              if is_nan32(a) or a(30 downto 23) < 127
+                or to_integer(a(30 downto 23)) - 150 >= 8 then
+                state <= S_PACK;
+              else
+                state <= S_INT1;
+              end if;
             elsif op = FOP_ROUNDF then
               -- -------------------------------------------------- roundf
               special <= '1';
@@ -327,15 +359,17 @@ begin
                   else
                     v2 := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
                   end if;
-                  ri := shift_right(v2 + 1, 1);
-                  if a(31) = '1' then
-                    sp_val <= (not ri) + 1;
-                  else
-                    sp_val <= ri;
-                  end if;
+                  sp_val <= v2;                   -- (v2 + 1) / 2 in S_INT1,
+                  int_rnd <= '1';                 -- negated there too
+                  int_neg <= a(31);
                 end if;
               end if;
-              state <= S_ROUND;
+              if is_nan32(a) or a(30 downto 23) < 126
+                or to_integer(a(30 downto 23)) - 149 >= 9 then
+                state <= S_PACK;
+              else
+                state <= S_INT1;
+              end if;
             else                                  -- FOP_I2F
               rs <= a(31);
               zero_sign <= '0';
@@ -388,6 +422,51 @@ begin
           sq_res <= (others => '0');
           dv_i <= 46;
           state <= S_SQRT;
+
+        when S_INT1 =>
+          -- ROUNDF: (v2 + 1) / 2, or for a negative input
+          -- -ceil(v2 / 2) = floor(-v2 / 2); TRUNC: ri or -ri
+          -- (the result goes straight out, as S_PACK would send sp_val)
+          if int_rnd = '1' then
+            if int_neg = '1' then
+              v33 := (not ('0' & sp_val)) + 1;
+            else
+              v33 := ('0' & sp_val) + 1;
+            end if;
+            result <= v33(32 downto 1);
+          elsif int_neg = '1' then
+            result <= (not sp_val) + 1;
+          else
+            result <= sp_val;
+          end if;
+          done <= '1';
+          state <= S_IDLE;
+
+        when S_MUL =>
+          mul_p <= mul_a * mul_b;
+          state <= S_MULZ;
+
+        when S_MULZ =>
+          if mul_nrm = '1' then
+            -- normal x normal: the product is in [2^46, 2^48), so normalise
+            -- here (as S_SHIFT would) and skip the leading-zero count
+            if mul_p(47) = '1' then
+              rm <= '0' & mul_p(47 downto 2) & (mul_p(1) or mul_p(0));
+              efield := re + 1;
+            else
+              rm <= mul_p;
+              efield := re;
+            end if;
+            re <= efield;
+            if efield < 1 then                  -- (F32 result: emin = 1)
+              state <= S_DN1;
+            else
+              state <= S_ROUND;
+            end if;
+          else
+            rm <= mul_p;
+            state <= S_LZC;
+          end if;
 
         when S_SQRT =>
           if dv_i >= 0 then
@@ -469,53 +548,90 @@ begin
           state <= S_LZC;
 
         when S_LZC =>
-          pos := -1;
-          for i in 0 to 47 loop
-            if rm(i) = '1' then
-              pos := i;
-            end if;
-          end loop;
+          pos := lzc48(rm);
           lz_pos <= pos;
+          lz_k <= 46 - pos;
           state <= S_SHIFT;
 
         when S_SHIFT =>
-          -- Bring the leading 1 to bit 46 (or down from 47 by one)
-          if lz_pos = 47 then
-            rm <= '0' & rm(47 downto 2) & (rm(1) or rm(0));
-            re <= re + 1;
-          elsif lz_pos >= 0 then
-            k := 46 - lz_pos;
-            rm <= shift_left(rm, k);
-            re <= re - k;
-          end if;
-          state <= S_DENORM;
-
-        when S_DENORM =>
-          -- Below the smallest normal exponent: shift right into a subnormal
+          -- Bring the leading 1 to bit 46 (or down from 47 by one); a
+          -- result below the smallest normal exponent goes on to S_DN1
           if to_f16 = '1' then
             emin := 1 + 127 - 15;
           else
             emin := 1;
           end if;
-          if re < emin and rm /= 0 then
-            sh := emin - re;
-            if sh >= 48 then
-              rm <= (0 => '1', others => '0');
-            else
-              sm := shift_right(rm, sh);
-              sticky := '0';
-              for i in 0 to 47 loop
-                if i < sh and rm(i) = '1' then
-                  sticky := '1';
-                end if;
-              end loop;
-              rm <= sm(47 downto 1) & (sm(0) or sticky);
-            end if;
-            re <= emin;
+          if lz_pos = 47 then
+            rm <= '0' & rm(47 downto 2) & (rm(1) or rm(0));
+            efield := re + 1;
+          elsif lz_pos >= 0 then
+            rm <= shift_left(rm, lz_k);
+            efield := re - lz_k;
+          else
+            efield := re;
           end if;
+          re <= efield;
+          if efield < emin and lz_pos >= 0 then
+            state <= S_DN1;
+          else
+            state <= S_ROUND;
+          end if;
+
+        when S_DN1 =>
+          -- Subnormal: the right shift that brings the exponent up to emin
+          if to_f16 = '1' then
+            dn_sh <= 1 + 127 - 15 - re;
+          else
+            dn_sh <= 1 - re;
+          end if;
+          state <= S_DN2;
+
+        when S_DN2 =>
+          if to_f16 = '1' then
+            emin := 1 + 127 - 15;
+          else
+            emin := 1;
+          end if;
+          if dn_sh >= 48 then
+            rm <= (0 => '1', others => '0');
+          else
+            sm := shift_right(rm, dn_sh);
+            sticky := '0';
+            for i in 0 to 47 loop
+              if i < dn_sh and rm(i) = '1' then
+                sticky := '1';
+              end if;
+            end loop;
+            rm <= sm(47 downto 1) & (sm(0) or sticky);
+          end if;
+          re <= emin;
           state <= S_ROUND;
 
         when S_ROUND =>
+          -- Round to nearest even: the rounded significand and its exponent
+          -- field (S_PACK handles carry-out, overflow and the special cases)
+          if to_f16 = '0' then
+            keep := '0' & rm(46 downto 23);
+            rbit := rm(22);
+            stk := '0';
+            if rm(21 downto 0) /= 0 then stk := '1'; end if;
+            if rm(46) = '1' then efield := re; else efield := 0; end if;
+          else
+            keep := "00000000000000" & rm(46 downto 36);
+            rbit := rm(35);
+            stk := '0';
+            if rm(34 downto 0) /= 0 then stk := '1'; end if;
+            if rm(46) = '1' then efield := re - 127 + 15; else efield := 0; end if;
+          end if;
+          up := rbit and (stk or keep(0));
+          if up = '1' then keep := keep + 1; end if;
+          rd_keep <= keep;
+          rd_ef <= efield;
+          state <= S_PACK;
+
+        when S_PACK =>
+          keep := rd_keep;
+          efield := rd_ef;
           if special = '1' then
             result <= sp_val;
           elsif rm = 0 then
@@ -525,13 +641,6 @@ begin
               result <= rs & "0000000000000000000000000000000";
             end if;
           elsif to_f16 = '0' then
-            keep := '0' & rm(46 downto 23);
-            rbit := rm(22);
-            stk := '0';
-            if rm(21 downto 0) /= 0 then stk := '1'; end if;
-            up := rbit and (stk or keep(0));
-            if up = '1' then keep := keep + 1; end if;
-            if rm(46) = '1' then efield := re; else efield := 0; end if;
             if keep(24) = '1' then
               keep := '0' & keep(24 downto 1);
               efield := efield + 1;
@@ -544,13 +653,6 @@ begin
               result <= rs & to_unsigned(efield, 8) & keep(22 downto 0);
             end if;
           else
-            keep := "00000000000000" & rm(46 downto 36);
-            rbit := rm(35);
-            stk := '0';
-            if rm(34 downto 0) /= 0 then stk := '1'; end if;
-            up := rbit and (stk or keep(0));
-            if up = '1' then keep := keep + 1; end if;
-            if rm(46) = '1' then efield := re - 127 + 15; else efield := 0; end if;
             if keep(11) = '1' then
               keep := '0' & keep(24 downto 1);
               efield := efield + 1;
