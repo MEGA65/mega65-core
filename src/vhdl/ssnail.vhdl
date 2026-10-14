@@ -592,6 +592,7 @@ architecture shell of ssnail is
   type f32x1024_t is array (0 to 1023) of unsigned(31 downto 0);
   signal sarr      : f32x1024_t := (others => (others => '0'));
   attribute ram_style of sarr : signal is "distributed";
+  signal sarr0     : unsigned(31 downto 0) := (others => '0');  -- copy of sarr(0)
   signal at_k, at_v, at_rowaddr, at_ea : unsigned(27 downto 0) := (others => '0');
   signal at_nh, at_nkv, at_hd, at_fmt, at_pos : unsigned(31 downto 0) := (others => '0');
   -- EF_START needs the block at ef_addr loaded: recomputed every cycle,
@@ -3324,6 +3325,7 @@ begin
           cstate <= A_S_I;
         when A_S_SC =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
+          if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
           if at_t = 0 or flt(at_m, fpu_r) then
             at_m <= fpu_r;
           end if;
@@ -3349,6 +3351,7 @@ begin
           cstate <= T_START;
         when A_E_2 =>
           sarr(to_integer(at_t(9 downto 0))) <= tval;
+          if at_t(9 downto 0) = 0 then sarr0 <= tval; end if;
           if ve_first = '1' then
             at_acc <= tval; ve_first <= '0';
             at_t <= at_t + 1;
@@ -3378,6 +3381,7 @@ begin
           end if;
         when A_W_1 =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
+          if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
           at_t <= at_t + 1;
           cstate <= A_W_T;
         when A_E_R2 =>
@@ -3510,10 +3514,12 @@ begin
           at_iend <= at_i + 1 = at_hd(8 downto 0);
         when others => null;
       end case;
+      -- sarr is read only at at_t + 1 (a second, constant-index read would
+      -- turn the LUT RAM into 32k flip-flops); sarr(0) comes from sarr0
       case cstate is
         when A_Q | A_S_T | A_E_R | A_W_T =>            -- at_t <= 0
           at_tend <= at_pos1 = 0;
-          at_sv <= sarr(0);
+          at_sv <= sarr0;
         when A_S_SC | A_E_2 | A_E_3 | A_W_1 | A_O_I => -- at_t <= at_t + 1
           -- (these states write sarr at at_t, not at at_t + 1)
           at_tend <= at_t + 1 = at_pos1;
