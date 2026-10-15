@@ -459,9 +459,9 @@ architecture shell of ssnail is
     A_S_T, A_S_I, A_S_I2, A_S_I3, A_S_I4, A_S_SC, A_S_SC2,
     A_E_T, A_E_1, A_E_2, A_E_3, A_E_R, A_E_R2, A_W_T, A_W_1,
     A_O_T, A_O_I, A_O_I2, A_O_I3, A_O_I4, A_WR, A_WR2, A_HNEXT,
-    D_GROUP, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
+    D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
-    D_KQ, D_KQ2, D_KMUL, D_KSUB,
+    D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
     G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
     G_SET, G_KAM, G_KX,
     G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
@@ -620,6 +620,7 @@ architecture shell of ssnail is
   -- which is enough because ef_addr, ld_block and ld_valid are never
   -- written in the state just before EF_START (asserted there)
   signal ef_miss : boolean := true;
+  signal ps_miss : boolean := true;
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
   signal at_hend : boolean := false;    -- at_h = at_nh: every head done
   signal at_ge   : boolean := false;    -- at_gc >= at_nkv (A_GRP)
@@ -1074,6 +1075,13 @@ architecture shell of ssnail is
   signal kq_wh     : std_logic := '0';               -- half being written
   signal kq_wp     : unsigned(7 downto 0) := (others => '0');   -- its next byte
   signal kq_full   : std_logic_vector(0 to 1) := "00";          -- half holds a super-block
+  signal kq_fset   : std_logic := '0';                           -- (kq_full(kq_fseth) next)
+  signal kq_fseth  : std_logic := '0';
+  type kw_a_t is array (0 to 3) of unsigned(6 downto 0);
+  type kw_d_t is array (0 to 3) of unsigned(7 downto 0);
+  signal kw_we_q   : std_logic_vector(0 to 3) := "0000";         -- kq_sb's registered writes
+  signal kw_a_q    : kw_a_t := (others => (others => '0'));
+  signal kw_d_q    : kw_d_t := (others => (others => '0'));
   -- header unit: reads 5 words of a full half, decodes, S2, d*dx, dmin*dx
   type kq_hs_t is (KH_IDLE, KH_RD, KH_DEC, KH_DEC2, KH_S2, KH_A, KH_B, KH_BW);
   signal kq_hs     : kq_hs_t := KH_IDLE;
@@ -1095,6 +1103,7 @@ architecture shell of ssnail is
   -- K reader and passes
   signal kq_rh     : std_logic := '0';               -- half the lanes read
   signal kq_p      : unsigned(2 downto 0) := (others => '0');   -- pass (32 weights)
+  signal kq_dq     : signed(8 downto 0) := (others => '0');  -- (DEQROW's q)
   signal kq_rd_q   : kq_rd_t := (la => (others => '0'), ha => (others => '0'),
                                  sl => "000", sh => "000", ml => x"0", mh => "00",
                                  wl => "000", off => (others => '0'), wr => '0', tb => '0');
@@ -1678,14 +1687,11 @@ begin
     variable kb_ln : integer range 0 to 3;
     variable kb_wd : unsigned(6 downto 0);
     variable kwl, kwh : unsigned(31 downto 0);
-    variable kq_qv : signed(8 downto 0);
     variable kf_r : unsigned(24 downto 0);
     variable kf_p : integer range 0 to 31;
     variable kc : kq_rd_t;
     -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
     variable kw_we : std_logic_vector(0 to 3);
-    type kw_a_t is array (0 to 3) of unsigned(6 downto 0);
-    type kw_d_t is array (0 to 3) of unsigned(7 downto 0);
     variable kw_a : kw_a_t;
     variable kw_d : kw_d_t;
     variable wb : unsigned(7 downto 0);
@@ -1708,6 +1714,7 @@ begin
       wf_arr := false;
       wf_pop := false;
       kw_we := "0000";
+      kq_fset <= '0';
       kw_a := (others => (others => '0'));
       kw_d := (others => (others => '0'));
       hr_issue := '0';
@@ -1940,6 +1947,10 @@ begin
       -- SETN operand checks for C_DECODE (see n0_z)
       n0_z <= n0 = 0;
       ef_miss <= ld_valid = '0' or ef_addr(27 downto 8) /= ld_block;
+      -- D_FETCH's: exact there, as ps and ld_block only change in D_FETCH's
+      -- hit path (ps + 1, which leaves the block only through D_FETCH0) or
+      -- before D_FETCH0
+      ps_miss <= ld_valid = '0' or ps(27 downto 8) /= ld_block;
       n0_one <= n0 = 1;
       n0_big <= n0 > 4096;
       n1_z <= n1 = 0;
@@ -3170,13 +3181,18 @@ begin
             for i in 0 to 4 loop
               kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
             end loop;
-            go(D_FETCH);
+            go(D_FETCH0);
           end if;
 
+        -- (one cycle for ps_miss to catch up with ps and ld_block)
+        when D_FETCH0 =>
+          go(D_FETCH);
         when D_FETCH =>
+          assert ps_miss = (ld_valid = '0' or ps(27 downto 8) /= ld_block)
+            report "SSNAIL: ps_miss" severity failure;
           if gi = gbytes then
             go(fetch_ret);
-          elsif ld_valid = '0' or ps(27 downto 8) /= ld_block then
+          elsif ps_miss then
             -- load the rest of this 256-byte block
             a0 := ps(27 downto 3) & "000";
             a1 := (ps(27 downto 8) + 1) & x"00";
@@ -3186,7 +3202,7 @@ begin
             dec_addr <= a0;
             ld_block <= ps(27 downto 8);
             ld_valid <= '1';
-            rd_ret <= D_FETCH;
+            rd_ret <= D_FETCH0;
             go(C_RD_DEC);
           else
             wd := bufx(to_integer(ps(7 downto 1)));
@@ -3205,6 +3221,9 @@ begin
             end if;
             ps <= ps + 1;
             gi <= gi + 1;
+            if ps(7 downto 0) = x"FF" then
+              go(D_FETCH0);                            -- (into the next block)
+            end if;
           end if;
 
         -- K-quant DEQROW: the header (as the GEMV header unit: words
@@ -3282,15 +3301,13 @@ begin
         when D_KQ =>
           go(D_KQ2);
         when D_KQ2 =>
-          kc := kq_rd_q;
-          if kc.wr = '1' and d_j(4) = '1' then
-            kc.sl := kc.sl + 4;
-          end if;
-          kq_qv := kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
+          kq_dq <= kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
                         kq_wh_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
-                        kc);
+                        kq_rd_q);
+          go(D_KQ3);
+        when D_KQ3 =>
           fpu_op <= FOP_I2F;
-          fpu_a <= unsigned(resize(kq_qv, 32));
+          fpu_a <= unsigned(resize(kq_dq, 32));
           fpu_start <= '1';
           fpu_ret <= D_KMUL;
           go(C_FPU_WAIT);
@@ -3325,7 +3342,11 @@ begin
               fpu_ret <= D_KA1;
               go(C_FPU_WAIT);
             else
-              kq_rd_q <= kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
+              kc := kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
+              if kc.wr = '1' and d_j(4) = '1' then
+                kc.sl := kc.sl + 4;                    -- (IQ4_XS: the high nibbles)
+              end if;
+              kq_rd_q <= kc;
               if kq_rd(d_fmt, to_integer(d_j(7 downto 5))).wr = '1' then
                 kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(3 downto 2));
               else
@@ -3738,7 +3759,7 @@ begin
             as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0'; ub_full <= '0';
-            kq_wh <= '0'; kq_wp <= (others => '0'); kq_full <= "00";
+            kq_wh <= '0'; kq_wp <= (others => '0'); kq_full <= "00"; kq_fset <= '0';
             kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
             kq_hwl <= kq_hwc;
             kq_rh <= '0'; kq_p <= (others => '0');
@@ -4531,7 +4552,9 @@ begin
             if kq_on = '1' then
               -- the super-block is in its half; on to the other one (as_full
               -- holds the assembler until that is free)
-              kq_full(to_integer(unsigned'("" & kq_wh))) <= '1';
+              -- (marked full a cycle later, with its last byte written)
+              kq_fset <= '1';
+              kq_fseth <= kq_wh;
               kq_wh <= not kq_wh;
               as_blocks <= as_blocks - 1;
               if as_blocks = 1 then as_any <= '0'; end if;
@@ -5028,12 +5051,19 @@ begin
         lp_pending <= lp_pending - 1;
       end if;
 
-      -- kq_sb: its write port per byte lane, and its three registered read
-      -- ports (the K reader's two, the header's)
-      if kw_we(0) = '1' then kq_sb0(to_integer(kw_a(0))) <= kw_d(0); end if;
-      if kw_we(1) = '1' then kq_sb1(to_integer(kw_a(1))) <= kw_d(1); end if;
-      if kw_we(2) = '1' then kq_sb2(to_integer(kw_a(2))) <= kw_d(2); end if;
-      if kw_we(3) = '1' then kq_sb3(to_integer(kw_a(3))) <= kw_d(3); end if;
+      -- kq_sb: its write port per byte lane (the writes registered first,
+      -- so neither the FIFO read and byte steering nor the GEMV / DEQROW
+      -- choice is in front of the RAM; a super-block's half is marked full
+      -- with its last write), and its three registered read ports (the K
+      -- reader's two, the header's)
+      kw_we_q <= kw_we; kw_a_q <= kw_a; kw_d_q <= kw_d;
+      if kw_we_q(0) = '1' then kq_sb0(to_integer(kw_a_q(0))) <= kw_d_q(0); end if;
+      if kw_we_q(1) = '1' then kq_sb1(to_integer(kw_a_q(1))) <= kw_d_q(1); end if;
+      if kw_we_q(2) = '1' then kq_sb2(to_integer(kw_a_q(2))) <= kw_d_q(2); end if;
+      if kw_we_q(3) = '1' then kq_sb3(to_integer(kw_a_q(3))) <= kw_d_q(3); end if;
+      if kq_fset = '1' then
+        kq_full(to_integer(unsigned'("" & kq_fseth))) <= '1';
+      end if;
       kq_wl_q <= kq_sb3(to_integer(kq_la)) & kq_sb2(to_integer(kq_la))
                  & kq_sb1(to_integer(kq_la)) & kq_sb0(to_integer(kq_la));
       kq_wh_q <= kq_sb3(to_integer(kq_ha)) & kq_sb2(to_integer(kq_ha))

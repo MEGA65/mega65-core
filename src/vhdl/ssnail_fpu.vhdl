@@ -199,6 +199,22 @@ begin
           dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
           dv_r <= "00" & ma;
           dv_i <= 46;
+          -- ADD's alignment set-up likewise
+          wa := "0" & ma & "00000000000000000000000";   -- hidden bit at 46
+          wb := "0" & mb & "00000000000000000000000";
+          -- (eb, mb) > (ea, ma) is the integer order of the magnitude
+          -- bits, subnormals included: one comparison of the inputs
+          swap := b(30 downto 0) > a(30 downto 0);
+          assert swap = ((eb > ea) or (eb = ea and mb > ma))
+            report "FPU: swap order" severity failure;
+          if swap then
+            big_m <= wb; small_m <= wa; big_e <= eb;
+            sh_d <= eb - ea;
+          else
+            big_m <= wa; small_m <= wb; big_e <= ea;
+            sh_d <= ea - eb;
+          end if;
+          if sa /= sb then subtract <= '1'; else subtract <= '0'; end if;
           if start = '1' then
             special <= '0';
             to_f16 <= '0';
@@ -219,25 +235,14 @@ begin
                 special <= '1'; sp_val <= b;
                 state <= S_PACK;
               else
+                -- (big_m, small_m, big_e, sh_d, subtract: set up above)
                 unpack32(a, sa, ea, ma);
                 unpack32(b, sb, eb, mb);
-                wa := "0" & ma & "00000000000000000000000";   -- hidden bit at 46
-                wb := "0" & mb & "00000000000000000000000";
-                -- (eb, mb) > (ea, ma) is the integer order of the magnitude
-                -- bits, subnormals included: one comparison of the inputs
-                swap := b(30 downto 0) > a(30 downto 0);
-                assert swap = ((eb > ea) or (eb = ea and mb > ma))
-                  report "FPU: swap order" severity failure;
-                if swap then
-                  big_m <= wb; small_m <= wa; big_e <= eb;
-                  sh_d <= eb - ea;
+                if b(30 downto 0) > a(30 downto 0) then
                   rs <= sb;
                 else
-                  big_m <= wa; small_m <= wb; big_e <= ea;
-                  sh_d <= ea - eb;
                   rs <= sa;
                 end if;
-                if sa /= sb then subtract <= '1'; else subtract <= '0'; end if;
                 -- Zero results: (-0) + (-0) = -0; exact cancellation = +0
                 if is_zero32(a) and is_zero32(b) then
                   zero_sign <= sa and sb;
