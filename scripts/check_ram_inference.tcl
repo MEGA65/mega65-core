@@ -11,12 +11,13 @@
 #   open_checkpoint vivado/mega65r6.runs/synth_1/container.dcp
 #   source scripts/check_ram_inference.tcl
 
-# Instance glob, array name: every signal with ram_style "distributed" in
+# Instance glob, array name: every signal with ram_style "distributed" (or
+# "block": xf) in
 # ssnail.vhdl.  Add new ones here.
 set ram_checks {
   *ssnail0 {bank0 bank1 bank2 bank3 ring_lo ring_hi csv qv outv sarr
             qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb
-            kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3}
+            kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3 xf}
 }
 
 # A failed inference gives one flip-flop per bit (thousands); a handful can
