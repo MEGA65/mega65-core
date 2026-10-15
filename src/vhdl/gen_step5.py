@@ -1,4 +1,4 @@
-"""Step 5 test: ROPE, ARGMAX, ATTN (F16 and F32 KV, grouped-query) against
+"""Step 5 test: ROPE, ARGMAX, ATTN (F16 and F32 KV, grouped-query, short heads) against
 the reference emulator in hardware-numerics mode."""
 import os
 import struct
@@ -49,6 +49,13 @@ v2 = (rng.standard_normal((4, 2 * 8))).astype(F32)
 q2 = (rng.standard_normal(2 * 8)).astype(F32)
 put(0xA00, k2.tobytes()); put(0xB00, v2.tobytes()); put(0xC00, q2.tobytes())
 put(0xC80, struct.pack("<8I", B + 0xA00, B + 0xB00, 2, 2, 8, 0, 0, 0))
+# ATTN 3: F16 KV, 2 heads sharing 1 KV head, head dim 4 (rows shorter than
+# the float lane's adder latency), positions 0..4
+k3 = (rng.standard_normal((5, 4))).astype(np.float16)
+v3 = (rng.standard_normal((5, 4))).astype(np.float16)
+q3 = (rng.standard_normal(2 * 4)).astype(F32)
+put(0xD00, k3.tobytes()); put(0xD40, v3.tobytes()); put(0xD80, q3.tobytes())
+put(0xDC0, struct.pack("<8I", B + 0xD00, B + 0xD40, 2, 1, 4, 1, 0, 0))
 assert not any(mem[0x1000:]), "test data must stay below $1000 (the bench loads only that)"
 
 A = Asm()
@@ -60,6 +67,8 @@ A(I.LI, 5, z=5)
 A(I.ATTN, 5, x=B + 0x9A0, y=B + 0x8A0, z=B + 0x1204)   # 4-aligned, crosses $1300
 A(I.LI, 5, z=3)
 A(I.ATTN, 5, x=B + 0xC80, y=B + 0xC00, z=B + 0x1400)
+A(I.LI, 5, z=4)
+A(I.ATTN, 5, x=B + 0xDC0, y=B + 0xD80, z=B + 0x1500)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200
