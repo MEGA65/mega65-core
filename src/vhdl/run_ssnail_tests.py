@@ -25,6 +25,7 @@ Testbenches:
     tb_ssnail_load    load port: segments, unaligned blocks, masking, ERROR
     tb_ssnail_step1   scalar/control instructions vs the reference emulator
     tb_ssnail_fpu     the FP unit, bit-exact against numpy (83k vectors)
+    tb_ssnail_fpipe   the pipelined F32 adder and multiplier, bit-exact (320k vectors)
     tb_ssnail_step2   DEQROW (all formats), VADD, VMUL, CVT16 vs the emulator's
                       hardware-numerics mode
     tb_ssnail_step3   GEMV (Q8_0, Q4_0, MXFP4, IQ4_NL, accumulate, F16 output) vs the same
@@ -111,6 +112,8 @@ BENCHES = {
                         "tb_ssnail_step1", [[]], r"TB_SSNAIL_STEP1: ALL PASSED"),
     "tb_ssnail_fpu": (["ssnail_fpu.vhdl", "tb_ssnail_fpu.vhdl"], "tb_ssnail_fpu", [[]],
                       r"TB_SSNAIL_FPU: ALL PASSED"),
+    "tb_ssnail_fpipe": (["ssnail_fpipe.vhdl", "tb_ssnail_fpipe.vhdl"], "tb_ssnail_fpipe", [[]],
+                        r"TB_SSNAIL_FPIPE: ALL PASSED"),
     "tb_ssnail_step2": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step2_pkg.vhdl", "tb_ssnail_step2.vhdl"],
                         "tb_ssnail_step2", [[]], r"TB_SSNAIL_STEP2: ALL PASSED"),
@@ -176,8 +179,9 @@ GENERATED = {
     "step6_pkg.vhdl": ("gen_step6.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
+    "fpipe_vectors.txt": ("gen_fpipe_vectors.py", False),
 }
-NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"]}
+NEEDS_DATA = {"tb_ssnail_fpu": ["fpu_vectors.txt"], "tb_ssnail_fpipe": ["fpipe_vectors.txt"]}
 # Things a passing run must not print
 BAD = re.compile(r"\(report error\)|\(assertion error\)|\(report failure\)|"
                  r"\(assertion failure\)|^FAIL|bound check failure|"
