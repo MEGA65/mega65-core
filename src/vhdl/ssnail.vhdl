@@ -466,6 +466,10 @@ architecture shell of ssnail is
     C_LP_DECODE, C_LP_ISSUE, C_LP_WAIT, C_LP_INVAL, C_LP_DONE,
     C_NEXT, C_END);
   signal cstate : core_state_t := C_IDLE;
+  -- Registered decodes of cstate, set with it (go): V_EL0, E_R6, and the
+  -- states that read the next element's operands ahead (pre_x etc.), so
+  -- the operand read addresses are not behind a decode of cstate
+  signal cs_el0, cs_r6, cs_pf : boolean := false;
   signal rd_ret, wr_ret, fpu_ret, ve_ret, tab_ret, ef_ret : core_state_t := C_IDLE;
 
   signal pc        : unsigned(27 downto 0) := (others => '0');
@@ -1327,8 +1331,21 @@ begin
     variable fv : unsigned(31 downto 0);
     variable i2f_p : integer range 0 to 23;
     variable i2f_m : unsigned(23 downto 0);
+    -- the next state, with its registered decodes
+    procedure go(s : core_state_t) is
+    begin
+      cstate <= s;
+      cs_el0 <= s = V_EL0;
+      cs_r6 <= s = E_R6;
+      cs_pf <= s = V_EL0 or s = V_EL or s = V_ELST or s = E_ACC or s = E_ACC2
+               or s = E_R6;
+    end procedure;
   begin
     if rising_edge(clock162) then
+      assert cs_el0 = (cstate = V_EL0) and cs_r6 = (cstate = E_R6)
+        and cs_pf = (cstate = V_EL0 or cstate = V_EL or cstate = V_ELST
+                     or cstate = E_ACC or cstate = E_ACC2 or cstate = E_R6)
+        report "SSNAIL: stale cs_el0 / cs_r6 / cs_pf" severity failure;
       hr_issue := '0';
       pf_go := false;
       pf_x := vix; pf_y := viy; pf_b := vib;
@@ -1619,7 +1636,7 @@ begin
               c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
               c_sd_base <= sd_base_mb;
               c_sd_size <= sd_size_mb;
-              cstate <= C_LP_DECODE;
+              go(C_LP_DECODE);
             end if;
           elsif go_s2 /= go_last or step_s2 /= step_last then
             c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
@@ -1639,33 +1656,33 @@ begin
             err <= ERR_NONE;
             wd_fired <= '0';
             abort_req <= '0';
-            cstate <= C_FETCH_SETUP;
+            go(C_FETCH_SETUP);
           elsif sync_s2 /= sync_last then
             sync_last <= sync_s2;
             c_hr_size <= hr_size_mb; c_hr_base <= hr_base_mb;
             c_sd_size <= sd_size_mb;
             busy <= '1';
             cpu_sync <= '1';
-            cstate <= C_SYNC_ISSUE;
+            go(C_SYNC_ISSUE);
           end if;
 
         when C_FETCH_SETUP =>
           dec_addr <= pc;
-          cstate <= C_FETCH_DECODE;
+          go(C_FETCH_DECODE);
 
         when C_FETCH_DECODE =>
-          cstate <= C_FETCH_ISSUE;     -- decode of pc completes now
+          go(C_FETCH_ISSUE);     -- decode of pc completes now
 
         when C_FETCH_ISSUE =>
           if abort_req = '1' then
             err <= ERR_ABORTED;
-            cstate <= C_END;
+            go(C_END);
           elsif pc(3 downto 0) /= "0000" then
             err <= ERR_ALIGNMENT;
-            cstate <= C_END;
+            go(C_END);
           elsif dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             words_got <= (others => '0');
             words_expected <= to_unsigned(8, 8);
@@ -1680,21 +1697,21 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= to_unsigned(16, 9);
               hr_issue := '1';
             end if;
-            cstate <= C_FETCH_WAIT;
+            go(C_FETCH_WAIT);
           end if;
 
         when C_FETCH_WAIT =>
           dbg_words <= words_got(3 downto 0);
           if words_done and rvalid_r = '0' then
             wd_cnt <= (others => '0');
-            cstate <= C_RESOLVE;
+            go(C_RESOLVE);
           elsif rvalid_r = '1' then
             wd_cnt <= (others => '0');
           elsif wd_cnt = x"FFFF" then
             wd_cnt <= (others => '0');
             wd_fired <= '1';
             err <= ERR_READ;
-            cstate <= C_END;
+            go(C_END);
           else
             wd_cnt <= wd_cnt + 1;
           end if;
@@ -1731,10 +1748,10 @@ begin
           opr_a_z <= ra = 0;
           opr_eq <= ra = rb;
           opr_lt <= ra < rb;
-          cstate <= C_DECODE;
+          go(C_DECODE);
 
         when C_DECODE =>
-          cstate <= C_DEC2;
+          go(C_DEC2);
           dec_next <= C_DECODE;                     -- (as if cstate were unchanged)
           -- MEANROWS set-up, for every instruction (only MEANROWS uses them),
           -- so the opcode and fault checks do not gate it
@@ -1933,13 +1950,13 @@ begin
           end if;
 
         when C_DEC2 =>
-          cstate <= dec_next;
+          go(dec_next);
 
         when C_LEA_MUL =>
           -- Shift-and-add, one bit of Z per cycle (LEA is rare)
           if mul_z = 0 then
             rf_a(to_integer(instr(11 downto 8))) <= mul_acc;
-            cstate <= C_NEXT;
+            go(C_NEXT);
           else
             if mul_z(0) = '1' then
               mul_acc <= mul_acc + mul_m;
@@ -1949,12 +1966,12 @@ begin
           end if;
 
         when C_MEM_DECODE =>
-          cstate <= C_MEM_ISSUE;        -- decode of the 8-byte group
+          go(C_MEM_ISSUE);        -- decode of the 8-byte group
 
         when C_MEM_ISSUE =>
           if dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             t_is_sd <= dec_is_sd;
             words_got <= (others => '0');
@@ -1974,14 +1991,14 @@ begin
               if mem_is_store = '1' then hr_cmd_op <= LUMP_OP_WRITE; else hr_cmd_op <= LUMP_OP_READ; end if;
               hr_issue := '1';
             end if;
-            cstate <= C_MEM_WAIT;
+            go(C_MEM_WAIT);
           end if;
 
         when C_MEM_WAIT =>
           if mem_is_store = '1' then
             if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
               str_active <= '0';
-              cstate <= C_NEXT;
+              go(C_NEXT);
             end if;
           elsif words_done and rvalid_r = '0' then
             if instr(11 downto 8) /= x"F" then
@@ -1991,7 +2008,7 @@ begin
                 rf_r(to_integer(instr(11 downto 8))) <= ld_w(3) & ld_w(2);
               end if;
             end if;
-            cstate <= C_NEXT;
+            go(C_NEXT);
           end if;
 
         when C_COPY_CALC =>
@@ -2000,11 +2017,11 @@ begin
           -- source or destination, nor the end of the copy.
           if abort_req = '1' then
             err <= ERR_ABORTED;
-            cstate <= C_END;
+            go(C_END);
           elsif err /= ERR_NONE then
-            cstate <= C_END;
+            go(C_END);
           elsif cp_zero then
-            cstate <= C_NEXT;
+            go(C_NEXT);
           else
             room_s := to_unsigned(256, 9) - resize(cp_src(7 downto 0), 9);
             room_d := to_unsigned(256, 9) - resize(cp_dst(7 downto 0), 9);
@@ -2015,16 +2032,16 @@ begin
             end if;
             cp_chunk <= min9(rem9, min9(room_s, room_d));
             dec_addr <= cp_src;
-            cstate <= C_COPY_RD_DECODE;
+            go(C_COPY_RD_DECODE);
           end if;
 
         when C_COPY_RD_DECODE =>
-          cstate <= C_COPY_RD_ISSUE;   -- decode of cp_src completes now
+          go(C_COPY_RD_ISSUE);   -- decode of cp_src completes now
 
         when C_COPY_RD_ISSUE =>
           if dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             words_got <= (others => '0');
             words_expected <= resize(cp_chunk(8 downto 1), 8);
@@ -2040,23 +2057,23 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
-            cstate <= C_COPY_RD_WAIT;
+            go(C_COPY_RD_WAIT);
           end if;
 
         when C_COPY_RD_WAIT =>
           -- Note: cp_chunk = 256 gives words_expected = 128, which fits.
           if words_done and rvalid_r = '0' then
             dec_addr <= cp_dst;
-            cstate <= C_COPY_WR_DECODE;
+            go(C_COPY_WR_DECODE);
           end if;
 
         when C_COPY_WR_DECODE =>
-          cstate <= C_COPY_WR_ISSUE;
+          go(C_COPY_WR_ISSUE);
 
         when C_COPY_WR_ISSUE =>
           if dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             buf_ridx <= (others => '0');
             t_is_sd <= dec_is_sd;
@@ -2069,7 +2086,7 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
-            cstate <= C_COPY_WR_WAIT;
+            go(C_COPY_WR_WAIT);
           end if;
 
         when C_COPY_WR_WAIT =>
@@ -2082,7 +2099,7 @@ begin
             cp_dst <= cp_dst + resize(cp_chunk, 28);
             cp_remaining <= cp_remaining - resize(cp_chunk, 16);
             cp_zero <= cp_remaining = resize(cp_chunk, 16);
-            cstate <= C_COPY_CALC;
+            go(C_COPY_CALC);
           end if;
 
         when C_SYNC_ISSUE =>
@@ -2096,7 +2113,7 @@ begin
             sd_cmd_addr <= (others => '0'); sd_cmd_len <= (others => '0');
             sd_issue := '1';
           end if;
-          cstate <= C_SYNC_WAIT;
+          go(C_SYNC_WAIT);
 
         when C_SYNC_WAIT =>
           -- All earlier commands (e.g. COPY writes) complete before the
@@ -2105,27 +2122,27 @@ begin
             wd_cnt <= (others => '0');
             if cpu_sync = '1' then
               cpu_sync <= '0';
-              cstate <= C_IDLE;
+              go(C_IDLE);
             else
-              cstate <= C_NEXT;
+              go(C_NEXT);
             end if;
           elsif wd_cnt = x"FFFF" then
             wd_cnt <= (others => '0');
             wd_fired <= '1';
             cpu_sync <= '0';
             err <= ERR_READ;
-            cstate <= C_END;
+            go(C_END);
           else
             wd_cnt <= wd_cnt + 1;
           end if;
 
         when C_LP_DECODE =>
-          cstate <= C_LP_ISSUE;          -- decode of the chunk address now
+          go(C_LP_ISSUE);          -- decode of the chunk address now
 
         when C_LP_ISSUE =>
           if dec_ok = '0' then
             lp_error <= '1';             -- outside both regions: drop it
-            cstate <= C_LP_DONE;
+            go(C_LP_DONE);
           else
             lp_active <= '1';
             t_is_sd <= dec_is_sd;
@@ -2138,7 +2155,7 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= cp_chunk;
               hr_issue := '1';
             end if;
-            cstate <= C_LP_WAIT;
+            go(C_LP_WAIT);
           end if;
 
         when C_LP_WAIT =>
@@ -2154,12 +2171,12 @@ begin
               hr_cmd_addr <= (others => '0'); hr_cmd_len <= (others => '0');
               hr_issue := '1';
             end if;
-            cstate <= C_LP_INVAL;
+            go(C_LP_INVAL);
           end if;
 
         when C_LP_INVAL =>
           if hr_out = 0 and sd_out = 0 then
-            cstate <= C_LP_DONE;
+            go(C_LP_DONE);
           end if;
 
         when C_LP_DONE =>
@@ -2169,7 +2186,7 @@ begin
             lp_dec := '1';
             lp_ack_tgl <= not lp_ack_tgl;
           end if;
-          cstate <= C_IDLE;
+          go(C_IDLE);
 
         -- ------------------------------------------------------------------
         -- Subroutines: FPU operation, region read into a buffer, masked
@@ -2181,17 +2198,17 @@ begin
             fr_big <= fpu_res > TAB_SEGMENTS - 1;
             fr_z   <= fpu_res(30 downto 0) = 0;
             fr_mlt <= flt(at_m, fpu_res);
-            cstate <= fpu_ret;
+            go(fpu_ret);
           end if;
 
         when C_RD_DEC =>
-          cstate <= C_RD_ISSUE;
+          go(C_RD_ISSUE);
         when C_RD_ISSUE =>
           if (hr_valid_i or sd_valid_i) = '1' then
             null;                                   -- channel busy (GEMV stream)
           elsif dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             words_got <= (others => '0');
             words_expected <= resize(rd_len(8 downto 1), 8);
@@ -2213,22 +2230,22 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= rd_len;
               hr_issue := '1';
             end if;
-            cstate <= C_RD_WAIT;
+            go(C_RD_WAIT);
           end if;
         when C_RD_WAIT =>
           if words_done and rvalid_r = '0' then
             cap_sel <= "00";
-            cstate <= rd_ret;
+            go(rd_ret);
           end if;
 
         when C_WR_DEC =>
-          cstate <= C_WR_ISSUE;
+          go(C_WR_ISSUE);
         when C_WR_ISSUE =>
           if (hr_valid_i or sd_valid_i) = '1' then
             null;                                   -- channel busy (GEMV stream)
           elsif dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             mw_active <= '1';
             mw_k <= (others => '0');
@@ -2241,12 +2258,12 @@ begin
               hr_cmd_addr <= dec_local; hr_cmd_len <= wr_len;
               hr_issue := '1';
             end if;
-            cstate <= C_WR_WAIT;
+            go(C_WR_WAIT);
           end if;
         when C_WR_WAIT =>
           if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
             mw_active <= '0';
-            cstate <= wr_ret;
+            go(wr_ret);
           end if;
 
         -- ------------------------------------------------------------------
@@ -2258,7 +2275,7 @@ begin
           -- and saturate the full-width element count.  No chained minimum
           -- comparisons on this clock edge.
           if v_n_z then                                 -- v_n = 0
-            cstate <= ve_ret;
+            go(ve_ret);
           else
             if v_n(31 downto 8) = 0 then
               vc_rem_q <= v_n(7 downto 0);
@@ -2285,7 +2302,7 @@ begin
             else
               vc_z_q <= x"FF";
             end if;
-            cstate <= V_CHUNK_MIN1;
+            go(V_CHUNK_MIN1);
           end if;
 
         when V_CHUNK_MIN1 =>
@@ -2300,7 +2317,7 @@ begin
           else
             vc_right_q <= vc_b_q;
           end if;
-          cstate <= V_CHUNK_MIN2;
+          go(V_CHUNK_MIN2);
 
         when V_CHUNK_MIN2 =>
           -- Third stage: select the remaining minimum, including Z.
@@ -2313,7 +2330,7 @@ begin
           end if;
           if vc_z_q < vlen8 then vlen8 := vc_z_q; end if;
           v_e <= vlen8;
-          cstate <= V_CHUNK_ADDR;
+          go(V_CHUNK_ADDR);
 
         when V_CHUNK_ADDR =>
           a0 := px(27 downto 3) & "000";
@@ -2333,7 +2350,7 @@ begin
             else
               rd_ret <= V_EL0;
             end if;
-            cstate <= C_RD_DEC;
+            go(C_RD_DEC);
 
         when V_LDY =>
           a0 := py(27 downto 3) & "000";
@@ -2348,7 +2365,7 @@ begin
           else
             rd_ret <= V_EL0;
           end if;
-          cstate <= C_RD_DEC;
+          go(C_RD_DEC);
 
         when V_LDB =>
           a0 := pb(27 downto 3) & "000";
@@ -2359,14 +2376,14 @@ begin
           rd_sel <= "11";
           dec_addr <= a0;
           rd_ret <= V_EL0;
-          cstate <= C_RD_DEC;
+          go(C_RD_DEC);
 
         when V_EL0 =>
           v_i <= (others => '0');
           pf_go := true;
           pf_i := (others => '0');
           pf_x := px(7 downto 0); pf_y := py(7 downto 0); pf_b := pb(7 downto 0);
-          cstate <= V_EL;
+          go(V_EL);
 
         when V_EL =>
           assert v_done = (v_i = v_e) report "SSNAIL: stale v_done" severity failure;
@@ -2387,9 +2404,9 @@ begin
               mw_idx <= a0(7 downto 1);
               dec_addr <= a0;
               wr_ret <= V_ADV;
-              cstate <= C_WR_DEC;
+              go(C_WR_DEC);
             else
-              cstate <= V_ADV;
+              go(V_ADV);
             end if;
           else
             -- operands already read (pre_*) by the state that came here
@@ -2419,10 +2436,10 @@ begin
                 -- pair (x0, x1) = elements i, i+1: x0 c - x1 s, x0 s + x1 c
                 x1v <= pre_x1;
                 fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= csv(to_integer(rope_j));
-                fpu_start <= '1'; fpu_ret <= E_R1; cstate <= C_FPU_WAIT;
+                fpu_start <= '1'; fpu_ret <= E_R1; go(C_FPU_WAIT);
               when K_COPY | K_SUM =>
                 fpu_r <= xv;
-                if ve_kind = K_SUM then cstate <= E_ACC; else cstate <= V_ELST; end if;
+                if ve_kind = K_SUM then go(E_ACC); else go(V_ELST); end if;
               when K_SILUMUL | K_GELU =>
                 tx <= xv;
                 if ve_kind = K_SILUMUL then
@@ -2433,7 +2450,7 @@ begin
                   tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
                 end if;
                 tab_ret <= E_K1;
-                cstate <= T_START;
+                go(T_START);
               when others =>
                 fpu_a <= xv;
                 case ve_kind is
@@ -2459,7 +2476,7 @@ begin
                     fpu_ret <= E_K1;
                 end case;
                 fpu_start <= '1';
-                cstate <= C_FPU_WAIT;
+                go(C_FPU_WAIT);
             end case;
           end if;
 
@@ -2468,27 +2485,27 @@ begin
           case ve_kind is
             when K_SILUMUL =>                       -- silu(x) * y
               fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; fpu_ret <= V_ELST;
-              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+              fpu_start <= '1'; go(C_FPU_WAIT);
             when K_GELU =>
-              fpu_r <= tval; cstate <= V_ELST;
+              fpu_r <= tval; go(V_ELST);
             when K_RMSOUT =>                        -- (x * r) * g
               fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; fpu_ret <= V_ELST;
-              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+              fpu_start <= '1'; go(C_FPU_WAIT);
             when K_LNVAR =>                         -- d * d
               fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= fpu_r; fpu_ret <= E_ACC;
-              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+              fpu_start <= '1'; go(C_FPU_WAIT);
             when others =>                          -- K_LNOUT: d * r
               fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_r; fpu_ret <= E_K2;
-              fpu_start <= '1'; cstate <= C_FPU_WAIT;
+              fpu_start <= '1'; go(C_FPU_WAIT);
           end case;
 
         when E_K2 =>                                -- K_LNOUT: (d * r) * g
           fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; fpu_ret <= E_K3;
-          fpu_start <= '1'; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; go(C_FPU_WAIT);
 
         when E_K3 =>                                -- K_LNOUT: ... + b
           fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; fpu_ret <= V_ELST;
-          fpu_start <= '1'; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; go(C_FPU_WAIT);
 
         when E_ACC =>
           -- sequential sum: the first value as it is, then acc = acc + v
@@ -2498,10 +2515,10 @@ begin
             v_i <= v_i + 1;
             pf_go := true;
             pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-            cstate <= V_EL;
+            go(V_EL);
           else
             fpu_op <= FOP_ADD; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_ret <= E_ACC2;
-            fpu_start <= '1'; cstate <= C_FPU_WAIT;
+            fpu_start <= '1'; go(C_FPU_WAIT);
           end if;
 
         when E_ACC2 =>
@@ -2509,13 +2526,13 @@ begin
           v_i <= v_i + 1;
           pf_go := true;
           pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-          cstate <= V_EL;
+          go(V_EL);
 
         when V_ELST =>
           v_i <= v_i + 1;
           pf_go := true;
           pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-          cstate <= V_EL;
+          go(V_EL);
 
         when V_ADV =>
           px <= px + (resize(v_e, 26) & "00");
@@ -2529,7 +2546,7 @@ begin
           v_n <= v_n - resize(v_e, 32);
           v_n_z <= v_n = resize(v_e, 32);
           v_n_one <= v_n = resize(v_e, 32) + 1;
-          cstate <= V_CHUNK;
+          go(V_CHUNK);
 
         -- ------------------------------------------------------------------
         -- Table lookup (ssnail_hw.Table): tval = f(tx), then tab_ret.
@@ -2549,21 +2566,21 @@ begin
           end if;
           if tx_below then                             -- flt(tx, lo)
             tval <= (others => '0');                   -- below: 0
-            cstate <= tab_ret;
+            go(tab_ret);
           elsif tx_above then                          -- not flt(tx, hi)
             if tab_id = "10" then
               tval <= x"3F800000";                     -- exp above: 1
             else
               tval <= tx;                              -- silu, gelu above: x
             end if;
-            cstate <= tab_ret;
+            go(tab_ret);
           else
             fpu_op <= FOP_ADD;                         -- x - lo
             fpu_a <= tx;
             fpu_b <= (not lo(31)) & lo(30 downto 0);
             fpu_start <= '1';
             fpu_ret <= T_K;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           end if;
 
         when T_K =>
@@ -2574,14 +2591,14 @@ begin
           else fpu_b <= EXPT_K; end if;
           fpu_start <= '1';
           fpu_ret <= T_I;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when T_I =>
           fpu_op <= FOP_TRUNC;                         -- floor (it is >= 0)
           fpu_a <= fpu_r;
           fpu_start <= '1';
           fpu_ret <= T_LOOK;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when T_LOOK =>
           assert fr_neg = (fpu_r(31) = '1') and fr_big = (fpu_r > TAB_SEGMENTS - 1)
@@ -2603,7 +2620,7 @@ begin
             ti := ti + 512;
           end if;
           coeff_word <= coeff_rom(ti);
-          cstate <= T_COEFF;
+          go(T_COEFF);
 
         when T_COEFF =>
           -- Registered ROM output from T_LOOK is now valid.  FPU inputs
@@ -2614,7 +2631,7 @@ begin
           fpu_b <= tx;
           fpu_start <= '1';
           fpu_ret <= T_C0;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when T_C0 =>
           fpu_op <= FOP_ADD;                           -- c0[i] + c1[i] * x
@@ -2622,84 +2639,84 @@ begin
           fpu_b <= fpu_r;
           fpu_start <= '1';
           fpu_ret <= T_DONE;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when T_DONE =>
           tval <= fpu_r;
-          cstate <= tab_ret;
+          go(tab_ret);
 
         -- ------------------------------------------------------------------
         -- RMSNORM after pass 1 (ve_acc = sum of squares):
         -- rn = 1/N; m = ss * rn; r = 1 / sqrt(m + eps); then pass 2
         when R_S0 =>
           fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
-          fpu_ret <= R_S1; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S1; go(C_FPU_WAIT);
         when R_S1 =>
           fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= R_S2; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S2; go(C_FPU_WAIT);
         when R_S2 =>
           fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= R_S3; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S3; go(C_FPU_WAIT);
         when R_S3 =>
           fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
-          fpu_ret <= R_S4; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S4; go(C_FPU_WAIT);
         when R_S4 =>
           fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-          fpu_ret <= R_S5; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S5; go(C_FPU_WAIT);
         when R_S5 =>
           fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= R_S6; cstate <= C_FPU_WAIT;
+          fpu_ret <= R_S6; go(C_FPU_WAIT);
         when R_S6 =>
           s_r <= fpu_r;
           px <= bx; py <= by; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
           ve_kind <= K_RMSOUT; two_ops <= '1'; has_out <= '1'; ve_ret <= C_NEXT;
-          cstate <= V_CHUNK;
+          go(V_CHUNK);
 
         -- LAYERNORM: after pass 1 (sum): rn = 1/N, mu = sum * rn, pass 2
         -- (sum of (x - mu)^2), var = that * rn, r = 1 / sqrt(var + eps),
         -- pass 3 with G at Y and B after it
         when L_S0 =>
           fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
-          fpu_ret <= L_S1; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S1; go(C_FPU_WAIT);
         when L_S1 =>
           fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= L_S2; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S2; go(C_FPU_WAIT);
         when L_S2 =>
           s_rn <= fpu_r;
           fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= L_S3; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S3; go(C_FPU_WAIT);
         when L_S3 =>
           s_mu <= fpu_r;
           px <= bx; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one; ve_first <= '1';
           ve_kind <= K_LNVAR; has_out <= '0'; ve_ret <= L_S4;
-          cstate <= V_CHUNK;
+          go(V_CHUNK);
         when L_S4 =>
           fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= s_rn; fpu_start <= '1';
-          fpu_ret <= L_S5; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S5; go(C_FPU_WAIT);
         when L_S5 =>
           fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
-          fpu_ret <= L_S6; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S6; go(C_FPU_WAIT);
         when L_S6 =>
           fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-          fpu_ret <= L_S7; cstate <= C_FPU_WAIT;
+          fpu_ret <= L_S7; go(C_FPU_WAIT);
         when L_S7 =>
           if ve_kind = K_LNVAR then
             -- r = 1 / sqrt(...), then pass 3
             fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
             ve_kind <= K_LNOUT;
-            fpu_ret <= L_S7; cstate <= C_FPU_WAIT;
+            fpu_ret <= L_S7; go(C_FPU_WAIT);
           else
             s_r <= fpu_r;
             px <= bx; py <= by; pb <= by + (n0(25 downto 0) & "00"); pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
             two_ops <= '1'; has_b <= '1'; has_out <= '1'; ve_ret <= C_NEXT;
-            cstate <= V_CHUNK;
+            go(V_CHUNK);
           end if;
 
         -- MEANROWS: Z = row 0; Z = Z + row r for r = 1 .. R-1; Z = Z * (1/R)
         when M_NEXT =>
           assert mr_end = (mr_r = mr_rows) report "SSNAIL: stale mr_end" severity failure;
           if mr_end then
-            cstate <= M_S0;
+            go(M_S0);
           else
             -- Induction: before row r, mr_src_row = bx + (r-1)*4*n0 (mod 2^28).
             -- Thus the addition below is exactly the old bx + r*4*n0.
@@ -2708,19 +2725,19 @@ begin
             py <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
             ve_kind <= K_ADD; two_ops <= '1'; has_out <= '1'; ve_ret <= M_NEXT;
             mr_r <= mr_r + 1;
-            cstate <= V_CHUNK;
+            go(V_CHUNK);
           end if;
         when M_S0 =>
           fpu_op <= FOP_I2F; fpu_a <= mr_rows; fpu_start <= '1';
-          fpu_ret <= M_S1; cstate <= C_FPU_WAIT;
+          fpu_ret <= M_S1; go(C_FPU_WAIT);
         when M_S1 =>
           fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= M_S2; cstate <= C_FPU_WAIT;
+          fpu_ret <= M_S2; go(C_FPU_WAIT);
         when M_S2 =>
           s_sc <= fpu_r;
           px <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
           ve_kind <= K_SCALE; two_ops <= '0'; has_out <= '1'; ve_ret <= C_NEXT;
-          cstate <= V_CHUNK;
+          go(V_CHUNK);
 
         -- ------------------------------------------------------------------
         -- DEQROW: gather each group (one element, or one 32-element quant
@@ -2742,9 +2759,9 @@ begin
               dec_addr <= a0;
               ostart <= pz; d_unflushed <= false;
               wr_ret <= C_NEXT;
-              cstate <= C_WR_DEC;
+              go(C_WR_DEC);
             else
-              cstate <= C_NEXT;
+              go(C_NEXT);
             end if;
           else
             gi <= (others => '0');
@@ -2757,12 +2774,12 @@ begin
               when 8 => gbytes <= to_unsigned(34, 6); epg <= to_unsigned(32, 6);
               when others => gbytes <= to_unsigned(18, 6); epg <= to_unsigned(32, 6);  -- Q4_0
             end case;
-            cstate <= D_FETCH;
+            go(D_FETCH);
           end if;
 
         when D_FETCH =>
           if gi = gbytes then
-            cstate <= fetch_ret;
+            go(fetch_ret);
           elsif ld_valid = '0' or ps(27 downto 8) /= ld_block then
             -- load the rest of this 256-byte block
             a0 := ps(27 downto 3) & "000";
@@ -2774,7 +2791,7 @@ begin
             ld_block <= ps(27 downto 8);
             ld_valid <= '1';
             rd_ret <= D_FETCH;
-            cstate <= C_RD_DEC;
+            go(C_RD_DEC);
           else
             wd := bufx(to_integer(ps(7 downto 1)));
             if ps(0) = '0' then
@@ -2790,23 +2807,23 @@ begin
           case to_integer(d_fmt) is
             when 0 =>                              -- F32: the bits as they are
               d_val <= grp(3) & grp(2) & grp(1) & grp(0);
-              cstate <= D_STORE;
+              go(D_STORE);
             when 30 =>                             -- BF16
               d_val <= grp(1) & grp(0) & x"0000";
-              cstate <= D_STORE;
+              go(D_STORE);
             when 1 =>                              -- F16
               fpu_op <= FOP_F16TOF32;
               fpu_a <= x"0000" & grp(1) & grp(0);
               fpu_start <= '1';
               fpu_ret <= D_QMUL;
-              cstate <= C_FPU_WAIT;
+              go(C_FPU_WAIT);
             when others =>                         -- Q8_0 / Q4_0
               if d_have_scale = '0' then
                 fpu_op <= FOP_F16TOF32;
                 fpu_a <= x"0000" & grp(1) & grp(0);
                 fpu_start <= '1';
                 fpu_ret <= D_SCALE;
-                cstate <= C_FPU_WAIT;
+                go(C_FPU_WAIT);
               else
                 if d_fmt = 8 then
                   q := resize(signed(grp(2 + to_integer(d_j))), 32);
@@ -2820,31 +2837,31 @@ begin
                 fpu_a <= unsigned(d_qv);
                 fpu_start <= '1';
                 fpu_ret <= D_QMUL;
-                cstate <= C_FPU_WAIT;
+                go(C_FPU_WAIT);
               end if;
           end case;
 
         when D_SCALE =>
           dq_scale <= fpu_r;
           d_have_scale <= '1';
-          cstate <= D_EMIT;
+          go(D_EMIT);
 
         when D_QMUL =>
           if d_fmt = 1 then
             d_val <= fpu_r;                        -- F16 conversion result
-            cstate <= D_STORE;
+            go(D_STORE);
           else
             fpu_op <= FOP_MUL;                     -- d * q, as F32
             fpu_a <= dq_scale;
             fpu_b <= fpu_r;
             fpu_start <= '1';
             fpu_ret <= D_AFTER;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           end if;
 
         when D_AFTER =>
           d_val <= fpu_r;
-          cstate <= D_STORE;
+          go(D_STORE);
 
         when D_STORE =>
           a2 := pz + 4;
@@ -2874,17 +2891,17 @@ begin
             else
               wr_ret <= D_EMIT;
             end if;
-            cstate <= C_WR_DEC;
+            go(C_WR_DEC);
           elsif d_j + 1 = epg then
             d_unflushed <= a2 /= ostart;
-            cstate <= D_GROUP;
+            go(D_GROUP);
           else
             d_unflushed <= a2 /= ostart;
-            cstate <= D_EMIT_W;                     -- (d_qv follows d_j)
+            go(D_EMIT_W);                     -- (d_qv follows d_j)
           end if;
 
         when D_EMIT_W =>
-          cstate <= D_EMIT;
+          go(D_EMIT);
 
         -- ------------------------------------------------------------------
         -- GEMV, phase 1: quantise x to Q8_0 (ssnail_hw.quantize_q8_0)
@@ -2893,7 +2910,7 @@ begin
           g_j <= (others => '0');
           g_amax <= (others => '0');
           qf_hit <= ld_valid = '1' and px(27 downto 8) = ld_block;
-          cstate <= G_QFILL;
+          go(G_QFILL);
 
         when G_QFILL =>
           assert qf_hit = (ld_valid = '1' and px(27 downto 8) = ld_block)
@@ -2909,7 +2926,7 @@ begin
             fpu_b <= x"42FE0000";
             fpu_start <= '1';
             fpu_ret <= G_QID;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           elsif not qf_hit then                       -- px's block is not loaded
             a0 := px(27 downto 3) & "000";
             a1 := (px(27 downto 8) + 1) & x"00";
@@ -2921,7 +2938,7 @@ begin
             ld_valid <= '1';
             qf_hit <= true;
             rd_ret <= G_QFILL;
-            cstate <= C_RD_DEC;
+            go(C_RD_DEC);
           else
             fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
             xb(to_integer(g_j)) <= fv;
@@ -2938,47 +2955,47 @@ begin
           assert fr_z = (fpu_r(30 downto 0) = 0) report "SSNAIL: stale fr_z" severity failure;
           if fr_z then
             g_id <= (others => '0');                   -- id = d ? 1/d : 0
-            cstate <= G_QD16;
+            go(G_QD16);
           else
             fpu_op <= FOP_DIV;
             fpu_a <= x"3F800000";
             fpu_b <= fpu_r;
             fpu_start <= '1';
             fpu_ret <= G_QID2;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           end if;
 
         when G_QID2 =>
           g_id <= fpu_r;
-          cstate <= G_QD16;
+          go(G_QD16);
 
         when G_QD16 =>
           fpu_op <= FOP_F32TOF16;                      -- the stored scale is F16
           fpu_a <= g_d;
           fpu_start <= '1';
           fpu_ret <= G_QDX;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when G_QDX =>
           fpu_op <= FOP_F16TOF32;
           fpu_a <= fpu_r;
           fpu_start <= '1';
           fpu_ret <= G_QDX2;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when G_QDX2 =>
           dxs(to_integer(gblk)) <= fpu_r;
           g_j <= (others => '0');
-          cstate <= G_QQ;
+          go(G_QQ);
 
         when G_QQ =>
           if g_j = 32 then
             gblk <= gblk + 1;
             assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
             if g_qlast then
-              cstate <= G_ROW0;
+              go(G_ROW0);
             else
-              cstate <= G_QFILL0;
+              go(G_QFILL0);
             end if;
           else
             fpu_op <= FOP_MUL;                         -- x * id
@@ -2986,7 +3003,7 @@ begin
             fpu_b <= g_id;
             fpu_start <= '1';
             fpu_ret <= G_QQR;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           end if;
 
         when G_QQR =>
@@ -2994,7 +3011,7 @@ begin
           fpu_a <= fpu_r;
           fpu_start <= '1';
           fpu_ret <= G_QQS;
-          cstate <= C_FPU_WAIT;
+          go(C_FPU_WAIT);
 
         when G_QQS =>
           case to_integer(g_j(1 downto 0)) is
@@ -3004,7 +3021,7 @@ begin
             when others => qx3(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
           end case;
           g_j <= g_j + 1;
-          cstate <= G_QQ;
+          go(G_QQ);
 
         -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
         when G_ROW0 =>
@@ -3033,7 +3050,7 @@ begin
             g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 4)
                         + shift_left(resize(g_rows(19 downto 0), 28), 1);
           end if;
-          cstate <= G_ROW_MUL;
+          go(G_ROW_MUL);
         when G_ROW_MUL =>
           -- Add a shifted multiplicand for each set bit of blocks/row.
           -- Arithmetic is modulo 2^32 and 2^28, as in the old resize().
@@ -3047,7 +3064,7 @@ begin
           if g_mul_nb(7 downto 1) = 0 then
             -- Final partial product is registered at this edge.  Consume
             -- it in the following state, not in this same cycle.
-            cstate <= G_ROW_ADDR;
+            go(G_ROW_ADDR);
           end if;
         when G_ROW_ADDR =>
           a0 := ps(27 downto 3) & "000";
@@ -3056,25 +3073,25 @@ begin
           a1(2 downto 0) := "000";
           sr_end <= a1;
           dec_addr <= a0;
-          cstate <= G2_D1;
+          go(G2_D1);
         when G2_D1 =>
-          cstate <= G2_D2;                          -- decode of the start
+          go(G2_D2);                          -- decode of the start
         when G2_D2 =>
           if dec_ok = '0' then
             err <= ERR_ADDRESS;
-            cstate <= C_END;
+            go(C_END);
           else
             str_local <= dec_local;
             str_is_sd <= dec_is_sd;
             dec_addr <= sr_end - 8;                 -- and of the last group
-            cstate <= G2_D2W;
+            go(G2_D2W);
           end if;
         when G2_D2W =>
-          cstate <= G2_D3;                          -- its decode
+          go(G2_D3);                          -- its decode
         when G2_D3 =>
           if dec_ok = '0' or dec_is_sd /= str_is_sd then
             err <= ERR_ADDRESS;                     -- straddles two regions
-            cstate <= C_END;
+            go(C_END);
           else
             -- start the pipeline
             g2 <= '1';
@@ -3098,7 +3115,7 @@ begin
             tl_full <= '0';
             g_r <= (others => '0');
             g_end <= g_rows = 0; g_last <= g_rows = 1;
-            cstate <= G2_WAIT;
+            go(G2_WAIT);
           end if;
 
         when G2_WAIT =>
@@ -3106,38 +3123,38 @@ begin
           -- next finished block
           assert g_end = (g_r = g_rows) report "SSNAIL: stale g_end" severity failure;
           if g_end then                               -- g_r = g_rows
-            cstate <= G2_END;
+            go(G2_END);
           elsif tl_full = '1' then
             if tl_blk = 0 then
               g_accv <= tl_term;                    -- the first term as it is
-              cstate <= G2_T3;
+              go(G2_T3);
             else
               fpu_op <= FOP_ADD;                    -- acc = acc + term
               fpu_a <= g_accv;
               fpu_b <= tl_term;
               fpu_start <= '1';
               fpu_ret <= G2_T2;
-              cstate <= C_FPU_WAIT;
+              go(C_FPU_WAIT);
             end if;
           end if;
         when G2_T1 =>
-          cstate <= G2_WAIT;
+          go(G2_WAIT);
         when G2_T2 =>
           g_accv <= fpu_r;
-          cstate <= G2_T3;
+          go(G2_T3);
         when G2_T3 =>
           tl_full_clr := '1';
           assert tl_last = (tl_blk + 1 = g_nb) report "SSNAIL: stale tl_last" severity failure;
           if tl_last then
-            cstate <= G_OUT;                        -- row done: output it
+            go(G_OUT);                        -- row done: output it
           else
-            cstate <= G2_WAIT;
+            go(G2_WAIT);
           end if;
         when G2_END =>
           -- all rows out: let any trailing stream reads land, then stop
           if rq_w = rq_r and sr_inflight = 0 and hr_out = 0 and sd_out = 0 then
             g2 <= '0';
-            cstate <= C_NEXT;
+            go(C_NEXT);
           end if;
 
         when G_OUT =>
@@ -3157,17 +3174,17 @@ begin
             out_block <= pz(27 downto 8);
             out_loaded <= '1';
             rd_ret <= G_OUT;
-            cstate <= C_RD_DEC;
+            go(C_RD_DEC);
           elsif g_addz = '1' then
             fpu_op <= FOP_ADD;                         -- y = acc + y_old
             fpu_a <= g_accv;
             fpu_b <= g_oldv;
             fpu_start <= '1';
             fpu_ret <= G_OUT2;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           else
             fpu_r <= g_accv;
-            cstate <= G_OUT2;
+            go(G_OUT2);
           end if;
 
         when G_OUT2 =>
@@ -3176,14 +3193,14 @@ begin
             fpu_a <= fpu_r;
             fpu_start <= '1';
             fpu_ret <= G_OUT3;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           else
-            cstate <= G_OUT3;
+            go(G_OUT3);
           end if;
 
         when G_OUT3 =>
           g_val <= fpu_r;
-          cstate <= G_OUT4;
+          go(G_OUT4);
 
         when G_OUT4 =>
           if g_f16 = '1' then
@@ -3210,9 +3227,9 @@ begin
             dec_addr <= a0;
             ostart <= a2;
             wr_ret <= G2_WAIT;
-            cstate <= C_WR_DEC;
+            go(C_WR_DEC);
           else
-            cstate <= G2_WAIT;
+            go(G2_WAIT);
           end if;
 
         -- ------------------------------------------------------------------
@@ -3233,20 +3250,20 @@ begin
             ld_block <= ef_addr(27 downto 8);
             ld_valid <= '1';
             rd_ret <= EF_START;
-            cstate <= C_RD_DEC;
+            go(C_RD_DEC);
           elsif ef_f16 = '1' then
             fpu_op <= FOP_F16TOF32;
             fpu_a <= x"0000" & bufx(to_integer(ef_addr(7 downto 1)));
             fpu_start <= '1';
             fpu_ret <= EF_DONE;
-            cstate <= C_FPU_WAIT;
+            go(C_FPU_WAIT);
           else
             ef_val <= bufx(to_integer(ef_addr(7 downto 1) + 1)) & bufx(to_integer(ef_addr(7 downto 1)));
-            cstate <= ef_ret;
+            go(ef_ret);
           end if;
         when EF_DONE =>
           ef_val <= fpu_r;
-          cstate <= ef_ret;
+          go(ef_ret);
 
         -- ROPE: load the cos/sin row, then rotate pairs through the engine
         when RO_CS =>
@@ -3255,35 +3272,35 @@ begin
             o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
             ve_kind <= K_ROPE; rope_j <= (others => '0');
             ve_ret <= C_NEXT;
-            cstate <= V_CHUNK;
+            go(V_CHUNK);
           else
             ef_ret <= RO_CS2;
-            cstate <= EF_START;
+            go(EF_START);
           end if;
         when RO_CS2 =>
           csv(to_integer(cs_i)) <= ef_val;
           cs_i <= cs_i + 1;
           ef_addr <= ef_addr + 4;
-          cstate <= RO_CS;
+          go(RO_CS);
 
         when E_R1 =>                                -- a = x0 c; b = x1 s
           rp_a <= fpu_r;
           fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= csv(to_integer(rope_j) + 1);
-          fpu_start <= '1'; fpu_ret <= E_R2; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; fpu_ret <= E_R2; go(C_FPU_WAIT);
         when E_R2 =>                                -- r0 = a - b
           fpu_op <= FOP_ADD; fpu_a <= rp_a; fpu_b <= (not fpu_r(31)) & fpu_r(30 downto 0);
-          fpu_start <= '1'; fpu_ret <= E_R3; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; fpu_ret <= E_R3; go(C_FPU_WAIT);
         when E_R3 =>                                -- x0 s
           rp0 <= fpu_r;
           fpu_op <= FOP_MUL; fpu_a <= ex; fpu_b <= csv(to_integer(rope_j) + 1);
-          fpu_start <= '1'; fpu_ret <= E_R4; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; fpu_ret <= E_R4; go(C_FPU_WAIT);
         when E_R4 =>                                -- x1 c
           rp_b <= fpu_r;
           fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= csv(to_integer(rope_j));
-          fpu_start <= '1'; fpu_ret <= E_R5; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; fpu_ret <= E_R5; go(C_FPU_WAIT);
         when E_R5 =>                                -- r1 = x0 s + x1 c
           fpu_op <= FOP_ADD; fpu_a <= rp_b; fpu_b <= fpu_r;
-          fpu_start <= '1'; fpu_ret <= E_R6; cstate <= C_FPU_WAIT;
+          fpu_start <= '1'; fpu_ret <= E_R6; go(C_FPU_WAIT);
         when E_R6 =>
           v_i <= v_i + 2;
           pf_go := true;
@@ -3293,19 +3310,19 @@ begin
           else
             rope_j <= rope_j + 2;
           end if;
-          cstate <= V_EL;
+          go(V_EL);
 
         when AM_DONE =>
           if instr(11 downto 8) /= x"F" then
             rf_r(to_integer(instr(11 downto 8))) <= am_idx;
           end if;
-          cstate <= C_NEXT;
+          go(C_NEXT);
 
         -- ------------------------------------------------------------------
         -- ATTN (ssnail_hw.attention_head, per head)
         when A_PRM =>                               -- read parameter word at_pi
           ef_ret <= A_PRM2;
-          cstate <= EF_START;
+          go(EF_START);
         when A_PRM2 =>
           case to_integer(at_pi) is
             when 0 => at_k <= ef_val(27 downto 0);
@@ -3318,18 +3335,18 @@ begin
           ef_addr <= ef_addr + 4;
           at_pi <= at_pi + 1;
           if at_pi = 5 then
-            cstate <= A_CHK;
+            go(A_CHK);
           else
-            cstate <= A_PRM;
+            go(A_PRM);
           end if;
         when A_CHK =>                               -- check the parameters
           at_bad <= at_hd = 0 or at_hd > 256 or at_nkv = 0 or at_nh = 0 or at_pos >= 1024
                     or at_nh(15 downto 0) < at_nkv(15 downto 0);
-          cstate <= A_RS0;
+          go(A_RS0);
         when A_RS0 =>
           if at_bad then
             err <= ERR_OPCODE;
-            cstate <= C_END;
+            go(C_END);
           else
             -- K/V row = n_kv_heads * head_dim elements
             if at_fmt = 1 then
@@ -3340,21 +3357,21 @@ begin
               at_kv_stride <= at_hd(25 downto 0) & "00";
             end if;
             fpu_op <= FOP_I2F; fpu_a <= at_hd; fpu_start <= '1';
-            fpu_ret <= A_RS1; cstate <= C_FPU_WAIT;
+            fpu_ret <= A_RS1; go(C_FPU_WAIT);
           end if;
         when A_RS1 =>                               -- rs = 1 / sqrt(hd)
           fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-          fpu_ret <= A_RS2; cstate <= C_FPU_WAIT;
+          fpu_ret <= A_RS2; go(C_FPU_WAIT);
         when A_RS2 =>
           fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= A_RS3; cstate <= C_FPU_WAIT;
+          fpu_ret <= A_RS3; go(C_FPU_WAIT);
         when A_RS3 =>
           at_rs <= fpu_r;
           -- group = n_heads / n_kv_heads, by repeated subtraction
           at_group <= (others => '0');
           at_gc <= at_nh(15 downto 0);
           at_ge <= at_nh(15 downto 0) >= at_nkv(15 downto 0);
-          cstate <= A_GRP;
+          go(A_GRP);
         when A_GRP =>
           assert at_ge = (at_gc >= at_nkv(15 downto 0)) report "SSNAIL: stale at_ge" severity failure;
           if at_ge then                             -- at_gc >= at_nkv
@@ -3369,35 +3386,35 @@ begin
             at_qhead_addr <= ea_y;
             at_gc <= (others => '0');
             pz <= ea_z; ostart <= ea_z;
-            cstate <= A_HEAD;
+            go(A_HEAD);
           end if;
 
         when A_HEAD =>                              -- load q for head at_h
           assert at_hend = (at_h = at_nh(15 downto 0)) report "SSNAIL: stale at_hend" severity failure;
           if at_hend then                           -- at_h = at_nh
-            cstate <= C_NEXT;
+            go(C_NEXT);
           else
             at_i <= (others => '0');
             -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
             ef_addr <= at_qhead_addr;
             ef_f16 <= '0';
-            cstate <= A_Q;
+            go(A_Q);
           end if;
         when A_Q =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
             at_t <= (others => '0');
             at_rowaddr <= at_k;
-            cstate <= A_S_T;
+            go(A_S_T);
           else
             ef_ret <= A_Q2;
-            cstate <= EF_START;
+            go(EF_START);
           end if;
         when A_Q2 =>
           qv(to_integer(at_i)) <= ef_val;
           at_i <= at_i + 1;
           ef_addr <= ef_addr + 4;
-          cstate <= A_Q;
+          go(A_Q);
 
         -- scores: s_t = seq_sum(k_t * q) * rs; track the maximum
         when A_S_T =>
@@ -3406,7 +3423,7 @@ begin
           if at_tend then                           -- at_t = at_pos + 1
             at_t <= (others => '0');
             ve_first <= '1';
-            cstate <= A_E_T;
+            go(A_E_T);
           else
             at_i <= (others => '0');
             ve_first <= '1';
@@ -3417,35 +3434,35 @@ begin
               ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '0';
             end if;
-            cstate <= A_S_I;
+            go(A_S_I);
           end if;
         when A_S_I =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
             fpu_op <= FOP_MUL; fpu_a <= at_acc; fpu_b <= at_rs; fpu_start <= '1';
-            fpu_ret <= A_S_SC; cstate <= C_FPU_WAIT;
+            fpu_ret <= A_S_SC; go(C_FPU_WAIT);
           else
             ef_ret <= A_S_I2;
-            cstate <= EF_START;
+            go(EF_START);
           end if;
         when A_S_I2 =>
           fpu_op <= FOP_MUL; fpu_a <= ef_val; fpu_b <= qv(to_integer(at_i)); fpu_start <= '1';
-          fpu_ret <= A_S_I3; cstate <= C_FPU_WAIT;
+          fpu_ret <= A_S_I3; go(C_FPU_WAIT);
         when A_S_I3 =>
           if ve_first = '1' then
             at_acc <= fpu_r; ve_first <= '0';
-            cstate <= A_S_I4;
+            go(A_S_I4);
           else
             fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= fpu_r; fpu_start <= '1';
-            fpu_ret <= A_S_SC2; cstate <= C_FPU_WAIT;
+            fpu_ret <= A_S_SC2; go(C_FPU_WAIT);
           end if;
         when A_S_SC2 =>
           at_acc <= fpu_r;
-          cstate <= A_S_I4;
+          go(A_S_I4);
         when A_S_I4 =>
           at_i <= at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
-          cstate <= A_S_I;
+          go(A_S_I);
         when A_S_SC =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
           if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
@@ -3455,7 +3472,7 @@ begin
           end if;
           at_t <= at_t + 1;
           at_rowaddr <= at_rowaddr + at_rowb;
-          cstate <= A_S_T;
+          go(A_S_T);
 
         -- e_t = EXP(s_t - m); z = seq_sum(e)
         when A_E_T =>
@@ -3463,53 +3480,53 @@ begin
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
-            fpu_ret <= A_E_R; cstate <= C_FPU_WAIT;
+            fpu_ret <= A_E_R; go(C_FPU_WAIT);
           else
             fpu_op <= FOP_ADD; fpu_a <= at_sv;
             fpu_b <= (not at_m(31)) & at_m(30 downto 0);
-            fpu_start <= '1'; fpu_ret <= A_E_1; cstate <= C_FPU_WAIT;
+            fpu_start <= '1'; fpu_ret <= A_E_1; go(C_FPU_WAIT);
           end if;
         when A_E_1 =>
           tx <= fpu_r; tab_id <= "10"; tab_ret <= A_E_2;
           tx_below <= flt(fpu_r, EXPT_LO); tx_above <= not flt(fpu_r, EXPT_HI);
-          cstate <= T_START;
+          go(T_START);
         when A_E_2 =>
           sarr(to_integer(at_t(9 downto 0))) <= tval;
           if at_t(9 downto 0) = 0 then sarr0 <= tval; end if;
           if ve_first = '1' then
             at_acc <= tval; ve_first <= '0';
             at_t <= at_t + 1;
-            cstate <= A_E_T;
+            go(A_E_T);
           else
             fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= tval; fpu_start <= '1';
-            fpu_ret <= A_E_3; cstate <= C_FPU_WAIT;
+            fpu_ret <= A_E_3; go(C_FPU_WAIT);
           end if;
         when A_E_3 =>
           at_acc <= fpu_r;
           at_t <= at_t + 1;
-          cstate <= A_E_T;
+          go(A_E_T);
         when A_E_R =>                               -- r = 1 / z; w_t = e_t * r
           at_r <= fpu_r;
           at_t <= (others => '0');
-          cstate <= A_W_T;
+          go(A_W_T);
         when A_W_T =>
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             at_t <= (others => '0');
             at_rowaddr <= at_v;
-            cstate <= A_O_T;
+            go(A_O_T);
           else
             fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
-            fpu_start <= '1'; fpu_ret <= A_W_1; cstate <= C_FPU_WAIT;
+            fpu_start <= '1'; fpu_ret <= A_W_1; go(C_FPU_WAIT);
           end if;
         when A_W_1 =>
           sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
           if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
           at_t <= at_t + 1;
-          cstate <= A_W_T;
+          go(A_W_T);
         when A_E_R2 =>
-          cstate <= A_W_T;
+          go(A_W_T);
 
         -- out = out + w_t * v_t, sequentially over t
         when A_O_T =>
@@ -3517,7 +3534,7 @@ begin
           assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             at_i <= (others => '0');
-            cstate <= A_WR;
+            go(A_WR);
           else
             at_i <= (others => '0');
             at_w <= at_sv;
@@ -3528,21 +3545,21 @@ begin
               ef_addr <= at_rowaddr + at_kv_offset;
               ef_f16 <= '0';
             end if;
-            cstate <= A_O_I;
+            go(A_O_I);
           end if;
         when A_O_I =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
             at_t <= at_t + 1;
             at_rowaddr <= at_rowaddr + at_rowb;
-            cstate <= A_O_T;
+            go(A_O_T);
           else
             ef_ret <= A_O_I2;
-            cstate <= EF_START;
+            go(EF_START);
           end if;
         when A_O_I2 =>
           fpu_op <= FOP_MUL; fpu_a <= at_w; fpu_b <= ef_val; fpu_start <= '1';
-          fpu_ret <= A_O_I3; cstate <= C_FPU_WAIT;
+          fpu_ret <= A_O_I3; go(C_FPU_WAIT);
         when A_O_I3 =>
           -- out starts at +0: the first row adds to +0, not to an old value
           if at_t = 0 then
@@ -3551,19 +3568,19 @@ begin
             fpu_a <= outv(to_integer(at_i));
           end if;
           fpu_op <= FOP_ADD; fpu_b <= fpu_r; fpu_start <= '1';
-          fpu_ret <= A_O_I4; cstate <= C_FPU_WAIT;
+          fpu_ret <= A_O_I4; go(C_FPU_WAIT);
         when A_O_I4 =>
           outv(to_integer(at_i)) <= fpu_r;
           at_i <= at_i + 1;
           if at_fmt = 1 then ef_addr <= ef_addr + 2; else ef_addr <= ef_addr + 4; end if;
-          cstate <= A_O_I;
+          go(A_O_I);
 
         -- write this head's output: through buf, flushed at 256-byte
         -- boundaries and at the end of the head
         when A_WR =>
           assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
           if at_iend then                           -- at_i = at_hd
-            cstate <= A_HNEXT;
+            go(A_HNEXT);
           else
             a2 := pz + 4;
             pz <= a2;
@@ -3582,11 +3599,11 @@ begin
               dec_addr <= a0;
               ostart <= a2;
               wr_ret <= A_WR;
-              cstate <= C_WR_DEC;
+              go(C_WR_DEC);
             end if;
           end if;
         when A_WR2 =>
-          cstate <= A_HNEXT;
+          go(A_HNEXT);
         when A_HNEXT =>
           at_h <= at_h + 1;
           at_hend <= at_h + 1 = at_nh(15 downto 0);
@@ -3598,7 +3615,7 @@ begin
           else
             at_gc <= at_gc + 1;
           end if;
-          cstate <= A_HEAD;
+          go(A_HEAD);
 
         when C_NEXT =>
           if br_taken = '1' then
@@ -3611,9 +3628,9 @@ begin
             -- Single step: stop with PC at the next instruction
             done <= '1';
             done_tgl <= not done_tgl;
-            cstate <= C_IDLE;
+            go(C_IDLE);
           else
-            cstate <= C_FETCH_SETUP;
+            go(C_FETCH_SETUP);
           end if;
 
         when C_END =>
@@ -3621,7 +3638,7 @@ begin
           -- instruction concerned.
           done <= '1';
           done_tgl <= not done_tgl;
-          cstate <= C_IDLE;
+          go(C_IDLE);
       end case;
 
       -- ATTN position state (see at_tend): sarr is written at the old at_t
@@ -3670,32 +3687,26 @@ begin
         end loop;
       end if;
       -- Word addresses of the four X halves, two Y and two B halves
-      pf_ok := true;
-      case cstate is
-        when V_EL0 =>                                  -- v_i <= 0
-          for k in 0 to 3 loop
-            pa_x(k) := px(7 downto 1) + k;
-            pa_y(k) := py(7 downto 1) + k;
-            pa_b(k) := pb(7 downto 1) + k;
-          end loop;
-          pf_i := (others => '0');
-        when V_EL | V_ELST | E_ACC | E_ACC2 =>         -- v_i <= v_i + 1
-          for k in 0 to 3 loop
-            pa_x(k) := vxw(2 + k); pa_y(k) := vyw(2 + k); pa_b(k) := vbw(2 + k);
-          end loop;
-          pf_i := v_i + 1;
-        when E_R6 =>                                   -- v_i <= v_i + 2
-          for k in 0 to 3 loop
-            pa_x(k) := vxw(4 + k); pa_y(k) := vyw(4 + k); pa_b(k) := vbw(4 + k);
-          end loop;
-          pf_i := v_i + 2;
-        when others =>
-          for k in 0 to 3 loop          -- (unused: the same as above)
-            pa_x(k) := vxw(2 + k); pa_y(k) := vyw(2 + k); pa_b(k) := vbw(2 + k);
-          end loop;
-          pf_i := v_i + 1;
-          pf_ok := false;
-      end case;
+      -- (by the registered decodes of cstate: see cs_pf)
+      pf_ok := cs_pf;
+      if cs_el0 then                                   -- v_i <= 0
+        for k in 0 to 3 loop
+          pa_x(k) := px(7 downto 1) + k;
+          pa_y(k) := py(7 downto 1) + k;
+          pa_b(k) := pb(7 downto 1) + k;
+        end loop;
+        pf_i := (others => '0');
+      elsif cs_r6 then                                 -- v_i <= v_i + 2
+        for k in 0 to 3 loop
+          pa_x(k) := vxw(4 + k); pa_y(k) := vyw(4 + k); pa_b(k) := vbw(4 + k);
+        end loop;
+        pf_i := v_i + 2;
+      else                     -- V_EL, V_ELST, E_ACC, E_ACC2: v_i <= v_i + 1
+        for k in 0 to 3 loop
+          pa_x(k) := vxw(2 + k); pa_y(k) := vyw(2 + k); pa_b(k) := vbw(2 + k);
+        end loop;
+        pf_i := v_i + 1;
+      end if;
       if pf_ok then
         v_done <= pf_i = v_e;
         pre_x  <= bufx(to_integer(pa_x(1))) & bufx(to_integer(pa_x(0)));
