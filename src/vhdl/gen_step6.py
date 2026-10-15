@@ -1,5 +1,5 @@
-"""Step 6 test: GEMV and DEQROW with K-quant weights (Q2_K .. Q6_K)
-against the reference emulator in hardware-numerics mode."""
+"""Step 6 test: GEMV and DEQROW with super-block weights (Q2_K .. Q6_K,
+IQ4_XS, TQ2_0) against the reference emulator in hardware-numerics mode."""
 import os
 import sys
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -18,8 +18,8 @@ import ssnail_sim as S
 
 B = I.HYPERRAM_BASE
 rng = np.random.default_rng(66)
-mem = bytearray(0x8000)
-D_OFF = {10: [80, 82], 11: [108], 12: [0, 2], 13: [0, 2], 14: [208]}
+mem = bytearray(0x10000)
+D_OFF = {10: [80, 82], 11: [108], 12: [0, 2], 13: [0, 2], 14: [208], 23: [0], 35: [64]}
 
 
 def put(off, data):
@@ -47,7 +47,7 @@ put(0x1400, acc.tobytes())
 A = Asm()
 off, outs = 0x1803, 0x6000
 k_at = {}
-for fmt in (10, 11, 12, 13, 14):                 # 3 rows x 2 super-blocks
+for fmt in (10, 11, 12, 13, 14, 23, 35):         # 3 rows x 2 super-blocks
     w = kmat(fmt, 3, 512)
     put(off, w)
     k_at[fmt] = off
@@ -66,6 +66,8 @@ assert off < 0x6000, hex(off)
 for i, fmt in enumerate((10, 11, 13, 14)):
     A(I.SETN, x=256); A(I.DEQROW, fmt, x=B + k_at[fmt], z=B + 0x6400 + 0x400 * i)
 A(I.SETN, x=512); A(I.DEQROW, 12, x=B + k_at[12], z=B + 0x7400)
+A(I.SETN, x=512); A(I.DEQROW, 23, x=B + k_at[23], z=B + 0x8000)
+A(I.SETN, x=256); A(I.DEQROW, 35, x=B + k_at[35], z=B + 0x8800)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x400
@@ -81,7 +83,7 @@ m.trace = False
 m.temperature, m.top_k, m.rep_penalty, m.rep_window = 0.0, 0, 1.0, 64
 m.hw = True
 m.run(B)
-expect = bytes(m.mem[0x6000:0x8000])
+expect = bytes(m.mem[0x6000:0x10000])
 print(f"program {len(code) // 16} instructions; halt pc ${m.pc:07X}", file=sys.stderr)
 
 

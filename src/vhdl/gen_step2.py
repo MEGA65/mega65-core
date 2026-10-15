@@ -48,6 +48,9 @@ put(0x505, q4)
 mx = bytearray(np.asarray(quantize((rng.standard_normal(64) * 2).astype(np.float32), Q.MXFP4)).tobytes())
 mx[0] = 0; mx[17] = 254                                    # extreme scales
 put(0x471, bytes(mx))                                      # 34 bytes
+nl = rng.integers(0, 256, (2, 18), dtype=np.uint8)         # IQ4_NL, sane d
+nl[:, 0:2] = (rng.standard_normal((2, 1))).astype(np.float16).view(np.uint8)
+put(0x495, nl.tobytes())                                   # 36 bytes
 put(0x602, f16.tobytes())
 put(0x680, bf16.tobytes())
 put(0x6C4, f32vals(30).tobytes())
@@ -58,6 +61,7 @@ A = Asm()
 A(I.SETN, x=96);  A(I.DEQROW, I.FMT_Q8_0, x=B + 0x403, z=B + 0x10E4)
 A(I.SETN, x=64);  A(I.DEQROW, I.FMT_Q4_0, x=B + 0x505, z=B + 0x1204)
 A(I.SETN, x=64);  A(I.DEQROW, I.FMT_MXFP4, x=B + 0x471, z=B + 0x1D04)
+A(I.SETN, x=64);  A(I.DEQROW, I.FMT_IQ4_NL, x=B + 0x495, z=B + 0x1E04)
 A(I.SETN, x=50);  A(I.DEQROW, I.FMT_F16, x=B + 0x602, z=B + 0x1300)
 A(I.SETN, x=20);  A(I.DEQROW, I.FMT_BF16, x=B + 0x680, z=B + 0x1408)
 A(I.SETN, x=30);  A(I.DEQROW, I.FMT_F32, x=B + 0x6C4, z=B + 0x14C4)

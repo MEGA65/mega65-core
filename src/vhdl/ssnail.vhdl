@@ -654,6 +654,13 @@ architecture shell of ssnail is
   -- signed weights and its F32 scale; the MAC lanes see only that.  (New
   -- formats: here, the block length (gbytes) and the matrix size in G_ROW0.)
   type qw32_t is array (0 to 31) of signed(8 downto 0);
+  -- IQ4_NL / IQ4_XS: the value a 4-bit index stands for (kvalues_iq4nl)
+  function iq4v(n : unsigned(3 downto 0)) return signed is
+    type t_t is array (0 to 15) of integer;
+    constant t : t_t := (-127, -104, -83, -65, -49, -35, -22, -10, 1, 13, 25, 38, 53, 69, 89, 113);
+  begin
+    return to_signed(t(to_integer(n)), 9);
+  end function;
   -- MXFP4 element: E2M1, doubled (ggml's kvalues_mxfp4)
   function e2m1x2(n : unsigned(3 downto 0)) return signed is
     variable v : integer;
@@ -682,6 +689,12 @@ architecture shell of ssnail is
     for j in 0 to 31 loop
       if fmt = 8 then                                -- Q8_0: d, then 32 x int8
         w(j) := resize(signed(g(2 + j)), 9);
+      elsif fmt = 20 then                            -- IQ4_NL: as Q4_0, through
+        if j < 16 then                               -- kvalues_iq4nl
+          w(j) := iq4v(g(18 + j)(3 downto 0));
+        else
+          w(j) := iq4v(g(18 + j - 16)(7 downto 4));
+        end if;
       elsif fmt = 39 then                            -- MXFP4: e, then 16 bytes,
         if j < 16 then                               -- low nibbles first
           w(j) := e2m1x2(g(18 + j)(3 downto 0));
@@ -713,11 +726,22 @@ architecture shell of ssnail is
   -- into a double-buffered word RAM (kq_sb*, byte lanes); a header unit
   -- decodes its scales, mins, d and dmin; the K reader gives the lanes 4
   -- quants a cycle from it, one pass of 32 per 32-block of x.
+  -- the 256-weight super-block formats: Q2_K .. Q6_K, IQ4_XS, TQ2_0
+  function fmt_k(fmt : unsigned(7 downto 0)) return boolean is
+  begin
+    return (fmt >= 10 and fmt <= 14) or fmt = 23 or fmt = 35;
+  end function;
+  -- the 32-weight block formats GEMV takes: Q4_0, Q8_0, IQ4_NL, MXFP4
+  function fmt_q(fmt : unsigned(7 downto 0)) return boolean is
+  begin
+    return fmt = 2 or fmt = 8 or fmt = 20 or fmt = 39;
+  end function;
   function kq_bytes(fmt : unsigned(7 downto 0)) return integer is
   begin
     case to_integer(fmt) is
       when 10 => return 84;  when 11 => return 110; when 12 => return 144;
-      when 13 => return 176; when others => return 210;
+      when 13 => return 176; when 23 => return 136; when 35 => return 66;
+      when others => return 210;
     end case;
   end function;
   -- word (4 bytes) i of the header copy: scales, mins, d, dmin
@@ -726,7 +750,8 @@ architecture shell of ssnail is
     case to_integer(fmt) is
       when 10 => if i = 4 then return 20; else return i; end if;   -- scales; d, dmin at 80
       when 11 => return 24 + i;                                    -- scales at 96; d at 108
-      when 12 | 13 => return i;                                    -- d, dmin, scales at 0
+      when 12 | 13 | 23 => return i;                               -- d, dmin, scales at 0
+      when 35 => if i = 4 then return 16; else return 0; end if;  -- d at 64
       when others => return 48 + i;                                -- scales at 192; d at 208
     end case;
   end function;
@@ -754,6 +779,12 @@ architecture shell of ssnail is
             v := (hb(12 + j - 4) and x"0F") or (shift_right(hb(4 + j - 4), 2) and x"30");
           end if;
           sc(g) := signed(v);
+        when 23 =>                                         -- IQ4_XS: per 32, less 32
+          j := g / 2;
+          v := shift_right(hb(4 + j / 2), 4 * (j mod 2)) and x"0F";
+          v := v or shift_left(resize(shift_right(hb(3) & hb(2), 2 * j)(1 downto 0), 8), 4);
+          sc(g) := signed(v) - 32;
+        when 35 => sc(g) := to_signed(1, 8);               -- TQ2_0: d alone
         when others => sc(g) := signed(hb(g));
       end case;
     end loop;
@@ -785,7 +816,7 @@ architecture shell of ssnail is
     case to_integer(fmt) is
       when 10 => return hb(17) & hb(16);
       when 11 => return hb(13) & hb(12);
-      when 12 | 13 => return hb(1) & hb(0);
+      when 12 | 13 | 23 => return hb(1) & hb(0);
       when others => return hb(17) & hb(16);
     end case;
   end function;
@@ -803,12 +834,21 @@ architecture shell of ssnail is
     mh : unsigned(1 downto 0);
     wl : unsigned(2 downto 0);
     off : unsigned(5 downto 0);
+    wr : std_logic;      -- 4 words, low nibbles, then the same 4, high (IQ4_XS)
+    tb : std_logic;      -- q = iq4v(lo)
   end record;
   function kq_rd(fmt : unsigned(7 downto 0); p : integer) return kq_rd_t is
     variable c : kq_rd_t;
   begin
     c.ha := (others => '0'); c.sh := "000"; c.mh := "00"; c.off := (others => '0');
+    c.wr := '0'; c.tb := '0';
     case to_integer(fmt) is
+      when 23 =>                                           -- IQ4_XS
+        c.la := to_unsigned(2 + 4 * p, 6); c.sl := "000";
+        c.ml := x"F"; c.wl := to_unsigned(4, 3); c.wr := '1'; c.tb := '1';
+      when 35 =>                                           -- TQ2_0
+        c.la := to_unsigned(8 * (p / 4), 6); c.sl := to_unsigned(2 * (p mod 4), 3);
+        c.ml := x"3"; c.wl := to_unsigned(2, 3); c.off := to_unsigned(1, 6);
       when 10 =>                                           -- Q2_K
         c.la := to_unsigned(4 + 8 * (p / 4), 6); c.sl := to_unsigned(2 * (p mod 4), 3);
         c.ml := x"3"; c.wl := to_unsigned(2, 3);
@@ -840,6 +880,9 @@ architecture shell of ssnail is
   begin
     lo := shift_right(bl, to_integer(c.sl)) and ("0000" & c.ml);
     hi := shift_right(bh, to_integer(c.sh)) and ("000000" & c.mh);
+    if c.tb = '1' then
+      return iq4v(lo(3 downto 0));
+    end if;
     v := to_integer(lo) + to_integer(shift_left(hi, to_integer(c.wl))) - to_integer(c.off);
     return to_signed(v, 9);
   end function;
@@ -1054,7 +1097,7 @@ architecture shell of ssnail is
   signal kq_p      : unsigned(2 downto 0) := (others => '0');   -- pass (32 weights)
   signal kq_rd_q   : kq_rd_t := (la => (others => '0'), ha => (others => '0'),
                                  sl => "000", sh => "000", ml => x"0", mh => "00",
-                                 wl => "000", off => (others => '0'));
+                                 wl => "000", off => (others => '0'), wr => '0', tb => '0');
   signal kq_la, kq_ha : unsigned(6 downto 0) := (others => '0');  -- half & word
   -- integer tail: S1 = sum of sc * (16-weight sums), per super-block
   signal kq_lo     : signed(31 downto 0) := (others => '0');   -- the pass's first 16
@@ -1096,8 +1139,10 @@ architecture shell of ssnail is
   -- says kq_p moved last cycle), the words read a cycle ahead of the lanes
   signal kq_rdn    : kq_rd_t := (la => (others => '0'), ha => (others => '0'),
                                  sl => "000", sh => "000", ml => x"0", mh => "00",
-                                 wl => "000", off => (others => '0'));
+                                 wl => "000", off => (others => '0'), wr => '0', tb => '0');
   signal kq_pchg, kq_pre : std_logic := '0';
+  signal kq_lb     : unsigned(5 downto 0) := (others => '0');   -- (wrap: the pass's base,
+  signal kq_lc     : unsigned(1 downto 0) := (others => '0');   -- and the word in it)
   signal kq_wl_q, kq_wh_q : unsigned(31 downto 0) := (others => '0');
   -- S1: the two products' sum, then the accumulation
   signal kq_c3, kq_c3last, kq_c3h : std_logic := '0';
@@ -1636,6 +1681,7 @@ begin
     variable kq_qv : signed(8 downto 0);
     variable kf_r : unsigned(24 downto 0);
     variable kf_p : integer range 0 to 31;
+    variable kc : kq_rd_t;
     -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
     variable kw_we : std_logic_vector(0 to 3);
     type kw_a_t is array (0 to 3) of unsigned(6 downto 0);
@@ -1870,6 +1916,12 @@ begin
           d_qv <= resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
         else
           d_qv <= resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+        end if;
+      elsif d_fmt = 20 then
+        if d_j(4) = '0' then
+          d_qv <= resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+        else
+          d_qv <= resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
         end if;
       elsif d_j(4) = '0' then
         d_qv <= resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
@@ -2177,13 +2229,11 @@ begin
               d_fmt <= instr(15 downto 8);
               g_addz <= instr(16);
               g_f16 <= instr(17);
-              if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8
-                      or instr(15 downto 8) = 39
-                      or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14)) then
+              if not (fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8))) then
                 err <= ERR_FORMAT;                -- float weights: not yet
                 dec_next <= C_END;
               elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1'
-                or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 and n0(7 downto 0) /= 0) then
+                or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
@@ -2245,9 +2295,8 @@ begin
               d_fmt <= instr(15 downto 8);
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
                       or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
-                      or instr(15 downto 8) = 39
-                      or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14))
-                or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 and n0(7 downto 0) /= 0) then
+                      or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
+                or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_z(1 downto 0) /= "00" then
@@ -3106,12 +3155,13 @@ begin
               when 1 | 30 => gbytes <= to_unsigned(2, 8); epg <= to_unsigned(1, 9);
               when 8 => gbytes <= to_unsigned(34, 8); epg <= to_unsigned(32, 9);
               when 39 => gbytes <= to_unsigned(17, 8); epg <= to_unsigned(32, 9);  -- MXFP4
-              when 10 | 11 | 12 | 13 | 14 =>                                        -- K-quants
-                gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
-                dk <= '1';
-                fetch_ret <= D_KH0;
-              when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0
+              when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
             end case;
+            if fmt_k(d_fmt) then                                                  -- K-quants
+              gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
+              dk <= '1';
+              fetch_ret <= D_KH0;
+            end if;
             if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
               kq_min <= '1';
             else
@@ -3232,9 +3282,13 @@ begin
         when D_KQ =>
           go(D_KQ2);
         when D_KQ2 =>
+          kc := kq_rd_q;
+          if kc.wr = '1' and d_j(4) = '1' then
+            kc.sl := kc.sl + 4;
+          end if;
           kq_qv := kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
                         kq_wh_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
-                        kq_rd_q);
+                        kc);
           fpu_op <= FOP_I2F;
           fpu_a <= unsigned(resize(kq_qv, 32));
           fpu_start <= '1';
@@ -3272,7 +3326,11 @@ begin
               go(C_FPU_WAIT);
             else
               kq_rd_q <= kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
-              kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(4 downto 2));
+              if kq_rd(d_fmt, to_integer(d_j(7 downto 5))).wr = '1' then
+                kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(3 downto 2));
+              else
+                kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(4 downto 2));
+              end if;
               kq_ha <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).ha + d_j(4 downto 2));
               go(D_KQ);
             end if;
@@ -3290,10 +3348,10 @@ begin
               fpu_start <= '1';
               fpu_ret <= D_QMUL;
               go(C_FPU_WAIT);
-            when 10 | 11 | 12 | 13 | 14 =>         -- K-quants: above
-              null;
-            when others =>                         -- Q8_0 / Q4_0 / MXFP4
-              if d_have_scale = '0' and d_fmt = 39 then
+            when others =>                         -- Q8_0 / Q4_0 / IQ4_NL / MXFP4
+              if dk = '1' then
+                null;                              -- (K-quants: above)
+              elsif d_have_scale = '0' and d_fmt = 39 then
                 dq_scale <= e8m0_half(grp(0));     -- (a power of two: no FPU)
                 d_have_scale <= '1';
               elsif d_have_scale = '0' then
@@ -3309,6 +3367,10 @@ begin
                   q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
                 elsif d_fmt = 39 then
                   q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+                elsif d_fmt = 20 and d_j < 16 then
+                  q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+                elsif d_fmt = 20 then
+                  q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
                 elsif d_j < 16 then
                   q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
                 else
@@ -3394,7 +3456,7 @@ begin
         -- assembler's), the tail's terms per row (super-blocks, for
         -- K-quants), and the K-quant state
         when G_SET =>
-          if d_fmt >= 10 and d_fmt <= 14 then
+          if fmt_k(d_fmt) then
             kq_on <= '1';
             g_bl <= to_unsigned(kq_bytes(d_fmt), 8);
             g_nbt <= "000" & g_nb(7 downto 3);
@@ -4608,7 +4670,12 @@ begin
           mc_busy <= '1';
         end if;
         if kq_pre = '1' or mc_busy = '1' then
-          kq_la(5 downto 0) <= kq_la(5 downto 0) + 1;
+          if kq_rd_q.wr = '1' then                      -- (4 words, twice)
+            kq_lc <= kq_lc + 1;
+            kq_la(5 downto 0) <= kq_lb + (kq_lc + 1);
+          else
+            kq_la(5 downto 0) <= kq_la(5 downto 0) + 1;
+          end if;
           kq_ha(5 downto 0) <= kq_ha(5 downto 0) + 1;
         end if;
         if kq_on = '1' and kq_full(to_integer(unsigned'("" & kq_rh))) = '1'
@@ -4616,6 +4683,8 @@ begin
           and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
           kq_rd_q <= kq_rdn;
           kq_la <= kq_rh & kq_rdn.la;
+          kq_lb <= kq_rdn.la;
+          kq_lc <= "00";
           kq_ha <= kq_rh & kq_rdn.ha;
           kq_pre <= '1';
           mc_drain <= '0';
@@ -4658,7 +4727,11 @@ begin
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
             if kq_on = '1' then
-              qwv := kq_q(kwl(8 * k + 7 downto 8 * k), kwh(8 * k + 7 downto 8 * k), kq_rd_q);
+              kc := kq_rd_q;
+              if kc.wr = '1' and mc_c(2) = '1' then
+                kc.sl := kc.sl + 4;                     -- (the second 16: high nibbles)
+              end if;
+              qwv := kq_q(kwl(8 * k + 7 downto 8 * k), kwh(8 * k + 7 downto 8 * k), kc);
             else
               qwv := mc_wb(jj);
             end if;

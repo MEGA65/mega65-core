@@ -27,8 +27,9 @@ Testbenches:
     tb_ssnail_fpu     the FP unit, bit-exact against numpy (83k vectors)
     tb_ssnail_step2   DEQROW (all formats), VADD, VMUL, CVT16 vs the emulator's
                       hardware-numerics mode
-    tb_ssnail_step3   GEMV (Q8_0, Q4_0, MXFP4, accumulate, F16 output) vs the same
-    tb_ssnail_step6   GEMV and DEQROW with K-quant weights (Q2_K .. Q6_K) vs the same
+    tb_ssnail_step3   GEMV (Q8_0, Q4_0, MXFP4, IQ4_NL, accumulate, F16 output) vs the same
+    tb_ssnail_step6   GEMV and DEQROW with super-block weights (Q2_K .. Q6_K, IQ4_XS,
+                      TQ2_0) vs the same
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
