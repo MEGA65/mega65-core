@@ -621,6 +621,8 @@ architecture shell of ssnail is
   -- written in the state just before EF_START (asserted there)
   signal ef_miss : boolean := true;
   signal ps_miss : boolean := true;
+  -- gi = gbytes in D_FETCH: set in D_FETCH0 and as gi steps
+  signal gi_end  : boolean := false;
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
   signal at_hend : boolean := false;    -- at_h = at_nh: every head done
   signal at_ge   : boolean := false;    -- at_gc >= at_nkv (A_GRP)
@@ -965,6 +967,23 @@ architecture shell of ssnail is
   signal kq_gs     : std_logic := '0';               -- the group's A, B are in
   signal kd32, kdm32, kq_ga32, kq_gb32 : unsigned(31 downto 0) := (others => '0');
   signal d_fmt     : unsigned(7 downto 0) := (others => '0');
+  -- DEQROW's d_fmt, decoded once a row (D_GROUP) for D_EMIT
+  subtype dk_t is unsigned(2 downto 0);
+  constant DK_F32 : dk_t := "000"; constant DK_F16 : dk_t := "001";
+  constant DK_BF16 : dk_t := "010"; constant DK_MX : dk_t := "011";
+  constant DK_Q : dk_t := "100"; constant DK_K : dk_t := "101";
+  signal d_kind    : dk_t := DK_F32;
+  function deq_kind(fmt : unsigned(7 downto 0)) return dk_t is
+  begin
+    if fmt_k(fmt) then return DK_K; end if;
+    case to_integer(fmt) is
+      when 0 => return DK_F32;
+      when 1 => return DK_F16;
+      when 30 => return DK_BF16;
+      when 39 => return DK_MX;
+      when others => return DK_Q;
+    end case;
+  end function;
   signal dq_scale, d_val : unsigned(31 downto 0) := (others => '0');
   signal d_have_scale : std_logic := '0';
   signal ld_valid  : std_logic := '0';
@@ -3297,6 +3316,7 @@ begin
               when 6 => gbytes <= to_unsigned(22, 8); epg <= to_unsigned(32, 9);   -- Q5_0
               when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
             end case;
+            d_kind <= deq_kind(d_fmt);
             if fmt_k(d_fmt) then                                                  -- K-quants
               gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
               dk <= '1';
@@ -3315,11 +3335,13 @@ begin
 
         -- (one cycle for ps_miss to catch up with ps and ld_block)
         when D_FETCH0 =>
+          gi_end <= gi = gbytes;
           go(D_FETCH);
         when D_FETCH =>
           assert ps_miss = (ld_valid = '0' or ps(27 downto 8) /= ld_block)
             report "SSNAIL: ps_miss" severity failure;
-          if gi = gbytes then
+          assert gi_end = (gi = gbytes) report "SSNAIL: stale gi_end" severity failure;
+          if gi_end then
             go(fetch_ret);
           elsif ps_miss then
             -- load the rest of this 256-byte block
@@ -3350,6 +3372,7 @@ begin
             end if;
             ps <= ps + 1;
             gi <= gi + 1;
+            gi_end <= gi + 1 = gbytes;
             if ps(7 downto 0) = x"FF" then
               go(D_FETCH0);                            -- (into the next block)
             end if;
@@ -3460,7 +3483,8 @@ begin
           go(C_FPU_WAIT);
 
         when D_EMIT =>
-          if dk = '1' then
+          assert d_kind = deq_kind(d_fmt) report "SSNAIL: stale d_kind" severity failure;
+          if d_kind = DK_K then
             if kq_gs = '0' then
               if d_j = 0 then
                 kdm32 <= fpu_r;                        -- (from D_KDM)
@@ -3485,23 +3509,23 @@ begin
               go(D_KQ);
             end if;
           end if;
-          case to_integer(d_fmt) is
-            when 0 =>                              -- F32: the bits as they are
+          case d_kind is
+            when DK_F32 =>                         -- F32: the bits as they are
               d_val <= grp(3) & grp(2) & grp(1) & grp(0);
               go(D_STORE);
-            when 30 =>                             -- BF16
+            when DK_BF16 =>
               d_val <= grp(1) & grp(0) & x"0000";
               go(D_STORE);
-            when 1 =>                              -- F16
+            when DK_F16 =>
               fpu_op <= FOP_F16TOF32;
               fpu_a <= x"0000" & grp(1) & grp(0);
               fpu_start <= '1';
               fpu_ret <= D_QMUL;
               go(C_FPU_WAIT);
-            when others =>                         -- Q8_0 / Q4_0 / IQ4_NL / MXFP4
-              if dk = '1' then
-                null;                              -- (K-quants: above)
-              elsif d_have_scale = '0' and d_fmt = 39 then
+            when DK_K =>
+              null;                                -- (K-quants: above)
+            when others =>                         -- Q8_0 / Q4_0 / Q5_0 / IQ4_NL / MXFP4
+              if d_have_scale = '0' and d_kind = DK_MX then
                 dq_scale <= e8m0_half(grp(0));     -- (a power of two: no FPU)
                 d_have_scale <= '1';
               elsif d_have_scale = '0' then
@@ -3547,7 +3571,7 @@ begin
           go(D_EMIT);
 
         when D_QMUL =>
-          if d_fmt = 1 then
+          if d_kind = DK_F16 then
             d_val <= fpu_r;                        -- F16 conversion result
             go(D_STORE);
           else
@@ -4970,7 +4994,11 @@ begin
         if iq_v3 = '1' then
           for k in 0 to 3 loop
             if iq3 = '0' then
-              ic2 := iq2_q(8 * to_integer(unsigned'("" & iq_hf3)) + 2 * k + 1 downto 8 * to_integer(unsigned'("" & iq_hf3)) + 2 * k);
+              if iq_hf3 = '1' then
+                ic2 := iq2_q(8 + 2 * k + 1 downto 8 + 2 * k);
+              else
+                ic2 := iq2_q(2 * k + 1 downto 2 * k);
+              end if;
               case ic2 is
                 when "00" => iv := to_unsigned(8, 6);
                 when "01" => iv := to_unsigned(25, 6);
