@@ -621,6 +621,10 @@ architecture shell of ssnail is
   -- written in the state just before EF_START (asserted there)
   signal ef_miss : boolean := true;
   signal ps_miss : boolean := true;
+  -- DEQROW: d_j + 1 = epg (the group's last element), kept with d_j
+  signal d_jl    : boolean := false;
+  -- cstate = G2_T3, set by go()
+  signal cs_t3   : boolean := false;
   -- gi = gbytes in D_FETCH: set in D_FETCH0 and as gi steps
   signal gi_end  : boolean := false;
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
@@ -1838,6 +1842,7 @@ begin
       cs_r6 <= s = E_R6;
       cs_pf <= s = V_EL0 or s = V_EL or s = V_ELST or s = E_ACC or s = E_ACC2
                or s = E_R6;
+      cs_t3 <= s = G2_T3;
     end procedure;
   begin
     if rising_edge(clock162) then
@@ -1845,6 +1850,7 @@ begin
         and cs_pf = (cstate = V_EL0 or cstate = V_EL or cstate = V_ELST
                      or cstate = E_ACC or cstate = E_ACC2 or cstate = E_R6)
         report "SSNAIL: stale cs_el0 / cs_r6 / cs_pf" severity failure;
+      assert cs_t3 = (cstate = G2_T3) report "SSNAIL: stale cs_t3" severity failure;
       assert out_z = (hr_out = 0 and sd_out = 0) report "SSNAIL: stale out_z" severity failure;
       wf_arr := false;
       wf_pop := false;
@@ -1867,7 +1873,8 @@ begin
       rq_push_cnt := (others => '0');
       sr_inflight_inc := (others => '0');
       sr_inflight_dec := '0';
-      tl_full_clr := '0';
+      -- (G2_T3 frees the tail: from its registered decode, not cstate's)
+      if cs_t3 then tl_full_clr := '1'; else tl_full_clr := '0'; end if;
 
       -- Command toggle synchronisers
       go_s1 <= go_tgl;       go_s2 <= go_s1;
@@ -2349,6 +2356,18 @@ begin
             when x"20" | x"21" | x"29" | x"23" | x"27" | x"22" | x"26" | x"28" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
+              -- (the element operation from the opcode alone: only the V_
+              -- states read it, so the checks below need not gate it)
+              case instr(7 downto 0) is
+                when x"20" => ve_kind <= K_ADD;
+                when x"21" => ve_kind <= K_MUL;
+                when x"29" => ve_kind <= K_CVT16;
+                when x"23" => ve_kind <= K_SILUMUL;
+                when x"27" => ve_kind <= K_GELU;
+                when x"22" => ve_kind <= K_SUMSQ;
+                when x"26" => ve_kind <= K_SUM;
+                when others => ve_kind <= K_COPY;
+              end case;
               if ea_x(1 downto 0) /= "00"
                 or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
                      or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26") and ea_y(1 downto 0) /= "00")
@@ -2365,19 +2384,19 @@ begin
                 o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
                 ve_first <= '1';
                 ve_ret <= C_NEXT;
-                case instr(7 downto 0) is
-                  when x"20" => ve_kind <= K_ADD; two_ops <= '1'; dec_next <= V_CHUNK;
-                  when x"21" => ve_kind <= K_MUL; two_ops <= '1'; dec_next <= V_CHUNK;
-                  when x"29" => ve_kind <= K_CVT16; o16 <= '1'; dec_next <= V_CHUNK;
-                  when x"23" => ve_kind <= K_SILUMUL; two_ops <= '1'; dec_next <= V_CHUNK;
-                  when x"27" => ve_kind <= K_GELU; dec_next <= V_CHUNK;
+                case instr(7 downto 0) is           -- (ve_kind: below)
+                  when x"20" => two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"21" => two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"29" => o16 <= '1'; dec_next <= V_CHUNK;
+                  when x"23" => two_ops <= '1'; dec_next <= V_CHUNK;
+                  when x"27" => dec_next <= V_CHUNK;
                   when x"22" =>                     -- RMSNORM pass 1: sum of squares
-                    ve_kind <= K_SUMSQ; has_out <= '0'; ve_ret <= R_S0; dec_next <= V_CHUNK;
+                    has_out <= '0'; ve_ret <= R_S0; dec_next <= V_CHUNK;
                   when x"26" =>                     -- LAYERNORM pass 1: sum
-                    ve_kind <= K_SUM; has_out <= '0'; ve_ret <= L_S0; dec_next <= V_CHUNK;
+                    has_out <= '0'; ve_ret <= L_S0; dec_next <= V_CHUNK;
                   when others =>                    -- MEANROWS: row 0 copied to Z
                     -- (mr_rows, mr_r, mr_src_row: set above)
-                    ve_kind <= K_COPY; ve_ret <= M_NEXT; dec_next <= V_CHUNK;
+                    ve_ret <= M_NEXT; dec_next <= V_CHUNK;
                 end case;
               end if;
             when x"10" =>             -- GEMV
@@ -3304,6 +3323,7 @@ begin
           else
             gi <= (others => '0');
             d_j <= (others => '0');
+            d_jl <= fmt_k(d_fmt) = false and (d_fmt = 0 or d_fmt = 1 or d_fmt = 30);  -- (epg = 1)
             d_have_scale <= '0';
             kq_gs <= '0';
             fetch_ret <= D_EMIT;
@@ -3594,6 +3614,8 @@ begin
           v_n_z <= v_n_one;
           v_n_one <= v_n = 2;
           d_j <= d_j + 1;
+          d_jl <= d_j + 2 = epg;
+          assert d_jl = (d_j + 1 = epg) report "SSNAIL: stale d_jl" severity failure;
           if d_j(3 downto 0) = 15 then
             kq_gs <= '0';                             -- (K: a new 16-group)
           end if;
@@ -3613,13 +3635,13 @@ begin
             d_unflushed <= false;
             if v_n_one then
               wr_ret <= C_NEXT;
-            elsif d_j + 1 = epg then
+            elsif d_jl then
               wr_ret <= D_GROUP;
             else
               wr_ret <= D_EMIT;
             end if;
             go(C_WR_DEC);
-          elsif d_j + 1 = epg then
+          elsif d_jl then
             d_unflushed <= a2 /= ostart;
             go(D_GROUP);
           else
@@ -3996,8 +4018,7 @@ begin
         when G2_T2 =>
           g_accv <= fpu_r;
           go(G2_T3);
-        when G2_T3 =>
-          tl_full_clr := '1';
+        when G2_T3 =>                         -- (tl_full_clr: cs_t3)
           tl_sub <= false;
           assert tl_last = (tl_blk + 1 = g_nbt) report "SSNAIL: stale tl_last" severity failure;
           if tl_last then
