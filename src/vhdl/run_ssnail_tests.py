@@ -27,7 +27,8 @@ Testbenches:
     tb_ssnail_fpu     the FP unit, bit-exact against numpy (83k vectors)
     tb_ssnail_step2   DEQROW (all formats), VADD, VMUL, CVT16 vs the emulator's
                       hardware-numerics mode
-    tb_ssnail_step3   GEMV (Q8_0, Q4_0, accumulate, F16 output) vs the same
+    tb_ssnail_step3   GEMV (Q8_0, Q4_0, MXFP4, accumulate, F16 output) vs the same
+    tb_ssnail_step6   GEMV with K-quant weights (Q2_K .. Q6_K) vs the same
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
@@ -119,6 +120,9 @@ BENCHES = {
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step4_pkg.vhdl",
                          "tb_ssnail_step4.vhdl"],
                         "tb_ssnail_step4", [[]], r"TB_SSNAIL_STEP4: ALL PASSED"),
+    "tb_ssnail_step6": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step6_pkg.vhdl", "tb_ssnail_step6.vhdl"],
+                        "tb_ssnail_step6", [[]], r"TB_SSNAIL_STEP6: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
@@ -168,6 +172,7 @@ GENERATED = {
     "step3_pkg.vhdl": ("gen_step3.py", True),
     "step4_pkg.vhdl": ("gen_step4.py", True),
     "step5_pkg.vhdl": ("gen_step5.py", True),
+    "step6_pkg.vhdl": ("gen_step6.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
 }

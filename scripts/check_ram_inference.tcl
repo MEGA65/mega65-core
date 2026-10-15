@@ -15,7 +15,8 @@
 # ssnail.vhdl.  Add new ones here.
 set ram_checks {
   *ssnail0 {bank0 bank1 bank2 bank3 ring_lo ring_hi csv qv outv sarr
-            qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb}
+            qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb
+            kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3}
 }
 
 # A failed inference gives one flip-flop per bit (thousands); a handful can

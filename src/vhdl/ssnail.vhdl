@@ -460,7 +460,9 @@ architecture shell of ssnail is
     A_O_T, A_O_I, A_O_I2, A_O_I3, A_O_I4, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
+    G_KAM, G_KX,
     G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
+    G2_KS,
     G_OUT, G_OUT2, G_OUT3, G_OUT4,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
@@ -507,6 +509,7 @@ architecture shell of ssnail is
   signal words_done : boolean := true;       -- words_got = words_expected
   -- Commands issued to each port and not yet completed (cmd_done)
   signal hr_out, sd_out : unsigned(2 downto 0) := (others => '0');
+  signal out_z : boolean := true;             -- hr_out = 0 and sd_out = 0
   -- Watchdog on the waits for memory: an instruction fetch, or a SYNC,
   -- that sees no read data / completions for 65536 cycles (400 us) ends
   -- the job with ERR_READ instead of hanging.  wd_fired and the last
@@ -701,6 +704,143 @@ architecture shell of ssnail is
     end if;
   end function;
 
+  -- ---------------------------------------------------------------------
+  -- K-quants (Q2_K .. Q6_K, ggml types 10 .. 14): 256-weight super-blocks
+  -- (ssnail_hw.gemv_kquant).  The assembler writes a super-block's bytes
+  -- into a double-buffered word RAM (kq_sb*, byte lanes); a header unit
+  -- decodes its scales, mins, d and dmin; the K reader gives the lanes 4
+  -- quants a cycle from it, one pass of 32 per 32-block of x.
+  function kq_bytes(fmt : unsigned(7 downto 0)) return integer is
+  begin
+    case to_integer(fmt) is
+      when 10 => return 84;  when 11 => return 110; when 12 => return 144;
+      when 13 => return 176; when others => return 210;
+    end case;
+  end function;
+  -- word (4 bytes) i of the header copy: scales, mins, d, dmin
+  function kq_hword(fmt : unsigned(7 downto 0); i : integer) return integer is
+  begin
+    case to_integer(fmt) is
+      when 10 => if i = 4 then return 20; else return i; end if;   -- scales; d, dmin at 80
+      when 11 => return 24 + i;                                    -- scales at 96; d at 108
+      when 12 | 13 => return i;                                    -- d, dmin, scales at 0
+      when others => return 48 + i;                                -- scales at 192; d at 208
+    end case;
+  end function;
+  type kq_hb_t is array (0 to 19) of unsigned(7 downto 0);
+  type kq_sc16_t is array (0 to 15) of signed(7 downto 0);
+  type kq_m16_t is array (0 to 15) of unsigned(5 downto 0);
+  -- integer scale of each 16-weight group (as gguf-py's dequantisers)
+  function kq_scales(fmt : unsigned(7 downto 0); hb : kq_hb_t) return kq_sc16_t is
+    variable sc : kq_sc16_t;
+    variable v : unsigned(7 downto 0);
+    variable j : integer;
+  begin
+    for g in 0 to 15 loop
+      case to_integer(fmt) is
+        when 10 => sc(g) := signed(resize(hb(g)(3 downto 0), 8));
+        when 11 =>
+          v := shift_right(hb(g mod 8), 4 * (g / 8)) and x"0F";
+          v := v or shift_left(shift_right(hb(8 + g mod 4), 2 * (g / 4)) and x"03", 4);
+          sc(g) := signed(v) - 32;
+        when 12 | 13 =>
+          j := g / 2;
+          if j < 4 then
+            v := hb(4 + j) and x"3F";
+          else
+            v := (hb(12 + j - 4) and x"0F") or (shift_right(hb(4 + j - 4), 2) and x"30");
+          end if;
+          sc(g) := signed(v);
+        when others => sc(g) := signed(hb(g));
+      end case;
+    end loop;
+    return sc;
+  end function;
+  function kq_mins(fmt : unsigned(7 downto 0); hb : kq_hb_t) return kq_m16_t is
+    variable m : kq_m16_t;
+    variable v : unsigned(7 downto 0);
+    variable j : integer;
+  begin
+    for g in 0 to 15 loop
+      v := x"00";
+      if fmt = 10 then
+        v := x"0" & hb(g)(7 downto 4);
+      elsif fmt = 12 or fmt = 13 then
+        j := g / 2;
+        if j < 4 then
+          v := hb(8 + j) and x"3F";
+        else
+          v := shift_right(hb(12 + j - 4), 4) or (shift_right(hb(8 + j - 4), 2) and x"30");
+        end if;
+      end if;
+      m(g) := v(5 downto 0);
+    end loop;
+    return m;
+  end function;
+  function kq_d(fmt : unsigned(7 downto 0); hb : kq_hb_t) return unsigned is
+  begin
+    case to_integer(fmt) is
+      when 10 => return hb(17) & hb(16);
+      when 11 => return hb(13) & hb(12);
+      when 12 | 13 => return hb(1) & hb(0);
+      when others => return hb(17) & hb(16);
+    end case;
+  end function;
+  function kq_dmin(fmt : unsigned(7 downto 0); hb : kq_hb_t) return unsigned is
+  begin
+    if fmt = 10 then return hb(19) & hb(18); else return hb(3) & hb(2); end if;
+  end function;
+  -- the K reader, for pass p (32 weights): word base of the low bits and
+  -- their shift and mask, of the high bits (if any), their width, and the
+  -- fixed offset: q = (lo | hi << wl) - off  (Q3_K: ql - 4 (1 - h))
+  type kq_rd_t is record
+    la, ha : unsigned(5 downto 0);
+    sl, sh : unsigned(2 downto 0);
+    ml : unsigned(3 downto 0);
+    mh : unsigned(1 downto 0);
+    wl : unsigned(2 downto 0);
+    off : unsigned(5 downto 0);
+  end record;
+  function kq_rd(fmt : unsigned(7 downto 0); p : integer) return kq_rd_t is
+    variable c : kq_rd_t;
+  begin
+    c.ha := (others => '0'); c.sh := "000"; c.mh := "00"; c.off := (others => '0');
+    case to_integer(fmt) is
+      when 10 =>                                           -- Q2_K
+        c.la := to_unsigned(4 + 8 * (p / 4), 6); c.sl := to_unsigned(2 * (p mod 4), 3);
+        c.ml := x"3"; c.wl := to_unsigned(2, 3);
+      when 11 =>                                           -- Q3_K
+        c.la := to_unsigned(8 + 8 * (p / 4), 6); c.sl := to_unsigned(2 * (p mod 4), 3);
+        c.ml := x"3"; c.wl := to_unsigned(2, 3);
+        c.ha := to_unsigned(0, 6); c.sh := to_unsigned(p, 3); c.mh := "01";
+        c.off := to_unsigned(4, 6);
+      when 12 =>                                           -- Q4_K
+        c.la := to_unsigned(4 + 8 * (p / 2), 6); c.sl := to_unsigned(4 * (p mod 2), 3);
+        c.ml := x"F"; c.wl := to_unsigned(4, 3);
+      when 13 =>                                           -- Q5_K
+        c.la := to_unsigned(12 + 8 * (p / 2), 6); c.sl := to_unsigned(4 * (p mod 2), 3);
+        c.ml := x"F"; c.wl := to_unsigned(4, 3);
+        c.ha := to_unsigned(4, 6); c.sh := to_unsigned(p, 3); c.mh := "01";
+      when others =>                                       -- Q6_K
+        c.la := to_unsigned(16 * (p / 4) + 8 * (p mod 2), 6);
+        c.sl := to_unsigned(4 * ((p mod 4) / 2), 3);
+        c.ml := x"F"; c.wl := to_unsigned(4, 3);
+        c.ha := to_unsigned(32 + 8 * (p / 4), 6); c.sh := to_unsigned(2 * (p mod 4), 3);
+        c.mh := "11"; c.off := to_unsigned(32, 6);
+    end case;
+    return c;
+  end function;
+  -- one quant from byte lanes bl (low bits) and bh (high bits)
+  function kq_q(bl, bh : unsigned(7 downto 0); c : kq_rd_t) return signed is
+    variable lo, hi : unsigned(7 downto 0);
+    variable v : integer;
+  begin
+    lo := shift_right(bl, to_integer(c.sl)) and ("0000" & c.ml);
+    hi := shift_right(bh, to_integer(c.sh)) and ("000000" & c.mh);
+    v := to_integer(lo) + to_integer(shift_left(hi, to_integer(c.wl))) - to_integer(c.off);
+    return to_signed(v, 9);
+  end function;
+
   signal grp       : grp_t := (others => x"00");
   signal gi, gbytes : unsigned(5 downto 0) := (others => '0');
   signal d_j, epg  : unsigned(5 downto 0) := (others => '0');
@@ -760,6 +900,10 @@ architecture shell of ssnail is
   signal wf        : wf_t := (others => (others => '0'));
   attribute ram_style of wf : signal is "distributed";
   signal wf_w, wf_r : unsigned(8 downto 0) := (others => '0');
+  -- wf_w - wf_r = 0, = 1, kept exact from each cycle's arrival and pop:
+  -- the assembler's pop is not behind a 9-bit compare
+  signal wf_z      : boolean := true;
+  signal wf_o      : boolean := false;
   signal sr_next, sr_end, str_base : unsigned(27 downto 0) := (others => '0');
   signal str_local : unsigned(26 downto 0) := (others => '0');
   signal str_is_sd : std_logic := '0';
@@ -798,7 +942,8 @@ architecture shell of ssnail is
   signal ub_w, mc_wb : qw32_t := (others => (others => '0'));
   signal ub_d      : unsigned(31 downto 0) := (others => '0');   -- its scale, F32
   signal ub_full   : std_logic := '0';
-  signal as_rem    : unsigned(5 downto 0) := (others => '0');   -- bytes left in this block
+  signal as_rem    : unsigned(7 downto 0) := (others => '0');   -- bytes left in this block
+  signal g_bl      : unsigned(7 downto 0) := (others => '0');   -- block length, bytes
   signal as_any    : std_logic := '0';                          -- as_blocks /= 0
   -- as_flags(as_skip, as_rem): skip >= 1, 2, 3; skip + rem >= 2, 3;
   -- rem = 1, 2, 3.  All the assembler's step needs, as registers
@@ -820,6 +965,9 @@ architecture shell of ssnail is
   signal mc_xa     : mc_xa_t := (others => (others => '0'));
   attribute dont_touch : string;
   attribute dont_touch of mc_xa : signal is "true";
+  -- (fpu0's operands stay flip-flops: absorbed into its multiplier's DSP
+  -- input registers, their wide source mux met the DSP's longer setup)
+  attribute dont_touch of fpu_a, fpu_b : signal is "true";
   signal mc_isum   : signed(31 downto 0) := (others => '0');
   -- mc_isum -> F32, three register stages (same result as i_to_f32).
   -- A finished block's sum, scale and index are captured into stage 1,
@@ -851,6 +999,76 @@ architecture shell of ssnail is
   signal mc_last0, mc_last1, mc_last2, mc_last3 : std_logic := '0';
   signal mc_scale_ok : std_logic := '0';
   signal mc_scale  : unsigned(31 downto 0) := (others => '0');
+  -- (K-quants) the lanes' element group of mc_c = 3 ends the first 16
+  signal mc_mid0, mc_mid1, mc_mid2, mc_mid3 : std_logic := '0';
+
+  -- K-quant GEMV (see kq_bytes)
+  signal kq_on     : std_logic := '0';               -- this GEMV is a K-quant one
+  signal kq_min    : std_logic := '0';               -- ... with mins (Q2_K, Q4_K, Q5_K)
+  signal kq_nsb    : unsigned(7 downto 0) := (others => '0');   -- super-blocks per row
+  -- x: amax over 256 (pass 0), then quantise (pass 1); 16-element sums
+  signal kq_pass   : std_logic := '0';
+  signal kq_sub    : unsigned(2 downto 0) := (others => '0');
+  signal kq_amax   : unsigned(30 downto 0) := (others => '0');
+  type kq_bs_t is array (0 to 255) of signed(11 downto 0);
+  signal kq_bs     : kq_bs_t := (others => (others => '0'));
+  signal kq_bacc   : signed(11 downto 0) := (others => '0');
+  -- super-block buffer: byte lane l of word w (half h) at kq_sbl(h & w)
+  type kq_sb_t is array (0 to 127) of unsigned(7 downto 0);
+  signal kq_sb0, kq_sb1, kq_sb2, kq_sb3 : kq_sb_t := (others => (others => '0'));
+  attribute ram_style of kq_bs, kq_sb0, kq_sb1, kq_sb2, kq_sb3 : signal is "distributed";
+  signal kq_wh     : std_logic := '0';               -- half being written
+  signal kq_wp     : unsigned(7 downto 0) := (others => '0');   -- its next byte
+  signal kq_full   : std_logic_vector(0 to 1) := "00";          -- half holds a super-block
+  -- header unit: reads 5 words of a full half, decodes, S2, d*dx, dmin*dx
+  type kq_hs_t is (KH_IDLE, KH_RD, KH_DEC, KH_S2, KH_A, KH_AW, KH_B, KH_BW);
+  signal kq_hs     : kq_hs_t := KH_IDLE;
+  signal kq_hh     : std_logic := '0';               -- half it works on
+  signal kq_hi     : unsigned(4 downto 0) := (others => '0');
+  signal kq_hb     : kq_hb_t := (others => x"00");
+  signal kq_hok    : std_logic_vector(0 to 1) := "00";          -- half's header done
+  signal kq_hsb    : unsigned(7 downto 0) := (others => '0');   -- its super-block in the row
+  signal kq_s2acc  : signed(31 downto 0) := (others => '0');
+  type kq_sc2_t is array (0 to 1) of kq_sc16_t;
+  type kq_m2_t is array (0 to 1) of kq_m16_t;
+  type kq_w2_t is array (0 to 1) of unsigned(31 downto 0);
+  type kq_i2_t is array (0 to 1) of signed(31 downto 0);
+  signal kq_sc     : kq_sc2_t := (others => (others => (others => '0')));
+  signal kq_m      : kq_m2_t := (others => (others => (others => '0')));
+  signal kq_a, kq_b : kq_w2_t := (others => (others => '0'));  -- d*dx, dmin*dx
+  signal kq_s2     : kq_i2_t := (others => (others => '0'));
+  signal kq_dmin16 : unsigned(15 downto 0) := (others => '0');
+  -- K reader and passes
+  signal kq_rh     : std_logic := '0';               -- half the lanes read
+  signal kq_p      : unsigned(2 downto 0) := (others => '0');   -- pass (32 weights)
+  signal kq_rd_q   : kq_rd_t := (la => (others => '0'), ha => (others => '0'),
+                                 sl => "000", sh => "000", ml => x"0", mh => "00",
+                                 wl => "000", off => (others => '0'));
+  signal kq_la, kq_ha : unsigned(6 downto 0) := (others => '0');  -- half & word
+  -- integer tail: S1 = sum of sc * (16-weight sums), per super-block
+  signal kq_lo     : signed(31 downto 0) := (others => '0');   -- the pass's first 16
+  signal kq_c1, kq_c2, kq_c1last, kq_c2last : std_logic := '0';   -- (pass of S1)
+  signal kq_tlo, kq_thi : signed(31 downto 0) := (others => '0');
+  signal kq_sclo, kq_schi : signed(7 downto 0) := (others => '0');
+  signal kq_plo, kq_phi : signed(31 downto 0) := (others => '0');
+  signal kq_s1     : signed(31 downto 0) := (others => '0');
+  signal kq_c1h, kq_c2h : std_logic := '0';                    -- (the half)
+  -- per super-block: F32(S1), F32(S2) (RNE), then t1 = S1f * a, t2 = S2f * b
+  type kq_fs_t is (KF_IDLE, KF_C1, KF_M1, KF_C2, KF_M2, KF_OUT);
+  signal kq_fs     : kq_fs_t := KF_IDLE;
+  signal kq_fh     : std_logic := '0';
+  signal kq_fs1, kq_fs2 : signed(31 downto 0) := (others => '0');
+  signal kq_fi     : signed(31 downto 0) := (others => '0');   -- converter input
+  signal kq_fgo, kq_fok : std_logic := '0';
+  signal kq_fk     : unsigned(3 downto 0) := (others => '0');
+  signal kq_fabs, kq_fm : unsigned(31 downto 0) := (others => '0');
+  signal kq_fneg, kq_fz : std_logic := '0';
+  signal kq_fp     : unsigned(4 downto 0) := (others => '0');
+  signal kq_fres   : unsigned(31 downto 0) := (others => '0');
+  signal kq_t1, kq_t2 : unsigned(31 downto 0) := (others => '0');
+  signal kq_fsb    : unsigned(7 downto 0) := (others => '0');   -- term's super-block
+  signal kq_fa, kq_fb : unsigned(31 downto 0) := (others => '0');
+  signal kq_ga     : std_logic := '0';               -- header: d*dx is in
   -- term stage (second FP unit): term = F32(isum) * scale
   signal tm_busy   : std_logic := '0';
   signal tm_blk    : unsigned(7 downto 0) := (others => '0');
@@ -862,6 +1080,11 @@ architecture shell of ssnail is
   signal tl_full   : std_logic := '0';
   signal tl_term   : unsigned(31 downto 0) := (others => '0');
   signal tl_blk    : unsigned(7 downto 0) := (others => '0');
+  -- K-quants: the super-block's second term (dmin part), subtracted from
+  -- tl_term by the tail first (kq_min); tl_sub: done for this tl_term
+  signal tl_term2  : unsigned(31 downto 0) := (others => '0');
+  signal tl_sub    : boolean := false;
+  signal g_nbt     : unsigned(7 downto 0) := (others => '0');  -- tail terms per row
   -- second FP unit: each block's term; third: the next block's scale
   signal fpu2_start, fpu2_done : std_logic := '0';
   signal fpu2_a, fpu2_b, fpu2_res : unsigned(31 downto 0) := (others => '0');
@@ -1360,6 +1583,8 @@ begin
     variable rge, req : std_logic_vector(0 to 15);
     variable avb : grp_t;
     variable popw : boolean;
+    variable wf_arr, wf_pop : boolean;
+    variable nh, ns : unsigned(2 downto 0);
     variable wv : unsigned(15 downto 0);
     variable rq_push : boolean;
     variable rq_push_tag : std_logic;
@@ -1370,6 +1595,14 @@ begin
     variable fv : unsigned(31 downto 0);
     variable i2f_p : integer range 0 to 23;
     variable i2f_m : unsigned(23 downto 0);
+    variable v28 : unsigned(27 downto 0);
+    variable kb_pos : unsigned(8 downto 0);
+    variable kb_ln : integer range 0 to 3;
+    variable kb_wd : unsigned(6 downto 0);
+    variable kwl, kwh : unsigned(31 downto 0);
+    variable kq_qv : signed(8 downto 0);
+    variable kf_r : unsigned(24 downto 0);
+    variable kf_p : integer range 0 to 31;
     -- the next state, with its registered decodes
     procedure go(s : core_state_t) is
     begin
@@ -1385,6 +1618,9 @@ begin
         and cs_pf = (cstate = V_EL0 or cstate = V_EL or cstate = V_ELST
                      or cstate = E_ACC or cstate = E_ACC2 or cstate = E_R6)
         report "SSNAIL: stale cs_el0 / cs_r6 / cs_pf" severity failure;
+      assert out_z = (hr_out = 0 and sd_out = 0) report "SSNAIL: stale out_z" severity failure;
+      wf_arr := false;
+      wf_pop := false;
       hr_issue := '0';
       pf_go := false;
       pf_x := vix; pf_y := viy; pf_b := vib;
@@ -1525,6 +1761,7 @@ begin
         -- GEMV weight stream: into the word FIFO
         wf(to_integer(wf_w(7 downto 0))) <= rdata_r;
         wf_w <= wf_w + 1;
+        wf_arr := true;
         sr_inflight_dec := '1';
         if rq_cnt(to_integer(rq_r(1 downto 0))) = 1 then
           rq_r <= rq_r + 1;
@@ -1624,7 +1861,7 @@ begin
       end if;
 
       g_qlast <= gblk + 1 = g_nb;
-      tl_last <= tl_blk + 1 = g_nb;
+      tl_last <= tl_blk + 1 = g_nbt;
       mr_end  <= mr_r = mr_rows;
 
       -- GEMV quantise |x| maximum, a cycle behind the reads (G_QFILL)
@@ -1897,11 +2134,25 @@ begin
               d_fmt <= instr(15 downto 8);
               g_addz <= instr(16);
               g_f16 <= instr(17);
+              if instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 then
+                kq_on <= '1';
+              else
+                kq_on <= '0';
+              end if;
+              if instr(15 downto 8) = 10 or instr(15 downto 8) = 12 or instr(15 downto 8) = 13 then
+                kq_min <= '1';
+              else
+                kq_min <= '0';
+              end if;
+              kq_nsb <= "000" & n0(12 downto 8);
+              kq_pass <= '0'; kq_sub <= (others => '0'); kq_amax <= (others => '0');
               if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8
-                      or instr(15 downto 8) = 39) then
+                      or instr(15 downto 8) = 39
+                      or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14)) then
                 err <= ERR_FORMAT;                -- float weights: not yet
                 dec_next <= C_END;
-              elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1' then
+              elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1'
+                or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 and n0(7 downto 0) /= 0) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
@@ -1914,13 +2165,21 @@ begin
                 g_rows <= n1;
                 g_nb <= n0(12 downto 5);
                 gblk <= (others => '0');
-                -- block length (also the assembler's, while the GEMV runs)
+                -- block length (the assembler's, while the GEMV runs), and
+                -- the tail's terms per row (super-blocks, for K-quants)
                 if instr(15 downto 8) = 8 then
-                  gbytes <= to_unsigned(34, 6);
+                  g_bl <= to_unsigned(34, 8);
                 elsif instr(15 downto 8) = 39 then
-                  gbytes <= to_unsigned(17, 6);
+                  g_bl <= to_unsigned(17, 8);
+                elsif instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 then
+                  g_bl <= to_unsigned(kq_bytes(instr(15 downto 8)), 8);
                 else
-                  gbytes <= to_unsigned(18, 6);
+                  g_bl <= to_unsigned(18, 8);
+                end if;
+                if instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 then
+                  g_nbt <= "000" & n0(12 downto 8);
+                else
+                  g_nbt <= n0(12 downto 5);
                 end if;
                 ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
                 ld_valid <= '0';
@@ -2048,7 +2307,7 @@ begin
 
         when C_MEM_WAIT =>
           if mem_is_store = '1' then
-            if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+            if out_z and hr_issue = '0' then
               str_active <= '0';
               go(C_NEXT);
             end if;
@@ -2146,7 +2405,7 @@ begin
           -- completed, so the buffer can be reused.  Counting completions,
           -- rather than watching for one cmd_done pulse, makes this immune
           -- to the late cmd_done of the preceding read.
-          if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+          if out_z and hr_issue = '0' then
             cp_src <= cp_src + resize(cp_chunk, 28);
             cp_dst <= cp_dst + resize(cp_chunk, 28);
             cp_remaining <= cp_remaining - resize(cp_chunk, 16);
@@ -2170,7 +2429,7 @@ begin
         when C_SYNC_WAIT =>
           -- All earlier commands (e.g. COPY writes) complete before the
           -- invalidates, because each port's queue is in order.
-          if hr_out = 0 and sd_out = 0 then
+          if out_z then
             wd_cnt <= (others => '0');
             if cpu_sync = '1' then
               cpu_sync <= '0';
@@ -2211,7 +2470,7 @@ begin
           end if;
 
         when C_LP_WAIT =>
-          if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+          if out_z and hr_issue = '0' then
             lp_active <= '0';
             -- The write bypassed the CPU's caches on that port
             if t_is_sd = '1' then
@@ -2227,7 +2486,7 @@ begin
           end if;
 
         when C_LP_INVAL =>
-          if hr_out = 0 and sd_out = 0 then
+          if out_z then
             go(C_LP_DONE);
           end if;
 
@@ -2313,7 +2572,7 @@ begin
             go(C_WR_WAIT);
           end if;
         when C_WR_WAIT =>
-          if hr_out = 0 and sd_out = 0 and hr_issue = '0' then
+          if out_z and hr_issue = '0' then
             mw_active <= '0';
             go(wr_ret);
           end if;
@@ -2977,7 +3236,12 @@ begin
         when G_QFILL =>
           assert qf_hit = (ld_valid = '1' and px(27 downto 8) = ld_block)
             report "SSNAIL: stale qf_hit" severity failure;
-          if g_j = 32 then
+          if g_j = 32 and kq_on = '1' and kq_pass = '0' then
+            go(G_KAM);                                 -- (K: amax over 256 first)
+          elsif g_j = 32 and kq_on = '1' then
+            g_j <= (others => '0');                    -- (K: d and id known)
+            go(G_QQ);
+          elsif g_j = 32 then
             fpu_op <= FOP_DIV;                         -- d = amax / 127
             -- (the last element's qf_v lands in g_amax only now)
             if qf_vld and qf_v > g_amax then
@@ -3012,10 +3276,44 @@ begin
             g_j <= g_j + 1;
           end if;
 
+        -- K-quants: the amax of 32 more elements (g_amax is complete now);
+        -- after 256, d = amax / 127 as for Q8_0
+        when G_KAM =>
+          assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
+          if g_amax > kq_amax then
+            kq_amax <= g_amax;
+          end if;
+          kq_sub <= kq_sub + 1;
+          if kq_sub = 7 then
+            fpu_op <= FOP_DIV;
+            if g_amax > kq_amax then
+              fpu_a <= '0' & g_amax;
+            else
+              fpu_a <= '0' & kq_amax;
+            end if;
+            fpu_b <= x"42FE0000";
+            fpu_start <= '1';
+            fpu_ret <= G_QID;
+            go(C_FPU_WAIT);
+          else
+            go(G_QFILL0);
+          end if;
+
+        -- K-quants: the super-block's scale is F32 (not rounded to F16);
+        -- read its 256 elements again, to quantise them
+        when G_KX =>
+          dxs(to_integer(gblk(7 downto 3))) <= g_d;
+          px <= px - 1024;
+          kq_pass <= '1';
+          go(G_QFILL0);
+
         when G_QID =>
           g_d <= fpu_r;
           assert fr_z = (fpu_r(30 downto 0) = 0) report "SSNAIL: stale fr_z" severity failure;
-          if fr_z then
+          if fr_z and kq_on = '1' then
+            g_id <= (others => '0');
+            go(G_KX);
+          elsif fr_z then
             g_id <= (others => '0');                   -- id = d ? 1/d : 0
             go(G_QD16);
           else
@@ -3029,7 +3327,11 @@ begin
 
         when G_QID2 =>
           g_id <= fpu_r;
-          go(G_QD16);
+          if kq_on = '1' then
+            go(G_KX);
+          else
+            go(G_QD16);
+          end if;
 
         when G_QD16 =>
           fpu_op <= FOP_F32TOF16;                      -- the stored scale is F16
@@ -3053,6 +3355,13 @@ begin
         when G_QQ =>
           if g_j = 32 then
             gblk <= gblk + 1;
+            if kq_on = '1' then
+              kq_sub <= kq_sub + 1;
+              if kq_sub = 7 then                       -- super-block done
+                kq_pass <= '0';
+                kq_amax <= (others => '0');
+              end if;
+            end if;
             assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
             if g_qlast then
               go(G_ROW0);
@@ -3076,6 +3385,15 @@ begin
           go(C_FPU_WAIT);
 
         when G_QQS =>
+          -- the sum of each 16 (K-quants' mins)
+          if g_j(3 downto 0) = 0 then
+            kq_bacc <= resize(signed(fpu_r(7 downto 0)), 12);
+          else
+            kq_bacc <= kq_bacc + resize(signed(fpu_r(7 downto 0)), 12);
+          end if;
+          if g_j(3 downto 0) = 15 then
+            kq_bs(to_integer(gblk(6 downto 0) & g_j(4))) <= kq_bacc + resize(signed(fpu_r(7 downto 0)), 12);
+          end if;
           case to_integer(g_j(1 downto 0)) is
             when 0 => qx0(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
             when 1 => qx1(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
@@ -3099,7 +3417,11 @@ begin
           sr_next <= a0;
           -- Setup a small serial multiplier.  Full 32-bit rows are needed
           -- for as_blocks; only low 20 bits were used for byte-span above.
-          g_mul_nb <= g_nb;
+          if kq_on = '1' then
+            g_mul_nb <= kq_nsb;                       -- super-blocks per row
+          else
+            g_mul_nb <= g_nb;
+          end if;
           g_mul_a32 <= g_rows;
           g_mul_p32 <= (others => '0');
           g_mul_p28 <= (others => '0');
@@ -3107,6 +3429,18 @@ begin
             -- 34 * rows20 = (rows20 << 5) + (rows20 << 1)
             g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 5)
                         + shift_left(resize(g_rows(19 downto 0), 28), 1);
+          elsif kq_on = '1' then
+            -- (K-quant super-block bytes) * rows20
+            v28 := resize(g_rows(19 downto 0), 28);
+            case to_integer(d_fmt) is
+              when 10 => g_mul_a28 <= shift_left(v28, 6) + shift_left(v28, 4) + shift_left(v28, 2);
+              when 11 => g_mul_a28 <= shift_left(v28, 6) + shift_left(v28, 5) + shift_left(v28, 3)
+                                      + shift_left(v28, 2) + shift_left(v28, 1);
+              when 12 => g_mul_a28 <= shift_left(v28, 7) + shift_left(v28, 4);
+              when 13 => g_mul_a28 <= shift_left(v28, 7) + shift_left(v28, 5) + shift_left(v28, 4);
+              when others => g_mul_a28 <= shift_left(v28, 7) + shift_left(v28, 6)
+                                          + shift_left(v28, 4) + shift_left(v28, 1);
+            end case;
           elsif d_fmt = 39 then
             -- 17 * rows20 = (rows20 << 4) + rows20
             g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 4)
@@ -3162,13 +3496,20 @@ begin
             -- start the pipeline
             g2 <= '1';
             wf_w <= (others => '0'); wf_r <= (others => '0');
+            wf_z <= true; wf_o <= false;
             sr_inflight <= (others => '0');
             rq_w <= (others => '0'); rq_r <= (others => '0');
             -- (as_flags depends on a block length only through >= 4)
-            as_rem <= gbytes;
+            as_rem <= g_bl;
             as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0'; ub_full <= '0';
+            kq_wh <= '0'; kq_wp <= (others => '0'); kq_full <= "00";
+            kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
+            kq_rh <= '0'; kq_p <= (others => '0');
+            kq_c1 <= '0'; kq_c2 <= '0'; kq_s1 <= (others => '0');
+            kq_fs <= KF_IDLE; kq_fgo <= '0'; kq_fsb <= (others => '0');
+            tl_sub <= false;
             as_blocks <= g_mul_p32;
             if g_mul_p32 /= 0 then as_any <= '1'; else as_any <= '0'; end if;
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
@@ -3186,6 +3527,13 @@ begin
           assert g_end = (g_r = g_rows) report "SSNAIL: stale g_end" severity failure;
           if g_end then                               -- g_r = g_rows
             go(G2_END);
+          elsif tl_full = '1' and kq_min = '1' and kq_on = '1' and not tl_sub then
+            fpu_op <= FOP_ADD;                    -- K-quants: t = t1 - t2 first
+            fpu_a <= tl_term;
+            fpu_b <= (not tl_term2(31)) & tl_term2(30 downto 0);
+            fpu_start <= '1';
+            fpu_ret <= G2_KS;
+            go(C_FPU_WAIT);
           elsif tl_full = '1' then
             if tl_blk = 0 then
               g_accv <= tl_term;                    -- the first term as it is
@@ -3201,12 +3549,17 @@ begin
           end if;
         when G2_T1 =>
           go(G2_WAIT);
+        when G2_KS =>
+          tl_term <= fpu_r;
+          tl_sub <= true;
+          go(G2_WAIT);
         when G2_T2 =>
           g_accv <= fpu_r;
           go(G2_T3);
         when G2_T3 =>
           tl_full_clr := '1';
-          assert tl_last = (tl_blk + 1 = g_nb) report "SSNAIL: stale tl_last" severity failure;
+          tl_sub <= false;
+          assert tl_last = (tl_blk + 1 = g_nbt) report "SSNAIL: stale tl_last" severity failure;
           if tl_last then
             go(G_OUT);                        -- row done: output it
           else
@@ -3214,7 +3567,7 @@ begin
           end if;
         when G2_END =>
           -- all rows out: let any trailing stream reads land, then stop
-          if rq_w = rq_r and sr_inflight = 0 and hr_out = 0 and sd_out = 0 then
+          if rq_w = rq_r and sr_inflight = 0 and out_z then
             g2 <= '0';
             go(C_NEXT);
           end if;
@@ -3868,7 +4221,9 @@ begin
             avb(0) := pb_b; nav := 1;
           end if;
           popw := false;
-          if wf_w /= wf_r and (pb_v = '0' or as_f(3) = '1') then   -- need > nav
+          assert wf_z = (wf_w = wf_r) and wf_o = (wf_w - wf_r = 1)
+            report "SSNAIL: stale wf_z / wf_o" severity failure;
+          if not wf_z and (pb_v = '0' or as_f(3) = '1') then   -- need > nav
             wv := wf(to_integer(wf_r(7 downto 0)));
             avb(nav) := wv(7 downto 0);
             avb(nav + 1) := wv(15 downto 8);
@@ -3910,7 +4265,24 @@ begin
             when others =>
               null;
           end case;
-          if popw then wf_r <= wf_r + 1; end if;
+          -- K-quants: the bytes go into the super-block buffer instead (one
+          -- write per byte lane: the w <= 3 bytes are in different lanes)
+          if kq_on = '1' then
+            for l in 0 to 3 loop
+              kb_ln := (l - to_integer(kq_wp(1 downto 0))) mod 4;
+              kb_pos := ('0' & kq_wp) + kb_ln;
+              kb_wd := kq_wh & kb_pos(7 downto 2);
+              if kb_ln < as_w then
+                case l is
+                  when 0 => kq_sb0(to_integer(kb_wd)) <= avb(as_s + kb_ln);
+                  when 1 => kq_sb1(to_integer(kb_wd)) <= avb(as_s + kb_ln);
+                  when 2 => kq_sb2(to_integer(kb_wd)) <= avb(as_s + kb_ln);
+                  when others => kq_sb3(to_integer(kb_wd)) <= avb(as_s + kb_ln);
+                end case;
+              end if;
+            end loop;
+          end if;
+          if popw then wf_r <= wf_r + 1; wf_pop := true; end if;
           if as_c < nav then
             pb_v <= '1'; pb_b <= avb(nav - 1);       -- at most one left over
           else
@@ -3920,18 +4292,37 @@ begin
           if (as_w = 1 and as_f(5) = '1') or (as_w = 2 and as_f(6) = '1')
             or (as_w = 3 and as_f(7) = '1') then    -- as_rem = as_w: block full
             as_full <= '1';
-            as_rem <= gbytes;
+            as_rem <= g_bl;
             as_f <= asf_full(as_s);
+            kq_wp <= (others => '0');
+            if kq_on = '1' then
+              -- the super-block is in its half; on to the other one (as_full
+              -- holds the assembler until that is free)
+              kq_full(to_integer(unsigned'("" & kq_wh))) <= '1';
+              kq_wh <= not kq_wh;
+              as_blocks <= as_blocks - 1;
+              if as_blocks = 1 then as_any <= '0'; end if;
+            end if;
           else
             as_rem <= as_rem - as_w;
             as_f <= asf_c(as_s, as_w);
+            kq_wp <= kq_wp + as_w;
           end if;
+        end if;
+        if kq_on = '1' and as_full = '1' and kq_full(to_integer(unsigned'("" & kq_wh))) = '0' then
+          as_full <= '0';
+        end if;
+        -- FIFO occupancy flags for the next cycle
+        if wf_arr and not wf_pop then
+          wf_z <= false; wf_o <= wf_z;
+        elsif wf_pop and not wf_arr then
+          wf_z <= wf_o; wf_o <= wf_w - wf_r = 2;
         end if;
 
         -- Unpack: a full block becomes 32 weights and an F32 scale, and the
         -- assembler is free again at once (as it was when the lanes took the
         -- block directly)
-        if as_full = '1' and ub_full = '0' then
+        if as_full = '1' and ub_full = '0' and kq_on = '0' then
           ub_w <= unpack_w(grpf, d_fmt);
           ub_d <= unpack_s(grpf, d_fmt);
           ub_full <= '1';
@@ -3940,8 +4331,99 @@ begin
           if as_blocks = 1 then as_any <= '0'; end if;
         end if;
 
+        -- K-quants: the header unit, on a full half not yet decoded: 5 words
+        -- of it, then scales / mins / d / dmin, S2 = sum of m * (x sums),
+        -- and d * dx, dmin * dx on the third FP unit
+        if kq_on = '1' then
+          case kq_hs is
+            when KH_IDLE =>
+              if kq_full(to_integer(unsigned'("" & kq_hh))) = '1'
+                and kq_hok(to_integer(unsigned'("" & kq_hh))) = '0' then
+                kq_hi <= (others => '0');
+                kq_hs <= KH_RD;
+              end if;
+            when KH_RD =>
+              kb_wd := kq_hh & to_unsigned(kq_hword(d_fmt, to_integer(kq_hi(2 downto 0))), 6);
+              kq_hb(4 * to_integer(kq_hi(2 downto 0)) + 0) <= kq_sb0(to_integer(kb_wd));
+              kq_hb(4 * to_integer(kq_hi(2 downto 0)) + 1) <= kq_sb1(to_integer(kb_wd));
+              kq_hb(4 * to_integer(kq_hi(2 downto 0)) + 2) <= kq_sb2(to_integer(kb_wd));
+              kq_hb(4 * to_integer(kq_hi(2 downto 0)) + 3) <= kq_sb3(to_integer(kb_wd));
+              if kq_hi = 4 then
+                kq_hs <= KH_DEC;
+              else
+                kq_hi <= kq_hi + 1;
+              end if;
+            when KH_DEC =>
+              kq_sc(to_integer(unsigned'("" & kq_hh))) <= kq_scales(d_fmt, kq_hb);
+              kq_m(to_integer(unsigned'("" & kq_hh))) <= kq_mins(d_fmt, kq_hb);
+              kq_dmin16 <= kq_dmin(d_fmt, kq_hb);
+              fpu3_a <= f16_to_f32(kq_d(d_fmt, kq_hb));
+              fpu3_b <= dxs(to_integer(kq_hsb(3 downto 0)));
+              fpu3_start <= '1';
+              kq_ga <= '0';
+              kq_hi <= (others => '0');
+              kq_s2acc <= (others => '0');
+              kq_hs <= KH_S2;
+            when KH_S2 =>
+              kq_s2acc <= kq_s2acc
+                + resize(signed('0' & kq_m(to_integer(unsigned'("" & kq_hh)))(to_integer(kq_hi(3 downto 0))))
+                         * kq_bs(to_integer(kq_hsb(3 downto 0) & kq_hi(3 downto 0))), 32);
+              kq_hi <= kq_hi + 1;
+              if kq_hi = 15 then
+                kq_hs <= KH_A;
+              end if;
+            when KH_A =>
+              kq_s2(to_integer(unsigned'("" & kq_hh))) <= kq_s2acc;
+              if kq_ga = '1' or fpu3_done = '1' then
+                if kq_min = '1' then
+                  fpu3_a <= f16_to_f32(kq_dmin16);
+                  fpu3_b <= dxs(to_integer(kq_hsb(3 downto 0)));
+                  fpu3_start <= '1';
+                  kq_hs <= KH_B;
+                else
+                  kq_hs <= KH_BW;
+                end if;
+              end if;
+            when KH_B =>
+              if fpu3_done = '1' then
+                kq_b(to_integer(unsigned'("" & kq_hh))) <= fpu3_res;
+                kq_hs <= KH_BW;
+              end if;
+            when others =>                                  -- KH_BW
+              kq_hok(to_integer(unsigned'("" & kq_hh))) <= '1';
+              kq_hh <= not kq_hh;
+              if kq_hsb + 1 = kq_nsb then
+                kq_hsb <= (others => '0');
+              else
+                kq_hsb <= kq_hsb + 1;
+              end if;
+              kq_hs <= KH_IDLE;
+          end case;
+          if (kq_hs = KH_S2 or kq_hs = KH_A) and fpu3_done = '1' then
+            kq_a(to_integer(unsigned'("" & kq_hh))) <= fpu3_res;
+            kq_ga <= '1';
+          end if;
+        end if;
+
+        -- K-quants: a pass (32 weights) of a decoded half to the lanes; the
+        -- last pass must find the per-super-block FP sequence free
+        if kq_on = '1' and kq_full(to_integer(unsigned'("" & kq_rh))) = '1'
+          and kq_hok(to_integer(unsigned'("" & kq_rh))) = '1'
+          and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
+          kq_rd_q <= kq_rd(d_fmt, to_integer(kq_p));
+          kq_la <= kq_rh & kq_rd(d_fmt, to_integer(kq_p)).la;
+          kq_ha <= kq_rh & kq_rd(d_fmt, to_integer(kq_p)).ha;
+          mc_busy <= '1';
+          mc_drain <= '0';
+          mc_c <= (others => '0');
+          for k in 0 to 3 loop
+            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+          end loop;
+          mc_isum <= (others => '0');
+        end if;
+
         -- Swap: an unpacked block goes to the lanes when they are free
-        if ub_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
+        if ub_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' and kq_on = '0' then
           mc_wb <= ub_w;
           -- scale = d_w * d_x on the third FP unit, while the lanes work
           fpu3_a <= ub_d;
@@ -3962,10 +4444,24 @@ begin
         -- and carry-chain accumulation on the RAM/address selection path.
         mc_v0 <= mc_busy;
         mc_last0 <= '0';
+        mc_mid0 <= '0';
+        if mc_busy = '1' and mc_c = 3 then
+          mc_mid0 <= '1';
+        end if;
         if mc_busy = '1' then
+          kwl := kq_sb3(to_integer(kq_la)) & kq_sb2(to_integer(kq_la))
+                 & kq_sb1(to_integer(kq_la)) & kq_sb0(to_integer(kq_la));
+          kwh := kq_sb3(to_integer(kq_ha)) & kq_sb2(to_integer(kq_ha))
+                 & kq_sb1(to_integer(kq_ha)) & kq_sb0(to_integer(kq_ha));
+          kq_la(5 downto 0) <= kq_la(5 downto 0) + 1;
+          kq_ha(5 downto 0) <= kq_ha(5 downto 0) + 1;
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
-            qwv := mc_wb(jj);
+            if kq_on = '1' then
+              qwv := kq_q(kwl(8 * k + 7 downto 8 * k), kwh(8 * k + 7 downto 8 * k), kq_rd_q);
+            else
+              qwv := mc_wb(jj);
+            end if;
             case k is
               when 0 => qxv := qx0(to_integer(mc_xa(0)));
               when 1 => qxv := qx1(to_integer(mc_xa(1)));
@@ -3993,6 +4489,7 @@ begin
         -- bits.  Accumulation stays 32-bit and wraps exactly as previously.
         mc_v1 <= mc_v0;
         mc_last1 <= mc_last0;
+        mc_mid1 <= mc_mid0;
         if mc_v0 = '1' then
           for k in 0 to 3 loop
             mc_p_q(k) <= mc_w_q(k) * mc_x_q(k);
@@ -4000,17 +4497,22 @@ begin
         end if;
         mc_v2 <= mc_v1;
         mc_last2 <= mc_last1;
+        mc_mid2 <= mc_mid1;
         if mc_v1 = '1' then
           mc_pair_q(0) <= resize(mc_p_q(0), 18) + resize(mc_p_q(1), 18);
           mc_pair_q(1) <= resize(mc_p_q(2), 18) + resize(mc_p_q(3), 18);
         end if;
         mc_v3 <= mc_v2;
         mc_last3 <= mc_last2;
+        mc_mid3 <= mc_mid2;
         if mc_v2 = '1' then
           mc_sum_q <= resize(mc_pair_q(0), 19) + resize(mc_pair_q(1), 19);
         end if;
         -- Accumulator must drain before the F32 conversion sees mc_done.
-        if mc_v3 = '1' then
+        if mc_v3 = '1' and kq_on = '1' and mc_mid3 = '1' then
+          kq_lo <= mc_isum + resize(mc_sum_q, 32);     -- (K: the first 16)
+          mc_isum <= (others => '0');
+        elsif mc_v3 = '1' then
           mc_isum <= mc_isum + resize(mc_sum_q, 32);
           if mc_last3 = '1' then
             mc_drain <= '0';
@@ -4031,7 +4533,121 @@ begin
         -- bits of |v| reach the result) with its scale and index, and frees
         -- the lanes; stages 2 and 3 follow from the held stage 1.
         i2f_ok1 <= '0';
-        if mc_done = '1' and mc_scale_ok = '1' and i2f_busy = '0' then
+        -- K-quants: a finished pass's two 16-weight sums go to the integer
+        -- tail with their scales (the last pass of a super-block only once
+        -- the FP sequence is free: it takes S1 two edges later)
+        kq_c1 <= '0';
+        kq_c1last <= '0';
+        if kq_on = '1' and mc_done = '1'
+          and (kq_p /= 7 or (kq_fs = KF_IDLE and kq_c1last = '0' and kq_c2last = '0')) then
+          kq_tlo <= kq_lo;
+          kq_thi <= mc_isum;
+          kq_sclo <= kq_sc(to_integer(unsigned'("" & kq_rh)))(to_integer(kq_p & '0'));
+          kq_schi <= kq_sc(to_integer(unsigned'("" & kq_rh)))(to_integer(kq_p & '1'));
+          kq_c1 <= '1';
+          kq_c1h <= kq_rh;
+          if kq_p = 7 then kq_c1last <= '1'; end if;
+          mc_done <= '0';
+          if mc_blk + 1 = g_nb then
+            mc_blk <= (others => '0');
+          else
+            mc_blk <= mc_blk + 1;
+          end if;
+          kq_p <= kq_p + 1;
+          if kq_p = 7 then                              -- the half is used up
+            kq_full(to_integer(unsigned'("" & kq_rh))) <= '0';
+            kq_hok(to_integer(unsigned'("" & kq_rh))) <= '0';
+            kq_rh <= not kq_rh;
+          end if;
+        end if;
+        kq_c2 <= kq_c1;
+        kq_c2h <= kq_c1h;
+        if kq_c1 = '1' then
+          kq_plo <= resize(kq_tlo * kq_sclo, 32);
+          kq_phi <= resize(kq_thi * kq_schi, 32);
+          kq_c2last <= kq_c1last;
+        else
+          kq_c2last <= '0';
+        end if;
+        kq_fgo <= '0';
+        if kq_c2 = '1' then
+          if kq_c2last = '1' then
+            -- S1 complete: F32(S1) * (d * dx), F32(S2) * (dmin * dx)
+            kq_s1 <= (others => '0');
+            kq_fi <= kq_s1 + kq_plo + kq_phi;
+            kq_fgo <= '1';
+            kq_fs2 <= kq_s2(to_integer(unsigned'("" & kq_c2h)));
+            kq_fa <= kq_a(to_integer(unsigned'("" & kq_c2h)));
+            kq_fb <= kq_b(to_integer(unsigned'("" & kq_c2h)));
+            kq_fs <= KF_C1;
+          else
+            kq_s1 <= kq_s1 + kq_plo + kq_phi;
+          end if;
+        end if;
+        -- signed 32-bit -> F32, round to nearest even: |v|, its leading one,
+        -- normalised (leading one at bit 31), rounded
+        kq_fk <= kq_fk(2 downto 0) & kq_fgo;
+        kq_fok <= '0';
+        if kq_fgo = '1' then
+          kq_fneg <= kq_fi(31);
+          if kq_fi = 0 then kq_fz <= '1'; else kq_fz <= '0'; end if;
+          if kq_fi(31) = '1' then
+            kq_fabs <= unsigned(-kq_fi);
+          else
+            kq_fabs <= unsigned(kq_fi);
+          end if;
+        end if;
+        kf_p := 0;
+        for i in 0 to 31 loop
+          if kq_fabs(i) = '1' then kf_p := i; end if;
+        end loop;
+        kq_fp <= to_unsigned(kf_p, 5);
+        kq_fm <= shift_left(kq_fabs, 31 - to_integer(kq_fp));
+        if kq_fk(2) = '1' then
+          kf_r := ('0' & kq_fm(31 downto 8)) + 0;
+          if kq_fm(7) = '1' and (kq_fm(6 downto 0) /= 0 or kq_fm(8) = '1') then
+            kf_r := ('0' & kq_fm(31 downto 8)) + 1;
+          end if;
+          if kq_fz = '1' then
+            kq_fres <= x"00000000";
+          elsif kf_r(24) = '1' then                     -- rounded up to 2^(p+1)
+            kq_fres <= kq_fneg & to_unsigned(128 + to_integer(kq_fp), 8) & kf_r(23 downto 1);
+          else
+            kq_fres <= kq_fneg & to_unsigned(127 + to_integer(kq_fp), 8) & kf_r(22 downto 0);
+          end if;
+          kq_fok <= '1';
+        end if;
+        case kq_fs is
+          when KF_C1 =>
+            if kq_fok = '1' then
+              fpu2_a <= kq_fres; fpu2_b <= kq_fa; fpu2_start <= '1';
+              kq_fs <= KF_M1;
+            end if;
+          when KF_M1 =>
+            if fpu2_done = '1' then
+              kq_t1 <= fpu2_res;
+              kq_t2 <= (others => '0');
+              if kq_min = '1' then
+                kq_fi <= kq_fs2;
+                kq_fgo <= '1';
+                kq_fs <= KF_C2;
+              else
+                kq_fs <= KF_OUT;
+              end if;
+            end if;
+          when KF_C2 =>
+            if kq_fok = '1' then
+              fpu2_a <= kq_fres; fpu2_b <= kq_fb; fpu2_start <= '1';
+              kq_fs <= KF_M2;
+            end if;
+          when KF_M2 =>
+            if fpu2_done = '1' then
+              kq_t2 <= fpu2_res;
+              kq_fs <= KF_OUT;
+            end if;
+          when others => null;                          -- (KF_OUT: below)
+        end case;
+        if mc_done = '1' and mc_scale_ok = '1' and i2f_busy = '0' and kq_on = '0' then
           i2f_neg_q  <= mc_isum(31);
           if mc_isum = 0 then i2f_zero_q <= '1'; else i2f_zero_q <= '0'; end if;
           if mc_isum(31) = '1' then
@@ -4072,12 +4688,22 @@ begin
         if i2f_ok2 = '1' then i2f_ok3 <= '1'; end if;
         -- finished terms go to the tail, or wait in th_* while it is busy
         tl_free := tl_full = '0' or tl_full_clr = '1';
+        if kq_fs = KF_OUT and tl_free then
+          tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb;
+          if kq_fsb + 1 = kq_nsb then
+            kq_fsb <= (others => '0');
+          else
+            kq_fsb <= kq_fsb + 1;
+          end if;
+          kq_fs <= KF_IDLE;
+          tl_free := false;
+        end if;
         if th_v = '1' and tl_free then
           tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk;
           th_v <= '0';
           tl_free := false;
         end if;
-        if fpu2_done = '1' then
+        if fpu2_done = '1' and kq_on = '0' then
           if tl_free then
             tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk;
           else
@@ -4121,17 +4747,22 @@ begin
         lp_pending <= lp_pending - 1;
       end if;
 
-      -- Outstanding command counters
+      -- Outstanding command counters (and out_z, from their next values)
+      nh := hr_out;
       if hr_issue = '1' and hr_cmd_done = '0' then
-        hr_out <= hr_out + 1;
+        nh := hr_out + 1;
       elsif hr_issue = '0' and hr_cmd_done = '1' and hr_out /= 0 then
-        hr_out <= hr_out - 1;
+        nh := hr_out - 1;
       end if;
+      ns := sd_out;
       if sd_issue = '1' and sd_cmd_done = '0' then
-        sd_out <= sd_out + 1;
+        ns := sd_out + 1;
       elsif sd_issue = '0' and sd_cmd_done = '1' and sd_out /= 0 then
-        sd_out <= sd_out - 1;
+        ns := sd_out - 1;
       end if;
+      hr_out <= nh;
+      sd_out <= ns;
+      out_z <= nh = 0 and ns = 0;
 
     end if;
   end process;
