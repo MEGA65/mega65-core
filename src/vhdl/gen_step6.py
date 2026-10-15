@@ -1,5 +1,6 @@
 """Step 6 test: GEMV and DEQROW with super-block weights (Q2_K .. Q6_K,
-IQ4_XS, TQ2_0) against the reference emulator in hardware-numerics mode."""
+IQ4_XS, TQ2_0; GEMV of IQ2_XXS, IQ2_XS, IQ2_S, IQ3_XXS, IQ3_S) against the
+reference emulator in hardware-numerics mode."""
 import os
 import sys
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +20,8 @@ import ssnail_sim as S
 B = I.HYPERRAM_BASE
 rng = np.random.default_rng(66)
 mem = bytearray(0x10000)
-D_OFF = {10: [80, 82], 11: [108], 12: [0, 2], 13: [0, 2], 14: [208], 23: [0], 35: [64]}
+D_OFF = {10: [80, 82], 11: [108], 12: [0, 2], 13: [0, 2], 14: [208], 23: [0], 35: [64],
+         16: [0], 17: [0], 22: [0], 18: [0], 21: [0]}
 
 
 def put(off, data):
@@ -61,6 +63,15 @@ A(I.COPY, x=B + 0x1400, y=B + 0x6200, z=32)     # existing outputs for the accum
 A(I.SETN, x=512, y=3); A(I.GEMV, 14, I.GEMV_ACC, x=B + 0x1803 + 0, y=B + 0xC00, z=B + 0x6200)
 A(I.SETN, x=512, y=3); A(I.GEMV, 10, I.GEMV_F16OUT, x=B + 0x1803, y=B + 0xC00, z=B + 0x6302)
 off += len(w) + 0x11
+# the codebook formats (IQ front end): 3 rows x 2 super-blocks, and IQ3_S
+# with the all-zero x super-block
+for i, fmt in enumerate((16, 17, 22, 18, 21)):
+    w = kmat(fmt, 3, 512)
+    put(off, w)
+    A(I.SETN, x=512, y=3); A(I.GEMV, fmt, x=B + off, y=B + 0x400, z=B + 0x8C00 + 0x20 * i)
+    if fmt == 21:
+        A(I.SETN, x=512, y=3); A(I.GEMV, fmt, x=B + off, y=B + 0xC00, z=B + 0x8CC0)
+    off += len(w) + 0x11
 assert off < 0x6000, hex(off)
 # DEQROW: one super-block of each (Q4_K: two)
 for i, fmt in enumerate((10, 11, 13, 14)):

@@ -43,8 +43,8 @@ def table(name, t):
 # IQ3_XXS_VALUES[k]; IQ3_S code k is 2k + 1
 IQ2_VALUES = (8, 25, 43)
 IQ3_XXS_VALUES = (4, 12, 20, 28, 36, 44, 52, 62)
-IQ2_BASE = {16: 0, 17: 256, 22: 768}                 # IQ2_XXS, IQ2_XS, IQ2_S
-IQ3_BASE = {18: 0, 21: 256}                          # IQ3_XXS, IQ3_S
+IQ2_BASE = {16: 0, 17: 512, 22: 1024}                # IQ2_XXS, IQ2_XS, IQ2_S
+IQ3_BASE = {18: 0, 21: 512}                          # IQ3_XXS, IQ3_S
 
 
 def codes(fmt, values, width):
@@ -67,10 +67,11 @@ def rom(name, depth, width, base, vals):
     return "".join(out)
 
 
-iq = ("  -- IQ2 codebooks (IQ2_XXS at 0, IQ2_XS at 256, IQ2_S at 768): 8 values of\n"
+iq = ("  -- IQ2 codebooks (IQ2_XXS at 0, IQ2_XS at 512, IQ2_S at 1024:\n"
+      "  -- a base is one address bit, so the index is ORed in): 8 values of\n"
       "  -- 2 bits (8, 25, 43), value 0 in bits 1..0\n"
       + rom("IQ2_GRID", 2048, 16, IQ2_BASE, {f: IQ2_VALUES for f in IQ2_BASE}) +
-      "  -- IQ3 codebooks (IQ3_XXS at 0, IQ3_S at 256): 4 values of 3 bits, value 0\n"
+      "  -- IQ3 codebooks (IQ3_XXS at 0, IQ3_S at 512): 4 values of 3 bits, value 0\n"
       "  -- in bits 2..0 (IQ3_XXS: 4, 12, .. 52, 62; IQ3_S: 2k + 1)\n"
       + rom("IQ3_GRID", 1024, 12, IQ3_BASE, {18: IQ3_XXS_VALUES, 21: tuple(range(1, 16, 2))}))
 

@@ -740,10 +740,17 @@ architecture shell of ssnail is
   -- into a double-buffered word RAM (kq_sb*, byte lanes); a header unit
   -- decodes its scales, mins, d and dmin; the K reader gives the lanes 4
   -- quants a cycle from it, one pass of 32 per 32-block of x.
-  -- the 256-weight super-block formats: Q2_K .. Q6_K, IQ4_XS, TQ2_0
+  -- the codebook formats: IQ2_XXS, IQ2_XS, IQ3_XXS, IQ3_S, IQ2_S (GEMV
+  -- only: their weights come through the IQ front end, not the K reader)
+  function fmt_iq(fmt : unsigned(7 downto 0)) return boolean is
+  begin
+    return (fmt >= 16 and fmt <= 18) or fmt = 21 or fmt = 22;
+  end function;
+  -- the 256-weight super-block formats: Q2_K .. Q6_K, IQ4_XS, TQ2_0, and
+  -- the codebook ones
   function fmt_k(fmt : unsigned(7 downto 0)) return boolean is
   begin
-    return (fmt >= 10 and fmt <= 14) or fmt = 23 or fmt = 35;
+    return (fmt >= 10 and fmt <= 14) or fmt = 23 or fmt = 35 or fmt_iq(fmt);
   end function;
   -- the 32-weight block formats GEMV takes: Q4_0, Q5_0, Q8_0, IQ4_NL, MXFP4
   function fmt_q(fmt : unsigned(7 downto 0)) return boolean is
@@ -755,6 +762,8 @@ architecture shell of ssnail is
     case to_integer(fmt) is
       when 10 => return 84;  when 11 => return 110; when 12 => return 144;
       when 13 => return 176; when 23 => return 136; when 35 => return 66;
+      when 16 => return 66;  when 17 => return 74;  when 22 => return 82;
+      when 18 => return 98;  when 21 => return 110;
       when others => return 210;
     end case;
   end function;
@@ -766,6 +775,12 @@ architecture shell of ssnail is
       when 11 => return 24 + i;                                    -- scales at 96; d at 108
       when 12 | 13 | 23 => return i;                               -- d, dmin, scales at 0
       when 35 => if i = 4 then return 16; else return 0; end if;  -- d at 64
+      -- the codebook formats are written 2 bytes in (kq_wo), so d is in
+      -- word 0 (bytes 2, 3) and the rest word-aligned; d is word 2 here
+      when 16 | 18 => return 0;                                    -- scales per pass
+      when 17 => if i < 2 then return 17 + i; else return 0; end if; -- scales at 66
+      when 22 => if i < 2 then return 19 + i; else return 0; end if; -- scales at 74
+      when 21 => if i = 0 then return 27; else return 0; end if;     -- scales at 106
       when others => return 48 + i;                                -- scales at 192; d at 208
     end case;
   end function;
@@ -799,6 +814,13 @@ architecture shell of ssnail is
           v := v or shift_left(resize(shift_right(hb(3) & hb(2), 2 * j)(1 downto 0), 8), 4);
           sc(g) := signed(v) - 32;
         when 35 => sc(g) := to_signed(1, 8);               -- TQ2_0: d alone
+        when 17 | 22 =>                                    -- IQ2_XS, IQ2_S: 2s + 1
+          v := shift_right(hb(g / 2), 4 * (g mod 2)) and x"0F";   -- per 16
+          sc(g) := signed(v(6 downto 0) & '1');
+        when 21 =>                                         -- IQ3_S: per 32
+          v := shift_right(hb(g / 4), 4 * ((g / 2) mod 2)) and x"0F";
+          sc(g) := signed(v(6 downto 0) & '1');
+        when 16 | 18 => sc(g) := to_signed(1, 8);          -- (the IQ front end's)
         when others => sc(g) := signed(hb(g));
       end case;
     end loop;
@@ -831,12 +853,45 @@ architecture shell of ssnail is
       when 10 => return hb(17) & hb(16);
       when 11 => return hb(13) & hb(12);
       when 12 | 13 | 23 => return hb(1) & hb(0);
+      when 16 | 17 | 18 | 21 | 22 => return hb(11) & hb(10);
       when others => return hb(17) & hb(16);
     end case;
+  end function;
+  -- the codebook formats' d is F32(d) / 8 (IQ2) or / 4 (IQ3_XXS), exactly:
+  -- an exponent less 3 or 2 (F32(F16) is normal with a biased exponent of
+  -- at least 103, or zero)
+  function kq_dscale(v : unsigned(31 downto 0); sh : unsigned(1 downto 0)) return unsigned is
+    variable r : unsigned(31 downto 0);
+  begin
+    r := v;
+    if v(30 downto 23) /= 0 then
+      r(30 downto 23) := v(30 downto 23) - sh;
+    end if;
+    return r;
   end function;
   function kq_dmin(fmt : unsigned(7 downto 0); hb : kq_hb_t) return unsigned is
   begin
     if fmt = 10 then return hb(19) & hb(18); else return hb(3) & hb(2); end if;
+  end function;
+  -- IQ front end, pass p: its first index word, its sign / scale word and
+  -- its high-bits word (words of the half; the blocks start at byte 2)
+  function iq_iwf(fmt : unsigned(7 downto 0); p : unsigned(2 downto 0)) return unsigned is
+  begin
+    if fmt = 22 then return resize(p, 6) + 1; else return (p & '0') + to_unsigned(1, 6); end if;
+  end function;
+  function iq_aw(fmt : unsigned(7 downto 0); p : unsigned(2 downto 0)) return unsigned is
+  begin
+    case to_integer(fmt) is
+      when 16 => return (p & '0') + to_unsigned(2, 6);         -- IQ2_XXS: after the indices
+      when 22 => return resize(p, 6) + 9;                      -- IQ2_S: signs
+      when 18 => return resize(p, 6) + 17;                     -- IQ3_XXS: signs, scale
+      when 21 => return resize(p, 6) + 19;                     -- IQ3_S: signs
+      when others => return to_unsigned(0, 6);
+    end case;
+  end function;
+  function iq_bw(p : unsigned(2 downto 0)) return unsigned is
+  begin
+    return to_unsigned(17, 6) + resize(p(2 downto 2), 6);      -- qh (IQ2_S, IQ3_S)
   end function;
   -- the K reader, for pass p (32 weights): word base of the low bits and
   -- their shift and mask, of the high bits (if any), their width, and the
@@ -1096,7 +1151,7 @@ architecture shell of ssnail is
   signal kw_a_q    : kw_a_t := (others => (others => '0'));
   signal kw_d_q    : kw_d_t := (others => (others => '0'));
   -- header unit: reads 5 words of a full half, decodes, S2, d*dx, dmin*dx
-  type kq_hs_t is (KH_IDLE, KH_RD, KH_DEC, KH_DEC2, KH_S2, KH_A, KH_B, KH_BW);
+  type kq_hs_t is (KH_IDLE, KH_RD, KH_DEC, KH_DEC1, KH_DEC2, KH_S2, KH_A, KH_B, KH_BW);
   signal kq_hs     : kq_hs_t := KH_IDLE;
   signal kq_hh     : std_logic := '0';               -- half it works on
   signal kq_hi     : unsigned(4 downto 0) := (others => '0');
@@ -1115,6 +1170,46 @@ architecture shell of ssnail is
   signal kq_dmin16 : unsigned(15 downto 0) := (others => '0');
   -- K reader and passes
   signal kq_rh     : std_logic := '0';               -- half the lanes read
+  signal kq_kr     : std_logic := '0';               -- the K reader feeds the lanes
+  signal kq_wo     : unsigned(7 downto 0) := (others => '0');   -- a block's first byte
+  signal kq_dsh    : unsigned(1 downto 0) := "00";   -- d / 2^kq_dsh (kq_dscale)
+  signal kq_d32    : unsigned(31 downto 0) := (others => '0');
+  -- IQ front end (the codebook formats): a pass's 32 weights decoded into
+  -- iq_buf ahead of the lanes, which take it as they take an unpacked
+  -- block; the K tail does the rest.  Per pass: its sign / scale word (iq_a)
+  -- and high-index-bits word (iq_b) through the K reader's ports, then its
+  -- index words streamed, one 4-weight step a cycle: S1 the codebook
+  -- address and 4 signs, S2 the ROM read, S3 its output register, S4 the
+  -- 4 values with their signs into iq_buf
+  type iq_st_t is (IQ_IDLE, IQ_A1, IQ_A2, IQ_RUN);
+  signal iq_st     : iq_st_t := IQ_IDLE;
+  signal iq_on     : std_logic := '0';
+  signal iq3       : std_logic := '0';               -- IQ3: 4 values an index
+  signal iq_xxs    : std_logic := '0';               -- scale in iq_a (IQ2_XXS, IQ3_XXS)
+  signal iq_ks     : std_logic := '0';               -- 7 sign bits + parity (not IQ2_S, IQ3_S)
+  signal iq_2w     : std_logic := '0';               -- two index words a pass
+  signal iq_u16    : std_logic := '0';               -- IQ2_XS: 9-bit index, 7 signs in 16
+  signal iq_hb     : std_logic := '0';               -- index high bits in iq_b (IQ2_S, IQ3_S)
+  signal iq_base   : unsigned(1 downto 0) := "00";   -- codebook: 0, 1 (512) or 2 (1024)
+  signal iq_h      : std_logic := '0';               -- half the front end reads
+  signal iq_p      : unsigned(2 downto 0) := (others => '0');   -- its pass
+  signal iq_t      : unsigned(2 downto 0) := (others => '0');   -- step in S1
+  signal iq_iw     : unsigned(5 downto 0) := (others => '0');   -- first index word
+  signal iq_a      : unsigned(31 downto 0) := (others => '0');
+  signal iq_q8     : unsigned(7 downto 0) := (others => '0');   -- the pass's qh byte
+  signal iq_v1, iq_v2, iq_v3 : std_logic := '0';
+  signal iq_t1, iq_t2, iq_t3 : unsigned(2 downto 0) := (others => '0');
+  signal iq_sg1, iq_sg2, iq_sg3 : std_logic_vector(3 downto 0) := (others => '0');
+  signal iq_hf1, iq_hf2, iq_hf3 : std_logic := '0';  -- IQ2: values 4 .. 7 of the 8
+  signal iq_ra2    : unsigned(10 downto 0) := (others => '0');
+  signal iq_ra3    : unsigned(9 downto 0) := (others => '0');
+  signal iq2_rom   : iq2_grid_t := IQ2_GRID;
+  signal iq3_rom   : iq3_grid_t := IQ3_GRID;
+  attribute rom_style of iq2_rom, iq3_rom : signal is "block";
+  signal iq2_w, iq2_q : unsigned(15 downto 0) := (others => '0');
+  signal iq3_w, iq3_q : unsigned(11 downto 0) := (others => '0');
+  signal iq_buf    : qw32_t := (others => (others => '0'));
+  signal iq_full   : std_logic := '0';
   signal kq_p      : unsigned(2 downto 0) := (others => '0');   -- pass (32 weights)
   signal kq_dq     : signed(8 downto 0) := (others => '0');  -- (DEQROW's q)
   signal kq_rd_q   : kq_rd_t := (la => (others => '0'), ha => (others => '0'),
@@ -1704,6 +1799,13 @@ begin
     variable kf_r : unsigned(24 downto 0);
     variable kf_p : integer range 0 to 31;
     variable kc : kq_rd_t;
+    variable ib : unsigned(7 downto 0);
+    variable iu : unsigned(15 downto 0);
+    variable s7 : unsigned(6 downto 0);
+    variable s8 : unsigned(7 downto 0);
+    variable iv : unsigned(5 downto 0);
+    variable ic2 : unsigned(1 downto 0);
+    variable ic3 : unsigned(2 downto 0);
     -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
     variable kw_we : std_logic_vector(0 to 3);
     variable kw_a : kw_a_t;
@@ -2330,6 +2432,7 @@ begin
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
                       or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
                       or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
+                or fmt_iq(instr(15 downto 8))                -- (GEMV only)
                 or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
@@ -3535,6 +3638,26 @@ begin
           for i in 0 to 4 loop
             kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
           end loop;
+          -- the codebook formats (IQ front end)
+          kq_kr <= '0'; iq_on <= '0'; kq_wo <= (others => '0'); kq_dsh <= "00";
+          if fmt_iq(d_fmt) then
+            iq_on <= '1';
+            kq_wo <= to_unsigned(2, 8);
+            if d_fmt = 18 then kq_dsh <= "10"; elsif d_fmt /= 21 then kq_dsh <= "11"; end if;
+          elsif fmt_k(d_fmt) then
+            kq_kr <= '1';
+          end if;
+          if d_fmt = 18 or d_fmt = 21 then iq3 <= '1'; else iq3 <= '0'; end if;
+          if d_fmt = 16 or d_fmt = 18 then iq_xxs <= '1'; else iq_xxs <= '0'; end if;
+          if d_fmt = 16 or d_fmt = 17 or d_fmt = 18 then iq_ks <= '1'; else iq_ks <= '0'; end if;
+          if d_fmt = 17 or d_fmt = 18 or d_fmt = 21 then iq_2w <= '1'; else iq_2w <= '0'; end if;
+          if d_fmt = 17 then iq_u16 <= '1'; else iq_u16 <= '0'; end if;
+          if d_fmt = 21 or d_fmt = 22 then iq_hb <= '1'; else iq_hb <= '0'; end if;
+          case to_integer(d_fmt) is
+            when 17 | 21 => iq_base <= "01";
+            when 22 => iq_base <= "10";
+            when others => iq_base <= "00";
+          end case;
           kq_pass <= '0'; kq_sub <= (others => '0'); kq_amax <= (others => '0');
           go(G_QFILL0);
 
@@ -3793,7 +3916,9 @@ begin
             as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0'; ub_full <= '0';
-            kq_wh <= '0'; kq_wp <= (others => '0'); kq_full <= "00"; kq_fset <= '0';
+            kq_wh <= '0'; kq_wp <= kq_wo; kq_full <= "00"; kq_fset <= '0';
+            iq_st <= IQ_IDLE; iq_h <= '0'; iq_p <= (others => '0'); iq_full <= '0';
+            iq_v1 <= '0'; iq_v2 <= '0'; iq_v3 <= '0';
             kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
             kq_hwl <= kq_hwc;
             kq_rh <= '0'; kq_p <= (others => '0');
@@ -4582,7 +4707,7 @@ begin
             as_full <= '1';
             as_rem <= g_bl;
             as_f <= asf_full(as_s);
-            kq_wp <= (others => '0');
+            kq_wp <= kq_wo;
             if kq_on = '1' then
               -- the super-block is in its half; on to the other one (as_full
               -- holds the assembler until that is free)
@@ -4655,9 +4780,12 @@ begin
               kq_m(to_integer(unsigned'("" & kq_hh))) <= kq_mins(d_fmt, kq_hb);
               kq_d16 <= kq_d(d_fmt, kq_hb);
               kq_dmin16 <= kq_dmin(d_fmt, kq_hb);
+              kq_hs <= KH_DEC1;
+            when KH_DEC1 =>
+              kq_d32 <= f16_to_f32(kq_d16);
               kq_hs <= KH_DEC2;
             when KH_DEC2 =>
-              fpu3_a <= f16_to_f32(kq_d16);
+              fpu3_a <= kq_dscale(kq_d32, kq_dsh);
               fpu3_b <= dxs(to_integer(kq_hsb(3 downto 0)));
               fpu3_start <= '1';
               kq_ga <= '0';
@@ -4726,7 +4854,7 @@ begin
         if kq_pre = '1' then
           mc_busy <= '1';
         end if;
-        if kq_pre = '1' or mc_busy = '1' then
+        if (kq_pre = '1' or mc_busy = '1') and kq_kr = '1' then
           if kq_rd_q.wr = '1' then                      -- (4 words, twice)
             kq_lc <= kq_lc + 1;
             kq_la(5 downto 0) <= kq_lb + (kq_lc + 1);
@@ -4735,7 +4863,7 @@ begin
           end if;
           kq_ha(5 downto 0) <= kq_ha(5 downto 0) + 1;
         end if;
-        if kq_on = '1' and kq_full(to_integer(unsigned'("" & kq_rh))) = '1'
+        if kq_kr = '1' and kq_full(to_integer(unsigned'("" & kq_rh))) = '1'
           and kq_hok(to_integer(unsigned'("" & kq_rh))) = '1' and kq_pchg = '0' and kq_pre = '0'
           and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
           kq_rd_q <= kq_rdn;
@@ -4744,6 +4872,140 @@ begin
           kq_lc <= "00";
           kq_ha <= kq_rh & kq_rdn.ha;
           kq_pre <= '1';
+          mc_drain <= '0';
+          mc_c <= (others => '0');
+          for k in 0 to 3 loop
+            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+          end loop;
+          mc_isum <= (others => '0');
+        end if;
+
+        -- IQ front end (see iq_st).  A pass starts once the last one is in
+        -- the lanes (iq_full clear, nothing in S1 .. S4)
+        iq_v1 <= '0';
+        if iq_on = '1' then
+          case iq_st is
+            when IQ_IDLE =>
+              if kq_full(to_integer(unsigned'("" & iq_h))) = '1'
+                and kq_hok(to_integer(unsigned'("" & iq_h))) = '1'
+                and iq_full = '0' and iq_v1 = '0' and iq_v2 = '0' and iq_v3 = '0' then
+                kq_la <= iq_h & iq_aw(d_fmt, iq_p);
+                kq_ha <= iq_h & iq_bw(iq_p);
+                iq_iw <= iq_iwf(d_fmt, iq_p);
+                iq_st <= IQ_A1;
+              end if;
+            when IQ_A1 =>
+              kq_la <= iq_h & iq_iw;                   -- step 0's index word
+              iq_st <= IQ_A2;
+            when IQ_A2 =>
+              iq_a <= kq_wl_q;
+              iq_q8 <= kq_wh_q(8 * to_integer(iq_p(1 downto 0)) + 7 downto 8 * to_integer(iq_p(1 downto 0)));
+              if iq_xxs = '1' then                     -- 2s + 1 for both 16s
+                kq_sc(to_integer(unsigned'("" & iq_h)))(to_integer(iq_p & '0'))
+                  <= signed("000" & kq_wl_q(31 downto 28) & '1');
+                kq_sc(to_integer(unsigned'("" & iq_h)))(to_integer(iq_p & '1'))
+                  <= signed("000" & kq_wl_q(31 downto 28) & '1');
+              end if;
+              kq_la <= iq_h & iq_iw;                   -- step 1's
+              iq_t <= (others => '0');
+              iq_st <= IQ_RUN;
+            when IQ_RUN =>
+              -- S1, step iq_t: its index word is kq_wl_q
+              iq_v1 <= '1';
+              iq_t1 <= iq_t;
+              iq_hf1 <= iq_t(0);
+              if iq3 = '1' then
+                ib := kq_wl_q(8 * to_integer(iq_t(1 downto 0)) + 7 downto 8 * to_integer(iq_t(1 downto 0)));
+              else
+                ib := kq_wl_q(8 * to_integer(iq_t(2 downto 1)) + 7 downto 8 * to_integer(iq_t(2 downto 1)));
+              end if;
+              iu := kq_wl_q(16 * to_integer(iq_t(1 downto 1)) + 15 downto 16 * to_integer(iq_t(1 downto 1)));
+              case iq_base is
+                when "01" => iq_ra2 <= "01" & iu(8 downto 0);                  -- IQ2_XS
+                when "10" => iq_ra2 <= '1' & (shift_right(iq_q8, 2 * to_integer(iq_t(2 downto 1)))(1 downto 0)) & ib;
+                when others => iq_ra2 <= "000" & ib;                           -- IQ2_XXS
+              end case;
+              if iq_base = "01" then                                           -- IQ3_S
+                iq_ra3 <= '1' & iq_q8(to_integer(iq_t)) & ib;
+              else
+                iq_ra3 <= "00" & ib;                                           -- IQ3_XXS
+              end if;
+              if iq_u16 = '1' then
+                s7 := iu(15 downto 9);
+              else
+                s7 := shift_right(iq_a, 7 * to_integer(iq_t(2 downto 1)))(6 downto 0);
+              end if;
+              if iq_ks = '1' then                      -- the eighth: their parity
+                s8 := (s7(0) xor s7(1) xor s7(2) xor s7(3) xor s7(4) xor s7(5) xor s7(6)) & s7;
+              else
+                s8 := iq_a(8 * to_integer(iq_t(2 downto 1)) + 7 downto 8 * to_integer(iq_t(2 downto 1)));
+              end if;
+              if iq_t(0) = '1' then
+                iq_sg1 <= std_logic_vector(s8(7 downto 4));
+              else
+                iq_sg1 <= std_logic_vector(s8(3 downto 0));
+              end if;
+              -- the read for step iq_t + 2
+              if iq_2w = '1' and iq_t >= 2 then
+                kq_la <= iq_h & (iq_iw + 1);
+              else
+                kq_la <= iq_h & iq_iw;
+              end if;
+              iq_t <= iq_t + 1;
+              if iq_t = 7 then
+                iq_p <= iq_p + 1;
+                if iq_p = 7 then iq_h <= not iq_h; end if;
+                iq_st <= IQ_IDLE;
+              end if;
+          end case;
+        end if;
+        -- S2: the codebook ROMs; S3: their output registers
+        iq_v2 <= iq_v1; iq_t2 <= iq_t1; iq_sg2 <= iq_sg1; iq_hf2 <= iq_hf1;
+        iq2_w <= iq2_rom(to_integer(iq_ra2));
+        iq3_w <= iq3_rom(to_integer(iq_ra3));
+        iq_v3 <= iq_v2; iq_t3 <= iq_t2; iq_sg3 <= iq_sg2; iq_hf3 <= iq_hf2;
+        iq2_q <= iq2_w;
+        iq3_q <= iq3_w;
+        -- S4: 4 values with their signs
+        if iq_v3 = '1' then
+          for k in 0 to 3 loop
+            if iq3 = '0' then
+              ic2 := iq2_q(8 * to_integer(unsigned'("" & iq_hf3)) + 2 * k + 1 downto 8 * to_integer(unsigned'("" & iq_hf3)) + 2 * k);
+              case ic2 is
+                when "00" => iv := to_unsigned(8, 6);
+                when "01" => iv := to_unsigned(25, 6);
+                when others => iv := to_unsigned(43, 6);
+              end case;
+            elsif iq_base = "01" then                -- IQ3_S: 2k + 1
+              iv := "00" & iq3_q(3 * k + 2 downto 3 * k) & '1';
+            else                                     -- IQ3_XXS
+              ic3 := iq3_q(3 * k + 2 downto 3 * k);
+              case ic3 is
+                when "000" => iv := to_unsigned(4, 6);
+                when "001" => iv := to_unsigned(12, 6);
+                when "010" => iv := to_unsigned(20, 6);
+                when "011" => iv := to_unsigned(28, 6);
+                when "100" => iv := to_unsigned(36, 6);
+                when "101" => iv := to_unsigned(44, 6);
+                when "110" => iv := to_unsigned(52, 6);
+                when others => iv := to_unsigned(62, 6);
+              end case;
+            end if;
+            if iq_sg3(k) = '1' then
+              iq_buf(4 * to_integer(iq_t3) + k) <= -signed(resize(iv, 9));
+            else
+              iq_buf(4 * to_integer(iq_t3) + k) <= signed(resize(iv, 9));
+            end if;
+          end loop;
+          if iq_t3 = 7 then
+            iq_full <= '1';
+          end if;
+        end if;
+        -- ... and its passes go to the lanes when they are free
+        if iq_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' and iq_on = '1' then
+          mc_wb <= iq_buf;
+          iq_full <= '0';
+          mc_busy <= '1';
           mc_drain <= '0';
           mc_c <= (others => '0');
           for k in 0 to 3 loop
@@ -4783,7 +5045,7 @@ begin
           kwh := kq_wh_q;
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
-            if kq_on = '1' then
+            if kq_kr = '1' then
               kc := kq_rd_q;
               if kc.wr = '1' and mc_c(2) = '1' then
                 kc.sl := kc.sl + 4;                     -- (the second 16: high nibbles)
