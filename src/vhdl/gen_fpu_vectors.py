@@ -125,6 +125,18 @@ with np.errstate(all="ignore"):
     for a in tvals:
         fa = np.array([a & 0xFFFFFFFF], dtype=np.uint32).view(F32)[0]
         add(9, a, 0, trunc_ref(fa) & 0xFFFFFFFF)
+    # FP8 -> F32: every E4M3 (OCP: bias 7, no infinities, S.1111.111 NaN)
+    # and every E5M2 (the top byte of an F16) value
+    for v in range(256):
+        e, m = (v >> 3) & 15, v & 7
+        if e == 15 and m == 7:
+            r = np.float32(np.nan)
+        elif e == 0:
+            r = F32(m * 2.0 ** -9)
+        else:
+            r = F32((1 + m / 8) * 2.0 ** (e - 7))
+        add(10, v, 0, f32b(-r if v & 0x80 else r))
+        add(11, v, 0, f32b(F32(np.array([v << 8], dtype=np.uint16).view(np.float16)[0])))
 
 open("fpu_vectors.txt", "w").write("\n".join(lines) + "\n")
 print(f"{len(lines)} vectors")

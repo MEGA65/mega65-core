@@ -86,9 +86,11 @@
 --   $0C LEA                  A[a] = addr(X) + R[b] * Z (mod 2^28)
 --   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
 --   $11 DEQROW               Z (N0 x F32) = dequantise N0 elements of format a
---                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16) at addr(X)
+--                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16, 39 MXFP4)
+--                            at addr(X)
 --   $10 GEMV                 Z (N1 rows) = W at addr(X) (N1 x N0, format a:
---                            Q8_0 or Q4_0 so far) . x at addr(Y) (N0 x F32).
+--                            Q8_0, Q4_0 or MXFP4 so far) . x at addr(Y)
+--                            (N0 x F32).
 --                            x is quantised to Q8_0 first, as llama.cpp.
 --                            b bit 0: add to the existing Z (F32);
 --                            b bit 1: write Z as F16.  N0 a multiple of 32,
@@ -446,7 +448,7 @@ architecture shell of ssnail is
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
     V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV,
     E_K1, E_K2, E_K3, E_ACC, E_ACC2,
-    T_START, T_K, T_I, T_LOOK, T_COEFF, T_C0, T_DONE,
+    T_START, T_K, T_I, T_LOOK, T_ROM2, T_COEFF, T_C0, T_DONE,
     R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6,
     L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7,
     M_NEXT, M_S0, M_S1, M_S2,
@@ -578,6 +580,9 @@ architecture shell of ssnail is
   attribute rom_style : string;
   attribute rom_style of coeff_rom : signal is "block";
   signal coeff_word : unsigned(63 downto 0) := (others => '0');
+  -- coeff_word, registered (the BRAM's output register): the ROM's
+  -- clock-to-out is not on the fpu_a mux
+  signal coeff_q : unsigned(63 downto 0) := (others => '0');
   signal tab_id    : unsigned(1 downto 0) := "00";              -- 0 SiLU, 1 GELU, 2 exp
   signal tx, tval, tc0 : unsigned(31 downto 0) := (others => '0');
   -- element fetch subroutine: ef_val = F32 element at ef_addr (F16 if ef_f16)
@@ -639,16 +644,44 @@ architecture shell of ssnail is
 
   -- GEMV weight block unpacking: the one place that knows the block
   -- formats.  A block as the assembler leaves it (grpf; Q8_0 is
-  -- grpf(0 to 33), Q4_0 grpf(16 to 33)) becomes 32 signed weights and its
-  -- F16 scale; the MAC lanes see only that.  (New formats: here, and the
-  -- block length in the assembler.)
+  -- grpf(0 to 33), Q4_0 grpf(16 to 33), MXFP4 grpf(17 to 33)) becomes 32
+  -- signed weights and its F32 scale; the MAC lanes see only that.  (New
+  -- formats: here, the block length (gbytes) and the matrix size in G_ROW0.)
   type qw32_t is array (0 to 31) of signed(8 downto 0);
+  -- MXFP4 element: E2M1, doubled (ggml's kvalues_mxfp4)
+  function e2m1x2(n : unsigned(3 downto 0)) return signed is
+    variable v : integer;
+  begin
+    case to_integer(n(2 downto 0)) is
+      when 0 => v := 0;  when 1 => v := 1;  when 2 => v := 2;  when 3 => v := 3;
+      when 4 => v := 4;  when 5 => v := 6;  when 6 => v := 8;  when others => v := 12;
+    end case;
+    if n(3) = '1' then v := -v; end if;
+    return to_signed(v, 9);
+  end function;
+  -- MXFP4 scale: E8M0, halved (ggml_e8m0_to_fp32_half), as F32 bits
+  function e8m0_half(e : unsigned(7 downto 0)) return unsigned is
+  begin
+    if e = 0 then
+      return x"00200000";
+    elsif e = 1 then
+      return x"00400000";
+    else
+      return '0' & (e - 1) & "00000000000000000000000";
+    end if;
+  end function;
   function unpack_w(g : grp_t; fmt : unsigned(7 downto 0)) return qw32_t is
     variable w : qw32_t;
   begin
     for j in 0 to 31 loop
       if fmt = 8 then                                -- Q8_0: d, then 32 x int8
         w(j) := resize(signed(g(2 + j)), 9);
+      elsif fmt = 39 then                            -- MXFP4: e, then 16 bytes,
+        if j < 16 then                               -- low nibbles first
+          w(j) := e2m1x2(g(18 + j)(3 downto 0));
+        else
+          w(j) := e2m1x2(g(18 + j - 16)(7 downto 4));
+        end if;
       elsif j < 16 then                              -- Q4_0: d, then 16 bytes,
         w(j) := resize(signed('0' & g(18 + j)(3 downto 0)), 9) - 8;  -- low
       else                                           -- nibbles first
@@ -657,9 +690,15 @@ architecture shell of ssnail is
     end loop;
     return w;
   end function;
-  function unpack_d(g : grp_t; fmt : unsigned(7 downto 0)) return unsigned is
+  function unpack_s(g : grp_t; fmt : unsigned(7 downto 0)) return unsigned is
   begin
-    if fmt = 8 then return g(1) & g(0); else return g(17) & g(16); end if;
+    if fmt = 8 then
+      return f16_to_f32(g(1) & g(0));
+    elsif fmt = 39 then
+      return e8m0_half(g(17));
+    else
+      return f16_to_f32(g(17) & g(16));
+    end if;
   end function;
 
   signal grp       : grp_t := (others => x"00");
@@ -1541,9 +1580,17 @@ begin
       assert words_done = (words_got = words_expected) report "SSNAIL: stale words_done" severity failure;
       assert v_n_z = (v_n = 0) and v_n_one = (v_n = 1) report "SSNAIL: stale v_n flags" severity failure;
 
+      coeff_q <= coeff_word;
+
       -- DEQROW quantised element (see d_qv)
       if d_fmt = 8 then
         d_qv <= resize(signed(grp(2 + to_integer(d_j(4 downto 0)))), 32);
+      elsif d_fmt = 39 then
+        if d_j(4) = '0' then
+          d_qv <= resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+        else
+          d_qv <= resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+        end if;
       elsif d_j(4) = '0' then
         d_qv <= resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
       else
@@ -1850,7 +1897,8 @@ begin
               d_fmt <= instr(15 downto 8);
               g_addz <= instr(16);
               g_f16 <= instr(17);
-              if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8) then
+              if not (instr(15 downto 8) = 2 or instr(15 downto 8) = 8
+                      or instr(15 downto 8) = 39) then
                 err <= ERR_FORMAT;                -- float weights: not yet
                 dec_next <= C_END;
               elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1' then
@@ -1866,8 +1914,11 @@ begin
                 g_rows <= n1;
                 g_nb <= n0(12 downto 5);
                 gblk <= (others => '0');
+                -- block length (also the assembler's, while the GEMV runs)
                 if instr(15 downto 8) = 8 then
                   gbytes <= to_unsigned(34, 6);
+                elsif instr(15 downto 8) = 39 then
+                  gbytes <= to_unsigned(17, 6);
                 else
                   gbytes <= to_unsigned(18, 6);
                 end if;
@@ -1918,7 +1969,8 @@ begin
             when x"11" =>             -- DEQROW
               d_fmt <= instr(15 downto 8);
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
-                      or instr(15 downto 8) = 8 or instr(15 downto 8) = 30) then
+                      or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
+                      or instr(15 downto 8) = 39) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_z(1 downto 0) /= "00" then
@@ -2620,14 +2672,16 @@ begin
             ti := ti + 512;
           end if;
           coeff_word <= coeff_rom(ti);
-          go(T_COEFF);
+          go(T_ROM2);
+
+        when T_ROM2 =>
+          go(T_COEFF);                    -- (coeff_word -> coeff_q)
 
         when T_COEFF =>
-          -- Registered ROM output from T_LOOK is now valid.  FPU inputs
-          -- are set exactly as before; one extra cycle of latency only.
+          -- The ROM word read in T_LOOK, through its output register
           fpu_op <= FOP_MUL;
-          fpu_a <= coeff_word(31 downto 0);
-          tc0 <= coeff_word(63 downto 32);
+          fpu_a <= coeff_q(31 downto 0);
+          tc0 <= coeff_q(63 downto 32);
           fpu_b <= tx;
           fpu_start <= '1';
           fpu_ret <= T_C0;
@@ -2772,6 +2826,7 @@ begin
               when 0 => gbytes <= to_unsigned(4, 6);  epg <= to_unsigned(1, 6);
               when 1 | 30 => gbytes <= to_unsigned(2, 6); epg <= to_unsigned(1, 6);
               when 8 => gbytes <= to_unsigned(34, 6); epg <= to_unsigned(32, 6);
+              when 39 => gbytes <= to_unsigned(17, 6); epg <= to_unsigned(32, 6);  -- MXFP4
               when others => gbytes <= to_unsigned(18, 6); epg <= to_unsigned(32, 6);  -- Q4_0
             end case;
             go(D_FETCH);
@@ -2817,8 +2872,11 @@ begin
               fpu_start <= '1';
               fpu_ret <= D_QMUL;
               go(C_FPU_WAIT);
-            when others =>                         -- Q8_0 / Q4_0
-              if d_have_scale = '0' then
+            when others =>                         -- Q8_0 / Q4_0 / MXFP4
+              if d_have_scale = '0' and d_fmt = 39 then
+                dq_scale <= e8m0_half(grp(0));     -- (a power of two: no FPU)
+                d_have_scale <= '1';
+              elsif d_have_scale = '0' then
                 fpu_op <= FOP_F16TOF32;
                 fpu_a <= x"0000" & grp(1) & grp(0);
                 fpu_start <= '1';
@@ -2827,6 +2885,10 @@ begin
               else
                 if d_fmt = 8 then
                   q := resize(signed(grp(2 + to_integer(d_j))), 32);
+                elsif d_fmt = 39 and d_j < 16 then
+                  q := resize(e2m1x2(grp(1 + to_integer(d_j))(3 downto 0)), 32);
+                elsif d_fmt = 39 then
+                  q := resize(e2m1x2(grp(1 + to_integer(d_j) - 16)(7 downto 4)), 32);
                 elsif d_j < 16 then
                   q := resize(signed('0' & grp(2 + to_integer(d_j))(3 downto 0)), 32) - 8;
                 else
@@ -3045,6 +3107,10 @@ begin
             -- 34 * rows20 = (rows20 << 5) + (rows20 << 1)
             g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 5)
                         + shift_left(resize(g_rows(19 downto 0), 28), 1);
+          elsif d_fmt = 39 then
+            -- 17 * rows20 = (rows20 << 4) + rows20
+            g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 4)
+                        + resize(g_rows(19 downto 0), 28);
           else
             -- 18 * rows20 = (rows20 << 4) + (rows20 << 1)
             g_mul_a28 <= shift_left(resize(g_rows(19 downto 0), 28), 4)
@@ -3098,13 +3164,9 @@ begin
             wf_w <= (others => '0'); wf_r <= (others => '0');
             sr_inflight <= (others => '0');
             rq_w <= (others => '0'); rq_r <= (others => '0');
-            if d_fmt = 8 then
-              as_rem <= to_unsigned(34, 6);
-              as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
-            else
-              as_rem <= to_unsigned(18, 6);
-              as_f <= as_flags(to_integer(ps(2 downto 0)), 18);
-            end if;
+            -- (as_flags depends on a block length only through >= 4)
+            as_rem <= gbytes;
+            as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
             as_skip <= ps(2 downto 0);
             as_full <= '0'; pb_v <= '0'; ub_full <= '0';
             as_blocks <= g_mul_p32;
@@ -3797,11 +3859,7 @@ begin
               assert asf_c(si, wi) = as_flags(sk - si, to_integer(as_rem) - wi)
                 report "SSNAIL: as_flags_t mismatch" severity failure;
             end loop;
-            if d_fmt = 8 then
-              asf_full(si) := as_flags(sk - si, 34);
-            else
-              asf_full(si) := as_flags(sk - si, 18);
-            end if;
+            asf_full(si) := as_flags(sk - si, 34);   -- (any block length >= 4)
           end loop;
           -- c = min(available, skip + rem) bytes taken, s = min(skip, c)
           -- skipped, w = c - s shifted in; from the thresholds in as_f
@@ -3862,11 +3920,7 @@ begin
           if (as_w = 1 and as_f(5) = '1') or (as_w = 2 and as_f(6) = '1')
             or (as_w = 3 and as_f(7) = '1') then    -- as_rem = as_w: block full
             as_full <= '1';
-            if d_fmt = 8 then
-              as_rem <= to_unsigned(34, 6);
-            else
-              as_rem <= to_unsigned(18, 6);
-            end if;
+            as_rem <= gbytes;
             as_f <= asf_full(as_s);
           else
             as_rem <= as_rem - as_w;
@@ -3879,7 +3933,7 @@ begin
         -- block directly)
         if as_full = '1' and ub_full = '0' then
           ub_w <= unpack_w(grpf, d_fmt);
-          ub_d <= f16_to_f32(unpack_d(grpf, d_fmt));
+          ub_d <= unpack_s(grpf, d_fmt);
           ub_full <= '1';
           as_full <= '0';
           as_blocks <= as_blocks - 1;

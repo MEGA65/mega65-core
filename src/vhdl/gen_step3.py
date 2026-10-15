@@ -1,4 +1,4 @@
-"""Step 3 test: GEMV (Q8_0, Q4_0; accumulate; F16 output) against the
+"""Step 3 test: GEMV (Q8_0, Q4_0, MXFP4; accumulate; F16 output) against the
 reference emulator in hardware-numerics mode."""
 import os
 import struct
@@ -46,6 +46,12 @@ put(0xC04, x1.tobytes())
 put(0xD88, x2.tobytes())
 put(0xE8B, w3)
 put(0xFC0, acc.tobytes())
+# MXFP4, at an odd address (in the output half: INIT covers it, and the
+# comparison sees it unchanged), with extreme scales: e = 0 and 1 (subnormal),
+# and a large one
+w4 = bytearray(qmat(11, 96, Q.MXFP4))          # 561 bytes
+w4[0] = 0; w4[17] = 1; w4[3 * 17] = 200
+put(0x1A05, bytes(w4))
 
 A = Asm()
 A(I.SETN, x=96, y=20); A(I.GEMV, I.FMT_Q8_0, x=B + 0x203, y=B + 0xC04, z=B + 0x10F8)
@@ -53,6 +59,7 @@ A(I.COPY, x=B + 0xFC0, y=B + 0x1200, z=56)       # existing outputs for the accu
 A(I.SETN, x=64, y=13); A(I.GEMV, I.FMT_Q4_0, I.GEMV_ACC, x=B + 0xA03, y=B + 0xD88, z=B + 0x1200)
 A(I.SETN, x=32, y=9);  A(I.GEMV, I.FMT_Q8_0, I.GEMV_F16OUT, x=B + 0xE8B, y=B + 0xD88, z=B + 0x1302)
 A(I.SETN, x=32, y=0);  A(I.GEMV, I.FMT_Q8_0, x=B + 0xE8B, y=B + 0xD88, z=B + 0x1400)   # no rows
+A(I.SETN, x=96, y=11); A(I.GEMV, I.FMT_MXFP4, x=B + 0x1A05, y=B + 0xC04, z=B + 0x1500)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200
@@ -81,7 +88,7 @@ with open("step3_pkg.vhdl", "w") as f:
             "package step3_pkg is\n")
     f.write("  type words3_t is array (natural range <>) of unsigned(15 downto 0);\n")
     f.write(f"  constant HALT_PC : natural := {m.pc};\n")
-    for name, data in (("INIT", bytes(mem[:0x1000])), ("EXPECT", expect)):
+    for name, data in (("INIT", bytes(mem[:0x2000])), ("EXPECT", expect)):
         w = words(data)
         f.write(f"  constant {name} : words3_t(0 to {len(w) - 1}) := (\n")
         f.write(",\n".join("    x\"%04X\"" % v for v in w))

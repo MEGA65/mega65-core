@@ -34,6 +34,9 @@ package ssnail_fpu_pkg is
   constant FOP_SQRT     : unsigned(3 downto 0) := "1000";  -- sqrt(a) (correctly rounded)
   constant FOP_TRUNC    : unsigned(3 downto 0) := "1001";  -- a -> signed 32-bit, toward
                                                            -- zero (saturating; NaN -> 0)
+  constant FOP_E4M3TOF32 : unsigned(3 downto 0) := "1010";  -- a(7:0) FP8 E4M3 -> F32 (exact;
+                                                           -- OCP: no infinities, S.1111.111 NaN)
+  constant FOP_E5M2TOF32 : unsigned(3 downto 0) := "1011";  -- a(7:0) FP8 E5M2 -> F32 (exact)
 end package;
 
 library ieee;
@@ -262,8 +265,13 @@ begin
                 -- (mul_a, mul_b, mul_nrm and re: set above)
                 state <= S_MUL;
               end if;
-            elsif op = FOP_F16TOF32 then
-              h := a(15 downto 0);
+            elsif op = FOP_F16TOF32 or op = FOP_E5M2TOF32 then
+              -- (E5M2 is the top byte of an F16)
+              if op = FOP_E5M2TOF32 then
+                h := a(7 downto 0) & x"00";
+              else
+                h := a(15 downto 0);
+              end if;
               if h(14 downto 10) = "11111" then
                 special <= '1';
                 if h(9 downto 0) /= 0 then
@@ -281,6 +289,24 @@ begin
                 else
                   rm <= "0" & '1' & h(9 downto 0) & "000000000000000000000000000000000000";
                   re <= to_integer(h(14 downto 10)) - 15 + 127;
+                end if;
+                state <= S_LZC;
+              end if;
+            elsif op = FOP_E4M3TOF32 then
+              -- (as F16 -> F32, with a 4-bit exponent (bias 7), 3-bit fraction)
+              if a(6 downto 0) = "1111111" then
+                special <= '1';
+                sp_val <= NAN32;
+                state <= S_PACK;
+              else
+                rs <= a(7);
+                zero_sign <= a(7);
+                if a(6 downto 3) = 0 then
+                  rm <= "0" & '0' & a(2 downto 0) & "0000000000000000000000000000000000000000000";
+                  re <= 1 - 7 + 127;
+                else
+                  rm <= "0" & '1' & a(2 downto 0) & "0000000000000000000000000000000000000000000";
+                  re <= to_integer(a(6 downto 3)) - 7 + 127;
                 end if;
                 state <= S_LZC;
               end if;

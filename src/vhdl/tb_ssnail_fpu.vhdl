@@ -28,7 +28,7 @@ begin
     variable got, expv : unsigned(31 downto 0);
     variable n, bad : integer := 0;
     variable nan_e, nan_g : boolean;
-    type counts_t is array (0 to 9) of integer;
+    type counts_t is array (0 to 15) of integer;
     variable per_op, bad_op : counts_t := (others => 0);
   begin
     while not endfile(f) loop
@@ -65,7 +65,7 @@ begin
         end if;
       end if;
     end loop;
-    for i in 0 to 9 loop
+    for i in 0 to 11 loop
       report "op " & integer'image(i) & ": " & integer'image(per_op(i) - bad_op(i)) & "/"
         & integer'image(per_op(i)) & " exact";
     end loop;
