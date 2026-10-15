@@ -623,6 +623,10 @@ architecture gothic of hyperram is
   signal want_fill : std_logic := '0';
   signal last_pub : unsigned(26 downto 3) := (others => '1');
   signal last_pub_m1 : unsigned(26 downto 3) := (3 => '0', others => '1');  -- last_pub - 1
+  -- a prefetch asked for last cycle (v2_prefetch_from), decided this one:
+  -- the decision's compares are not behind the fill completion or read hit
+  signal pq_v : std_logic := '0';
+  signal pq_t : unsigned(26 downto 3) := (others => '0');
   -- the exported line, and next/prev
   signal exp_addr  : unsigned(26 downto 3) := (others => '1');
   signal exp_valid : std_logic := '0';
@@ -781,15 +785,8 @@ begin
     -- Prefetch from line t on, if enabled, going the way the reads go
     procedure v2_prefetch_from(t : unsigned(26 downto 3)) is
     begin
-      if v2_flags(1) = '1' and t /= last_pub then
-        v2_pf_go := true;
-        v2_pf_base := t;
-        v2_pf_down := '0';
-        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
-        if t = last_pub_m1 then v2_pf_down := '1'; end if;
-        last_pub <= t;
-        last_pub_m1 <= t - 1;
-      end if;
+      pq_v <= '1';
+      pq_t <= t;
     end procedure;
     -- Fill the lines around t (upwards from t, or ending at t if down),
     -- staying within t's 1 KB, into the next slots
@@ -797,22 +794,28 @@ begin
       variable st : unsigned(26 downto 3);
       variable n  : integer range 1 to H_FILL;
       variable o  : integer range 0 to 127;
+      variable lo : unsigned(9 downto 3);
     begin
       o := to_integer(t(9 downto 3));
       if down = '0' then
         st := t;
         if 128 - o < H_FILL then n := 128 - o; else n := H_FILL; end if;
       elsif o < H_FILL - 1 then
-        st := t - o;
+        st := t(26 downto 10) & "0000000";        -- t - o
         n := o + 1;
       else
-        st := t - (H_FILL - 1);
+        st := t(26 downto 10) & (t(9 downto 3) - (H_FILL - 1));
         n := H_FILL;
       end if;
+      -- the fill stays within t's 1 KB (n is capped for that), so only the
+      -- line within it (bits 9-3) is added to: no 24-bit carry chains
       for k in 0 to H_FILL - 1 loop
         if k < n then
+          lo := st(9 downto 3) + k;
+          assert t(26 downto 10) & lo = st + k
+            report "V2: fill leaves its 1 KB" severity failure;
           c_val((c_rr + k) mod H_NL) <= '0';
-          c_tag((c_rr + k) mod H_NL) <= st + k;
+          c_tag((c_rr + k) mod H_NL) <= t(26 downto 10) & lo;
         end if;
       end loop;
       c_rr <= (c_rr + n) mod H_NL;
@@ -4398,6 +4401,18 @@ begin
       -------------------------------------------------------------------------
       v2_done := false;
       v2_pf_go := false;
+      -- the prefetch asked for last cycle, if enabled, going the way the
+      -- reads go
+      pq_v <= '0';
+      if pq_v = '1' and v2_flags(1) = '1' and pq_t /= last_pub then
+        v2_pf_go := true;
+        v2_pf_base := pq_t;
+        v2_pf_down := '0';
+        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
+        if pq_t = last_pub_m1 then v2_pf_down := '1'; end if;
+        last_pub <= pq_t;
+        last_pub_m1 <= pq_t - 1;
+      end if;
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
       -- VIC 40 MHz request/address arrive together and are held until

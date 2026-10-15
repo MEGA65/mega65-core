@@ -297,6 +297,9 @@ architecture tacoma_narrows of sdram_controller is
   -- w_ne(j) = (w_mask(j) /= x"00"), registered (it gates every posted-write
   -- decision); written alongside w_mask, asserted every cycle
   signal w_ne   : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- w_mask(j) = x"FF", a cycle old: only for choosing when to write a
+  -- buffer out early, where a cycle late (or early) does no harm
+  signal w_full_q : std_logic_vector(0 to NW - 1) := (others => '0');
   signal w_cur  : integer range 0 to NW - 1 := 0;
   signal w_stall : std_logic := '0';            -- a write waits for a buffer
   -- the buffer being written out by FLUSH_WR (copied out of w_*)
@@ -311,6 +314,12 @@ architecture tacoma_narrows of sdram_controller is
   signal rs : rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- w_mask(j)(v_idx), taken in R_LOOK (with w_ne(j) in R_DECIDE it is the
+  -- current bit: only a write-out, which clears w_ne, changes it meanwhile)
+  signal lk_wm : std_logic_vector(0 to NW - 1) := (others => '0');
+  -- exp_addr = latched_addr(26 downto 3), a cycle old; exp_moved says
+  -- exp_addr was assigned last cycle, so xe_q may be stale
+  signal xe_q, exp_moved : std_logic := '0';
   -- R_LOOK also picks the read's two bytes out of every line and buffer,
   -- so R_DECIDE only chooses between registers.  c_data and w_data do not
   -- change between the two except by a fill completing (lk_fd: look again).
@@ -357,6 +366,10 @@ architecture tacoma_narrows of sdram_controller is
   signal want_fill : std_logic := '0';          -- fill the latched line
   signal last_pub : unsigned(26 downto 3) := (others => '1');
   signal last_pub_m1 : unsigned(26 downto 3) := (3 => '0', others => '1');  -- last_pub - 1
+  -- a prefetch asked for last cycle (prefetch_from), decided this one: the
+  -- decision's compares are not behind the fill completion or read hit
+  signal pq_v : std_logic := '0';
+  signal pq_t : unsigned(26 downto 3) := (others => '0');
 
   -- The exported line (current_cache_line*), and the next/prev requests
   signal exp_addr  : unsigned(26 downto 3) := (others => '1');
@@ -722,6 +735,7 @@ begin
     procedure set_export(t : unsigned(26 downto 3); d : unsigned(63 downto 0)) is
     begin
       exp_addr <= t;
+      exp_moved <= '1';
       exp_data <= d;
       exp_valid <= '1';
       current_cache_line_address <= t;
@@ -733,15 +747,8 @@ begin
     -- Prefetch from line t on, if enabled, going the way the reads go
     procedure prefetch_from(t : unsigned(26 downto 3)) is
     begin
-      if cflags(0) = '1' and t /= last_pub then
-        v_pf_go := true;
-        v_pf_base := t;
-        v_pf_down := '0';
-        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
-        if t = last_pub_m1 then v_pf_down := '1'; end if;
-        last_pub <= t;
-        last_pub_m1 <= t - 1;
-      end if;
+      pq_v <= '1';
+      pq_t <= t;
     end procedure;
 
     -- Start a line fill (one READ) of line t into the next cache slot
@@ -927,6 +934,23 @@ begin
         report "SDRAM: fl_cap out of step" severity failure;
       v_fill_done := false;
       v_pf_go := false;
+      exp_moved <= '0';
+      for j in 0 to NW - 1 loop
+        if w_mask(j) = x"FF" then w_full_q(j) <= '1'; else w_full_q(j) <= '0'; end if;
+      end loop;
+      if exp_addr = latched_addr(26 downto 3) then xe_q <= '1'; else xe_q <= '0'; end if;
+      -- the prefetch asked for last cycle, if enabled, going the way the
+      -- reads go
+      pq_v <= '0';
+      if pq_v = '1' and cflags(0) = '1' and pq_t /= last_pub then
+        v_pf_go := true;
+        v_pf_base := pq_t;
+        v_pf_down := '0';
+        assert last_pub_m1 = last_pub - 1 report "stale last_pub_m1" severity failure;
+        if pq_t = last_pub_m1 then v_pf_down := '1'; end if;
+        last_pub <= pq_t;
+        last_pub_m1 <= pq_t - 1;
+      end if;
       if fl_cap = '1' then
         if fl_word /= 3 then
           fl_buf(16 * fl_word + 15 downto 16 * fl_word) <= dq_x;
@@ -1273,6 +1297,7 @@ begin
                 c_val <= (others => '0');
                 exp_valid <= '0';
                 exp_addr <= (others => '1');
+                exp_moved <= '1';
                 current_cache_line_valid <= '0';
                 current_cache_line_address <= (others => '1');
                 pf_k <= PF + 1;
@@ -1302,7 +1327,7 @@ begin
               -- prefetch
               for j in 0 to NW - 1 loop
                 if w_ne(j) = '1' and v_wh = -1
-                  and (j /= w_cur or w_mask(j) = x"FF" or w_age(j) >= 32) then
+                  and (j /= w_cur or w_full_q(j) = '1' or w_age(j) >= 32) then
                   v_wh := j;
                 end if;
               end loop;
@@ -2023,6 +2048,7 @@ begin
               if w_tag(j) = latched_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
               lk_wb(j)  <= byte_of(w_data(j), v_idx);
               lk_wbh(j) <= byte_of(w_data(j), (v_idx + 1) mod 8);
+              lk_wm(j) <= w_mask(j)(v_idx);
             end loop;
             rs <= R_DECIDE;
           when R_DECIDE =>
@@ -2034,7 +2060,9 @@ begin
               v_wh := -1;
               v_hit := -1;
               for j in 0 to NW - 1 loop
-                if lk_w(j) = '1' and w_mask(j)(v_idx) = '1' then v_wh := j; end if;
+                assert (lk_wm(j) and w_ne(j)) = w_mask(j)(v_idx)
+                  report "SDRAM: stale lk_wm" severity failure;
+                if lk_w(j) = '1' and lk_wm(j) = '1' and w_ne(j) = '1' then v_wh := j; end if;
               end loop;
               for i in NL - 1 downto 0 loop
                 if lk_c(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
@@ -2061,6 +2089,8 @@ begin
                 end if;
                 rs <= R_WAIT;
               end if;
+            elsif write_latched = '1' and exp_moved = '1' then
+              rs <= R_LOOK;             -- (the exported line moved: xe_q is stale)
             elsif write_latched = '1' then
               -- Posted write: into the buffer already holding this line, or
               -- a free one; if neither, wait for one to be written out
@@ -2132,7 +2162,9 @@ begin
                   end if;
                 end loop;
                 current_cache_line_valid <= exp_valid;
-                if exp_addr = latched_addr(26 downto 3) then
+                assert (xe_q = '1') = (exp_addr = latched_addr(26 downto 3))
+                  report "SDRAM: stale xe_q" severity failure;
+                if xe_q = '1' then
                   v_line := exp_data;
                   if rdata_16en = '0' or latched_wen_lo = '1' then
                     v_line(8 * v_idx + 7 downto 8 * v_idx) := wdata_latched;

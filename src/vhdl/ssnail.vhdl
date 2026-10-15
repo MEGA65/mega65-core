@@ -770,6 +770,13 @@ architecture shell of ssnail is
   signal mc_drain : std_logic := '0'; -- last MAC issued; pipeline not empty
   signal mc_c      : unsigned(3 downto 0) := (others => '0');
   signal mc_blk    : unsigned(7 downto 0) := (others => '0');    -- block within the row
+  -- qx read address (mc_blk & mc_c) for each bank, kept as separate
+  -- registers so each sits by its bank (one copy fanned out to all four
+  -- banks' LUT RAM was a 3 ns route)
+  type mc_xa_t is array (0 to 3) of unsigned(9 downto 0);
+  signal mc_xa     : mc_xa_t := (others => (others => '0'));
+  attribute dont_touch : string;
+  attribute dont_touch of mc_xa : signal is "true";
   signal mc_isum   : signed(31 downto 0) := (others => '0');
   -- mc_isum -> F32, three register stages (same result as i_to_f32).
   -- A finished block's sum, scale and index are captured into stage 1,
@@ -792,6 +799,9 @@ architecture shell of ssnail is
   signal mc_w_q : mc_w4_t := (others => (others => '0'));
   signal mc_x_q : mc_x4_t := (others => (others => '0'));
   signal mc_p_q : mc_p4_t := (others => (others => '0'));
+  -- in DSP48s (with mc_w_q / mc_x_q as their input registers), not LUTs
+  attribute use_dsp : string;
+  attribute use_dsp of mc_p_q : signal is "yes";
   signal mc_pair_q : mc_p2_t := (others => (others => '0'));
   signal mc_sum_q : signed(18 downto 0) := (others => '0');
   signal mc_v0, mc_v1, mc_v2, mc_v3 : std_logic := '0';
@@ -857,6 +867,7 @@ architecture shell of ssnail is
   -- COPY state
   signal cp_src, cp_dst : unsigned(27 downto 0) := (others => '0');
   signal cp_remaining   : unsigned(15 downto 0) := (others => '0');
+  signal cp_zero        : boolean := true;    -- cp_remaining = 0
   signal cp_chunk       : unsigned(8 downto 0) := (others => '0');
 
   -- Load port, core side
@@ -949,6 +960,32 @@ architecture shell of ssnail is
     if rm = 1 then f(5) := '1'; end if;
     if rm = 2 then f(6) := '1'; end if;
     if rm = 3 then f(7) := '1'; end if;
+    return f;
+  end function;
+
+  -- as_flags(skip - si, rem - wi) without arithmetic on the path: rge(t)
+  -- is rem >= t and req(t) is rem = t (constant compares of rem), so each
+  -- flag is a pick of one of them by skip
+  function as_flags_t(skip : unsigned(2 downto 0); si, wi : integer;
+                      rge, req : std_logic_vector(0 to 15)) return std_logic_vector is
+    variable f : std_logic_vector(7 downto 0) := (others => '0');
+    variable sk, t : integer;
+  begin
+    for sv in 0 to 7 loop
+      if to_integer(skip) = sv then
+        sk := sv - si;
+        if sk >= 1 then f(0) := '1'; end if;
+        if sk >= 2 then f(1) := '1'; end if;
+        if sk >= 3 then f(2) := '1'; end if;
+        t := 2 - sk + wi;                   -- sk + rem - wi >= 2
+        if t <= 0 then f(3) := '1'; else f(3) := rge(t); end if;
+        t := 3 - sk + wi;                   -- sk + rem - wi >= 3
+        if t <= 0 then f(4) := '1'; else f(4) := rge(t); end if;
+        f(5) := req(1 + wi);
+        f(6) := req(2 + wi);
+        f(7) := req(3 + wi);
+      end if;
+    end loop;
     return f;
   end function;
 
@@ -1277,6 +1314,7 @@ begin
     variable as_c, as_s, as_w : integer range 0 to 3;
     variable asf_c : asf_t;
     variable asf_full : asf4_t;
+    variable rge, req : std_logic_vector(0 to 15);
     variable avb : grp_t;
     variable popw : boolean;
     variable wv : unsigned(15 downto 0);
@@ -1722,6 +1760,7 @@ begin
               cp_src <= ea_x;
               cp_dst <= ea_y;
               cp_remaining <= instr(111 downto 96);
+              cp_zero <= instr(111 downto 96) = 0;
               if ea_x(2 downto 0) /= "000" or ea_y(2 downto 0) /= "000"
                 or instr(98 downto 96) /= "000" then
                 err <= ERR_ALIGNMENT;
@@ -1956,6 +1995,7 @@ begin
           end if;
 
         when C_COPY_CALC =>
+          assert cp_zero = (cp_remaining = 0) report "SSNAIL: stale cp_zero" severity failure;
           -- Largest chunk that crosses neither a 256-byte boundary at the
           -- source or destination, nor the end of the copy.
           if abort_req = '1' then
@@ -1963,7 +2003,7 @@ begin
             cstate <= C_END;
           elsif err /= ERR_NONE then
             cstate <= C_END;
-          elsif cp_remaining = 0 then
+          elsif cp_zero then
             cstate <= C_NEXT;
           else
             room_s := to_unsigned(256, 9) - resize(cp_src(7 downto 0), 9);
@@ -2041,6 +2081,7 @@ begin
             cp_src <= cp_src + resize(cp_chunk, 28);
             cp_dst <= cp_dst + resize(cp_chunk, 28);
             cp_remaining <= cp_remaining - resize(cp_chunk, 16);
+            cp_zero <= cp_remaining = resize(cp_chunk, 16);
             cstate <= C_COPY_CALC;
           end if;
 
@@ -3735,9 +3776,15 @@ begin
           sk := to_integer(as_skip);
           -- the next as_f for every outcome, from registers only; the
           -- outcome just picks one
+          for t in 0 to 15 loop
+            if as_rem >= t then rge(t) := '1'; else rge(t) := '0'; end if;
+            if as_rem = t then req(t) := '1'; else req(t) := '0'; end if;
+          end loop;
           for si in 0 to 3 loop
             for wi in 0 to 3 loop
-              asf_c(si, wi) := as_flags(sk - si, to_integer(as_rem) - wi);
+              asf_c(si, wi) := as_flags_t(as_skip, si, wi, rge, req);
+              assert asf_c(si, wi) = as_flags(sk - si, to_integer(as_rem) - wi)
+                report "SSNAIL: as_flags_t mismatch" severity failure;
             end loop;
             if d_fmt = 8 then
               asf_full(si) := as_flags(sk - si, 34);
@@ -3837,6 +3884,9 @@ begin
           mc_busy <= '1';
           mc_drain <= '0';
           mc_c <= (others => '0');
+          for k in 0 to 3 loop
+            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+          end loop;
           mc_isum <= (others => '0');
           mc_scale_ok <= '0';
           fpu3_b <= dxs(to_integer(mc_blk));
@@ -3852,10 +3902,10 @@ begin
             jj := to_integer(mc_c) * 4 + k;
             qwv := mc_wb(jj);
             case k is
-              when 0 => qxv := qx0(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
-              when 1 => qxv := qx1(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
-              when 2 => qxv := qx2(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
-              when others => qxv := qx3(to_integer(mc_blk(6 downto 0) & mc_c(2 downto 0)));
+              when 0 => qxv := qx0(to_integer(mc_xa(0)));
+              when 1 => qxv := qx1(to_integer(mc_xa(1)));
+              when 2 => qxv := qx2(to_integer(mc_xa(2)));
+              when others => qxv := qx3(to_integer(mc_xa(3)));
             end case;
             mc_w_q(k) <= qwv;
             mc_x_q(k) <= qxv;
@@ -3866,6 +3916,11 @@ begin
             mc_last0 <= '1';
           end if;
           mc_c <= mc_c + 1;
+          for k in 0 to 3 loop
+            assert mc_xa(k) = mc_blk(6 downto 0) & mc_c(2 downto 0)
+              report "SSNAIL: stale mc_xa" severity failure;
+            mc_xa(k)(2 downto 0) <= mc_xa(k)(2 downto 0) + 1;
+          end loop;
         end if;
 
         -- Stages 1..3: parallel products, two pair sums, final group sum.

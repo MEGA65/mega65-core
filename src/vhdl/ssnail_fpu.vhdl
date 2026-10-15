@@ -200,6 +200,9 @@ begin
             special <= '0';
             to_f16 <= '0';
             zero_sign <= '0';
+            -- (written on every start, so its enable is not the special-case
+            -- tests; only special results and TRUNC / ROUNDF read it)
+            sp_val <= NAN32;
             if op = FOP_ADD then
               -- -------------------------------------------------- add
               if is_nan32(a) or is_nan32(b) or
