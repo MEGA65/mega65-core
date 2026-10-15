@@ -1,4 +1,4 @@
-"""Step 3 test: GEMV (Q8_0, Q4_0, MXFP4, IQ4_NL; accumulate; F16 output) against the
+"""Step 3 test: GEMV (Q8_0, Q4_0, Q5_0, MXFP4, IQ4_NL; accumulate; F16 output) against the
 reference emulator in hardware-numerics mode."""
 import os
 import struct
@@ -56,6 +56,8 @@ put(0x1A05, bytes(w4))
 w5 = rng.integers(0, 256, (6 * 2, 18), dtype=np.uint8)
 w5[:, 0:2] = (rng.standard_normal((12, 1)) * 0.02).astype(np.float16).view(np.uint8)
 put(0x1C41, w5.tobytes())
+w6 = qmat(7, 96, Q.Q5_0)                         # 462 bytes
+put(0x1D21, w6)
 
 A = Asm()
 A(I.SETN, x=96, y=20); A(I.GEMV, I.FMT_Q8_0, x=B + 0x203, y=B + 0xC04, z=B + 0x10F8)
@@ -65,6 +67,7 @@ A(I.SETN, x=32, y=9);  A(I.GEMV, I.FMT_Q8_0, I.GEMV_F16OUT, x=B + 0xE8B, y=B + 0
 A(I.SETN, x=32, y=0);  A(I.GEMV, I.FMT_Q8_0, x=B + 0xE8B, y=B + 0xD88, z=B + 0x1400)   # no rows
 A(I.SETN, x=96, y=11); A(I.GEMV, I.FMT_MXFP4, x=B + 0x1A05, y=B + 0xC04, z=B + 0x1500)
 A(I.SETN, x=64, y=6);  A(I.GEMV, I.FMT_IQ4_NL, x=B + 0x1C41, y=B + 0xD88, z=B + 0x1600)
+A(I.SETN, x=96, y=7);  A(I.GEMV, I.FMT_Q5_0, x=B + 0x1D21, y=B + 0xC04, z=B + 0x1700)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200

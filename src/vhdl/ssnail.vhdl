@@ -684,6 +684,13 @@ architecture shell of ssnail is
       return '0' & (e - 1) & "00000000000000000000000";
     end if;
   end function;
+  -- Q5_0's value: (high bit, nibble) - 16
+  function q5v(hb : std_logic; nib : unsigned(3 downto 0)) return signed is
+    variable u : unsigned(4 downto 0);
+  begin
+    u := hb & nib;
+    return resize(signed('0' & u), 9) - 16;
+  end function;
   function unpack_w(g : grp_t; fmt : unsigned(7 downto 0)) return qw32_t is
     variable w : qw32_t;
   begin
@@ -702,6 +709,10 @@ architecture shell of ssnail is
         else
           w(j) := e2m1x2(g(18 + j - 16)(7 downto 4));
         end if;
+      elsif fmt = 6 and j < 16 then                  -- Q5_0: d, 4 bytes of high
+        w(j) := q5v(g(14 + j / 8)(j mod 8), g(18 + j)(3 downto 0));  -- bits, then
+      elsif fmt = 6 then                             -- Q4_0's nibbles
+        w(j) := q5v(g(14 + j / 8)(j mod 8), g(18 + j - 16)(7 downto 4));
       elsif j < 16 then                              -- Q4_0: d, then 16 bytes,
         w(j) := resize(signed('0' & g(18 + j)(3 downto 0)), 9) - 8;  -- low
       else                                           -- nibbles first
@@ -716,6 +727,8 @@ architecture shell of ssnail is
       return f16_to_f32(g(1) & g(0));
     elsif fmt = 39 then
       return e8m0_half(g(17));
+    elsif fmt = 6 then
+      return f16_to_f32(g(13) & g(12));
     else
       return f16_to_f32(g(17) & g(16));
     end if;
@@ -732,10 +745,10 @@ architecture shell of ssnail is
   begin
     return (fmt >= 10 and fmt <= 14) or fmt = 23 or fmt = 35;
   end function;
-  -- the 32-weight block formats GEMV takes: Q4_0, Q8_0, IQ4_NL, MXFP4
+  -- the 32-weight block formats GEMV takes: Q4_0, Q5_0, Q8_0, IQ4_NL, MXFP4
   function fmt_q(fmt : unsigned(7 downto 0)) return boolean is
   begin
-    return fmt = 2 or fmt = 8 or fmt = 20 or fmt = 39;
+    return fmt = 2 or fmt = 6 or fmt = 8 or fmt = 20 or fmt = 39;
   end function;
   function kq_bytes(fmt : unsigned(7 downto 0)) return integer is
   begin
@@ -1212,6 +1225,7 @@ architecture shell of ssnail is
   signal mul_acc   : unsigned(27 downto 0) := (others => '0');
   signal mul_m     : unsigned(27 downto 0) := (others => '0');
   signal mul_z     : unsigned(31 downto 0) := (others => '0');
+  signal mul_zz    : boolean := true;                            -- mul_z = 0
   -- LDR / STR
   signal mem_is_store : std_logic := '0';
   signal str_active   : std_logic := '0';
@@ -1930,6 +1944,14 @@ begin
         else
           d_qv <= resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
         end if;
+      elsif d_fmt = 6 then                          -- Q5_0: high bit, nibble
+        if d_j(4) = '0' then
+          d_qv <= resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                              grp(6 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+        else
+          d_qv <= resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                              grp(6 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+        end if;
       elsif d_j(4) = '0' then
         d_qv <= resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
       else
@@ -2194,6 +2216,7 @@ begin
               mul_acc <= ea_x;
               mul_m <= opr_b(27 downto 0);
               mul_z <= instr(127 downto 96);
+              mul_zz <= instr(127 downto 96) = 0;
               dec_next <= C_LEA_MUL;
             when x"0D" | x"0E" | x"0F" =>   -- BEQ / BNE / BLT
               if (instr(7 downto 0) = x"0D" and opr_eq)          -- R[a] = R[b]
@@ -2343,7 +2366,8 @@ begin
 
         when C_LEA_MUL =>
           -- Shift-and-add, one bit of Z per cycle (LEA is rare)
-          if mul_z = 0 then
+          assert mul_zz = (mul_z = 0) report "SSNAIL: stale mul_zz" severity failure;
+          if mul_zz then
             rf_a(to_integer(instr(11 downto 8))) <= mul_acc;
             go(C_NEXT);
           else
@@ -2352,6 +2376,7 @@ begin
             end if;
             mul_m <= mul_m(26 downto 0) & '0';
             mul_z <= '0' & mul_z(31 downto 1);
+            mul_zz <= mul_z(31 downto 1) = 0;
           end if;
 
         when C_MEM_DECODE =>
@@ -3166,6 +3191,7 @@ begin
               when 1 | 30 => gbytes <= to_unsigned(2, 8); epg <= to_unsigned(1, 9);
               when 8 => gbytes <= to_unsigned(34, 8); epg <= to_unsigned(32, 9);
               when 39 => gbytes <= to_unsigned(17, 8); epg <= to_unsigned(32, 9);  -- MXFP4
+              when 6 => gbytes <= to_unsigned(22, 8); epg <= to_unsigned(32, 9);   -- Q5_0
               when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
             end case;
             if fmt_k(d_fmt) then                                                  -- K-quants
@@ -3388,6 +3414,12 @@ begin
                   q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
                 elsif d_fmt = 39 then
                   q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+                elsif d_fmt = 6 and d_j < 16 then
+                  q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                              grp(6 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+                elsif d_fmt = 6 then
+                  q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                              grp(6 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
                 elsif d_fmt = 20 and d_j < 16 then
                   q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
                 elsif d_fmt = 20 then
@@ -3487,6 +3519,8 @@ begin
               g_bl <= to_unsigned(34, 8);
             elsif d_fmt = 39 then
               g_bl <= to_unsigned(17, 8);
+            elsif d_fmt = 6 then
+              g_bl <= to_unsigned(22, 8);
             else
               g_bl <= to_unsigned(18, 8);
             end if;
