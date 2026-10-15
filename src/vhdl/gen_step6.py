@@ -1,5 +1,5 @@
-"""Step 6 test: GEMV with K-quant weights (Q2_K .. Q6_K) against the
-reference emulator in hardware-numerics mode."""
+"""Step 6 test: GEMV and DEQROW with K-quant weights (Q2_K .. Q6_K)
+against the reference emulator in hardware-numerics mode."""
 import os
 import sys
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -46,9 +46,11 @@ put(0x1400, acc.tobytes())
 
 A = Asm()
 off, outs = 0x1803, 0x6000
+k_at = {}
 for fmt in (10, 11, 12, 13, 14):                 # 3 rows x 2 super-blocks
     w = kmat(fmt, 3, 512)
     put(off, w)
+    k_at[fmt] = off
     A(I.SETN, x=512, y=3); A(I.GEMV, fmt, x=B + off, y=B + 0x400, z=B + outs)
     off += len(w) + 0x11
     outs += 0x20
@@ -60,6 +62,10 @@ A(I.SETN, x=512, y=3); A(I.GEMV, 14, I.GEMV_ACC, x=B + 0x1803 + 0, y=B + 0xC00, 
 A(I.SETN, x=512, y=3); A(I.GEMV, 10, I.GEMV_F16OUT, x=B + 0x1803, y=B + 0xC00, z=B + 0x6302)
 off += len(w) + 0x11
 assert off < 0x6000, hex(off)
+# DEQROW: one super-block of each (Q4_K: two)
+for i, fmt in enumerate((10, 11, 13, 14)):
+    A(I.SETN, x=256); A(I.DEQROW, fmt, x=B + k_at[fmt], z=B + 0x6400 + 0x400 * i)
+A(I.SETN, x=512); A(I.DEQROW, 12, x=B + k_at[12], z=B + 0x7400)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x400

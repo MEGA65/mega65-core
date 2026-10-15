@@ -86,10 +86,11 @@
 --   $0C LEA                  A[a] = addr(X) + R[b] * Z (mod 2^28)
 --   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
 --   $11 DEQROW               Z (N0 x F32) = dequantise N0 elements of format a
---                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16, 39 MXFP4)
---                            at addr(X)
+--                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16, 39 MXFP4,
+--                            10-14 Q2_K..Q6_K: N0 a multiple of 256) at addr(X)
 --   $10 GEMV                 Z (N1 rows) = W at addr(X) (N1 x N0, format a:
---                            Q8_0, Q4_0 or MXFP4 so far) . x at addr(Y)
+--                            Q8_0, Q4_0, MXFP4, Q2_K..Q6_K (N0 a multiple
+--                            of 256) so far) . x at addr(Y)
 --                            (N0 x F32).
 --                            x is quantised to Q8_0 first, as llama.cpp.
 --                            b bit 0: add to the existing Z (F32);
@@ -459,6 +460,8 @@ architecture shell of ssnail is
     A_E_T, A_E_1, A_E_2, A_E_3, A_E_R, A_E_R2, A_W_T, A_W_1,
     A_O_T, A_O_I, A_O_I2, A_O_I3, A_O_I4, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
+    D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
+    D_KQ, D_KQ2, D_KMUL, D_KSUB,
     G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
     G_SET, G_KAM, G_KX,
     G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
@@ -842,8 +845,13 @@ architecture shell of ssnail is
   end function;
 
   signal grp       : grp_t := (others => x"00");
-  signal gi, gbytes : unsigned(5 downto 0) := (others => '0');
-  signal d_j, epg  : unsigned(5 downto 0) := (others => '0');
+  signal gi, gbytes : unsigned(7 downto 0) := (others => '0');
+  signal d_j, epg  : unsigned(8 downto 0) := (others => '0');
+  -- DEQROW of a K-quant super-block (fetched into kq_sb, half 0): A = d * sc
+  -- of the 16-group (and B = dmin * m), then each q * A (- B)
+  signal dk        : std_logic := '0';
+  signal kq_gs     : std_logic := '0';               -- the group's A, B are in
+  signal kd32, kdm32, kq_ga32, kq_gb32 : unsigned(31 downto 0) := (others => '0');
   signal d_fmt     : unsigned(7 downto 0) := (others => '0');
   signal dq_scale, d_val : unsigned(31 downto 0) := (others => '0');
   signal d_have_scale : std_logic := '0';
@@ -1076,6 +1084,9 @@ architecture shell of ssnail is
   type kq_hw_t is array (0 to 4) of unsigned(5 downto 0);
   signal kq_hwc, kq_hwl : kq_hw_t := (others => (others => '0'));
   signal kq_d16    : unsigned(15 downto 0) := (others => '0');
+  -- the header word kq_hwl(0) of half kq_hh, registered (one read port for
+  -- the GEMV header unit and DEQROW)
+  signal kq_hrd    : unsigned(31 downto 0) := (others => '0');
   -- S2 pipeline: m and the x sum, their product
   signal kq_s2m    : unsigned(5 downto 0) := (others => '0');
   signal kq_s2b    : signed(11 downto 0) := (others => '0');
@@ -1625,6 +1636,13 @@ begin
     variable kq_qv : signed(8 downto 0);
     variable kf_r : unsigned(24 downto 0);
     variable kf_p : integer range 0 to 31;
+    -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
+    variable kw_we : std_logic_vector(0 to 3);
+    type kw_a_t is array (0 to 3) of unsigned(6 downto 0);
+    type kw_d_t is array (0 to 3) of unsigned(7 downto 0);
+    variable kw_a : kw_a_t;
+    variable kw_d : kw_d_t;
+    variable wb : unsigned(7 downto 0);
     -- the next state, with its registered decodes
     procedure go(s : core_state_t) is
     begin
@@ -1643,6 +1661,9 @@ begin
       assert out_z = (hr_out = 0 and sd_out = 0) report "SSNAIL: stale out_z" severity failure;
       wf_arr := false;
       wf_pop := false;
+      kw_we := "0000";
+      kw_a := (others => (others => '0'));
+      kw_d := (others => (others => '0'));
       hr_issue := '0';
       pf_go := false;
       pf_x := vix; pf_y := viy; pf_b := vib;
@@ -2224,7 +2245,9 @@ begin
               d_fmt <= instr(15 downto 8);
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
                       or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
-                      or instr(15 downto 8) = 39) then
+                      or instr(15 downto 8) = 39
+                      or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14))
+                or (instr(15 downto 8) >= 10 and instr(15 downto 8) <= 14 and n0(7 downto 0) /= 0) then
                 err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_z(1 downto 0) /= "00" then
@@ -3075,14 +3098,28 @@ begin
             gi <= (others => '0');
             d_j <= (others => '0');
             d_have_scale <= '0';
+            kq_gs <= '0';
             fetch_ret <= D_EMIT;
+            dk <= '0';
             case to_integer(d_fmt) is
-              when 0 => gbytes <= to_unsigned(4, 6);  epg <= to_unsigned(1, 6);
-              when 1 | 30 => gbytes <= to_unsigned(2, 6); epg <= to_unsigned(1, 6);
-              when 8 => gbytes <= to_unsigned(34, 6); epg <= to_unsigned(32, 6);
-              when 39 => gbytes <= to_unsigned(17, 6); epg <= to_unsigned(32, 6);  -- MXFP4
-              when others => gbytes <= to_unsigned(18, 6); epg <= to_unsigned(32, 6);  -- Q4_0
+              when 0 => gbytes <= to_unsigned(4, 8);  epg <= to_unsigned(1, 9);
+              when 1 | 30 => gbytes <= to_unsigned(2, 8); epg <= to_unsigned(1, 9);
+              when 8 => gbytes <= to_unsigned(34, 8); epg <= to_unsigned(32, 9);
+              when 39 => gbytes <= to_unsigned(17, 8); epg <= to_unsigned(32, 9);  -- MXFP4
+              when 10 | 11 | 12 | 13 | 14 =>                                        -- K-quants
+                gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
+                dk <= '1';
+                fetch_ret <= D_KH0;
+              when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0
             end case;
+            if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
+              kq_min <= '1';
+            else
+              kq_min <= '0';
+            end if;
+            for i in 0 to 4 loop
+              kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
+            end loop;
             go(D_FETCH);
           end if;
 
@@ -3104,15 +3141,142 @@ begin
           else
             wd := bufx(to_integer(ps(7 downto 1)));
             if ps(0) = '0' then
-              grp(to_integer(gi)) <= wd(7 downto 0);
+              wb := wd(7 downto 0);
             else
-              grp(to_integer(gi)) <= wd(15 downto 8);
+              wb := wd(15 downto 8);
+            end if;
+            if dk = '1' then
+              -- (K-quant super-block: byte gi of half 0 of kq_sb)
+              kw_we(to_integer(gi(1 downto 0))) := '1';
+              kw_a(to_integer(gi(1 downto 0))) := '0' & gi(7 downto 2);
+              kw_d(to_integer(gi(1 downto 0))) := wb;
+            else
+              grp(to_integer(gi(5 downto 0))) <= wb;
             end if;
             ps <= ps + 1;
             gi <= gi + 1;
           end if;
 
+        -- K-quant DEQROW: the header (as the GEMV header unit: words
+        -- kq_hwc through the registered header read kq_hrd), d and dmin
+        when D_KH0 =>
+          kq_hh <= '0';
+          kq_hwl <= kq_hwc;
+          kq_hi <= (others => '0');
+          go(D_KH1);
+        when D_KH1 =>
+          kq_hwl(0 to 3) <= kq_hwl(1 to 4);            -- (kq_hrd: word 0 next)
+          go(D_KH);
+        when D_KH =>
+          kq_hb(0 to 15) <= kq_hb(4 to 19);
+          kq_hb(16) <= kq_hrd(7 downto 0);
+          kq_hb(17) <= kq_hrd(15 downto 8);
+          kq_hb(18) <= kq_hrd(23 downto 16);
+          kq_hb(19) <= kq_hrd(31 downto 24);
+          kq_hwl(0 to 3) <= kq_hwl(1 to 4);
+          kq_hi <= kq_hi + 1;
+          if kq_hi = 4 then
+            go(D_KDEC);
+          end if;
+        when D_KDEC =>
+          kq_sc(0) <= kq_scales(d_fmt, kq_hb);
+          kq_m(0) <= kq_mins(d_fmt, kq_hb);
+          kq_d16 <= kq_d(d_fmt, kq_hb);
+          kq_dmin16 <= kq_dmin(d_fmt, kq_hb);
+          go(D_KD);
+        when D_KD =>
+          fpu_op <= FOP_F16TOF32;
+          fpu_a <= x"0000" & kq_d16;
+          fpu_start <= '1';
+          fpu_ret <= D_KDM;
+          go(C_FPU_WAIT);
+        when D_KDM =>
+          kd32 <= fpu_r;
+          fpu_op <= FOP_F16TOF32;
+          fpu_a <= x"0000" & kq_dmin16;
+          fpu_start <= '1';
+          fpu_ret <= D_EMIT;
+          go(C_FPU_WAIT);
+        -- the 16-group's A = d * sc, B = dmin * m (exact)
+        when D_KA1 =>
+          fpu_op <= FOP_MUL;
+          fpu_a <= kd32;
+          fpu_b <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= D_KA2;
+          go(C_FPU_WAIT);
+        when D_KA2 =>
+          kq_ga32 <= fpu_r;
+          if kq_min = '1' then
+            fpu_op <= FOP_I2F;
+            fpu_a <= resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32);
+            fpu_start <= '1';
+            fpu_ret <= D_KB1;
+            go(C_FPU_WAIT);
+          else
+            kq_gs <= '1';
+            go(D_EMIT);
+          end if;
+        when D_KB1 =>
+          fpu_op <= FOP_MUL;
+          fpu_a <= kdm32;
+          fpu_b <= fpu_r;
+          fpu_start <= '1';
+          fpu_ret <= D_KB2;
+          go(C_FPU_WAIT);
+        when D_KB2 =>
+          kq_gb32 <= fpu_r;
+          kq_gs <= '1';
+          go(D_EMIT);
+        -- element d_j: its words through the K reader's registered reads
+        when D_KQ =>
+          go(D_KQ2);
+        when D_KQ2 =>
+          kq_qv := kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
+                        kq_wh_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
+                        kq_rd_q);
+          fpu_op <= FOP_I2F;
+          fpu_a <= unsigned(resize(kq_qv, 32));
+          fpu_start <= '1';
+          fpu_ret <= D_KMUL;
+          go(C_FPU_WAIT);
+        when D_KMUL =>
+          fpu_op <= FOP_MUL;                           -- q * A
+          fpu_a <= kq_ga32;
+          fpu_b <= fpu_r;
+          fpu_start <= '1';
+          if kq_min = '1' then
+            fpu_ret <= D_KSUB;
+          else
+            fpu_ret <= D_AFTER;
+          end if;
+          go(C_FPU_WAIT);
+        when D_KSUB =>
+          fpu_op <= FOP_ADD;                           -- q * A - B
+          fpu_a <= fpu_r;
+          fpu_b <= (not kq_gb32(31)) & kq_gb32(30 downto 0);
+          fpu_start <= '1';
+          fpu_ret <= D_AFTER;
+          go(C_FPU_WAIT);
+
         when D_EMIT =>
+          if dk = '1' then
+            if kq_gs = '0' then
+              if d_j = 0 then
+                kdm32 <= fpu_r;                        -- (from D_KDM)
+              end if;
+              fpu_op <= FOP_I2F;                       -- F32(sc) of the group
+              fpu_a <= unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32));
+              fpu_start <= '1';
+              fpu_ret <= D_KA1;
+              go(C_FPU_WAIT);
+            else
+              kq_rd_q <= kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
+              kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(4 downto 2));
+              kq_ha <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).ha + d_j(4 downto 2));
+              go(D_KQ);
+            end if;
+          end if;
           case to_integer(d_fmt) is
             when 0 =>                              -- F32: the bits as they are
               d_val <= grp(3) & grp(2) & grp(1) & grp(0);
@@ -3126,6 +3290,8 @@ begin
               fpu_start <= '1';
               fpu_ret <= D_QMUL;
               go(C_FPU_WAIT);
+            when 10 | 11 | 12 | 13 | 14 =>         -- K-quants: above
+              null;
             when others =>                         -- Q8_0 / Q4_0 / MXFP4
               if d_have_scale = '0' and d_fmt = 39 then
                 dq_scale <= e8m0_half(grp(0));     -- (a power of two: no FPU)
@@ -3138,15 +3304,15 @@ begin
                 go(C_FPU_WAIT);
               else
                 if d_fmt = 8 then
-                  q := resize(signed(grp(2 + to_integer(d_j))), 32);
+                  q := resize(signed(grp(2 + to_integer(d_j(4 downto 0)))), 32);
                 elsif d_fmt = 39 and d_j < 16 then
-                  q := resize(e2m1x2(grp(1 + to_integer(d_j))(3 downto 0)), 32);
+                  q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
                 elsif d_fmt = 39 then
-                  q := resize(e2m1x2(grp(1 + to_integer(d_j) - 16)(7 downto 4)), 32);
+                  q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
                 elsif d_j < 16 then
-                  q := resize(signed('0' & grp(2 + to_integer(d_j))(3 downto 0)), 32) - 8;
+                  q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
                 else
-                  q := resize(signed('0' & grp(2 + to_integer(d_j) - 16)(7 downto 4)), 32) - 8;
+                  q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32) - 8;
                 end if;
                 assert d_qv = q report "SSNAIL: stale d_qv" severity failure;
                 fpu_op <= FOP_I2F;
@@ -3186,6 +3352,9 @@ begin
           v_n_z <= v_n_one;
           v_n_one <= v_n = 2;
           d_j <= d_j + 1;
+          if d_j(3 downto 0) = 15 then
+            kq_gs <= '0';                             -- (K: a new 16-group)
+          end if;
           -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
           if pz(7 downto 0) = 252 or v_n_one then      -- v_n = 1
             -- flush the output written since ostart
@@ -3509,6 +3678,7 @@ begin
             as_full <= '0'; pb_v <= '0'; ub_full <= '0';
             kq_wh <= '0'; kq_wp <= (others => '0'); kq_full <= "00";
             kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
+            kq_hwl <= kq_hwc;
             kq_rh <= '0'; kq_p <= (others => '0');
             kq_c1 <= '0'; kq_c2 <= '0'; kq_c3 <= '0'; kq_s1 <= (others => '0');
             kq_pre <= '0';
@@ -4277,12 +4447,9 @@ begin
               kb_pos := ('0' & kq_wp) + kb_ln;
               kb_wd := kq_wh & kb_pos(7 downto 2);
               if kb_ln < as_w then
-                case l is
-                  when 0 => kq_sb0(to_integer(kb_wd)) <= avb(as_s + kb_ln);
-                  when 1 => kq_sb1(to_integer(kb_wd)) <= avb(as_s + kb_ln);
-                  when 2 => kq_sb2(to_integer(kb_wd)) <= avb(as_s + kb_ln);
-                  when others => kq_sb3(to_integer(kb_wd)) <= avb(as_s + kb_ln);
-                end case;
+                kw_we(l) := '1';
+                kw_a(l) := kb_wd;
+                kw_d(l) := avb(as_s + kb_ln);
               end if;
             end loop;
           end if;
@@ -4342,20 +4509,22 @@ begin
           kq_s2v <= '0';
           case kq_hs is
             when KH_IDLE =>
-              kq_hwl <= kq_hwc;
+              -- (kq_hrd has word kq_hwc(0) of the half now: the list moves
+              -- on a cycle ahead of the words)
               if kq_full(to_integer(unsigned'("" & kq_hh))) = '1'
                 and kq_hok(to_integer(unsigned'("" & kq_hh))) = '0' then
                 kq_hi <= (others => '0');
+                kq_hwl(0 to 3) <= kq_hwl(1 to 4);
                 kq_hs <= KH_RD;
               end if;
             when KH_RD =>
-              -- word kq_hwl(0) of the half, shifted in at the top of kq_hb
-              kb_wd := kq_hh & kq_hwl(0);
+              -- word kq_hwl(0) of the half (read last cycle: kq_hrd),
+              -- shifted in at the top of kq_hb
               kq_hb(0 to 15) <= kq_hb(4 to 19);
-              kq_hb(16) <= kq_sb0(to_integer(kb_wd));
-              kq_hb(17) <= kq_sb1(to_integer(kb_wd));
-              kq_hb(18) <= kq_sb2(to_integer(kb_wd));
-              kq_hb(19) <= kq_sb3(to_integer(kb_wd));
+              kq_hb(16) <= kq_hrd(7 downto 0);
+              kq_hb(17) <= kq_hrd(15 downto 8);
+              kq_hb(18) <= kq_hrd(23 downto 16);
+              kq_hb(19) <= kq_hrd(31 downto 24);
               kq_hwl(0 to 3) <= kq_hwl(1 to 4);
               if kq_hi = 4 then
                 kq_hs <= KH_DEC;
@@ -4405,6 +4574,7 @@ begin
                 kq_hs <= KH_BW;
               end if;
             when others =>                                  -- KH_BW
+              kq_hwl <= kq_hwc;                     -- (kq_hrd: word 0 in KH_IDLE)
               kq_hok(to_integer(unsigned'("" & kq_hh))) <= '1';
               kq_hh <= not kq_hh;
               if kq_hsb + 1 = kq_nsb then
@@ -4437,10 +4607,6 @@ begin
         if kq_pre = '1' then
           mc_busy <= '1';
         end if;
-        kq_wl_q <= kq_sb3(to_integer(kq_la)) & kq_sb2(to_integer(kq_la))
-                   & kq_sb1(to_integer(kq_la)) & kq_sb0(to_integer(kq_la));
-        kq_wh_q <= kq_sb3(to_integer(kq_ha)) & kq_sb2(to_integer(kq_ha))
-                   & kq_sb1(to_integer(kq_ha)) & kq_sb0(to_integer(kq_ha));
         if kq_pre = '1' or mc_busy = '1' then
           kq_la(5 downto 0) <= kq_la(5 downto 0) + 1;
           kq_ha(5 downto 0) <= kq_ha(5 downto 0) + 1;
@@ -4788,6 +4954,20 @@ begin
       elsif lp_inc = '0' and lp_dec = '1' then
         lp_pending <= lp_pending - 1;
       end if;
+
+      -- kq_sb: its write port per byte lane, and its three registered read
+      -- ports (the K reader's two, the header's)
+      if kw_we(0) = '1' then kq_sb0(to_integer(kw_a(0))) <= kw_d(0); end if;
+      if kw_we(1) = '1' then kq_sb1(to_integer(kw_a(1))) <= kw_d(1); end if;
+      if kw_we(2) = '1' then kq_sb2(to_integer(kw_a(2))) <= kw_d(2); end if;
+      if kw_we(3) = '1' then kq_sb3(to_integer(kw_a(3))) <= kw_d(3); end if;
+      kq_wl_q <= kq_sb3(to_integer(kq_la)) & kq_sb2(to_integer(kq_la))
+                 & kq_sb1(to_integer(kq_la)) & kq_sb0(to_integer(kq_la));
+      kq_wh_q <= kq_sb3(to_integer(kq_ha)) & kq_sb2(to_integer(kq_ha))
+                 & kq_sb1(to_integer(kq_ha)) & kq_sb0(to_integer(kq_ha));
+      kb_wd := kq_hh & kq_hwl(0);
+      kq_hrd <= kq_sb3(to_integer(kb_wd)) & kq_sb2(to_integer(kb_wd))
+                & kq_sb1(to_integer(kb_wd)) & kq_sb0(to_integer(kb_wd));
 
       -- Outstanding command counters (and out_z, from their next values)
       nh := hr_out;
