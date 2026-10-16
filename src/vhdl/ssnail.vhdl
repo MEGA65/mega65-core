@@ -458,14 +458,13 @@ architecture shell of ssnail is
     A_PRM, A_PRM2, A_CHK, A_RS0, A_RS1, A_RS2, A_RS3, A_GRP, A_HEAD, A_Q, A_Q2,
     A_SPAN, A_SPAN2, A_STR0, A_STR, A_SE, A_S_T, A_S_W, A_S_SC,
     A_E_T, A_E_W, A_E_P, A_E_3, A_E_R,
-    A_O_F, A_O_F1, A_O_F2, A_O_W, A_WR, A_WR2, A_HNEXT,
+    A_O_F, A_O_F0, A_O_F1, A_O_F2, A_O_W, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
     D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
     G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQW,
     G_SET, G_KAM, G_KX,
-    G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
-    G2_KS,
+    G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_END,
     G_OUT, G_OUT2, G_OUT3, G_OUT4,
     C_COPY_CALC, C_COPY_RD_DECODE, C_COPY_RD_ISSUE, C_COPY_RD_WAIT,
     C_COPY_WR_DECODE, C_COPY_WR_ISSUE, C_COPY_WR_WAIT,
@@ -616,8 +615,10 @@ architecture shell of ssnail is
   -- ATTN
   type f32x1024_t is array (0 to 1023) of unsigned(31 downto 0);
   signal sarr      : f32x1024_t := (others => (others => '0'));
-  attribute ram_style of sarr : signal is "distributed";
-  signal sarr0     : unsigned(31 downto 0) := (others => '0');  -- copy of sarr(0)
+  attribute ram_style of sarr : signal is "block";
+  -- sarr's one read, at sx_icnt in the softmax engine, else at_t (by
+  -- registers alone): sarr_q, then at_sv / sx_s a cycle later
+  signal sarr_q    : unsigned(31 downto 0) := (others => '0');
   signal at_k, at_v, at_rowaddr, at_ea : unsigned(27 downto 0) := (others => '0');
   signal at_nh, at_nkv, at_hd, at_fmt, at_pos : unsigned(31 downto 0) := (others => '0');
   -- EF_START needs the block at ef_addr loaded: recomputed every cycle,
@@ -627,8 +628,6 @@ architecture shell of ssnail is
   signal ps_miss : boolean := true;
   -- DEQROW: d_j + 1 = epg (the group's last element), kept with d_j
   signal d_jl    : boolean := false;
-  -- cstate = G2_T3, set by go()
-  signal cs_t3   : boolean := false;
   -- gi = gbytes in D_FETCH: set in D_FETCH0 and as gi steps
   signal gi_end  : boolean := false;
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
@@ -641,7 +640,7 @@ architecture shell of ssnail is
   signal at_kv_offset : unsigned(27 downto 0) := (others => '0'); -- current KV head offset
   signal at_t      : unsigned(15 downto 0) := (others => '0');
   -- Reloaded by the states that write at_t: at_t = at_pos + 1 (the last position is
-  -- done), and sarr(at_t), read ahead so the FPU operands come from a register
+  -- done); at_sv: sarr(at_t), two cycles after at_t moves (see sarr_q)
   signal at_tend   : boolean := false;
   signal at_iend   : boolean := false;    -- at_i = at_hd, set alongside at_i
   signal at_sv     : unsigned(31 downto 0) := (others => '0');
@@ -1024,7 +1023,7 @@ architecture shell of ssnail is
   -- gblk + 1 = g_nb and tl_blk + 1 = g_nb (recomputed every cycle);
   -- mr_r = mr_rows (likewise); at_i + 1 = at_hd (set by state, as at_iend);
   -- and tests of an FPU result, made as fpu_r is loaded from it
-  signal g_qlast, tl_last, mr_end, at_inx : boolean := false;
+  signal g_qlast, tl_last, mr_end, at_inx : boolean := false;   -- tl_last: tl_blk + 1 = g_nbt, set with it
   signal fr_neg, fr_big, fr_z : boolean := false;
   -- ATTN scores: the last one (at_sl), for at_m in A_S_T; at_s0: it was s_0
   signal at_sl     : unsigned(31 downto 0) := (others => '0');
@@ -1275,6 +1274,16 @@ architecture shell of ssnail is
   signal kq_scj, kq_mj : unsigned(31 downto 0) := (others => '0');
   -- tl_blk = 0, set with it
   signal tl_b0     : boolean := false;
+  -- GEMV's tail accumulator (ta_on): takes each term from tl_*, and on the
+  -- combine adder (idle in a quantised GEMV) does t = t1 - t2 (K-quants with
+  -- mins) and acc = acc + t, sequentially (the first term as it is), each
+  -- add issued as the last one's result arrives: a term every 9 cycles, the
+  -- lane's rate.  A row's sum waits in ta_sum (ta_done) for G2_WAIT
+  type ta_st_t is (TA_IDLE, TA_SUBW, TA_ADDW, TA_FIN);
+  signal ta_st     : ta_st_t := TA_IDLE;
+  signal ta_on     : std_logic := '0';
+  signal ta_acc, ta_sum : unsigned(31 downto 0) := (others => '0');
+  signal ta_first, ta_lst, ta_done : boolean := false;
   signal kq_a, kq_b : kq_w2_t := (others => (others => '0'));  -- d*dx, dmin*dx
   signal kq_s2     : kq_i2_t := (others => (others => '0'));
   signal kq_dmin16 : unsigned(15 downto 0) := (others => '0');
@@ -1386,9 +1395,8 @@ architecture shell of ssnail is
   signal tl_term   : unsigned(31 downto 0) := (others => '0');
   signal tl_blk    : unsigned(7 downto 0) := (others => '0');
   -- K-quants: the super-block's second term (dmin part), subtracted from
-  -- tl_term by the tail first (kq_min); tl_sub: done for this tl_term
+  -- tl_term by the tail first (kq_min)
   signal tl_term2  : unsigned(31 downto 0) := (others => '0');
-  signal tl_sub    : boolean := false;
   signal g_nbt     : unsigned(7 downto 0) := (others => '0');  -- tail terms per row
   -- second FP unit: each block's term; third: the next block's scale
   signal fpu2_start, fpu2_done : std_logic := '0';
@@ -1992,9 +2000,9 @@ begin
     variable sw_d : unsigned(31 downto 0);
     variable sa : unsigned(9 downto 0);
     variable rj : unsigned(8 downto 0);
-    variable sv_ld : boolean;
+    variable tready, tfin : boolean;
+    variable tacc : unsigned(31 downto 0);
     variable rom_a : integer range 0 to 767;
-    variable srd : unsigned(31 downto 0);
     variable nb, nm : integer range 0 to 3;
     variable sxf : unsigned(1 downto 0);
     variable sxe : integer range 0 to 255;
@@ -2012,7 +2020,6 @@ begin
       cs_r6 <= s = E_R6;
       cs_pf <= s = V_EL0 or s = V_EL or s = V_ELST or s = E_ACC or s = E_ACC2
                or s = E_R6;
-      cs_t3 <= s = G2_T3;
     end procedure;
   begin
     if rising_edge(clock162) then
@@ -2020,7 +2027,6 @@ begin
         and cs_pf = (cstate = V_EL0 or cstate = V_EL or cstate = V_ELST
                      or cstate = E_ACC or cstate = E_ACC2 or cstate = E_R6)
         report "SSNAIL: stale cs_el0 / cs_r6 / cs_pf" severity failure;
-      assert cs_t3 = (cstate = G2_T3) report "SSNAIL: stale cs_t3" severity failure;
       assert out_z = (hr_out = 0 and sd_out = 0) report "SSNAIL: stale out_z" severity failure;
       wf_arr := false;
       wf_pop := false;
@@ -2047,8 +2053,8 @@ begin
       rq_push_cnt := (others => '0');
       sr_inflight_inc := (others => '0');
       sr_inflight_dec := '0';
-      -- (G2_T3 frees the tail: from its registered decode, not cstate's)
-      if cs_t3 then tl_full_clr := '1'; else tl_full_clr := '0'; end if;
+      -- (set where the tail is taken: A_S_W, the tail accumulator)
+      tl_full_clr := '0';
 
       -- Command toggle synchronisers
       go_s1 <= go_tgl;       go_s2 <= go_s1;
@@ -2291,7 +2297,6 @@ begin
       end if;
 
       g_qlast <= gblk + 1 = g_nb;
-      tl_last <= tl_blk + 1 = g_nbt;
       mr_end  <= mr_r = mr_rows;
 
       -- GEMV quantise |x| maximum, a cycle behind the reads (G_QFILL)
@@ -4084,6 +4089,7 @@ begin
           sr_segst <= a0;
           sr_segs <= (others => '0');
           g2_ret <= G2_WAIT;
+          ta_on <= '1'; ta_st <= TA_IDLE; ta_done <= false;
           -- Setup a small serial multiplier.  Full 32-bit rows are needed
           -- for as_blocks; only low 20 bits were used for byte-span above.
           if kq_on = '1' then
@@ -4160,7 +4166,6 @@ begin
             kq_c1 <= '0'; kq_c2 <= '0'; kq_c3 <= '0'; kq_s1 <= (others => '0');
             kq_pre <= '0';
             kq_fs <= KF_IDLE; kq_fgo <= '0'; kq_fsb <= (others => '0');
-            tl_sub <= false;
             as_blocks <= g_mul_p32;
             if g_mul_p32 /= 0 and fl_on = '0' then as_any <= '1'; else as_any <= '0'; end if;
             if fl_on = '1' then fl_st <= FL_RUN; else fl_st <= FL_DONE; end if;
@@ -4181,48 +4186,16 @@ begin
           end if;
 
         when G2_WAIT =>
-          -- the stream reader may issue here (see below); the tail takes the
-          -- next finished block
+          -- the stream reader may issue here (see below); rows' sums come
+          -- from the tail accumulator
           assert g_end = (g_r = g_rows) report "SSNAIL: stale g_end" severity failure;
           if g_end then                               -- g_r = g_rows
+            ta_on <= '0';
             go(G2_END);
-          elsif tl_full = '1' and kq_min = '1' and kq_on = '1' and not tl_sub then
-            fpu_op <= FOP_ADD;                    -- K-quants: t = t1 - t2 first
-            fpu_a <= tl_term;
-            fpu_b <= (not tl_term2(31)) & tl_term2(30 downto 0);
-            fpu_start <= '1';
-            fpu_ret <= G2_KS;
-            go(C_FPU_WAIT);
-          elsif tl_full = '1' then
-            assert tl_b0 = (tl_blk = 0) report "SSNAIL: stale tl_b0" severity failure;
-            if tl_b0 then
-              g_accv <= tl_term;                    -- the first term as it is
-              go(G2_T3);
-            else
-              fpu_op <= FOP_ADD;                    -- acc = acc + term
-              fpu_a <= g_accv;
-              fpu_b <= tl_term;
-              fpu_start <= '1';
-              fpu_ret <= G2_T2;
-              go(C_FPU_WAIT);
-            end if;
-          end if;
-        when G2_T1 =>
-          go(G2_WAIT);
-        when G2_KS =>
-          tl_term <= fpu_r;
-          tl_sub <= true;
-          go(G2_WAIT);
-        when G2_T2 =>
-          g_accv <= fpu_r;
-          go(G2_T3);
-        when G2_T3 =>                         -- (tl_full_clr: cs_t3)
-          tl_sub <= false;
-          assert tl_last = (tl_blk + 1 = g_nbt) report "SSNAIL: stale tl_last" severity failure;
-          if tl_last then
-            go(G_OUT);                        -- row done: output it
-          else
-            go(G2_WAIT);
+          elsif ta_done then
+            g_accv <= ta_sum;
+            ta_done <= false;
+            go(G_OUT);                                -- row done: output it
           end if;
         when G2_END =>
           -- all rows out: let any trailing stream reads land, then stop
@@ -4530,6 +4503,7 @@ begin
           dec_addr <= at_ea;
           g_rows <= resize(at_pos1, 32);
           kq_on <= '0'; kq_kr <= '0'; iq_on <= '0'; xq_on <= '0';
+          ta_on <= '0';
           fl_on <= '1'; fl_ax <= at_vp; fl_bf <= '0';
           if at_fmt = 1 then fl_f32 <= '0'; else fl_f32 <= '1'; end if;
           fl_n <= resize(at_hd(8 downto 0), 13);
@@ -4575,7 +4549,6 @@ begin
           end if;
         when A_S_SC =>
           sw_we := true; sw_a := at_t(9 downto 0); sw_d := fpu_r;
-          if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
           at_sl <= fpu_r; at_slv <= true; at_s0 <= at_t = 0;
           at_t <= at_t + 1;
           go(A_S_T);
@@ -4621,8 +4594,10 @@ begin
           if at_tend then                           -- every w_t given
             go(A_SE);
           elsif fl_wv = '0' then
-            go(A_O_F1);
+            go(A_O_F0);
           end if;
+        when A_O_F0 =>                              -- (at_sv: sarr(at_t) by now)
+          go(A_O_F1);
         when A_O_F1 =>
           assert at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
@@ -4718,20 +4693,12 @@ begin
           at_inx  <= at_i + 2 = at_hd(8 downto 0);
         when others => null;
       end case;
-      -- sarr is read only at at_t + 1 (a second, constant-index read would
-      -- turn the LUT RAM into 32k flip-flops); sarr(0) comes from sarr0
-      sa := sx_icnt(9 downto 0);
-      sv_ld := false;
+      -- (sarr's read: see sarr_q)
       case cstate is
         when A_Q | A_S_T | A_E_R =>                    -- at_t <= 0
           at_tend <= at_pos1 = 0;
-          at_sv <= sarr0;
         when A_S_SC | A_O_F2 =>                        -- at_t <= at_t + 1
-          -- (A_S_SC writes sarr at at_t, not at at_t + 1)
-          assert sx_on = '0' report "SSNAIL: sarr read address clash" severity failure;
-          sa := at_t(9 downto 0) + 1;
           at_tend <= at_t + 1 = at_pos1;
-          sv_ld := true;
         when A_E_P =>                                  -- at_t <= at_t + 1 (no read)
           at_tend <= at_t + 1 = at_pos1;
         when others => null;
@@ -5069,6 +5036,7 @@ begin
             when 0 to 3 => fl_q(to_integer(fc_rtag(1 downto 0))) <= fc_r;
             when 4 => fl_s0 <= fc_r;
             when 5 => fl_s1 <= fc_r;
+            when 7 => null;                            -- (the tail accumulator's)
             when others => fl_res <= fc_r;
           end case;
         end if;
@@ -5740,9 +5708,85 @@ begin
         i2f_ok2 <= i2f_ok1;
         if i2f_ok2 = '1' then i2f_ok3 <= '1'; end if;
         -- finished terms go to the tail, or wait in th_* while it is busy
+        -- tail accumulator (see ta_on); cb_v is low unless set here
+        if ta_on = '1' then
+          tready := false;
+          tacc := ta_acc;
+          tfin := ta_done;                            -- (ta_sum taken)
+          case ta_st is
+            when TA_IDLE =>
+              tready := true;
+            when TA_SUBW =>                           -- t = t1 - t2 back
+              if fc_rv = '1' then
+                if ta_first then
+                  ta_acc <= fc_r;
+                  if ta_lst then
+                    if tfin then
+                      ta_st <= TA_FIN;
+                    else
+                      ta_sum <= fc_r; ta_done <= true; tfin := true;
+                      ta_st <= TA_IDLE;
+                    end if;
+                  else
+                    ta_st <= TA_IDLE;
+                  end if;
+                else
+                  cb_v <= '1'; cb_a <= ta_acc; cb_b <= fc_r; cb_tag <= to_unsigned(7, 7);
+                  ta_st <= TA_ADDW;
+                end if;
+              end if;
+            when TA_ADDW =>                           -- acc + t back
+              if fc_rv = '1' then
+                ta_acc <= fc_r;
+                tacc := fc_r;                         -- (the next term's, at once)
+                if ta_lst then
+                  if tfin then
+                    ta_st <= TA_FIN;
+                  else
+                    ta_sum <= fc_r; ta_done <= true; tfin := true;
+                    ta_st <= TA_IDLE; tready := true;
+                  end if;
+                else
+                  ta_st <= TA_IDLE; tready := true;
+                end if;
+              end if;
+            when TA_FIN =>                            -- a row's sum, waiting
+              if not ta_done then
+                ta_sum <= ta_acc; ta_done <= true;
+                ta_st <= TA_IDLE;
+              end if;
+          end case;
+          if tready and tl_full = '1' then
+            tl_full_clr := '1'; tl_full <= '0';        -- (a producer may refill it below)
+            assert tl_b0 = (tl_blk = 0) and tl_last = (tl_blk + 1 = g_nbt)
+              report "SSNAIL: stale tl_b0/tl_last" severity failure;
+            ta_first <= tl_b0; ta_lst <= tl_last;
+            if kq_min = '1' and kq_on = '1' then      -- K-quants: t1 - t2 first
+              cb_v <= '1'; cb_a <= tl_term;
+              cb_b <= (not tl_term2(31)) & tl_term2(30 downto 0);
+              cb_tag <= to_unsigned(7, 7);
+              ta_st <= TA_SUBW;
+            elsif tl_b0 then                          -- the first term as it is
+              ta_acc <= tl_term;
+              if tl_last then
+                if tfin then
+                  ta_st <= TA_FIN;
+                else
+                  ta_sum <= tl_term; ta_done <= true;
+                  ta_st <= TA_IDLE;
+                end if;
+              else
+                ta_st <= TA_IDLE;
+              end if;
+            else
+              cb_v <= '1'; cb_a <= tacc; cb_b <= tl_term; cb_tag <= to_unsigned(7, 7);
+              ta_st <= TA_ADDW;
+            end if;
+          end if;
+        end if;
         tl_free := tl_full = '0' or tl_full_clr = '1';
         if kq_fs = KF_OUT and tl_free then
-          tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb; tl_b0 <= kq_fsb = 0;
+          tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb; tl_b0 <= kq_fsb = 0; tl_last <= kq_fsb + 1 = g_nbt;
           if kq_fsb + 1 = kq_nsb then
             kq_fsb <= (others => '0');
           else
@@ -5753,18 +5797,18 @@ begin
         end if;
         -- (float lane: the row's sum, once the adder has it)
         if cb_st = CB_OUT and tl_free then
-          tl_full <= '1'; tl_term <= fl_res; tl_blk <= (others => '0'); tl_b0 <= true;
+          tl_full <= '1'; tl_term <= fl_res; tl_blk <= (others => '0'); tl_b0 <= true; tl_last <= g_nbt = 1;
           tl_free := false;
           cb_st <= CB_IDLE;
         end if;
         if th_v = '1' and tl_free then
-          tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk; tl_b0 <= th_blk = 0;
+          tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk; tl_b0 <= th_blk = 0; tl_last <= th_blk + 1 = g_nbt;
           th_v <= '0';
           tl_free := false;
         end if;
         if fpu2_done = '1' and kq_on = '0' then
           if tl_free then
-            tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk; tl_b0 <= tm_blk = 0;
+            tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk; tl_b0 <= tm_blk = 0; tl_last <= tm_blk + 1 = g_nbt;
           else
             th_v <= '1'; th_val <= fpu2_res; th_blk <= tm_blk;
           end if;
@@ -5871,10 +5915,15 @@ begin
 
       -- softmax engine (see sx_on).  sarr's one read address is at_t + 1
       -- in the states that read it ahead (never while sx_on), else sx_icnt
-      -- (sarr's one read)
-      srd := sarr(to_integer(sa));
-      if sv_ld then at_sv <= srd; end if;
-      sx_s <= srd;
+      -- (sarr's one read: a block RAM, then a register)
+      if sx_on = '1' then
+        sa := sx_icnt(9 downto 0);
+      else
+        sa := at_t(9 downto 0);
+      end if;
+      sarr_q <= sarr(to_integer(sa));
+      if sx_on = '0' then at_sv <= sarr_q; end if;
+      sx_s <= sarr_q;
       sx_fq <= sx_fifo(to_integer(at_t(3 downto 0)));
       kq_scj <= unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32));
       kq_mj <= resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32);
@@ -5970,7 +6019,6 @@ begin
         -- (a cycle later: no adder tag into sarr's write enable)
         if sx_ev = '1' then
           sw_we := true; sw_a := sx_wcnt(9 downto 0); sw_d := sx_e;
-          if sx_wcnt(9 downto 0) = 0 then sarr0 <= sx_e; end if;
           sx_fifo(to_integer(sx_wcnt(3 downto 0))) <= sx_e;
           sx_wcnt <= sx_wcnt + 1;
         end if;

@@ -14,7 +14,7 @@
 # Instance glob, array name: every signal with ram_style "distributed" in
 # ssnail.vhdl.  Add new ones here.
 set ram_checks {
-  *ssnail0 {bank0 bank1 bank2 bank3 ring_lo ring_hi csv outv sarr
+  *ssnail0 {bank0 bank1 bank2 bank3 ring_lo ring_hi csv outv
             qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb
             kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3}
 }
@@ -48,7 +48,7 @@ foreach {inst arrays} $ram_checks {
 # (coeff_word: the table ROM, read into it; a second read port could leave
 # it in LUTs)
 set bram_checks {
-  *ssnail0 {xf coeff_word}
+  *ssnail0 {xf coeff_word sarr}
 }
 foreach {inst arrays} $bram_checks {
   foreach a $arrays {
