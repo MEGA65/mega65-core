@@ -457,8 +457,8 @@ architecture shell of ssnail is
     RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE,
     A_PRM, A_PRM2, A_CHK, A_RS0, A_RS1, A_RS2, A_RS3, A_GRP, A_HEAD, A_Q, A_Q2,
     A_SPAN, A_SPAN2, A_STR0, A_STR, A_SE, A_S_T, A_S_W, A_S_SC,
-    A_E_T, A_E_1, A_E_2, A_E_3, A_E_R, A_E_R2, A_W_T, A_W_1,
-    A_O_F, A_O_F1, A_O_W, A_WR, A_WR2, A_HNEXT,
+    A_E_T, A_E_W, A_E_P, A_E_3, A_E_R,
+    A_O_F, A_O_F1, A_O_F2, A_O_W, A_WR, A_WR2, A_HNEXT,
     D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
     D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
@@ -1197,9 +1197,30 @@ architecture shell of ssnail is
   signal xq_j      : unsigned(5 downto 0) := (others => '0');
   signal xq_id     : unsigned(31 downto 0) := (others => '0');
   signal xq_blk    : unsigned(7 downto 0) := (others => '0');
-  signal xq_v1     : std_logic := '0';
-  signal xq_a      : unsigned(31 downto 0) := (others => '0');
-  signal xq_t1     : unsigned(4 downto 0) := (others => '0');
+  -- the float lane's multiplier when the x quantiser or the softmax
+  -- engine has it (xq_on, sx_on)
+  signal mx_v      : std_logic := '0';
+  signal mx_a, mx_b : unsigned(31 downto 0) := (others => '0');
+  signal mx_t      : unsigned(9 downto 0) := (others => '0');
+  -- ATTN's softmax engine (sx_on): e_t = EXP(s_t - m) for every t, the
+  -- table engine's arithmetic (T_START .. T_DONE) on the lane's multiplier
+  -- and the combine adder, an element every 8 cycles: (s - m), (+16), (*16),
+  -- the segment, c1 * x, c0 + that.  Each unit sees an element's operations
+  -- at distinct cycles mod 8 (asserted).  e_t goes to sarr and, for the
+  -- core's sequential sum on fpu0, to sx_fifo; at most 16 unsummed
+  signal sx_on     : std_logic := '0';
+  signal sx_ph     : unsigned(2 downto 0) := (others => '0');
+  signal sx_icnt, sx_wcnt : unsigned(15 downto 0) := (others => '0');
+  signal sx_nm, sx_s : unsigned(31 downto 0) := (others => '0');
+  type f32x8_t is array (0 to 7) of unsigned(31 downto 0);
+  signal sx_d, sx_c0 : f32x8_t := (others => (others => '0'));
+  signal sx_ti     : unsigned(7 downto 0) := (others => '0');
+  signal sx_v1, sx_v2, sx_v3 : std_logic := '0';
+  signal sx_t1, sx_t2, sx_t3 : unsigned(4 downto 0) := (others => '0');
+  signal sx_rw, sx_cq : unsigned(63 downto 0) := (others => '0');
+  type f32x16_t is array (0 to 15) of unsigned(31 downto 0);
+  signal sx_fifo   : f32x16_t := (others => (others => '0'));
+  attribute ram_style of sx_fifo : signal is "distributed";
   signal xq_pend   : unsigned(5 downto 0) := (others => '0');
   signal xq_busy   : boolean := false;
   signal xr_v1, xr_v2 : std_logic := '0';
@@ -1404,7 +1425,7 @@ architecture shell of ssnail is
   signal cb_cnt    : unsigned(4 downto 0) := (others => '0');
   signal fc_rv     : std_logic := '0';
   signal fc_r      : unsigned(31 downto 0) := (others => '0');
-  signal fc_rtag   : unsigned(2 downto 0) := (others => '0');
+  signal fc_rtag   : unsigned(6 downto 0) := (others => '0');
   signal fl_st     : fl_st_t := FL_DONE;
   signal fl_skip   : unsigned(1 downto 0) := "00";               -- words before the matrix
   signal fl_c      : unsigned(12 downto 0) := (others => '0');   -- column
@@ -1429,7 +1450,7 @@ architecture shell of ssnail is
   signal fm_r, fa_a, fa_b, fa_r, cb_a, cb_b : unsigned(31 downto 0) := (others => '0');
   signal fm_rtag   : unsigned(9 downto 0) := (others => '0');
   signal fa_tag, fa_rtag : unsigned(9 downto 0) := (others => '0');
-  signal cb_tag    : unsigned(2 downto 0) := (others => '0');
+  signal cb_tag    : unsigned(6 downto 0) := (others => '0');
   signal g_j, g_k  : unsigned(5 downto 0) := (others => '0');
   signal g_amax    : unsigned(30 downto 0) := (others => '0');
   signal g_d, g_id, g_scale, g_accv, g_val : unsigned(31 downto 0) := (others => '0');
@@ -1950,6 +1971,15 @@ begin
     variable xw_we : boolean;
     variable xw_a : unsigned(11 downto 0);
     variable xw_d : unsigned(31 downto 0);
+    -- sarr's one write port: A_S_SC or the softmax engine
+    variable sw_we : boolean;
+    variable sw_a : unsigned(9 downto 0);
+    variable sw_d : unsigned(31 downto 0);
+    variable sa : unsigned(9 downto 0);
+    variable nb, nm : integer range 0 to 3;
+    variable sxf : unsigned(1 downto 0);
+    variable sxe : integer range 0 to 255;
+    variable sxr : unsigned(31 downto 0);
     -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
     variable kw_we : std_logic_vector(0 to 3);
     variable kw_a : kw_a_t;
@@ -1978,6 +2008,7 @@ begin
       kw_we := "0000";
       lane_start := false; lane_take := false;
       xw_we := false; xw_a := (others => '0'); xw_d := (others => '0');
+      sw_we := false; sw_a := (others => '0'); sw_d := (others => '0');
       kq_fset <= '0';
       kw_a := (others => (others => '0'));
       kw_d := (others => (others => '0'));
@@ -4512,7 +4543,7 @@ begin
             fpu_ret <= A_S_SC; go(C_FPU_WAIT);
           end if;
         when A_S_SC =>
-          sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
+          sw_we := true; sw_a := at_t(9 downto 0); sw_d := fpu_r;
           if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
           assert fr_mlt = flt(at_m, fpu_r) report "SSNAIL: stale fr_mlt" severity failure;
           if at_t = 0 or fr_mlt then
@@ -4521,62 +4552,41 @@ begin
           at_t <= at_t + 1;
           go(A_S_T);
 
-        -- e_t = EXP(s_t - m); z = seq_sum(e)
+        -- e_t = EXP(s_t - m), by the softmax engine; z = seq_sum(e), here
         when A_E_T =>
+          sx_on <= '1';
+          sx_nm <= (not at_m(31)) & at_m(30 downto 0);
+          ve_first <= '1';
+          go(A_E_W);
+        when A_E_W =>
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
-          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
             fpu_ret <= A_E_R; go(C_FPU_WAIT);
-          else
-            fpu_op <= FOP_ADD; fpu_a <= at_sv;
-            fpu_b <= (not at_m(31)) & at_m(30 downto 0);
-            fpu_start <= '1'; fpu_ret <= A_E_1; go(C_FPU_WAIT);
+          elsif sx_wcnt /= at_t then
+            go(A_E_P);
           end if;
-        when A_E_1 =>
-          tx <= fpu_r; tab_id <= "10"; tab_ret <= A_E_2;
-          tx_below <= flt(fpu_r, EXPT_LO); tx_above <= not flt(fpu_r, EXPT_HI);
-          go(T_START);
-        when A_E_2 =>
-          sarr(to_integer(at_t(9 downto 0))) <= tval;
-          if at_t(9 downto 0) = 0 then sarr0 <= tval; end if;
+        when A_E_P =>
+          at_t <= at_t + 1;
           if ve_first = '1' then
-            at_acc <= tval; ve_first <= '0';
-            at_t <= at_t + 1;
-            go(A_E_T);
+            at_acc <= sx_fifo(to_integer(at_t(3 downto 0))); ve_first <= '0';
+            go(A_E_W);
           else
-            fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= tval; fpu_start <= '1';
-            fpu_ret <= A_E_3; go(C_FPU_WAIT);
+            fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= sx_fifo(to_integer(at_t(3 downto 0)));
+            fpu_start <= '1'; fpu_ret <= A_E_3; go(C_FPU_WAIT);
           end if;
         when A_E_3 =>
           at_acc <= fpu_r;
-          at_t <= at_t + 1;
-          go(A_E_T);
-        when A_E_R =>                               -- r = 1 / z; w_t = e_t * r
+          go(A_E_W);
+        when A_E_R =>                               -- r = 1 / z; then V
           at_r <= fpu_r;
+          sx_on <= '0';
           at_t <= (others => '0');
-          go(A_W_T);
-        when A_W_T =>
-          assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
-          assert at_tend or at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
-          if at_tend then                           -- at_t = at_pos + 1
-            at_t <= (others => '0');
-            at_vp <= '1';
-            go(A_STR0);                             -- stream V
-          else
-            fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
-            fpu_start <= '1'; fpu_ret <= A_W_1; go(C_FPU_WAIT);
-          end if;
-        when A_W_1 =>
-          sarr(to_integer(at_t(9 downto 0))) <= fpu_r;
-          if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
-          at_t <= at_t + 1;
-          go(A_W_T);
-        when A_E_R2 =>
-          go(A_W_T);
+          at_vp <= '1';
+          go(A_STR0);
 
-        -- out = out + w_t * v_t, sequentially over t, in the lane: w_t to
-        -- it a row ahead (fl_wq while fl_wv)
+        -- out = out + w_t * v_t, sequentially over t, in the lane: w_t =
+        -- e_t * r to it a row ahead (fl_wq while fl_wv)
         when A_O_F =>
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           if at_tend then                           -- every w_t given
@@ -4586,7 +4596,10 @@ begin
           end if;
         when A_O_F1 =>
           assert at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
-          fl_wq <= at_sv;
+          fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
+          fpu_start <= '1'; fpu_ret <= A_O_F2; go(C_FPU_WAIT);
+        when A_O_F2 =>
+          fl_wq <= fpu_r;
           fl_wv <= '1';
           at_t <= at_t + 1;
           go(A_O_F);
@@ -4678,14 +4691,19 @@ begin
       end case;
       -- sarr is read only at at_t + 1 (a second, constant-index read would
       -- turn the LUT RAM into 32k flip-flops); sarr(0) comes from sarr0
+      sa := sx_icnt(9 downto 0);
       case cstate is
-        when A_Q | A_S_T | A_E_R | A_W_T =>            -- at_t <= 0
+        when A_Q | A_S_T | A_E_R =>                    -- at_t <= 0
           at_tend <= at_pos1 = 0;
           at_sv <= sarr0;
-        when A_S_SC | A_E_2 | A_E_3 | A_W_1 | A_O_F1 => -- at_t <= at_t + 1
-          -- (these states write sarr at at_t, not at at_t + 1)
+        when A_S_SC | A_O_F2 =>                        -- at_t <= at_t + 1
+          -- (A_S_SC writes sarr at at_t, not at at_t + 1)
+          assert sx_on = '0' report "SSNAIL: sarr read address clash" severity failure;
+          sa := at_t(9 downto 0) + 1;
           at_tend <= at_t + 1 = at_pos1;
-          at_sv <= sarr(to_integer(at_t(9 downto 0) + 1));
+          at_sv <= sarr(to_integer(sa));
+        when A_E_P =>                                  -- at_t <= at_t + 1 (no read)
+          at_tend <= at_t + 1 = at_pos1;
         when others => null;
       end case;
 
@@ -5016,7 +5034,7 @@ begin
         elsif fa_rv = '1' then
           fl_p(to_integer(fa_rtag(3 downto 0))) <= fa_r;
         end if;
-        if fc_rv = '1' then
+        if fc_rv = '1' and sx_on = '0' then
           case to_integer(fc_rtag) is
             when 0 to 3 => fl_q(to_integer(fc_rtag(1 downto 0))) <= fc_r;
             when 4 => fl_s0 <= fc_r;
@@ -5050,7 +5068,7 @@ begin
             cb_v <= '1';
             cb_a <= fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '0'));
             cb_b <= fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '1'));
-            cb_tag <= '0' & cb_cnt(1 downto 0);
+            cb_tag <= "00000" & cb_cnt(1 downto 0);
             fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '0')) <= x"80000000";
             fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '1')) <= x"80000000";
             cb_cnt <= cb_cnt + 1;
@@ -5065,9 +5083,9 @@ begin
           when CB_Q =>
             cb_v <= '1';
             if cb_cnt(0) = '0' then
-              cb_a <= fl_q(0); cb_b <= fl_q(1); cb_tag <= to_unsigned(4, 3);
+              cb_a <= fl_q(0); cb_b <= fl_q(1); cb_tag <= to_unsigned(4, 7);
             else
-              cb_a <= fl_q(2); cb_b <= fl_q(3); cb_tag <= to_unsigned(5, 3);
+              cb_a <= fl_q(2); cb_b <= fl_q(3); cb_tag <= to_unsigned(5, 7);
               cb_st <= CB_W2;
             end if;
             cb_cnt <= cb_cnt + 1;
@@ -5077,7 +5095,7 @@ begin
             end if;
           when CB_S =>
             cb_v <= '1';
-            cb_a <= fl_s0; cb_b <= fl_s1; cb_tag <= to_unsigned(6, 3);
+            cb_a <= fl_s0; cb_b <= fl_s1; cb_tag <= to_unsigned(6, 7);
             cb_st <= CB_W3;
           when CB_W3 =>
             if fc_rv = '1' and fc_rtag = 6 then
@@ -5765,11 +5783,12 @@ begin
       -- reader's two, the header's)
       kw_we_q <= kw_we; kw_a_q <= kw_a; kw_d_q <= kw_d;
       -- x quantiser (see xq_on): issue, then roundf, then store
-      xq_v1 <= '0';
+      mx_v <= '0';
       if xq_iss = '1' then
-        xq_a <= xb(to_integer(xq_j(4 downto 0)));
-        xq_v1 <= '1';
-        xq_t1 <= xq_j(4 downto 0);
+        mx_a <= xb(to_integer(xq_j(4 downto 0)));
+        mx_b <= xq_id;
+        mx_v <= '1';
+        mx_t <= "00000" & xq_j(4 downto 0);
         xq_j <= xq_j + 1;
         if xq_j = 31 then
           xq_iss <= '0';
@@ -5818,9 +5837,97 @@ begin
       end if;
       xq_busy <= xq_iss = '1' or xq_pend > 1 or (xq_pend = 1 and xr_v2 = '0');
 
+      -- softmax engine (see sx_on).  sarr's one read address is at_t + 1
+      -- in the states that read it ahead (never while sx_on), else sx_icnt
+      sx_s <= sarr(to_integer(sa));
+      sx_v1 <= '0'; sx_v2 <= sx_v1; sx_v3 <= sx_v2;
+      sx_t2 <= sx_t1; sx_t3 <= sx_t2;
+      sx_rw <= coeff_rom(to_integer("10" & sx_ti));   -- (EXP: from 512)
+      sx_cq <= sx_rw;
+      if sx_on = '1' then
+        sx_ph <= sx_ph + 1;
+        nb := 0; nm := 0;
+        cb_v <= '0'; mx_v <= '0';                    -- (the lane's are idle)
+        -- s_t - m (the element read last cycle)
+        if sx_ph = 0 and sx_icnt /= at_pos1 and sx_icnt - at_t < 16 then
+          cb_v <= '1'; cb_a <= sx_s; cb_b <= sx_nm;
+          cb_tag <= "0100" & sx_icnt(2 downto 0);
+          sx_icnt <= sx_icnt + 1;
+          nb := nb + 1;
+        end if;
+        -- d: below EXPT_LO, e = 0; not below EXPT_HI, e = 1 (carried in the
+        -- tag); else d + 16
+        if fc_rv = '1' and fc_rtag(6 downto 5) = "01" then
+          sx_d(to_integer(fc_rtag(2 downto 0))) <= fc_r;
+          if flt(fc_r, EXPT_LO) then
+            sxf := "01";
+          elsif not flt(fc_r, EXPT_HI) then
+            sxf := "10";
+          else
+            sxf := "00";
+          end if;
+          cb_v <= '1'; cb_a <= fc_r; cb_b <= (not EXPT_LO(31)) & EXPT_LO(30 downto 0);
+          cb_tag <= "10" & sxf & fc_rtag(2 downto 0);
+          nb := nb + 1;
+        end if;
+        -- (d - lo) * k
+        if fc_rv = '1' and fc_rtag(6 downto 5) = "10" then
+          mx_v <= '1'; mx_a <= fc_r; mx_b <= EXPT_K;
+          mx_t <= "00001" & fc_rtag(4 downto 0);
+          nm := nm + 1;
+        end if;
+        -- the segment: floor of that (>= 0 unless d was below), at most
+        -- TAB_SEGMENTS - 1, as FOP_TRUNC and T_LOOK; then the ROM, registered
+        if fm_rv = '1' and fm_rtag(5) = '1' then
+          sxe := to_integer(fm_r(30 downto 23));
+          if fm_r(31) = '1' or sxe < 127 then
+            sx_ti <= (others => '0');
+          elsif sxe >= 135 then
+            sx_ti <= to_unsigned(TAB_SEGMENTS - 1, 8);
+          else
+            sx_ti <= resize(shift_right(unsigned('1' & fm_r(22 downto 16)), 134 - sxe), 8);
+          end if;
+          sx_v1 <= '1'; sx_t1 <= fm_rtag(4 downto 0);
+        end if;
+        -- c1 * x
+        if sx_v3 = '1' then
+          mx_v <= '1'; mx_a <= sx_cq(31 downto 0);
+          mx_b <= sx_d(to_integer(sx_t3(2 downto 0)));
+          sx_c0(to_integer(sx_t3(2 downto 0))) <= sx_cq(63 downto 32);
+          mx_t <= "00010" & sx_t3;
+          nm := nm + 1;
+        end if;
+        -- c0 + that
+        if fm_rv = '1' and fm_rtag(6) = '1' then
+          cb_v <= '1'; cb_a <= sx_c0(to_integer(fm_rtag(2 downto 0))); cb_b <= fm_r;
+          cb_tag <= "11" & fm_rtag(4 downto 0);
+          nb := nb + 1;
+        end if;
+        -- e_t, in order
+        if fc_rv = '1' and fc_rtag(6 downto 5) = "11" then
+          if fc_rtag(4 downto 3) = "01" then
+            sxr := (others => '0');
+          elsif fc_rtag(4 downto 3) = "10" then
+            sxr := x"3F800000";
+          else
+            sxr := fc_r;
+          end if;
+          sw_we := true; sw_a := sx_wcnt(9 downto 0); sw_d := sxr;
+          if sx_wcnt(9 downto 0) = 0 then sarr0 <= sxr; end if;
+          sx_fifo(to_integer(sx_wcnt(3 downto 0))) <= sxr;
+          sx_wcnt <= sx_wcnt + 1;
+        end if;
+        assert nb <= 1 and nm <= 1 report "SSNAIL: softmax engine unit clash nb=" & integer'image(nb) & " nm=" & integer'image(nm) & " ph=" & integer'image(to_integer(sx_ph)) & " fcrv=" & std_logic'image(fc_rv) & " tag=" & integer'image(to_integer(fc_rtag)) & " fmrv=" & std_logic'image(fm_rv) & " fmtag=" & integer'image(to_integer(fm_rtag)) & " v3=" & std_logic'image(sx_v3) severity failure;
+      else
+        sx_ph <= (others => '0');
+        sx_icnt <= (others => '0');
+        sx_wcnt <= (others => '0');
+      end if;
+
       -- xf: one write port (the x fill, ATTN's q) and one registered read
       -- (the float lane): a block RAM
       if xw_we then xf(to_integer(xw_a)) <= xw_d; end if;
+      if sw_we then sarr(to_integer(sw_a)) <= sw_d; end if;
       xf_q <= xf(to_integer(fl_xa));
       if kw_we_q(0) = '1' then kq_sb0(to_integer(kw_a_q(0))) <= kw_d_q(0); end if;
       if kw_we_q(1) = '1' then kq_sb1(to_integer(kw_a_q(1))) <= kw_d_q(1); end if;
@@ -5875,24 +5982,24 @@ begin
   -- the float lane's pipelined units; the adder takes a product (with its
   -- partial, or the adder's own result for it this cycle) or a combination
   fl_bm <= fl_b2 when fl_ax = '1' else xf_q;
-  -- (the x quantiser has the multiplier in the x phase)
-  fm_vin <= xq_v1 when xq_on = '1' else fl_v2;
-  fm_a <= xq_a when xq_on = '1' else fl_w2;
-  fm_b <= xq_id when xq_on = '1' else fl_bm;
-  fm_tag <= "00000" & xq_t1 when xq_on = '1' else fl_tg2;
+  -- (the x quantiser has the multiplier in the x phase, the softmax engine in ATTN's)
+  fm_vin <= mx_v when xq_on = '1' or sx_on = '1' else fl_v2;
+  fm_a <= mx_a when xq_on = '1' or sx_on = '1' else fl_w2;
+  fm_b <= mx_b when xq_on = '1' or sx_on = '1' else fl_bm;
+  fm_tag <= mx_t when xq_on = '1' or sx_on = '1' else fl_tg2;
   fmul_l : entity work.ssnail_fmul_p generic map (TAGW => 10)
     port map (clock => clock162, v => fm_vin, a => fm_a, b => fm_b, tag => fm_tag,
               rv => fm_rv, r => fm_r, rtag => fm_rtag);
   -- (output pass: out[d], read at the product's d; +0 for row 0)
   ov_ra <= fm_rtag(7 downto 0) when fl_ax = '1' else at_i(7 downto 0);
-  fa_v <= fm_rv and not xq_on;
+  fa_v <= fm_rv and not (xq_on or sx_on);
   fa_a <= x"00000000" when fl_ax = '1' and fm_rtag(9) = '1'
           else outv(to_integer(ov_ra)) when fl_ax = '1'
           else fa_r when fa_rv = '1' and fa_rtag = fm_rtag
           else fl_p(to_integer(fm_rtag(3 downto 0)));
   fa_b <= fm_r;
   fa_tag <= fm_rtag;
-  fadd_c : entity work.ssnail_fadd_p generic map (TAGW => 3)
+  fadd_c : entity work.ssnail_fadd_p generic map (TAGW => 7)
     port map (clock => clock162, v => cb_v, a => cb_a, b => cb_b, tag => cb_tag,
               rv => fc_rv, r => fc_r, rtag => fc_rtag);
   fadd_l : entity work.ssnail_fadd_p generic map (TAGW => 10)
@@ -5932,5 +6039,6 @@ begin
   -- core only reads bytes that have been written (see above).
   ring_rd_lo <= ring_lo(to_integer(ring_rd_idx));
   ring_rd_hi <= ring_hi(to_integer(ring_rd_idx));
+
 
 end shell;

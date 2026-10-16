@@ -56,6 +56,18 @@ v3 = (rng.standard_normal((5, 4))).astype(np.float16)
 q3 = (rng.standard_normal(2 * 4)).astype(F32)
 put(0xD00, k3.tobytes()); put(0xD40, v3.tobytes()); put(0xD80, q3.tobytes())
 put(0xDC0, struct.pack("<8I", B + 0xD00, B + 0xD40, 2, 1, 4, 1, 0, 0))
+# ATTN 4: F32 KV, 1 head, head dim 4 (rs = 1/2), positions 0..9: q = e0, so
+# s_t = k_t[0] / 2 exactly.  The softmax's edges: s - m below -16 (e = 0),
+# exactly -16, and a hair under the maximum (d + 16 rounds to 16: the last
+# table segment)
+s4 = np.array([3.0, -20.0, -13.0, np.nextafter(F32(3), F32(0)), 1.5, -40.0,
+               2.75, 0.25, -12.5, 2.0], dtype=F32)
+k4 = (rng.standard_normal((10, 4))).astype(F32)
+k4[:, 0] = s4 * 2
+v4 = (rng.standard_normal((10, 4))).astype(F32)
+q4 = np.array([1, 0, 0, 0], dtype=F32)
+put(0xE00, k4.tobytes()); put(0xEA0, v4.tobytes()); put(0xF40, q4.tobytes())
+put(0xF60, struct.pack("<8I", B + 0xE00, B + 0xEA0, 1, 1, 4, 0, 0, 0))
 assert not any(mem[0x1000:]), "test data must stay below $1000 (the bench loads only that)"
 
 A = Asm()
@@ -69,6 +81,8 @@ A(I.LI, 5, z=3)
 A(I.ATTN, 5, x=B + 0xC80, y=B + 0xC00, z=B + 0x1400)
 A(I.LI, 5, z=4)
 A(I.ATTN, 5, x=B + 0xDC0, y=B + 0xD80, z=B + 0x1500)
+A(I.LI, 5, z=9)
+A(I.ATTN, 5, x=B + 0xF60, y=B + 0xF40, z=B + 0x1600)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200
