@@ -271,9 +271,9 @@ begin
     t_go := now;
     poke(3, x"01");
     wait_done("perf program", 0, HALT_PC);
-    report "PERF: two 48 x 256 GEMVs took " & integer'image((now - t_go) / 1 ns) & " ns (limit "
+    report "PERF: " & PERF_WHAT & " took " & integer'image((now - t_go) / 1 ns) & " ns (limit "
       & integer'image(PERF_LIMIT_NS) & " ns)";
-    check((now - t_go) / 1 ns <= PERF_LIMIT_NS, "GEMV speed within limit");
+    check((now - t_go) / 1 ns <= PERF_LIMIT_NS, "speed within limit");
     bad := 0;
     for i in EXPECT'range loop
       if hmem(16#3000# + i) /= EXPECT(i) then

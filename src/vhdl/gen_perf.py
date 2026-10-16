@@ -18,6 +18,8 @@ import ssnail_isa as I
 from ssnail_convert import Asm
 import ssnail_sim as S
 PERF_LIMIT_NS = 185000   # GEMV v2 measured 147 us of simulated time; +25%
+PERF_WHAT = "two 48 x 256 GEMVs"
+PKG = "perf"
 
 B = I.HYPERRAM_BASE
 rng = np.random.default_rng(31337)
@@ -64,12 +66,13 @@ def words(b):
     return [b[i] | (b[i + 1] << 8) for i in range(0, len(b), 2)]
 
 
-with open("perf_pkg.vhdl", "w") as f:
+with open(f"{PKG}_pkg.vhdl", "w") as f:
     f.write("library ieee;\nuse ieee.std_logic_1164.all;\nuse ieee.numeric_std.all;\n"
-            "package perf_pkg is\n")
+            f"package {PKG}_pkg is\n")
     f.write("  type wordsp_t is array (natural range <>) of unsigned(15 downto 0);\n")
     f.write(f"  constant HALT_PC : natural := {m.pc};\n")
     f.write(f"  constant PERF_LIMIT_NS : natural := {PERF_LIMIT_NS};\n")
+    f.write(f"  constant PERF_WHAT : string := \"{PERF_WHAT}\";\n")
     for name, data in (("INIT", bytes(mem[:0x6000])), ("EXPECT", expect)):
         w = words(data)
         f.write(f"  constant {name} : wordsp_t(0 to {len(w) - 1}) := (\n")
