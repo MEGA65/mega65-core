@@ -37,6 +37,7 @@ Testbenches:
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
     tb_ssnail_perf_f16  float GEMV (F16) results and speed
     tb_ssnail_perf_attn ATTN results and speed
+    tb_ssnail_perf_sd   Q4_0 and Q4_K GEMVs from SDRAM: results and speed
     tb_hyperram_lump  the real HyperRAM controller with the Cypress device
                       model: CPU path and LUMP reads/writes in slow mode
                       ($60, the R6 today), fast reads ($62), fast command
@@ -146,6 +147,10 @@ BENCHES = {
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "perf_f16_pkg.vhdl",
                         "tb_ssnail_perf_f16.vhdl"],
                        "tb_ssnail_perf_f16", [[]], r"TB_SSNAIL_PERF_F16: ALL PASSED"),
+    "tb_ssnail_perf_sd": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                        "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "perf_sd_pkg.vhdl",
+                        "tb_ssnail_perf_sd.vhdl"],
+                       "tb_ssnail_perf_sd", [[]], r"TB_SSNAIL_PERF_SD: ALL PASSED"),
     "tb_ssnail_perf_attn": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "perf_attn_pkg.vhdl",
                         "tb_ssnail_perf_attn.vhdl"],
@@ -195,6 +200,7 @@ GENERATED = {
     "step7_pkg.vhdl": ("gen_step7.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),
     "perf_f16_pkg.vhdl": ("gen_perf_f16.py", True),
+    "perf_sd_pkg.vhdl": ("gen_perf_sd.py", True),
     "perf_attn_pkg.vhdl": ("gen_perf_attn.py", True),
     "fpu_vectors.txt": ("gen_fpu_vectors.py", False),
     "fpipe_vectors.txt": ("gen_fpipe_vectors.py", False),

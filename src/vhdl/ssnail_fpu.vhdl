@@ -57,7 +57,7 @@ end ssnail_fpu;
 
 architecture multicycle of ssnail_fpu is
 
-  type state_t is (S_IDLE, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
+  type state_t is (S_IDLE, S_I2FN, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
                    S_DN1, S_DN2, S_ROUND, S_PACK, S_INT1,
                    S_DNORM, S_DNORM2, S_DIV, S_SQNORM, S_SQNORM1, S_SQNORM2, S_SQRT);
   signal state : state_t := S_IDLE;
@@ -435,16 +435,12 @@ begin
                 state <= S_INT1;
               end if;
             else                                  -- FOP_I2F
+              -- (|a| a cycle later, in S_I2FN: no carry chain on rm here)
               rs <= a(31);
               zero_sign <= '0';
-              if a(31) = '1' then
-                mag := (not a) + 1;
-              else
-                mag := a;
-              end if;
-              rm <= x"0000" & mag;
+              rm <= x"0000" & a;
               re <= 127 + 46;
-              state <= S_LZC;
+              state <= S_I2FN;
             end if;
           end if;
 
@@ -621,6 +617,12 @@ begin
           if sum = 0 then
             -- exact zero: keep the both-zero sign, else +0
             rs <= zero_sign;
+          end if;
+          state <= S_LZC;
+
+        when S_I2FN =>                            -- I2F: |a| (rs holds its sign)
+          if rs = '1' then
+            rm <= x"0000" & ((not rm(31 downto 0)) + 1);
           end if;
           state <= S_LZC;
 

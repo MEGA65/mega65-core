@@ -1112,6 +1112,24 @@ architecture shell of ssnail is
   signal mc_drain : std_logic := '0'; -- last MAC issued; pipeline not empty
   signal mc_c      : unsigned(3 downto 0) := (others => '0');
   signal mc_blk    : unsigned(7 downto 0) := (others => '0');    -- block within the row
+  -- Lane overlap: a block (or K pass) starts as soon as stage 0 is free,
+  -- not once the last one is through stages 1-3 and taken by the tail.
+  -- The start side has its own block / pass / half (mc_sblk, kq_sp,
+  -- kq_srh); finished sums (and K's first 16, and the legacy scale) go
+  -- through a 2-entry queue to the tail, which keeps mc_blk, kq_p, kq_rh.
+  -- mc_nq: blocks started and not yet taken (at most 2: the queue's size)
+  signal mc_sblk   : unsigned(7 downto 0) := (others => '0');
+  signal kq_sp     : unsigned(2 downto 0) := (others => '0');
+  signal kq_srh    : std_logic := '0';
+  signal mc_nq     : unsigned(1 downto 0) := "00";
+  type q2_t is array (0 to 1) of signed(31 downto 0);
+  type u2_t is array (0 to 1) of unsigned(31 downto 0);
+  signal mq_sum, mq_lo : q2_t := (others => (others => '0'));
+  signal mq_sc     : u2_t := (others => (others => '0'));
+  signal mq_v, mq_scok : std_logic_vector(0 to 1) := "00";
+  signal mq_w, mq_r, mq_ss, fpu3_slot : std_logic := '0';      -- (write, read, scale slots)
+  signal fpu3_busy : std_logic := '0';
+  signal mc_first0, mc_first1, mc_first2, mc_first3 : std_logic := '0';
   -- qx read address (mc_blk & mc_c) for each bank, kept as separate
   -- registers so each sits by its bank (one copy fanned out to all four
   -- banks' LUT RAM was a 3 ns route)
@@ -1903,6 +1921,8 @@ begin
     variable ic2 : unsigned(1 downto 0);
     variable ic3 : unsigned(2 downto 0);
     variable row_end : boolean;
+    variable lane_start, lane_take : boolean;
+    variable acc32, qs32 : signed(31 downto 0);
     variable xw_we : boolean;
     variable xw_a : unsigned(11 downto 0);
     variable xw_d : unsigned(31 downto 0);
@@ -1932,6 +1952,7 @@ begin
       wf_arr := false;
       wf_pop := false;
       kw_we := "0000";
+      lane_start := false; lane_take := false;
       xw_we := false; xw_a := (others => '0'); xw_d := (others => '0');
       kq_fset <= '0';
       kw_a := (others => (others => '0'));
@@ -2481,6 +2502,12 @@ begin
               d_fmt <= instr(15 downto 8);
               g_addz <= instr(16);
               g_f16 <= instr(17);
+              -- (its working registers whatever the checks find: only a
+              -- GEMV that goes ahead reads them)
+              g_rows <= n1;
+              g_nb <= n0(12 downto 5);
+              gblk <= (others => '0');
+              ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
               if not (fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8))
                       or instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 30) then
                 err <= ERR_FORMAT;
@@ -2498,11 +2525,6 @@ begin
               elsif n1_z then
                 dec_next <= C_NEXT;
               else
-                g_rows <= n1;
-                g_nb <= n0(12 downto 5);
-                gblk <= (others => '0');
-
-                ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
                 ld_valid <= '0';
                 dec_next <= G_SET;
               end if;
@@ -4087,6 +4109,9 @@ begin
             fl_rr <= g_rows; fl_rl <= g_rows = 1;
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
             mc_scale_ok <= '0';
+            mc_sblk <= (others => '0'); kq_sp <= (others => '0'); kq_srh <= '0';
+            mc_nq <= "00"; mq_v <= "00"; mq_scok <= "00";
+            mq_w <= '0'; mq_r <= '0'; mq_ss <= '0'; fpu3_busy <= '0';
             tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
             tl_full <= '0';
             g_r <= (others => '0');
@@ -5174,7 +5199,7 @@ begin
         -- last pass must find the per-super-block FP sequence free
         -- (the words are read a cycle ahead of the lanes: kq_pre reads the
         -- first, then mc_busy)
-        kq_rdn <= kq_rd(d_fmt, to_integer(kq_p));
+        kq_rdn <= kq_rd(d_fmt, to_integer(kq_sp));
         kq_pchg <= '0';
         kq_pre <= '0';
         if kq_pre = '1' then
@@ -5189,21 +5214,23 @@ begin
           end if;
           kq_ha(5 downto 0) <= kq_ha(5 downto 0) + 1;
         end if;
-        if kq_kr = '1' and kq_full(to_integer(unsigned'("" & kq_rh))) = '1'
-          and kq_hok(to_integer(unsigned'("" & kq_rh))) = '1' and kq_pchg = '0' and kq_pre = '0'
-          and mc_busy = '0' and mc_done = '0' and mc_drain = '0' then
+        if kq_kr = '1' and kq_full(to_integer(unsigned'("" & kq_srh))) = '1'
+          and kq_hok(to_integer(unsigned'("" & kq_srh))) = '1' and kq_pchg = '0' and kq_pre = '0'
+          and mc_busy = '0' and mc_nq /= 2 then
           kq_rd_q <= kq_rdn;
-          kq_la <= kq_rh & kq_rdn.la;
+          kq_la <= kq_srh & kq_rdn.la;
           kq_lb <= kq_rdn.la;
           kq_lc <= "00";
-          kq_ha <= kq_rh & kq_rdn.ha;
+          kq_ha <= kq_srh & kq_rdn.ha;
           kq_pre <= '1';
-          mc_drain <= '0';
           mc_c <= (others => '0');
           for k in 0 to 3 loop
-            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+            mc_xa(k) <= mc_sblk(6 downto 0) & "000";
           end loop;
-          mc_isum <= (others => '0');
+          lane_start := true;
+          kq_sp <= kq_sp + 1;
+          kq_pchg <= '1';                               -- (kq_rdn follows kq_sp)
+          if kq_sp = 7 then kq_srh <= not kq_srh; end if;
         end if;
 
         -- IQ front end (see iq_st).  A pass starts once the last one is in
@@ -5332,34 +5359,43 @@ begin
           end if;
         end if;
         -- ... and its passes go to the lanes when they are free
-        if iq_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' and iq_on = '1' then
+        if iq_full = '1' and mc_busy = '0' and mc_nq /= 2 and iq_on = '1' then
           mc_wb <= iq_buf;
           iq_full <= '0';
           mc_busy <= '1';
-          mc_drain <= '0';
           mc_c <= (others => '0');
           for k in 0 to 3 loop
-            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+            mc_xa(k) <= mc_sblk(6 downto 0) & "000";
           end loop;
-          mc_isum <= (others => '0');
+          lane_start := true;
         end if;
 
         -- Swap: an unpacked block goes to the lanes when they are free
-        if ub_full = '1' and mc_busy = '0' and mc_done = '0' and mc_drain = '0' and kq_on = '0' then
+        if ub_full = '1' and mc_busy = '0' and mc_nq /= 2 and fpu3_busy = '0' and kq_on = '0' then
           mc_wb <= ub_w;
           -- scale = d_w * d_x on the third FP unit, while the lanes work
+          -- (into the block's queue entry)
           fpu3_a <= ub_d;
           ub_full <= '0';
           mc_busy <= '1';
-          mc_drain <= '0';
           mc_c <= (others => '0');
           for k in 0 to 3 loop
-            mc_xa(k) <= mc_blk(6 downto 0) & "000";
+            mc_xa(k) <= mc_sblk(6 downto 0) & "000";
           end loop;
-          mc_isum <= (others => '0');
-          mc_scale_ok <= '0';
-          fpu3_b <= dxs(to_integer(mc_blk));
+          fpu3_b <= dxs(to_integer(mc_sblk));
           fpu3_start <= '1';
+          fpu3_busy <= '1';
+          fpu3_slot <= mq_ss;
+          mq_ss <= not mq_ss;
+          lane_start := true;
+        end if;
+        -- a start: the next block for the start side
+        if lane_start then
+          if mc_sblk + 1 = g_nb then
+            mc_sblk <= (others => '0');
+          else
+            mc_sblk <= mc_sblk + 1;
+          end if;
         end if;
 
         -- Stage 0: read/select operands.  Do not put the four multiplies
@@ -5367,6 +5403,10 @@ begin
         mc_v0 <= mc_busy;
         mc_last0 <= '0';
         mc_mid0 <= '0';
+        mc_first0 <= '0';
+        if mc_busy = '1' and mc_c = 0 then
+          mc_first0 <= '1';                            -- (stage 3 starts a new sum)
+        end if;
         if mc_busy = '1' and mc_c = 3 then
           mc_mid0 <= '1';
         end if;
@@ -5400,7 +5440,7 @@ begin
           end if;
           mc_c <= mc_c + 1;
           for k in 0 to 3 loop
-            assert mc_xa(k) = mc_blk(6 downto 0) & mc_c(2 downto 0)
+            assert mc_xa(k)(2 downto 0) = mc_c(2 downto 0)
               report "SSNAIL: stale mc_xa" severity failure;
             mc_xa(k)(2 downto 0) <= mc_xa(k)(2 downto 0) + 1;
           end loop;
@@ -5412,6 +5452,7 @@ begin
         mc_v1 <= mc_v0;
         mc_last1 <= mc_last0;
         mc_mid1 <= mc_mid0;
+        mc_first1 <= mc_first0;
         if mc_v0 = '1' then
           for k in 0 to 3 loop
             mc_p_q(k) <= mc_w_q(k) * mc_x_q(k);
@@ -5420,6 +5461,7 @@ begin
         mc_v2 <= mc_v1;
         mc_last2 <= mc_last1;
         mc_mid2 <= mc_mid1;
+        mc_first2 <= mc_first1;
         if mc_v1 = '1' then
           mc_pair_q(0) <= resize(mc_p_q(0), 18) + resize(mc_p_q(1), 18);
           mc_pair_q(1) <= resize(mc_p_q(2), 18) + resize(mc_p_q(3), 18);
@@ -5427,25 +5469,38 @@ begin
         mc_v3 <= mc_v2;
         mc_last3 <= mc_last2;
         mc_mid3 <= mc_mid2;
+        mc_first3 <= mc_first2;
         if mc_v2 = '1' then
           mc_sum_q <= resize(mc_pair_q(0), 19) + resize(mc_pair_q(1), 19);
         end if;
-        -- Accumulator must drain before the F32 conversion sees mc_done.
+        -- (a block's first group starts its sum; its last one goes to the
+        -- queue, with K's first 16)
+        if mc_first3 = '1' then
+          acc32 := (others => '0');
+        else
+          acc32 := mc_isum;
+        end if;
         if mc_v3 = '1' and kq_on = '1' and mc_mid3 = '1' then
-          kq_lo <= mc_isum + resize(mc_sum_q, 32);     -- (K: the first 16)
+          kq_lo <= acc32 + resize(mc_sum_q, 32);       -- (K: the first 16)
           mc_isum <= (others => '0');
         elsif mc_v3 = '1' then
-          mc_isum <= mc_isum + resize(mc_sum_q, 32);
+          mc_isum <= acc32 + resize(mc_sum_q, 32);
           if mc_last3 = '1' then
+            mq_sum(to_integer(unsigned'("" & mq_w))) <= acc32 + resize(mc_sum_q, 32);
+            mq_lo(to_integer(unsigned'("" & mq_w))) <= kq_lo;
+            mq_v(to_integer(unsigned'("" & mq_w))) <= '1';
+            mq_w <= not mq_w;
             mc_drain <= '0';
-            mc_done <= '1';
           end if;
         end if;
-        -- the second FP unit: scale for the block in the lanes, then that
-        -- block's term once its dot product is done
+        -- the second FP unit: scale for each block started (legacy), into
+        -- its queue entry
         if fpu3_done = '1' then
-          mc_scale <= fpu3_res;
-          mc_scale_ok <= '1';
+          fpu3_busy <= '0';
+          if kq_on = '0' then
+            mq_sc(to_integer(unsigned'("" & fpu3_slot))) <= fpu3_res;
+            mq_scok(to_integer(unsigned'("" & fpu3_slot))) <= '1';
+          end if;
         end if;
         if tl_full_clr = '1' then
           tl_full <= '0';
@@ -5460,24 +5515,23 @@ begin
         -- the FP sequence is free: it takes S1 two edges later)
         kq_c1 <= '0';
         kq_c1last <= '0';
-        if kq_on = '1' and mc_done = '1'
+        if kq_on = '1' and mq_v(to_integer(unsigned'("" & mq_r))) = '1'
           and (kq_p /= 7 or (kq_fs = KF_IDLE and kq_c1last = '0' and kq_c2last = '0'
                              and kq_c3last = '0')) then
-          kq_tlo <= kq_lo;
-          kq_thi <= mc_isum;
+          kq_tlo <= mq_lo(to_integer(unsigned'("" & mq_r)));
+          kq_thi <= mq_sum(to_integer(unsigned'("" & mq_r)));
+          lane_take := true;
           kq_sclo <= kq_sc(to_integer(unsigned'("" & kq_rh)))(to_integer(kq_p & '0'));
           kq_schi <= kq_sc(to_integer(unsigned'("" & kq_rh)))(to_integer(kq_p & '1'));
           kq_c1 <= '1';
           kq_c1h <= kq_rh;
           if kq_p = 7 then kq_c1last <= '1'; end if;
-          mc_done <= '0';
           if mc_blk + 1 = g_nb then
             mc_blk <= (others => '0');
           else
             mc_blk <= mc_blk + 1;
           end if;
           kq_p <= kq_p + 1;
-          kq_pchg <= '1';
           if kq_p = 7 then                              -- the half is used up
             kq_full(to_integer(unsigned'("" & kq_rh))) <= '0';
             kq_hok(to_integer(unsigned'("" & kq_rh))) <= '0';
@@ -5577,25 +5631,37 @@ begin
             end if;
           when others => null;                          -- (KF_OUT: below)
         end case;
-        if mc_done = '1' and mc_scale_ok = '1' and i2f_busy = '0' and kq_on = '0' then
-          i2f_neg_q  <= mc_isum(31);
-          if mc_isum = 0 then i2f_zero_q <= '1'; else i2f_zero_q <= '0'; end if;
-          if mc_isum(31) = '1' then
-            i2f_abs_q <= unsigned(-mc_isum(23 downto 0));
+        if mq_v(to_integer(unsigned'("" & mq_r))) = '1' and mq_scok(to_integer(unsigned'("" & mq_r))) = '1'
+          and i2f_busy = '0' and kq_on = '0' then
+          qs32 := mq_sum(to_integer(unsigned'("" & mq_r)));
+          i2f_neg_q  <= qs32(31);
+          if qs32 = 0 then i2f_zero_q <= '1'; else i2f_zero_q <= '0'; end if;
+          if qs32(31) = '1' then
+            i2f_abs_q <= unsigned(-qs32(23 downto 0));
           else
-            i2f_abs_q <= unsigned(mc_isum(23 downto 0));
+            i2f_abs_q <= unsigned(qs32(23 downto 0));
           end if;
-          i2f_scale <= mc_scale;
+          i2f_scale <= mq_sc(to_integer(unsigned'("" & mq_r)));
           i2f_blk <= mc_blk;
           i2f_busy <= '1';
           i2f_ok1 <= '1';
-          mc_done <= '0';
-          mc_scale_ok <= '0';
+          mq_scok(to_integer(unsigned'("" & mq_r))) <= '0';
+          lane_take := true;
           if mc_blk + 1 = g_nb then
             mc_blk <= (others => '0');
           else
             mc_blk <= mc_blk + 1;
           end if;
+        end if;
+        -- (the queue entry taken, by the K tail or the F32 conversion)
+        if lane_take then
+          mq_v(to_integer(unsigned'("" & mq_r))) <= '0';
+          mq_r <= not mq_r;
+        end if;
+        if lane_start and not lane_take then
+          mc_nq <= mc_nq + 1;
+        elsif lane_take and not lane_start then
+          mc_nq <= mc_nq - 1;
         end if;
         -- Stage 2: position of the leading one
         i2f_p := 0;
