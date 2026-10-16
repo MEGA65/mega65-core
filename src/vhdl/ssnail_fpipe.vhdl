@@ -27,12 +27,15 @@ package body ssnail_fpipe_pkg is
                    g, st : std_logic) return unsigned is
     variable r : unsigned(33 downto 0);
   begin
+    -- (an exponent of 255 or more is an infinity; below, rounding up from
+    -- the largest finite value carries into exactly $7F800000 by itself,
+    -- so the test is on e alone, beside the addition, not after it)
+    if e >= 255 then
+      return s & "111" & x"F800000";
+    end if;
     r := shift_left(to_unsigned(e - 1, 34), 23) + resize(m, 34);
     if g = '1' and (st = '1' or m(0) = '1') then
       r := r + 1;
-    end if;
-    if r >= x"7F800000" then
-      r := resize(x"7F800000", 34);
     end if;
     return s & r(30 downto 0);
   end function;
