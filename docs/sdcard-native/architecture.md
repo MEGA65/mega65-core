@@ -34,9 +34,19 @@ Vivado or tried on hardware).  The cache and the FAT32 engine are plans.
 - Every Vivado project with `iomapper` lists the two new sources, as does the
   Makefile's simulation list.
 - Checked by GHDL elaboration of the whole r6 top level (with the CPU,
-  VIC-IV, sound and the like stubbed out).  Still to do: a Vivado build, and
-  checking the pins against the schematic (in particular that `sdReset` is
-  DAT3, as the XDC says, and not a power switch).
+  VIC-IV, sound and the like stubbed out).  Still to do: a Vivado build.
+- Pins checked against the TE0765 rev 06 schematic (pages 9, 10 and 20):
+
+  | Slot | Socket | CLK | CMD | DAT0 | DAT1 | DAT2 | DAT3 | CD | WP |
+  |---|---|---|---|---|---|---|---|---|---|
+  | 0 (`sd*`)  | full-size SD (J15, "SD2") | B17 | B16 | B18 | C18 | C19 | B15 | D17 | C17 |
+  | 1 (`sd2*`) | micro-SD (J2, "SD1")      | G2  | J2  | H2  | H3  | J1  | K2  | K1  | -   |
+
+  Both sockets get VDD straight from 3.3 V (no power switch: `sdReset` really
+  is DAT3).  CMD, DAT0-3, CD and WP have 12.1 kOhm pull-ups to 3.3 V, with no
+  series resistors or level shifters, so the internal pull-ups in the XDC are
+  only a belt-and-braces measure.  The card-detect lines (D17, K1; not
+  constrained yet) are what the cache will use to invalidate on a card change.
 - To try at higher clocks: SLEW FAST on the SD pins.
 
 ### 1.1 Low-level controller (`sdcard_native`)
