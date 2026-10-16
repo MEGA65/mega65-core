@@ -58,6 +58,12 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --       $D680 <- $23  re-initialise the card in SPI mode only
 --       $D680 <- $24  re-initialise the card, staying at default speed
 --     (these use $D681/$D682, so set the sector number again afterwards)
+--   * sector cache (sd_cache.vhdl, MEGA65/mega65-core#953; generic
+--     sd_cache_lines, 0 = none):
+--       $D680 <- $0B  read a sector of file system metadata (otherwise as $02)
+--       $D680 <- $25 / $26 / $27  cache on / off / empty
+--       $D680 <- $28  hit and miss counts (16 bits each) into $D681-$D684
+--       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
 --   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,
 --     3 SDHC/SDXC, 4 transfer open and waiting, 5 multi-sector read open,
 --     6 multi-sector write open, 7 low-level error
@@ -101,7 +107,8 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
 """, """  signal sector_buffer_mapped : std_logic := '0';
 
   -- the native SD controller
-  type nat_kind_t is (K_SINGLE, K_FIRST, K_NEXT, K_LAST, K_PROBE, K_ACCEPT, K_NORMAL, K_STOP);
+  type nat_kind_t is (K_SINGLE, K_FIRST, K_NEXT, K_LAST, K_PROBE, K_ACCEPT, K_NORMAL, K_STOP,
+                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY);
   signal nat_kind        : nat_kind_t := K_SINGLE;
   signal nat_cmd_valid   : std_logic := '0';
   signal nat_cmd_ready   : std_logic;
@@ -138,10 +145,115 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal nat_init_wait   : std_logic := '0';
   signal nat_open_rd     : std_logic := '0';     -- a multi-sector read is open
   signal nat_open_wr     : std_logic := '0';     -- a multi-sector write is open
+  signal nat_meta        : std_logic := '0';     -- the read is file system metadata ($0B)
+
+  -- between the sector cache and the native controller
+  signal ds_cmd_valid   : std_logic;
+  signal ds_cmd_ready   : std_logic;
+  signal ds_cmd_code    : unsigned(3 downto 0);
+  signal ds_cmd_addr    : unsigned(31 downto 0);
+  signal ds_cmd_count   : unsigned(15 downto 0);
+  signal ds_cmd_arg     : unsigned(15 downto 0);
+  signal ds_card_ready  : std_logic;
+  signal ds_busy        : std_logic;
+  signal ds_waiting     : std_logic;
+  signal ds_error       : std_logic;
+  signal ds_err_code    : unsigned(7 downto 0);
+  signal ds_native      : std_logic;
+  signal ds_hs          : std_logic;
+  signal ds_sdhc        : std_logic;
+  signal ds_setting     : unsigned(15 downto 0);
+  signal ds_probe_pass  : unsigned(7 downto 0);
+  signal ds_probe_fail  : unsigned(7 downto 0);
+  signal ds_blocks_done : unsigned(15 downto 0);
+  signal ds_rd_valid    : std_logic;
+  signal ds_rd_data     : unsigned(7 downto 0);
+  signal ds_rd_offset   : unsigned(8 downto 0);
+  signal ds_rd_block    : unsigned(15 downto 0);
+  signal ds_rd_good     : std_logic;
+  signal ds_rd_bad      : std_logic;
+  signal ds_wr_fetch    : std_logic;
+  signal ds_wr_offset   : unsigned(8 downto 0);
+  signal ds_wr_block    : unsigned(15 downto 0);
+  signal ds_wr_data     : unsigned(7 downto 0);
+  signal cache_on       : std_logic;
+  signal cache_hits     : unsigned(15 downto 0);
+  signal cache_misses   : unsigned(15 downto 0);
 """)
 
 # --- the controller instance ------------------------------------------------
-cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", """  sd0: entity work.sdcard_native
+cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", """  -- the sector cache (MEGA65/mega65-core#953): between the commands of this
+  -- controller and the native SD controller, with the same interface on
+  -- both sides (sd_cache_lines = 0: only wires)
+  cache0: entity work.sd_cache
+    generic map (
+      G_LINES  => sd_cache_lines,
+      G_WR_LAT => 2
+      )
+    port map (
+      clock         => clock,
+      u_cmd_valid   => nat_cmd_valid,
+      u_cmd_ready   => nat_cmd_ready,
+      u_cmd_code    => nat_cmd_code,
+      u_cmd_addr    => nat_cmd_addr,
+      u_cmd_count   => nat_cmd_count,
+      u_cmd_arg     => nat_cmd_arg,
+      u_card_ready  => nat_card_ready,
+      u_busy        => nat_busy,
+      u_waiting     => nat_waiting,
+      u_error       => nat_error,
+      u_err_code    => nat_err_code,
+      u_native_mode => nat_native,
+      u_high_speed  => nat_hs,
+      u_sdhc        => nat_sdhc,
+      u_clk_setting => nat_setting,
+      u_probe_pass  => nat_probe_pass,
+      u_probe_fail  => nat_probe_fail,
+      u_blocks_done => nat_blocks_done,
+      u_rd_valid    => nat_rd_valid,
+      u_rd_data     => nat_rd_data,
+      u_rd_offset   => nat_rd_offset,
+      u_rd_block    => nat_rd_block,
+      u_rd_good     => nat_rd_good,
+      u_rd_bad      => nat_rd_bad,
+      u_wr_fetch    => nat_wr_fetch,
+      u_wr_offset   => nat_wr_offset,
+      u_wr_block    => nat_wr_block,
+      u_wr_data     => nat_wr_data,
+      d_cmd_valid   => ds_cmd_valid,
+      d_cmd_ready   => ds_cmd_ready,
+      d_cmd_code    => ds_cmd_code,
+      d_cmd_addr    => ds_cmd_addr,
+      d_cmd_count   => ds_cmd_count,
+      d_cmd_arg     => ds_cmd_arg,
+      d_card_ready  => ds_card_ready,
+      d_busy        => ds_busy,
+      d_waiting     => ds_waiting,
+      d_error       => ds_error,
+      d_err_code    => ds_err_code,
+      d_native_mode => ds_native,
+      d_high_speed  => ds_hs,
+      d_sdhc        => ds_sdhc,
+      d_clk_setting => ds_setting,
+      d_probe_pass  => ds_probe_pass,
+      d_probe_fail  => ds_probe_fail,
+      d_blocks_done => ds_blocks_done,
+      d_rd_valid    => ds_rd_valid,
+      d_rd_data     => ds_rd_data,
+      d_rd_offset   => ds_rd_offset,
+      d_rd_block    => ds_rd_block,
+      d_rd_good     => ds_rd_good,
+      d_rd_bad      => ds_rd_bad,
+      d_wr_fetch    => ds_wr_fetch,
+      d_wr_offset   => ds_wr_offset,
+      d_wr_block    => ds_wr_block,
+      d_wr_data     => ds_wr_data,
+      cache_on      => cache_on,
+      cache_hits    => cache_hits,
+      cache_misses  => cache_misses
+      );
+
+  sd0: entity work.sdcard_native
     generic map (
       G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
       G_WR_LAT => 2
@@ -149,34 +261,34 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
     port map (
       clock162    => clock162,
       cpuclock    => clock,
-      cmd_valid   => nat_cmd_valid,
-      cmd_ready   => nat_cmd_ready,
-      cmd_code    => nat_cmd_code,
-      cmd_addr    => nat_cmd_addr,
-      cmd_count   => nat_cmd_count,
-      cmd_arg     => nat_cmd_arg,
-      card_ready  => nat_card_ready,
-      busy        => nat_busy,
-      waiting     => nat_waiting,
-      error       => nat_error,
-      err_code    => nat_err_code,
-      native_mode => nat_native,
-      high_speed  => nat_hs,
-      sdhc        => nat_sdhc,
-      clk_setting => nat_setting,
-      probe_pass  => nat_probe_pass,
-      probe_fail  => nat_probe_fail,
-      blocks_done => nat_blocks_done,
-      rd_valid    => nat_rd_valid,
-      rd_data     => nat_rd_data,
-      rd_offset   => nat_rd_offset,
-      rd_block    => nat_rd_block,
-      rd_good     => nat_rd_good,
-      rd_bad      => nat_rd_bad,
-      wr_fetch    => nat_wr_fetch,
-      wr_offset   => nat_wr_offset,
-      wr_block    => nat_wr_block,
-      wr_data     => nat_wr_data,
+      cmd_valid   => ds_cmd_valid,
+      cmd_ready   => ds_cmd_ready,
+      cmd_code    => ds_cmd_code,
+      cmd_addr    => ds_cmd_addr,
+      cmd_count   => ds_cmd_count,
+      cmd_arg     => ds_cmd_arg,
+      card_ready  => ds_card_ready,
+      busy        => ds_busy,
+      waiting     => ds_waiting,
+      error       => ds_error,
+      err_code    => ds_err_code,
+      native_mode => ds_native,
+      high_speed  => ds_hs,
+      sdhc        => ds_sdhc,
+      clk_setting => ds_setting,
+      probe_pass  => ds_probe_pass,
+      probe_fail  => ds_probe_fail,
+      blocks_done => ds_blocks_done,
+      rd_valid    => ds_rd_valid,
+      rd_data     => ds_rd_data,
+      rd_offset   => ds_rd_offset,
+      rd_block    => ds_rd_block,
+      rd_good     => ds_rd_good,
+      rd_bad      => ds_rd_bad,
+      wr_fetch    => ds_wr_fetch,
+      wr_offset   => ds_wr_offset,
+      wr_block    => ds_wr_block,
+      wr_data     => ds_wr_data,
       sd_clk      => sd_clk,
       sd_cmd_o    => sd_cmd_o,
       sd_cmd_oe   => sd_cmd_oe,
@@ -314,8 +426,9 @@ cut("""                when x"00" =>
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
 
-                when x"02" | x"07" | x"08" | x"09" =>
-                  -- Read sector ($02), multi-sector read first / next / last
+                when x"02" | x"07" | x"08" | x"09" | x"0B" =>
+                  -- Read sector ($02), multi-sector read first / next / last,
+                  -- read file system metadata ($0B: as $02, for the cache)
                   sd_write_multi <= '0';
                   sd_write_multi_first <= '0';
                   sd_write_multi_last <= '0';
@@ -329,6 +442,11 @@ cut("""                when x"00" =>
                       when x"09" => nat_kind <= K_LAST;
                       when others => nat_kind <= K_SINGLE;
                     end case;
+                    if fastio_wdata = x"0B" then
+                      nat_meta <= '1';
+                    else
+                      nat_meta <= '0';
+                    end if;
                     sd_state <= ReadSector;
                     sdio_busy <= '1';
                     sdio_error <= '0';
@@ -384,6 +502,30 @@ cut("""                when x"00" =>
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   end if;
+
+                when x"25" | x"26" | x"27" | x"29" =>
+                  -- Sector cache: on ($25), off ($26), empty ($27),
+                  -- replacement policy ($29: $D681 bit 0 = 0 random, 1 LRU)
+                  if sdio_busy='1' then
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else
+                    case fastio_wdata is
+                      when x"25" => nat_kind <= K_CACHE_ON;
+                      when x"26" => nat_kind <= K_CACHE_OFF;
+                      when x"27" => nat_kind <= K_CACHE_FLUSH;
+                      when others => nat_kind <= K_CACHE_POLICY;
+                    end case;
+                    sd_state <= NativeCommand;
+                    sdio_busy <= '1';
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                  end if;
+
+                when x"28" =>
+                  -- Sector cache statistics into $D681-$D684: hits (16 bits),
+                  -- then misses (16 bits)
+                  sd_sector <= cache_misses & cache_hits;
 
                 when x"20" | x"21" | x"22" =>
                   -- Bus speed: probe ($20) or use ($21) the setting in
@@ -451,6 +593,7 @@ cut("""        when ReadSector =>
             elsif nat_busy='0' then
               nat_cmd_code <= x"2";                   -- C_READ
               nat_cmd_addr <= sd_sector;
+              nat_cmd_arg  <= nat_meta & "000000000000000";
               if nat_kind = K_FIRST then
                 nat_cmd_count <= x"0000";             -- open-ended
                 nat_open_rd   <= '1';
@@ -605,6 +748,18 @@ rep("""        when QspiBusyArm =>""", """        when NativeCommand =>
               case nat_kind is
                 when K_PROBE => nat_cmd_code <= x"6";
                 when K_ACCEPT => nat_cmd_code <= x"7";
+                when K_CACHE_OFF =>
+                  nat_cmd_code <= x"8";
+                  nat_cmd_arg  <= x"0000";
+                when K_CACHE_ON =>
+                  nat_cmd_code <= x"8";
+                  nat_cmd_arg  <= x"0001";
+                when K_CACHE_FLUSH =>
+                  nat_cmd_code <= x"8";
+                  nat_cmd_arg  <= x"0002";
+                when K_CACHE_POLICY =>
+                  nat_cmd_code <= x"8";
+                  nat_cmd_arg  <= "00000000000" & sd_sector(0) & "0011";
                 when others =>
                   nat_cmd_code <= x"7";
                   nat_cmd_arg  <= (others => '0');
@@ -641,7 +796,9 @@ rep("""    target : mega65_target_t;
     );""", """    target : mega65_target_t;
     cpu_frequency : integer;
     -- false only for simulation: behavioural ODDR / IDDR in sdcard_native
-    sd_xilinx_io : boolean := true
+    sd_xilinx_io : boolean := true;
+    -- sector cache: 4 KB lines (one RAMB36 each), 0 = no cache
+    sd_cache_lines : natural := 16
     );""")
 rep("""      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
 """, """      G_XILINX => sd_xilinx_io,

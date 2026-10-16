@@ -217,6 +217,7 @@ begin
 
     variable v : unsigned(7 downto 0);
     variable t0 : time;
+    variable h0, h1 : natural;
 
   begin
     wait for 1 us;
@@ -340,6 +341,36 @@ begin
     poke(16#D3680#, 16#02#);
     wait_ready(5 ms);
     check_buffer(51, false, "read back at normal speed");
+
+    -- sector cache: sector 51 was just read, so a metadata read of it ($0B)
+    -- is a hit; the counters come back in $D681-$D684 ($28)
+    poke(16#D3680#, 16#28#);
+    peek(16#D3681#, v);
+    h0 := to_integer(v);
+    peek(16#D3682#, v);
+    h0 := h0 + 256 * to_integer(v);
+    set_sector(51);
+    t0 := now;
+    poke(16#D3680#, 16#0B#);
+    wait_ready(5 ms);
+    report "  metadata read of a cached sector: " & time'image(now - t0);
+    check_buffer(51, false, "metadata read ($0B) of sector 51");
+    poke(16#D3680#, 16#28#);
+    peek(16#D3681#, v);
+    h1 := to_integer(v);
+    peek(16#D3682#, v);
+    h1 := h1 + 256 * to_integer(v);
+    report "  cache hits " & integer'image(h0) & " -> " & integer'image(h1);
+    check(h1 = h0 + 1, "  ... it was a cache hit ($28)");
+    -- cache off: still right (from the card)
+    poke(16#D3680#, 16#26#);
+    wait_ready(1 ms);
+    set_sector(51);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    check_buffer(51, false, "read with the cache off ($26)");
+    poke(16#D3680#, 16#25#);
+    wait_ready(1 ms);
 
     if fails = 0 then
       report "ALL TESTS PASSED";

@@ -386,6 +386,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/sdcardio_native.vhdl \
 			$(VHDLSRCDIR)/sdcard_native.vhdl \
+			$(VHDLSRCDIR)/sd_cache.vhdl \
 			$(VHDLSRCDIR)/iec_serial.vhdl \
 			$(AUDIOVHDL) \
 			$(KBDVHDL)

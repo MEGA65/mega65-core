@@ -4,7 +4,9 @@ Issues: SD controller MEGA65/mega65-core#890, cache #953, hardware FAT32 #766.
 
 Status: the low-level controller and the upper-controller fork pass
 simulation, and are plumbed into the mega65r6 target (not yet built in
-Vivado or tried on hardware).  The cache and the FAT32 engine are plans.
+Vivado or tried on hardware).  The data cache (steps 1 and 2 of §4) is
+written and simulated, on branch `953-sd-cache`.  Read-ahead, the meta cache
+and the FAT32 engine are plans.
 
 ## 1. Where things stand
 
@@ -98,6 +100,57 @@ The fork keeps the existing `$D680` interface and adds:
   parameters.  This is the agreed convention for every new command below.
 
 ## 2. Sector cache
+
+### 2.0 As built (steps 1 and 2)
+
+`src/vhdl/sd_cache.vhdl`.  It turned out simplest to give the cache **the
+host interface of `sdcard_native` on both sides** (command mailbox, status,
+read stream, write fetch), so it sits transparently between them:
+`sdcardio_native` talks to it exactly as it talked to the controller, and
+with `G_LINES = 0` it is only wires.  `sdcardio_native` has a generic
+`sd_cache_lines` (default 16 = 64 KB).
+
+- A single-sector `C_READ` is looked up (parallel tag compare).
+  - **Hit:** the sector streams out of the cache BRAM.
+  - **Miss:** the cache reads from the requested sector to the end of the
+    line as an open-ended transfer.  It passes the first sector up as it
+    arrives, then grants the remaining blocks one ahead of the data, so the
+    card isn't paused between blocks.
+  - **A sector still on its way in:** the read waits for it.
+  - **Any other command** first ends the fill with C_STOP after the blocks
+    already granted.
+- Everything else passes straight through: explicit multi-sector reads,
+  writes, probe, accept, init.
+  - Writes update cached sectors as the bytes are fetched.
+  - A failed write empties the cache, and so does init (which also covers a
+    slot change).
+- New controller command `C_CACHE` (8): on, off (which also empties the
+  cache), empty, and replacement policy (random by LFSR, or LRU by age
+  stamps).
+- Hit and miss counters.
+- Unused lines are always chosen first.
+
+`sdcardio_native` commands for it:
+
+| Command | Meaning |
+|---|---|
+| `$0B` | Metadata read (sets bit 15 of the read's arg, for the future meta cache) |
+| `$25` / `$26` / `$27` | Cache on / off / empty |
+| `$28` | Hits and misses (16 bits each) into `$D681-$D684` |
+| `$29` | Replacement policy: `$D681` bit 0 = 0 random, 1 LRU |
+
+**Tests:** `tb_sd_cache` uses 4 lines and a slow card, about 50 µs access
+latency.
+- A hit takes 12.8 µs against 77 µs for a miss.
+- It also covers: a whole line from one card read, with a CRC retry inside
+  the background fill; a sector still on its way in; re-filling the earlier
+  sectors of a line; a multi-sector read during a fill; write-through; cache
+  off; LRU eviction order; random replacement; init emptying the cache.
+- `tb_sdcardio_native` passes with the cache in.
+
+**What it showed:** a program reading sequentially right behind a miss waits
+about 26 µs per sector at 40.5 MHz, because the fill only runs at card speed.
+Read-ahead into the next line (§2.3) is what removes that.
 
 ### 2.1 Placement: one entity, one client
 
@@ -224,8 +277,8 @@ Proposed codes, all taking parameters or returning values via `$D681-$D684`:
 | `$26` | Cache off (behaves as the pass-through) |
 | `$27` | Invalidate all |
 | `$28` | Latch hit/miss counters into `$D681-$D684` for reading |
-| `$29` | Data cache replacement: `$D681` = 0 random, 1 LRU |
-| `$2A` | Meta cache replacement: `$D681` = 0 random, 1 LRU |
+| `$29` | Data cache replacement: `$D681` bit 0 = 0 random, 1 LRU (built) |
+| `$2A` | Meta cache replacement: `$D681` bit 0 = 0 random, 1 LRU (planned) |
 
 - **Verify mode, for testing on hardware:** re-read every hit from the card
   and compare, counting mismatches.
