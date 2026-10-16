@@ -1074,6 +1074,16 @@ begin
       rf_din <= kind & v;
     end procedure;
 
+    -- the data receiver is stopped: if a block was half way through, tell the
+    -- host side (its byte offsets start again with the next block)
+    procedure cut_block is
+    begin
+      if d_act = '1' and d_discard = '0' and d_small = '0' then
+        rpush("11", x"00");
+      end if;
+      d_act <= '0';
+    end procedure;
+
     function card_addr(a : unsigned(31 downto 0); k : unsigned(15 downto 0);
                        h : std_logic) return std_logic_vector is
       variable b : unsigned(31 downto 0);
@@ -1597,7 +1607,7 @@ begin
           run     <= '0';
           stop_en <= '0';
           d_arm   <= '0';
-          d_act   <= '0';
+          cut_block;
           d_small <= '0';
           if op_verify = '1' then
             -- the test read at the end of the init
@@ -1990,7 +2000,7 @@ begin
         when N_RD_RESP =>
           run <= '1';
           if c_ok = '0' or r1_bad(r_sr) then
-            d_act <= '0';
+            cut_block;
             failed(ERR_CMD);
           else
             st <= N_RD_BLOCK;
@@ -2481,7 +2491,7 @@ begin
           run     <= '1';
           stop_en <= '0';
           e_wait  <= '0';
-          d_act   <= '0';
+          cut_block;
           if op_multi = '1' then
             do_cmd(12, x"00000000", R_R1B, P_RD_END2);
           elsif op_verify = '1' and sp_ok = '1' then
@@ -2673,7 +2683,7 @@ begin
         op_closed <= '1';
         ready     <= '0';
         c_act     <= '0';
-        d_act     <= '0';
+        cut_block;
         d_arm     <= '0';
         d_small   <= '0';
         stop_en   <= '0';
