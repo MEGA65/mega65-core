@@ -238,7 +238,7 @@ begin
   process (clock) is
     variable an, bn, ai, bi : boolean;
     variable ex, ey : integer range 0 to 255;
-    variable yy : unsigned(26 downto 0);
+    variable yy, ylo : unsigned(26 downto 0);
     variable lz : integer range 0 to 27;
     variable st : std_logic;
   begin
@@ -291,8 +291,12 @@ begin
         yy := (others => '0');
         if my2 /= 0 then yy(0) := '1'; end if;
       else
-        yy := shift_right(my2 & "000", d2);
-        if shift_left(yy, d2) /= (my2 & "000") then yy(0) := '1'; end if;
+        -- (sticky: any of the bits shifted out, by a mask beside the shift)
+        ylo := my2 & "000";
+        yy := shift_right(ylo, d2);
+        for i in 0 to 26 loop
+          if i < d2 and ylo(i) = '1' then yy(0) := '1'; end if;
+        end loop;
       end if;
       y3 <= yy;
 

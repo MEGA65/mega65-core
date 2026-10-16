@@ -601,6 +601,10 @@ architecture shell of ssnail is
   attribute ram_style of csv, outv : signal is "distributed";
   signal rope_j    : unsigned(8 downto 0) := (others => '0');
   signal rope_hd   : unsigned(8 downto 0) := (others => '0');
+  -- csv(rope_j), csv(rope_j + 1), registered (no RAM read into fpu_b);
+  -- rope_jn: rope_j's next value, which E_R6 takes, and reads there
+  signal rope_jn   : unsigned(8 downto 0) := (others => '0');
+  signal rope_c, rope_s : unsigned(31 downto 0) := (others => '0');
   signal rp_a, rp_b, rp0, x1v : unsigned(31 downto 0) := (others => '0');
   signal cs_i      : unsigned(8 downto 0) := (others => '0');
   -- ARGMAX
@@ -1021,7 +1025,10 @@ architecture shell of ssnail is
   -- mr_r = mr_rows (likewise); at_i + 1 = at_hd (set by state, as at_iend);
   -- and tests of an FPU result, made as fpu_r is loaded from it
   signal g_qlast, tl_last, mr_end, at_inx : boolean := false;
-  signal fr_neg, fr_big, fr_z, fr_mlt : boolean := false;
+  signal fr_neg, fr_big, fr_z : boolean := false;
+  -- ATTN scores: the last one (at_sl), for at_m in A_S_T; at_s0: it was s_0
+  signal at_sl     : unsigned(31 downto 0) := (others => '0');
+  signal at_slv, at_s0 : boolean := false;
   -- G_QFILL's element, folded into g_amax the cycle after it is read
   signal qf_v   : unsigned(30 downto 0) := (others => '0');
   signal qf_vld : boolean := false;
@@ -1083,6 +1090,7 @@ architecture shell of ssnail is
   -- cycle the main FSM may issue (its ISSUE states follow their DEC ones)
   signal fsm_iss_q : boolean := false;
   signal sr_inflight : unsigned(8 downto 0) := (others => '0');   -- words requested, not arrived
+  signal sr_iz     : boolean := true;    -- sr_inflight = 0
   -- read routing tags: 1 = stream FIFO, 0 = the usual capture path
   type rq_tag_t is array (0 to 3) of std_logic;
   type rq_cnt_t is array (0 to 3) of unsigned(7 downto 0);
@@ -1217,9 +1225,12 @@ architecture shell of ssnail is
   signal sx_ti     : unsigned(7 downto 0) := (others => '0');
   signal sx_v1, sx_v2, sx_v3 : std_logic := '0';
   signal sx_t1, sx_t2, sx_t3 : unsigned(4 downto 0) := (others => '0');
-  signal sx_rw, sx_cq : unsigned(63 downto 0) := (others => '0');
   type f32x16_t is array (0 to 15) of unsigned(31 downto 0);
   signal sx_fifo   : f32x16_t := (others => (others => '0'));
+  signal sx_fq     : unsigned(31 downto 0) := (others => '0');  -- sx_fifo(at_t)
+  signal sx_ev     : std_logic := '0';                         -- sx_e: e_t
+  signal sx_e      : unsigned(31 downto 0) := (others => '0');
+  signal sx_can    : boolean := false;   -- an element may start (at sx_ph 0)
   attribute ram_style of sx_fifo : signal is "distributed";
   signal xq_pend   : unsigned(5 downto 0) := (others => '0');
   signal xq_busy   : boolean := false;
@@ -1260,6 +1271,10 @@ architecture shell of ssnail is
   type kq_i2_t is array (0 to 1) of signed(31 downto 0);
   signal kq_sc     : kq_sc2_t := (others => (others => (others => '0')));
   signal kq_m      : kq_m2_t := (others => (others => (others => '0')));
+  -- kq_sc(0) and kq_m(0) at d_j's group, registered, as F32 operands
+  signal kq_scj, kq_mj : unsigned(31 downto 0) := (others => '0');
+  -- tl_blk = 0, set with it
+  signal tl_b0     : boolean := false;
   signal kq_a, kq_b : kq_w2_t := (others => (others => '0'));  -- d*dx, dmin*dx
   signal kq_s2     : kq_i2_t := (others => (others => '0'));
   signal kq_dmin16 : unsigned(15 downto 0) := (others => '0');
@@ -1942,7 +1957,7 @@ begin
     variable rq_push : boolean;
     variable rq_push_tag : std_logic;
     variable rq_push_cnt : unsigned(7 downto 0);
-    variable sr_inflight_inc : unsigned(8 downto 0);
+    variable sr_inflight_inc, nsi : unsigned(8 downto 0);
     variable sr_inflight_dec, tl_full_clr : std_logic;
     variable tl_free : boolean;
     variable fv : unsigned(31 downto 0);
@@ -1976,6 +1991,10 @@ begin
     variable sw_a : unsigned(9 downto 0);
     variable sw_d : unsigned(31 downto 0);
     variable sa : unsigned(9 downto 0);
+    variable rj : unsigned(8 downto 0);
+    variable sv_ld : boolean;
+    variable rom_a : integer range 0 to 767;
+    variable srd : unsigned(31 downto 0);
     variable nb, nm : integer range 0 to 3;
     variable sxf : unsigned(1 downto 0);
     variable sxe : integer range 0 to 255;
@@ -2009,6 +2028,7 @@ begin
       lane_start := false; lane_take := false;
       xw_we := false; xw_a := (others => '0'); xw_d := (others => '0');
       sw_we := false; sw_a := (others => '0'); sw_d := (others => '0');
+      rom_a := 512 + to_integer(sx_ti);
       kq_fset <= '0';
       kw_a := (others => (others => '0'));
       kw_d := (others => (others => '0'));
@@ -2911,7 +2931,6 @@ begin
             fr_neg <= fpu_res(31) = '1';
             fr_big <= fpu_res > TAB_SEGMENTS - 1;
             fr_z   <= fpu_res(30 downto 0) = 0;
-            fr_mlt <= flt(at_m, fpu_res);
             go(fpu_ret);
           end if;
 
@@ -3149,7 +3168,8 @@ begin
               when K_ROPE =>
                 -- pair (x0, x1) = elements i, i+1: x0 c - x1 s, x0 s + x1 c
                 x1v <= pre_x1;
-                fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= csv(to_integer(rope_j));
+                assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
+                fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= rope_c;
                 fpu_start <= '1'; fpu_ret <= E_R1; go(C_FPU_WAIT);
               when K_COPY | K_SUM =>
                 fpu_r <= xv;
@@ -3333,7 +3353,7 @@ begin
           elsif tab_id /= "00" then
             ti := ti + 512;
           end if;
-          coeff_word <= coeff_rom(ti);
+          rom_a := ti;                    -- (read below)
           go(T_ROM2);
 
         when T_ROM2 =>
@@ -3609,7 +3629,8 @@ begin
           kq_ga32 <= fpu_r;
           if kq_min = '1' then
             fpu_op <= FOP_I2F;
-            fpu_a <= resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32);
+            assert kq_mj = resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32) report "SSNAIL: stale kq_mj" severity failure;
+            fpu_a <= kq_mj;
             fpu_start <= '1';
             fpu_ret <= D_KB1;
             go(C_FPU_WAIT);
@@ -3669,7 +3690,8 @@ begin
                 kdm32 <= fpu_r;                        -- (from D_KDM)
               end if;
               fpu_op <= FOP_I2F;                       -- F32(sc) of the group
-              fpu_a <= unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32));
+              assert kq_scj = unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32)) report "SSNAIL: stale kq_scj" severity failure;
+              fpu_a <= kq_scj;
               fpu_start <= '1';
               fpu_ret <= D_KA1;
               go(C_FPU_WAIT);
@@ -4123,7 +4145,6 @@ begin
             g2 <= '1';
             wf_w <= (others => '0'); wf_r <= (others => '0');
             wf_z <= true; wf_o <= false;
-            sr_inflight <= (others => '0');
             rq_w <= (others => '0'); rq_r <= (others => '0');
             -- (as_flags depends on a block length only through >= 4)
             as_rem <= g_bl;
@@ -4173,7 +4194,8 @@ begin
             fpu_ret <= G2_KS;
             go(C_FPU_WAIT);
           elsif tl_full = '1' then
-            if tl_blk = 0 then
+            assert tl_b0 = (tl_blk = 0) report "SSNAIL: stale tl_b0" severity failure;
+            if tl_b0 then
               g_accv <= tl_term;                    -- the first term as it is
               go(G2_T3);
             else
@@ -4204,7 +4226,8 @@ begin
           end if;
         when G2_END =>
           -- all rows out: let any trailing stream reads land, then stop
-          if rq_w = rq_r and sr_inflight = 0 and out_z then
+          assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
+          if rq_w = rq_r and sr_iz and out_z then
             g2 <= '0';
             go(C_NEXT);
           end if;
@@ -4337,18 +4360,21 @@ begin
 
         when E_R1 =>                                -- a = x0 c; b = x1 s
           rp_a <= fpu_r;
-          fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= csv(to_integer(rope_j) + 1);
+          assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
+          fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_s;
           fpu_start <= '1'; fpu_ret <= E_R2; go(C_FPU_WAIT);
         when E_R2 =>                                -- r0 = a - b
           fpu_op <= FOP_ADD; fpu_a <= rp_a; fpu_b <= (not fpu_r(31)) & fpu_r(30 downto 0);
           fpu_start <= '1'; fpu_ret <= E_R3; go(C_FPU_WAIT);
         when E_R3 =>                                -- x0 s
           rp0 <= fpu_r;
-          fpu_op <= FOP_MUL; fpu_a <= ex; fpu_b <= csv(to_integer(rope_j) + 1);
+          assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
+          fpu_op <= FOP_MUL; fpu_a <= ex; fpu_b <= rope_s;
           fpu_start <= '1'; fpu_ret <= E_R4; go(C_FPU_WAIT);
         when E_R4 =>                                -- x1 c
           rp_b <= fpu_r;
-          fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= csv(to_integer(rope_j));
+          assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
+          fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_c;
           fpu_start <= '1'; fpu_ret <= E_R5; go(C_FPU_WAIT);
         when E_R5 =>                                -- r1 = x0 s + x1 c
           fpu_op <= FOP_ADD; fpu_a <= rp_b; fpu_b <= fpu_r;
@@ -4357,11 +4383,9 @@ begin
           v_i <= v_i + 2;
           pf_go := true;
           pf_x := vix + 8; pf_y := viy + 8; pf_b := vib + 8; pf_i := v_i + 2;
-          if rope_j + 2 = rope_hd then
-            rope_j <= (others => '0');
-          else
-            rope_j <= rope_j + 2;
-          end if;
+          assert rope_jn = rope_j + 2 or (rope_j + 2 = rope_hd and rope_jn = 0)
+            report "SSNAIL: stale rope_jn" severity failure;
+          rope_j <= rope_jn;
           go(V_EL);
 
         when AM_DONE =>
@@ -4511,11 +4535,13 @@ begin
           fl_n <= resize(at_hd(8 downto 0), 13);
           fl_short <= at_hd(8 downto 0) < 12;
           fl_wv <= '0';
+          at_slv <= false;
           if at_vp = '1' then g2_ret <= A_O_F; else g2_ret <= A_S_T; end if;
           go(G2_D1);
         -- the stream's last reads in and the lane done: stop the pipeline
         when A_SE =>
-          if rq_w = rq_r and sr_inflight = 0 and out_z and fl_st = FL_DONE then
+          assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
+          if rq_w = rq_r and sr_iz and out_z and fl_st = FL_DONE then
             g2 <= '0';
             fl_ax <= '0';
             if at_vp = '1' then
@@ -4528,6 +4554,11 @@ begin
 
         -- scores: s_t = dot8(k_t, q) * rs, from the lane; track the maximum
         when A_S_T =>
+          -- the running maximum, from the score A_S_SC just stored
+          if at_slv and (at_s0 or flt(at_m, at_sl)) then
+            at_m <= at_sl;
+          end if;
+          at_slv <= false;
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             at_t <= (others => '0');
@@ -4545,10 +4576,7 @@ begin
         when A_S_SC =>
           sw_we := true; sw_a := at_t(9 downto 0); sw_d := fpu_r;
           if at_t(9 downto 0) = 0 then sarr0 <= fpu_r; end if;
-          assert fr_mlt = flt(at_m, fpu_r) report "SSNAIL: stale fr_mlt" severity failure;
-          if at_t = 0 or fr_mlt then
-            at_m <= fpu_r;
-          end if;
+          at_sl <= fpu_r; at_slv <= true; at_s0 <= at_t = 0;
           at_t <= at_t + 1;
           go(A_S_T);
 
@@ -4568,11 +4596,12 @@ begin
           end if;
         when A_E_P =>
           at_t <= at_t + 1;
+          assert sx_fq = sx_fifo(to_integer(at_t(3 downto 0))) report "SSNAIL: stale sx_fq" severity failure;
           if ve_first = '1' then
-            at_acc <= sx_fifo(to_integer(at_t(3 downto 0))); ve_first <= '0';
+            at_acc <= sx_fq; ve_first <= '0';
             go(A_E_W);
           else
-            fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= sx_fifo(to_integer(at_t(3 downto 0)));
+            fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= sx_fq;
             fpu_start <= '1'; fpu_ret <= A_E_3; go(C_FPU_WAIT);
           end if;
         when A_E_3 =>
@@ -4692,6 +4721,7 @@ begin
       -- sarr is read only at at_t + 1 (a second, constant-index read would
       -- turn the LUT RAM into 32k flip-flops); sarr(0) comes from sarr0
       sa := sx_icnt(9 downto 0);
+      sv_ld := false;
       case cstate is
         when A_Q | A_S_T | A_E_R =>                    -- at_t <= 0
           at_tend <= at_pos1 = 0;
@@ -4701,7 +4731,7 @@ begin
           assert sx_on = '0' report "SSNAIL: sarr read address clash" severity failure;
           sa := at_t(9 downto 0) + 1;
           at_tend <= at_t + 1 = at_pos1;
-          at_sv <= sarr(to_integer(sa));
+          sv_ld := true;
         when A_E_P =>                                  -- at_t <= at_t + 1 (no read)
           at_tend <= at_t + 1 = at_pos1;
         when others => null;
@@ -5712,7 +5742,7 @@ begin
         -- finished terms go to the tail, or wait in th_* while it is busy
         tl_free := tl_full = '0' or tl_full_clr = '1';
         if kq_fs = KF_OUT and tl_free then
-          tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb;
+          tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb; tl_b0 <= kq_fsb = 0;
           if kq_fsb + 1 = kq_nsb then
             kq_fsb <= (others => '0');
           else
@@ -5723,18 +5753,18 @@ begin
         end if;
         -- (float lane: the row's sum, once the adder has it)
         if cb_st = CB_OUT and tl_free then
-          tl_full <= '1'; tl_term <= fl_res; tl_blk <= (others => '0');
+          tl_full <= '1'; tl_term <= fl_res; tl_blk <= (others => '0'); tl_b0 <= true;
           tl_free := false;
           cb_st <= CB_IDLE;
         end if;
         if th_v = '1' and tl_free then
-          tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk;
+          tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk; tl_b0 <= th_blk = 0;
           th_v <= '0';
           tl_free := false;
         end if;
         if fpu2_done = '1' and kq_on = '0' then
           if tl_free then
-            tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk;
+            tl_full <= '1'; tl_term <= fpu2_res; tl_blk <= tm_blk; tl_b0 <= tm_blk = 0;
           else
             th_v <= '1'; th_val <= fpu2_res; th_blk <= tm_blk;
           end if;
@@ -5764,10 +5794,12 @@ begin
         rq_w <= rq_w + 1;
       end if;
       if sr_inflight_dec = '1' then
-        sr_inflight <= sr_inflight + sr_inflight_inc - 1;
+        nsi := sr_inflight + sr_inflight_inc - 1;
       else
-        sr_inflight <= sr_inflight + sr_inflight_inc;
+        nsi := sr_inflight + sr_inflight_inc;
       end if;
+      sr_inflight <= nsi;
+      sr_iz <= nsi = 0;
 
       -- Complete blocks waiting to be written
       if lp_inc = '1' and lp_dec = '0' then
@@ -5839,17 +5871,38 @@ begin
 
       -- softmax engine (see sx_on).  sarr's one read address is at_t + 1
       -- in the states that read it ahead (never while sx_on), else sx_icnt
-      sx_s <= sarr(to_integer(sa));
+      -- (sarr's one read)
+      srd := sarr(to_integer(sa));
+      if sv_ld then at_sv <= srd; end if;
+      sx_s <= srd;
+      sx_fq <= sx_fifo(to_integer(at_t(3 downto 0)));
+      kq_scj <= unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32));
+      kq_mj <= resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32);
+      if cs_r6 then
+        rj := rope_jn;
+      else
+        rj := rope_j;
+      end if;
+      rope_c <= csv(to_integer(rj));
+      rope_s <= csv(to_integer(rj) + 1);
+      if rope_j + 2 = rope_hd then
+        rope_jn <= (others => '0');
+      else
+        rope_jn <= rope_j + 2;
+      end if;
       sx_v1 <= '0'; sx_v2 <= sx_v1; sx_v3 <= sx_v2;
       sx_t2 <= sx_t1; sx_t3 <= sx_t2;
-      sx_rw <= coeff_rom(to_integer("10" & sx_ti));   -- (EXP: from 512)
-      sx_cq <= sx_rw;
+      -- coeff_rom's one read: T_LOOK's address, else the softmax engine's
+      -- (EXP: from 512); coeff_q a cycle later
+      coeff_word <= coeff_rom(rom_a);
       if sx_on = '1' then
         sx_ph <= sx_ph + 1;
         nb := 0; nm := 0;
         cb_v <= '0'; mx_v <= '0';                    -- (the lane's are idle)
+        sx_ev <= '0';
         -- s_t - m (the element read last cycle)
-        if sx_ph = 0 and sx_icnt /= at_pos1 and sx_icnt - at_t < 16 then
+        sx_can <= sx_icnt /= at_pos1 and sx_icnt - at_t < 16;
+        if sx_ph = 0 and sx_can then
           cb_v <= '1'; cb_a <= sx_s; cb_b <= sx_nm;
           cb_tag <= "0100" & sx_icnt(2 downto 0);
           sx_icnt <= sx_icnt + 1;
@@ -5891,9 +5944,9 @@ begin
         end if;
         -- c1 * x
         if sx_v3 = '1' then
-          mx_v <= '1'; mx_a <= sx_cq(31 downto 0);
+          mx_v <= '1'; mx_a <= coeff_q(31 downto 0);
           mx_b <= sx_d(to_integer(sx_t3(2 downto 0)));
-          sx_c0(to_integer(sx_t3(2 downto 0))) <= sx_cq(63 downto 32);
+          sx_c0(to_integer(sx_t3(2 downto 0))) <= coeff_q(63 downto 32);
           mx_t <= "00010" & sx_t3;
           nm := nm + 1;
         end if;
@@ -5912,14 +5965,19 @@ begin
           else
             sxr := fc_r;
           end if;
-          sw_we := true; sw_a := sx_wcnt(9 downto 0); sw_d := sxr;
-          if sx_wcnt(9 downto 0) = 0 then sarr0 <= sxr; end if;
-          sx_fifo(to_integer(sx_wcnt(3 downto 0))) <= sxr;
+          sx_ev <= '1'; sx_e <= sxr;
+        end if;
+        -- (a cycle later: no adder tag into sarr's write enable)
+        if sx_ev = '1' then
+          sw_we := true; sw_a := sx_wcnt(9 downto 0); sw_d := sx_e;
+          if sx_wcnt(9 downto 0) = 0 then sarr0 <= sx_e; end if;
+          sx_fifo(to_integer(sx_wcnt(3 downto 0))) <= sx_e;
           sx_wcnt <= sx_wcnt + 1;
         end if;
         assert nb <= 1 and nm <= 1 report "SSNAIL: softmax engine unit clash nb=" & integer'image(nb) & " nm=" & integer'image(nm) & " ph=" & integer'image(to_integer(sx_ph)) & " fcrv=" & std_logic'image(fc_rv) & " tag=" & integer'image(to_integer(fc_rtag)) & " fmrv=" & std_logic'image(fm_rv) & " fmtag=" & integer'image(to_integer(fm_rtag)) & " v3=" & std_logic'image(sx_v3) severity failure;
       else
         sx_ph <= (others => '0');
+        sx_can <= false;
         sx_icnt <= (others => '0');
         sx_wcnt <= (others => '0');
       end if;
@@ -6006,7 +6064,8 @@ begin
     port map (clock => clock162, v => fa_v, a => fa_a, b => fa_b, tag => fa_tag,
               rv => fa_rv, r => fa_r, rtag => fa_rtag);
 
-  fpu0 : entity work.ssnail_fpu
+  -- (its operands come through a wide mux: registered once more inside)
+  fpu0 : entity work.ssnail_fpu generic map (IN_REG => true)
     port map (clock => clock162, start => fpu_start, op => fpu_op, a => fpu_a, b => fpu_b,
               done => fpu_done, result => fpu_res);
 

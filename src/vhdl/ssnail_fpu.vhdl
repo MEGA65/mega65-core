@@ -45,6 +45,11 @@ use ieee.numeric_std.all;
 use work.ssnail_fpu_pkg.all;
 
 entity ssnail_fpu is
+  generic (
+    -- register start/op/a/b before the first stage (a cycle more): for an
+    -- instance whose operands come through a wide mux from far away
+    IN_REG : boolean := false
+    );
   port (
     clock  : in  std_logic;
     start  : in  std_logic;
@@ -155,7 +160,25 @@ architecture multicycle of ssnail_fpu is
   constant NAN32 : unsigned(31 downto 0) := x"7FC00000";
   constant NAN16 : unsigned(31 downto 0) := x"00007E00";
 
+  signal a_r, b_r : unsigned(31 downto 0) := (others => '0');
+  signal op_r : unsigned(3 downto 0) := (others => '0');
+  signal start_r : std_logic := '0';
+  signal ai, bi : unsigned(31 downto 0);
+  signal opi : unsigned(3 downto 0);
+  signal starti : std_logic;
+
 begin
+
+  process (clock) is
+  begin
+    if rising_edge(clock) then
+      a_r <= a; b_r <= b; op_r <= op; start_r <= start;
+    end if;
+  end process;
+  ai <= a_r when IN_REG else a;
+  bi <= b_r when IN_REG else b;
+  opi <= op_r when IN_REG else op;
+  starti <= start_r when IN_REG else start;
 
   process (clock) is
     variable sa, sb : std_logic;
@@ -190,8 +213,8 @@ begin
           -- whether or not a special case is taken (then they go unused), so
           -- the special-case tests do not gate it.  Every operation sets re
           -- before using it (later assignments below override this one).
-          unpack32(a, sa, ea, ma);
-          unpack32(b, sb, eb, mb);
+          unpack32(ai, sa, ea, ma);
+          unpack32(bi, sb, eb, mb);
           mul_a <= ma;
           mul_b <= mb;
           mul_nrm <= ma(23) and mb(23);
@@ -204,7 +227,7 @@ begin
           wb := "0" & mb & "00000000000000000000000";
           -- (eb, mb) > (ea, ma) is the integer order of the magnitude
           -- bits, subnormals included: one comparison of the inputs
-          swap := b(30 downto 0) > a(30 downto 0);
+          swap := bi(30 downto 0) > ai(30 downto 0);
           assert swap = ((eb > ea) or (eb = ea and mb > ma))
             report "FPU: swap order" severity failure;
           if swap then
@@ -215,54 +238,54 @@ begin
             sh_d <= ea - eb;
           end if;
           if sa /= sb then subtract <= '1'; else subtract <= '0'; end if;
-          if start = '1' then
+          if starti = '1' then
             special <= '0';
             to_f16 <= '0';
             zero_sign <= '0';
             -- (written on every start, so its enable is not the special-case
             -- tests; only special results and TRUNC / ROUNDF read it)
             sp_val <= NAN32;
-            if op = FOP_ADD then
+            if opi = FOP_ADD then
               -- -------------------------------------------------- add
-              if is_nan32(a) or is_nan32(b) or
-                (is_inf32(a) and is_inf32(b) and a(31) /= b(31)) then
+              if is_nan32(ai) or is_nan32(bi) or
+                (is_inf32(ai) and is_inf32(bi) and ai(31) /= bi(31)) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(a) then
-                special <= '1'; sp_val <= a;
+              elsif is_inf32(ai) then
+                special <= '1'; sp_val <= ai;
                 state <= S_PACK;
-              elsif is_inf32(b) then
-                special <= '1'; sp_val <= b;
+              elsif is_inf32(bi) then
+                special <= '1'; sp_val <= bi;
                 state <= S_PACK;
               else
                 -- (big_m, small_m, big_e, sh_d, subtract: set up above)
-                unpack32(a, sa, ea, ma);
-                unpack32(b, sb, eb, mb);
-                if b(30 downto 0) > a(30 downto 0) then
+                unpack32(ai, sa, ea, ma);
+                unpack32(bi, sb, eb, mb);
+                if bi(30 downto 0) > ai(30 downto 0) then
                   rs <= sb;
                 else
                   rs <= sa;
                 end if;
                 -- Zero results: (-0) + (-0) = -0; exact cancellation = +0
-                if is_zero32(a) and is_zero32(b) then
+                if is_zero32(ai) and is_zero32(bi) then
                   zero_sign <= sa and sb;
                 else
                   zero_sign <= '0';
                 end if;
                 state <= S_ALIGN;
               end if;
-            elsif op = FOP_MUL then
+            elsif opi = FOP_MUL then
               -- -------------------------------------------------- multiply
-              if is_nan32(a) or is_nan32(b) or
-                (is_inf32(a) and is_zero32(b)) or (is_zero32(a) and is_inf32(b)) then
+              if is_nan32(ai) or is_nan32(bi) or
+                (is_inf32(ai) and is_zero32(bi)) or (is_zero32(ai) and is_inf32(bi)) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(a) or is_inf32(b) then
-                special <= '1'; sp_val <= (a(31) xor b(31)) & "1111111100000000000000000000000";
+              elsif is_inf32(ai) or is_inf32(bi) then
+                special <= '1'; sp_val <= (ai(31) xor bi(31)) & "1111111100000000000000000000000";
                 state <= S_PACK;
               else
-                unpack32(a, sa, ea, ma);
-                unpack32(b, sb, eb, mb);
+                unpack32(ai, sa, ea, ma);
+                unpack32(bi, sb, eb, mb);
                 rs <= sa xor sb;
                 zero_sign <= sa xor sb;
                 -- 24 x 24 -> 48 bits (in S_MUL); with the hidden bits at 23,
@@ -270,12 +293,12 @@ begin
                 -- (mul_a, mul_b, mul_nrm and re: set above)
                 state <= S_MUL;
               end if;
-            elsif op = FOP_F16TOF32 or op = FOP_E5M2TOF32 then
+            elsif opi = FOP_F16TOF32 or opi = FOP_E5M2TOF32 then
               -- (E5M2 is the top byte of an F16)
-              if op = FOP_E5M2TOF32 then
-                h := a(7 downto 0) & x"00";
+              if opi = FOP_E5M2TOF32 then
+                h := ai(7 downto 0) & x"00";
               else
-                h := a(15 downto 0);
+                h := ai(15 downto 0);
               end if;
               if h(14 downto 10) = "11111" then
                 special <= '1';
@@ -297,63 +320,63 @@ begin
                 end if;
                 state <= S_LZC;
               end if;
-            elsif op = FOP_E4M3TOF32 then
+            elsif opi = FOP_E4M3TOF32 then
               -- (as F16 -> F32, with a 4-bit exponent (bias 7), 3-bit fraction)
-              if a(6 downto 0) = "1111111" then
+              if ai(6 downto 0) = "1111111" then
                 special <= '1';
                 sp_val <= NAN32;
                 state <= S_PACK;
               else
-                rs <= a(7);
-                zero_sign <= a(7);
-                if a(6 downto 3) = 0 then
-                  rm <= "0" & '0' & a(2 downto 0) & "0000000000000000000000000000000000000000000";
+                rs <= ai(7);
+                zero_sign <= ai(7);
+                if ai(6 downto 3) = 0 then
+                  rm <= "0" & '0' & ai(2 downto 0) & "0000000000000000000000000000000000000000000";
                   re <= 1 - 7 + 127;
                 else
-                  rm <= "0" & '1' & a(2 downto 0) & "0000000000000000000000000000000000000000000";
-                  re <= to_integer(a(6 downto 3)) - 7 + 127;
+                  rm <= "0" & '1' & ai(2 downto 0) & "0000000000000000000000000000000000000000000";
+                  re <= to_integer(ai(6 downto 3)) - 7 + 127;
                 end if;
                 state <= S_LZC;
               end if;
-            elsif op = FOP_BF16TOF32 then
+            elsif opi = FOP_BF16TOF32 then
               special <= '1';
-              if a(14 downto 7) = x"FF" and a(6 downto 0) /= 0 then
+              if ai(14 downto 7) = x"FF" and ai(6 downto 0) /= 0 then
                 sp_val <= NAN32;
               else
-                sp_val <= a(15 downto 0) & x"0000";
+                sp_val <= ai(15 downto 0) & x"0000";
               end if;
               state <= S_PACK;
-            elsif op = FOP_F32TOF16 then
+            elsif opi = FOP_F32TOF16 then
               to_f16 <= '1';
-              if is_nan32(a) then
+              if is_nan32(ai) then
                 special <= '1'; sp_val <= NAN16;
                 state <= S_PACK;
-              elsif is_inf32(a) then
-                special <= '1'; sp_val <= x"0000" & a(31) & "111110000000000";
+              elsif is_inf32(ai) then
+                special <= '1'; sp_val <= x"0000" & ai(31) & "111110000000000";
                 state <= S_PACK;
               else
-                unpack32(a, sa, ea, ma);
+                unpack32(ai, sa, ea, ma);
                 rs <= sa;
                 zero_sign <= sa;
                 rm <= "0" & ma & "00000000000000000000000";
                 re <= ea;
                 state <= S_LZC;
               end if;
-            elsif op = FOP_DIV then
+            elsif opi = FOP_DIV then
               -- -------------------------------------------------- divide
-              if is_nan32(a) or is_nan32(b) or (is_inf32(a) and is_inf32(b))
-                or (is_zero32(a) and is_zero32(b)) then
+              if is_nan32(ai) or is_nan32(bi) or (is_inf32(ai) and is_inf32(bi))
+                or (is_zero32(ai) and is_zero32(bi)) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(a) or is_zero32(b) then
-                special <= '1'; sp_val <= (a(31) xor b(31)) & "1111111100000000000000000000000";
+              elsif is_inf32(ai) or is_zero32(bi) then
+                special <= '1'; sp_val <= (ai(31) xor bi(31)) & "1111111100000000000000000000000";
                 state <= S_PACK;
-              elsif is_zero32(a) or is_inf32(b) then
-                special <= '1'; sp_val <= (a(31) xor b(31)) & "0000000000000000000000000000000";
+              elsif is_zero32(ai) or is_inf32(bi) then
+                special <= '1'; sp_val <= (ai(31) xor bi(31)) & "0000000000000000000000000000000";
                 state <= S_PACK;
               else
-                unpack32(a, sa, ea, ma);
-                unpack32(b, sb, eb, mb);
+                unpack32(ai, sa, ea, ma);
+                unpack32(bi, sb, eb, mb);
                 rs <= sa xor sb;
                 -- (dv_ma, dv_mb, dv_ea, dv_eb, dv_r, dv_i: set above)
                 if ma(23) = '1' and mb(23) = '1' then
@@ -362,16 +385,16 @@ begin
                   state <= S_DNORM;
                 end if;
               end if;
-            elsif op = FOP_SQRT then
+            elsif opi = FOP_SQRT then
               -- -------------------------------------------------- sqrt
-              if is_nan32(a) or (a(31) = '1' and not is_zero32(a)) then
+              if is_nan32(ai) or (ai(31) = '1' and not is_zero32(ai)) then
                 special <= '1'; sp_val <= NAN32;      -- NaN, or negative
                 state <= S_PACK;
-              elsif is_zero32(a) or is_inf32(a) then
-                special <= '1'; sp_val <= a;          -- +-0, +inf
+              elsif is_zero32(ai) or is_inf32(ai) then
+                special <= '1'; sp_val <= ai;          -- +-0, +inf
                 state <= S_PACK;
               else
-                unpack32(a, sa, ea, ma);
+                unpack32(ai, sa, ea, ma);
                 rs <= '0';
                 -- (dv_ma, dv_ea: set above)
                 if ma(23) = '1' then
@@ -380,65 +403,65 @@ begin
                   state <= S_SQNORM;
                 end if;
               end if;
-            elsif op = FOP_TRUNC then
+            elsif opi = FOP_TRUNC then
               -- -------------------------------------------------- truncate
               special <= '1';
-              if is_nan32(a) or a(30 downto 23) < 127 then
+              if is_nan32(ai) or ai(30 downto 23) < 127 then
                 sp_val <= (others => '0');          -- NaN, or |a| < 1
               else
                 -- |a| = m * 2^(e - 150)
-                sh2 := to_integer(a(30 downto 23)) - 150;
+                sh2 := to_integer(ai(30 downto 23)) - 150;
                 if sh2 >= 8 then                    -- |a| >= 2^31
-                  if a(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
+                  if ai(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
                 else
                   if sh2 >= 0 then
-                    ri := shift_left(x"00" & '1' & a(22 downto 0), sh2);
+                    ri := shift_left(x"00" & '1' & ai(22 downto 0), sh2);
                   else
-                    ri := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
+                    ri := shift_right(x"00" & '1' & ai(22 downto 0), -sh2);
                   end if;
                   sp_val <= ri;                   -- negated in S_INT1
                   int_rnd <= '0';
-                  int_neg <= a(31);
+                  int_neg <= ai(31);
                 end if;
               end if;
-              if is_nan32(a) or a(30 downto 23) < 127
-                or to_integer(a(30 downto 23)) - 150 >= 8 then
+              if is_nan32(ai) or ai(30 downto 23) < 127
+                or to_integer(ai(30 downto 23)) - 150 >= 8 then
                 state <= S_PACK;
               else
                 state <= S_INT1;
               end if;
-            elsif op = FOP_ROUNDF then
+            elsif opi = FOP_ROUNDF then
               -- -------------------------------------------------- roundf
               special <= '1';
-              if is_nan32(a) or a(30 downto 23) < 126 then
+              if is_nan32(ai) or ai(30 downto 23) < 126 then
                 sp_val <= (others => '0');          -- NaN, or |a| < 0.5
               else
                 -- 2|a| = m * 2^(e - 149); v2 = floor(2|a|); round = (v2 + 1) / 2
-                sh2 := to_integer(a(30 downto 23)) - 149;
+                sh2 := to_integer(ai(30 downto 23)) - 149;
                 if sh2 >= 9 then                  -- |a| >= 2^31
-                  if a(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
+                  if ai(31) = '1' then sp_val <= x"80000000"; else sp_val <= x"7FFFFFFF"; end if;
                 else
                   if sh2 >= 0 then
-                    v2 := shift_left(x"00" & '1' & a(22 downto 0), sh2);
+                    v2 := shift_left(x"00" & '1' & ai(22 downto 0), sh2);
                   else
-                    v2 := shift_right(x"00" & '1' & a(22 downto 0), -sh2);
+                    v2 := shift_right(x"00" & '1' & ai(22 downto 0), -sh2);
                   end if;
                   sp_val <= v2;                   -- (v2 + 1) / 2 in S_INT1,
                   int_rnd <= '1';                 -- negated there too
-                  int_neg <= a(31);
+                  int_neg <= ai(31);
                 end if;
               end if;
-              if is_nan32(a) or a(30 downto 23) < 126
-                or to_integer(a(30 downto 23)) - 149 >= 9 then
+              if is_nan32(ai) or ai(30 downto 23) < 126
+                or to_integer(ai(30 downto 23)) - 149 >= 9 then
                 state <= S_PACK;
               else
                 state <= S_INT1;
               end if;
             else                                  -- FOP_I2F
               -- (|a| a cycle later, in S_I2FN: no carry chain on rm here)
-              rs <= a(31);
+              rs <= ai(31);
               zero_sign <= '0';
-              rm <= x"0000" & a;
+              rm <= x"0000" & ai;
               re <= 127 + 46;
               state <= S_I2FN;
             end if;

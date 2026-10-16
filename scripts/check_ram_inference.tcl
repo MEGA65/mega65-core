@@ -45,8 +45,10 @@ foreach {inst arrays} $ram_checks {
 # ... and those with ram_style "block": block RAM, not LUT RAM or flip-flops
 # (Vivado falls back to LUT RAM, silently, when it cannot map the accesses
 # to a block RAM's ports: xf as 4096 x 32 LUT RAM congested all of SSNAIL)
+# (coeff_word: the table ROM, read into it; a second read port could leave
+# it in LUTs)
 set bram_checks {
-  *ssnail0 {xf}
+  *ssnail0 {xf coeff_word}
 }
 foreach {inst arrays} $bram_checks {
   foreach a $arrays {
