@@ -462,7 +462,7 @@ architecture shell of ssnail is
     D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
     D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
-    G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
+    G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQW,
     G_SET, G_KAM, G_KX,
     G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
     G2_KS,
@@ -1188,6 +1188,28 @@ architecture shell of ssnail is
   type kq_bs_t is array (0 to 255) of signed(11 downto 0);
   signal kq_bs     : kq_bs_t := (others => (others => '0'));
   signal kq_bacc   : signed(11 downto 0) := (others => '0');
+  -- x quantiser: a block's 32 elements, a cycle each, x * id through the
+  -- float lane's multiplier (free in the x phase: xq_on routes it), then
+  -- roundf (|x * id| <= 127 for finite x: floor(|v| + 0.5) in fixed point;
+  -- NaN gives 0, as the FPU's ROUNDF), into qx and the 16-sums (kq_bs).
+  -- xq_busy: issuing, or results still to come
+  signal xq_on, xq_iss : std_logic := '0';
+  signal xq_j      : unsigned(5 downto 0) := (others => '0');
+  signal xq_id     : unsigned(31 downto 0) := (others => '0');
+  signal xq_blk    : unsigned(7 downto 0) := (others => '0');
+  signal xq_v1     : std_logic := '0';
+  signal xq_a      : unsigned(31 downto 0) := (others => '0');
+  signal xq_t1     : unsigned(4 downto 0) := (others => '0');
+  signal xq_pend   : unsigned(5 downto 0) := (others => '0');
+  signal xq_busy   : boolean := false;
+  signal xr_v1, xr_v2 : std_logic := '0';
+  signal xr_j1, xr_j2 : unsigned(4 downto 0) := (others => '0');
+  signal xr_s1, xr_z1 : std_logic := '0';
+  signal xr_fix    : unsigned(31 downto 0) := (others => '0');
+  signal xr_q      : signed(7 downto 0) := (others => '0');
+  signal fm_v, fm_vin : std_logic := '0';
+  signal fm_a, fm_b : unsigned(31 downto 0) := (others => '0');
+  signal fm_tag    : unsigned(9 downto 0) := (others => '0');
   -- super-block buffer: byte lane l of word w (half h) at kq_sbl(h & w)
   type kq_sb_t is array (0 to 127) of unsigned(7 downto 0);
   signal kq_sb0, kq_sb1, kq_sb2, kq_sb3 : kq_sb_t := (others => (others => '0'));
@@ -1921,6 +1943,8 @@ begin
     variable ic2 : unsigned(1 downto 0);
     variable ic3 : unsigned(2 downto 0);
     variable row_end : boolean;
+    variable xe : integer range -127 to 128;
+    variable xfx : unsigned(31 downto 0);
     variable lane_start, lane_take : boolean;
     variable acc32, qs32 : signed(31 downto 0);
     variable xw_we : boolean;
@@ -3789,9 +3813,10 @@ begin
           end loop;
           -- float weights: the float lane, one tail term a row
           fl_on <= '0'; fl_f32 <= '0'; fl_bf <= '0'; fl_ax <= '0';
+          xq_on <= '1';
           fl_n <= n0(12 downto 0); fl_short <= false;
           if d_fmt = 0 or d_fmt = 1 or d_fmt = 30 then
-            fl_on <= '1';
+            fl_on <= '1'; xq_on <= '0';
             g_nbt <= to_unsigned(1, 8);
             if d_fmt = 0 then
               fl_f32 <= '1'; g_bl <= to_unsigned(128, 8);
@@ -3957,8 +3982,18 @@ begin
           g_j <= (others => '0');
           go(G_QQ);
 
+        -- the block's 32 elements quantised by the x quantiser (xq_*): x * id
+        -- on the float lane's multiplier, roundf, into qx (and the 16-sums)
         when G_QQ =>
-          if g_j = 32 then
+          if not xq_busy then                          -- (the last block stored)
+            xq_iss <= '1';
+            xq_j <= (others => '0');
+            xq_id <= g_id;
+            xq_blk <= gblk;
+            go(G_QQW);
+          end if;
+        when G_QQW =>                                  -- (xb free once issued)
+          if xq_iss = '0' then
             gblk <= gblk + 1;
             if kq_on = '1' then
               kq_sub <= kq_sub + 1;
@@ -3973,45 +4008,17 @@ begin
             else
               go(G_QFILL0);
             end if;
-          else
-            fpu_op <= FOP_MUL;                         -- x * id
-            fpu_a <= xb(to_integer(g_j));
-            fpu_b <= g_id;
-            fpu_start <= '1';
-            fpu_ret <= G_QQR;
-            go(C_FPU_WAIT);
           end if;
-
-        when G_QQR =>
-          fpu_op <= FOP_ROUNDF;
-          fpu_a <= fpu_r;
-          fpu_start <= '1';
-          fpu_ret <= G_QQS;
-          go(C_FPU_WAIT);
-
-        when G_QQS =>
-          -- the sum of each 16 (K-quants' mins)
-          if g_j(3 downto 0) = 0 then
-            kq_bacc <= resize(signed(fpu_r(7 downto 0)), 12);
-          else
-            kq_bacc <= kq_bacc + resize(signed(fpu_r(7 downto 0)), 12);
-          end if;
-          if g_j(3 downto 0) = 15 then
-            kq_bs(to_integer(gblk(6 downto 0) & g_j(4))) <= kq_bacc + resize(signed(fpu_r(7 downto 0)), 12);
-          end if;
-          case to_integer(g_j(1 downto 0)) is
-            when 0 => qx0(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
-            when 1 => qx1(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
-            when 2 => qx2(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
-            when others => qx3(to_integer(gblk & g_j(4 downto 2))) <= signed(fpu_r(7 downto 0));
-          end case;
-          g_j <= g_j + 1;
-          go(G_QQ);
 
         -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
         when G_ROW0 =>
           -- Row phase.  Decode the region of the first and last weight
           -- bytes once: the stream needs the matrix in a single region.
+          -- (First, the x quantiser's last results in.)
+          if xq_busy then
+            null;
+          else
+          xq_on <= '0';
           ld_valid <= '0';
           out_loaded <= '0';
           g_r <= (others => '0');
@@ -4036,6 +4043,7 @@ begin
           -- (block bytes) * rows20, from registers
           g_mul_a28 <= resize(g_rows(19 downto 0) * g_bl, 28);
           go(G_ROW_MUL);
+          end if;
         when G_ROW_MUL =>
           -- Add a shifted multiplicand for each set bit of blocks/row.
           -- Arithmetic is modulo 2^32 and 2^28, as in the old resize().
@@ -4465,7 +4473,7 @@ begin
           sr_segs <= at_pos(9 downto 0);
           dec_addr <= at_ea;
           g_rows <= resize(at_pos1, 32);
-          kq_on <= '0'; kq_kr <= '0'; iq_on <= '0';
+          kq_on <= '0'; kq_kr <= '0'; iq_on <= '0'; xq_on <= '0';
           fl_on <= '1'; fl_ax <= at_vp; fl_bf <= '0';
           if at_fmt = 1 then fl_f32 <= '0'; else fl_f32 <= '1'; end if;
           fl_n <= resize(at_hd(8 downto 0), 13);
@@ -5755,6 +5763,60 @@ begin
       -- with its last write), and its three registered read ports (the K
       -- reader's two, the header's)
       kw_we_q <= kw_we; kw_a_q <= kw_a; kw_d_q <= kw_d;
+      -- x quantiser (see xq_on): issue, then roundf, then store
+      xq_v1 <= '0';
+      if xq_iss = '1' then
+        xq_a <= xb(to_integer(xq_j(4 downto 0)));
+        xq_v1 <= '1';
+        xq_t1 <= xq_j(4 downto 0);
+        xq_j <= xq_j + 1;
+        if xq_j = 31 then
+          xq_iss <= '0';
+        end if;
+      end if;
+      xr_v1 <= fm_rv and xq_on;
+      xr_j1 <= fm_rtag(4 downto 0);
+      xr_s1 <= fm_r(31);
+      xe := to_integer(fm_r(30 downto 23)) - 127;      -- (unbiased)
+      if fm_r(30 downto 23) = x"FF" or xe < -1 then
+        xr_fix <= (others => '0');                     -- NaN, |v| < 0.5: 0
+      elsif xe > 6 then
+        xr_fix <= x"7F000000";                         -- (not for finite x)
+      else                                             -- |v| * 2^24
+        xr_fix <= shift_left(resize(unsigned('1' & fm_r(22 downto 0)), 32), xe + 1);
+      end if;
+      xr_v2 <= xr_v1;
+      xr_j2 <= xr_j1;
+      xfx := xr_fix + x"00800000";                      -- + 0.5, then the integer part
+      if xr_s1 = '1' then
+        xr_q <= -signed(xfx(31 downto 24));
+      else
+        xr_q <= signed(xfx(31 downto 24));
+      end if;
+      if xr_v2 = '1' then
+        case to_integer(xr_j2(1 downto 0)) is
+          when 0 => qx0(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
+          when 1 => qx1(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
+          when 2 => qx2(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
+          when others => qx3(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
+        end case;
+        -- the sum of each 16 (K-quants' mins)
+        if xr_j2(3 downto 0) = 0 then
+          kq_bacc <= resize(xr_q, 12);
+        else
+          kq_bacc <= kq_bacc + resize(xr_q, 12);
+        end if;
+        if xr_j2(3 downto 0) = 15 then
+          kq_bs(to_integer(xq_blk(6 downto 0) & xr_j2(4))) <= kq_bacc + resize(xr_q, 12);
+        end if;
+      end if;
+      if (xq_iss = '1') and not (xr_v2 = '1') then
+        xq_pend <= xq_pend + 1;
+      elsif xr_v2 = '1' and not (xq_iss = '1') then
+        xq_pend <= xq_pend - 1;
+      end if;
+      xq_busy <= xq_iss = '1' or xq_pend > 1 or (xq_pend = 1 and xr_v2 = '0');
+
       -- xf: one write port (the x fill, ATTN's q) and one registered read
       -- (the float lane): a block RAM
       if xw_we then xf(to_integer(xw_a)) <= xw_d; end if;
@@ -5812,12 +5874,17 @@ begin
   -- the float lane's pipelined units; the adder takes a product (with its
   -- partial, or the adder's own result for it this cycle) or a combination
   fl_bm <= fl_b2 when fl_ax = '1' else xf_q;
+  -- (the x quantiser has the multiplier in the x phase)
+  fm_vin <= xq_v1 when xq_on = '1' else fl_v2;
+  fm_a <= xq_a when xq_on = '1' else fl_w2;
+  fm_b <= xq_id when xq_on = '1' else fl_bm;
+  fm_tag <= "00000" & xq_t1 when xq_on = '1' else fl_tg2;
   fmul_l : entity work.ssnail_fmul_p generic map (TAGW => 10)
-    port map (clock => clock162, v => fl_v2, a => fl_w2, b => fl_bm, tag => fl_tg2,
+    port map (clock => clock162, v => fm_vin, a => fm_a, b => fm_b, tag => fm_tag,
               rv => fm_rv, r => fm_r, rtag => fm_rtag);
   -- (output pass: out[d], read at the product's d; +0 for row 0)
   ov_ra <= fm_rtag(7 downto 0) when fl_ax = '1' else at_i(7 downto 0);
-  fa_v <= fm_rv;
+  fa_v <= fm_rv and not xq_on;
   fa_a <= x"00000000" when fl_ax = '1' and fm_rtag(9) = '1'
           else outv(to_integer(ov_ra)) when fl_ax = '1'
           else fa_r when fa_rv = '1' and fa_rtag = fm_rtag
