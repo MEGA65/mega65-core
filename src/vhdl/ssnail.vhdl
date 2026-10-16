@@ -1,18 +1,18 @@
 -- SSNAIL: Super-Scalar Neural Arithmetic Inference Lump
 --
--- SHELL VERSION.  This provides:
+-- This provides:
 --   * the FastIO register interface (cpuclock domain)
 --   * clock-domain crossing to the core (clock162 domain)
 --   * the core sequencer: 128-bit instruction fetch from RAM, PC, STEP,
 --     ABORT, error reporting, done IRQ
 --   * address decoding of the linear 28-bit space onto the two LUMP ports
---   * a minimal instruction set that exercises the LUMP ports end-to-end:
---       NOP, HALT, SYNC (invalidate CPU-side caches), COPY (burst copy)
---     so the ports can be tested on real hardware before any maths exists.
+--   * the load port, for streaming model images into RAM
+--   * ISA v1 in full (below): control, GEMV and DEQROW for every weight
+--     format the tools emit, the vector ops, ROPE and ATTN.
 --
 -- Register map (base + offset).  Multi-byte values are little-endian.
 --   $00      ID: $53 ('S')
---   $01      Version: $01 (shell)
+--   $01      Version: $01
 --   $02      Capabilities: bit0 HyperRAM port, bit1 SDRAM present
 --   $03      Control / IRQ status
 --              write: bit0 GO   (load PC from job pointer and run)
@@ -86,13 +86,18 @@
 --   $0C LEA                  A[a] = addr(X) + R[b] * Z (mod 2^28)
 --   $0D/$0E/$0F BEQ/BNE/BLT  if R[a] ==/!=/< R[b] (unsigned): PC = addr(X)
 --   $11 DEQROW               Z (N0 x F32) = dequantise N0 elements of format a
---                            (0 F32, 1 F16, 2 Q4_0, 8 Q8_0, 30 BF16, 39 MXFP4,
---                            10-14 Q2_K..Q6_K: N0 a multiple of 256) at addr(X)
+--                            at addr(X): 0 F32, 1 F16, 30 BF16, 2 Q4_0,
+--                            6 Q5_0, 8 Q8_0, 20 IQ4_NL, 39 MXFP4; and, N0 a
+--                            multiple of 256, 10-14 Q2_K..Q6_K, 23 IQ4_XS,
+--                            35 TQ2_0
 --   $10 GEMV                 Z (N1 rows) = W at addr(X) (N1 x N0, format a:
---                            Q8_0, Q4_0, MXFP4, Q2_K..Q6_K (N0 a multiple
---                            of 256) so far) . x at addr(Y)
+--                            DEQROW's formats, plus 16 IQ2_XXS, 17 IQ2_XS,
+--                            22 IQ2_S, 18 IQ3_XXS, 21 IQ3_S) . x at addr(Y)
 --                            (N0 x F32).
---                            x is quantised to Q8_0 first, as llama.cpp.
+--                            x is quantised first, as llama.cpp: to Q8_0
+--                            for the 32-element block formats, Q8_K-style
+--                            for the super-block ones; float weights take
+--                            it unquantised, in the float lane (dot8).
 --                            b bit 0: add to the existing Z (F32);
 --                            b bit 1: write Z as F16.  N0 a multiple of 32,
 --                            at most 4096.
@@ -111,7 +116,7 @@
 --                            result at addr(Z); addr(X) = parameter block
 --                            (K cache, V cache, heads, KV heads, head dim,
 --                            KV format 0 F32 / 1 F16); <= 1024 positions,
---                            head dim <= 256
+--                            head dim <= 256; K/V rows 8-byte aligned
 --   (arithmetic order exactly as ssnail_hw.py in the SSNAIL tools)
 --   $29 CVT16                Z (N0 x F16) = X (N0 x F32)
 --   F32 operands are 4-byte aligned, F16 2-byte; arithmetic is IEEE, round
