@@ -56,7 +56,9 @@ entity machine is
   generic (cpu_frequency : integer;
            hyper_installed : boolean := false;
            target : mega65_target_t;
-           num_eth_rx_buffers : integer := 4
+           num_eth_rx_buffers : integer := 4;
+           -- the native 4-bit SD controller instead of the SPI one (#890)
+           sd_native : boolean := false
            );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
@@ -277,6 +279,15 @@ entity machine is
          sclk2_o : out std_logic := '1';
          mosi2_o : out std_logic := '1';
          miso2_i : in  std_logic;
+
+         -- Native 4-bit SD bus of both slots, used when sd_native (see iomapper)
+         sd_clk : out std_logic_vector(1 downto 0) := "11";
+         sd_cmd_o : out std_logic_vector(1 downto 0) := "11";
+         sd_cmd_oe : out std_logic_vector(1 downto 0) := "00";
+         sd_cmd_i : in std_logic_vector(1 downto 0) := "11";
+         sd_dat_o : out std_logic_vector(7 downto 0) := (others => '1');
+         sd_dat_oe : out std_logic_vector(7 downto 0) := (others => '0');
+         sd_dat_i : in std_logic_vector(7 downto 0) := (others => '1');
 
          ----------------------------------------------------------------------
          -- Floppy drive interface
@@ -1628,7 +1639,8 @@ begin
   iomapper0: entity work.iomapper
     generic map ( target => target,
                   cpu_frequency => cpu_frequency,
-                  num_eth_rx_buffers => num_eth_rx_buffers
+                  num_eth_rx_buffers => num_eth_rx_buffers,
+                  sd_native => sd_native
 )
     port map (
       cpuclock => cpuclock,
@@ -1921,6 +1933,14 @@ begin
       sclk2_o => sclk2_o,
       mosi2_o => mosi2_o,
       miso2_i => miso2_i,
+      clock162 => clock162,
+      sd_clk => sd_clk,
+      sd_cmd_o => sd_cmd_o,
+      sd_cmd_oe => sd_cmd_oe,
+      sd_cmd_i => sd_cmd_i,
+      sd_dat_o => sd_dat_o,
+      sd_dat_oe => sd_dat_oe,
+      sd_dat_i => sd_dat_i,
 
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,

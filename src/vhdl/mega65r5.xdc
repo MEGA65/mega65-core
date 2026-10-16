@@ -565,19 +565,22 @@ set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
 ##Micro SD Connector (x2 on r2 PCB)
 #set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
+# Native 4-bit SD bus (#890): sd2reset = DAT3, sd2MISO = DAT0, sd2MOSI = CMD.
+# CMD and DAT0-3 are bidirectional, with pull-ups for when nothing drives them.
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
-set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2reset]
-set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
-set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
-#set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[0]}]
-#set_property -dict { PACKAGE_PIN H3 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[1]}]
-#set_property -dict { PACKAGE_PIN J1 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[2]}]
-#set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[3]}]
+set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sd2reset]
+set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sd2MISO]
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sd2MOSI]
+set_property -dict {PACKAGE_PIN H3 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sd2DAT1]
+set_property -dict {PACKAGE_PIN J1 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sd2DAT2]
 
+# Native 4-bit SD bus (#890): sdReset = DAT3, sdMISO = DAT0, sdMOSI = CMD.
 set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33} [get_ports sdClock]
-set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33} [get_ports sdReset]
-set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33} [get_ports sdMISO]
-set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
+set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sdReset]
+set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sdMISO]
+set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sdMOSI]
+set_property -dict {PACKAGE_PIN C18 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sdDAT1]
+set_property -dict {PACKAGE_PIN C19 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports sdDAT2]
 #set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sdWP]
 #set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
 #set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[0]}]

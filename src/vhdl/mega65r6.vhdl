@@ -222,15 +222,22 @@ entity container is
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
-         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
-         sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;
-         sdMISO : in  std_logic;
+         -- Native 4-bit SD bus (#890).  The old names are kept for the pins
+         -- the SPI controller used: reset = DAT3 (SPI chip select), MOSI =
+         -- CMD, MISO = DAT0.
+         sdReset : inout std_logic;     -- DAT3
+         sdClock : out std_logic;
+         sdMOSI : inout std_logic;      -- CMD
+         sdMISO : inout std_logic;      -- DAT0
+         sdDAT1 : inout std_logic;
+         sdDAT2 : inout std_logic;
 
-         sd2reset : out std_logic;
-         sd2Clock : out std_logic;       -- (sclk_o)
-         sd2MOSI : out std_logic;
-         sd2MISO : in std_logic;
+         sd2reset : inout std_logic;    -- DAT3
+         sd2Clock : out std_logic;
+         sd2MOSI : inout std_logic;     -- CMD
+         sd2MISO : inout std_logic;     -- DAT0
+         sd2DAT1 : inout std_logic;
+         sd2DAT2 : inout std_logic;
 
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -301,6 +308,15 @@ entity container is
 end container;
 
 architecture Behavioral of container is
+
+  -- native SD bus of both slots (machine <-> pins)
+  signal sd_clk    : std_logic_vector(1 downto 0);
+  signal sd_cmd_o  : std_logic_vector(1 downto 0);
+  signal sd_cmd_oe : std_logic_vector(1 downto 0);
+  signal sd_cmd_i  : std_logic_vector(1 downto 0);
+  signal sd_dat_o  : std_logic_vector(7 downto 0);
+  signal sd_dat_oe : std_logic_vector(7 downto 0);
+  signal sd_dat_i  : std_logic_vector(7 downto 0);
 
   -- Use to select SDRAM or hyperram
   signal sdram_t_or_hyperram_f : boolean;
@@ -1050,6 +1066,7 @@ begin
                      -- = ~40KB of data in a burst, before the RX buffers are
                      -- filled.
                      num_eth_rx_buffers => 32,
+                     sd_native => true,      -- native 4-bit SD controller (#890)
                      hyper_installed => true -- For VIC-IV to know it can use
                                              -- hyperram/sdram for full-colour glyphs
                      )
@@ -1221,16 +1238,17 @@ begin
           -- Lines for the SDcard interfaces
           -------------------------------------------------------------------------
           -- External one is bus 0, so that it has priority.
-          -- Internal SD card:
-          cs_bo => sdReset,
-          sclk_o => sdClock,
-          mosi_o => sdMOSI,
-          miso_i => sdMISO,
-          -- External microSD
-          cs2_bo => sd2reset,
-          sclk2_o => sd2Clock,
-          mosi2_o => sd2MOSI,
-          miso2_i => sd2MISO,
+          -- Native controller: slot 0 = the sd* pins, slot 1 = the sd2* pins
+          -- (the SPI lines cs_bo, sclk_o, ... are unused)
+          miso_i => '1',
+          miso2_i => '1',
+          sd_clk => sd_clk,
+          sd_cmd_o => sd_cmd_o,
+          sd_cmd_oe => sd_cmd_oe,
+          sd_cmd_i => sd_cmd_i,
+          sd_dat_o => sd_dat_o,
+          sd_dat_oe => sd_dat_oe,
+          sd_dat_i => sd_dat_i,
 
           slow_access_request_toggle => slow_access_request_toggle,
           slow_access_ready_toggle => slow_access_ready_toggle,
@@ -1610,5 +1628,23 @@ begin
 --    end if;
 
   end process;
+
+  -- Native SD bus: tristate buffers (the output and output-enable registers
+  -- and the input IDDRs are inside sdcard_native)
+  sdClock  <= sd_clk(0);
+  sd2Clock <= sd_clk(1);
+  sdMOSI   <= sd_cmd_o(0) when sd_cmd_oe(0) = '1' else 'Z';
+  sd2MOSI  <= sd_cmd_o(1) when sd_cmd_oe(1) = '1' else 'Z';
+  sdMISO   <= sd_dat_o(0) when sd_dat_oe(0) = '1' else 'Z';
+  sdDAT1   <= sd_dat_o(1) when sd_dat_oe(1) = '1' else 'Z';
+  sdDAT2   <= sd_dat_o(2) when sd_dat_oe(2) = '1' else 'Z';
+  sdReset  <= sd_dat_o(3) when sd_dat_oe(3) = '1' else 'Z';
+  sd2MISO  <= sd_dat_o(4) when sd_dat_oe(4) = '1' else 'Z';
+  sd2DAT1  <= sd_dat_o(5) when sd_dat_oe(5) = '1' else 'Z';
+  sd2DAT2  <= sd_dat_o(6) when sd_dat_oe(6) = '1' else 'Z';
+  sd2reset <= sd_dat_o(7) when sd_dat_oe(7) = '1' else 'Z';
+  sd_cmd_i <= sd2MOSI & sdMOSI;
+  sd_dat_i <= sd2reset & sd2DAT2 & sd2DAT1 & sd2MISO
+              & sdReset & sdDAT2 & sdDAT1 & sdMISO;
 
 end Behavioral;

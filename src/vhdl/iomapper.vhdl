@@ -9,7 +9,10 @@ use work.cputypes.all;
 entity iomapper is
   generic ( target : mega65_target_t;
             cpu_frequency : integer;
-            num_eth_rx_buffers : integer := 4
+            num_eth_rx_buffers : integer := 4;
+            -- true: the native 4-bit SD controller (sdcardio_native) instead
+            -- of sdcardio, on the sd_clk / sd_cmd_* / sd_dat_* lines (#890)
+            sd_native : boolean := false
              );
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
@@ -326,6 +329,19 @@ entity iomapper is
     sclk2_o : out std_logic;
     mosi2_o : out std_logic;
     miso2_i : in  std_logic;
+
+    -- Native 4-bit SD bus of both slots (index 0 = the cs_bo/sclk_o/... slot,
+    -- 1 = the cs2_bo/... slot), used instead of the lines above when
+    -- sd_native.  CMD and DAT are bidirectional: the top level makes the
+    -- tristate buffers (pin <= o when oe = '1' else 'Z').
+    clock162 : in std_logic := '0';
+    sd_clk : out std_logic_vector(1 downto 0);
+    sd_cmd_o : out std_logic_vector(1 downto 0);
+    sd_cmd_oe : out std_logic_vector(1 downto 0);
+    sd_cmd_i : in std_logic_vector(1 downto 0) := "11";
+    sd_dat_o : out std_logic_vector(7 downto 0);   -- slot*4 + line
+    sd_dat_oe : out std_logic_vector(7 downto 0);
+    sd_dat_i : in std_logic_vector(7 downto 0) := (others => '1');
 
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here
@@ -1564,136 +1580,289 @@ begin
   end generate i2cperiph_mega65r2;
 
 
-  sdcard0 : entity work.sdcardio
-    generic map (
-      cpu_frequency => cpu_frequency,
-      target => target )
-    port map (
-    pixelclk => pixelclk,
-    clock => cpuclock,
-    reset => reset,
-    sdcardio_cs => sdcardio_cs,
-    f011_cs => f011_cs,
-    hypervisor_mode => cpu_hypervisor_mode,
-    hyper_trap_f011_read => hyper_trap_f011_read,
-    hyper_trap_f011_write => hyper_trap_f011_write,
-    virtualise_f011_drive0 => virtualised_hardware_in(0),
-    virtualise_f011_drive1 => virtualised_hardware_in(1),
-    secure_mode => protected_hardware_in(7),
+  sd_spi : if not sd_native generate
+    sdcard0 : entity work.sdcardio
+      generic map (
+        cpu_frequency => cpu_frequency,
+        target => target )
+      port map (
+      pixelclk => pixelclk,
+      clock => cpuclock,
+      reset => reset,
+      sdcardio_cs => sdcardio_cs,
+      f011_cs => f011_cs,
+      hypervisor_mode => cpu_hypervisor_mode,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,
+      virtualise_f011_drive0 => virtualised_hardware_in(0),
+      virtualise_f011_drive1 => virtualised_hardware_in(1),
+      secure_mode => protected_hardware_in(7),
 
-    hw_errata_level => hw_errata_level,
-    hw_errata_enable_toggle => hw_errata_enable_toggle,
-    hw_errata_disable_toggle => hw_errata_disable_toggle,
+      hw_errata_level => hw_errata_level,
+      hw_errata_enable_toggle => hw_errata_enable_toggle,
+      hw_errata_disable_toggle => hw_errata_disable_toggle,
 
-    floppy_last_gap => floppy_last_gap,
-    floppy_gap_strobe => floppy_gap_strobe,
+      floppy_last_gap => floppy_last_gap,
+      floppy_gap_strobe => floppy_gap_strobe,
 
-    fpga_temperature => fpga_temperature,
+      fpga_temperature => fpga_temperature,
 
-    fastio_addr => unsigned(address),
-    fastio_addr_fast => unsigned(addr_fast),
-    fastio_write => w,
-    fastio_read => r,
-    fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata_sel) => data_o,
-    colourram_at_dc00 => colourram_at_dc00,
-    viciii_iomode => viciii_iomode,
-    sectorbuffermapped => sector_buffer_mapped,
-    sectorbuffermapped2 => sector_buffer_mapped_read,
-    sectorbuffercs => sectorbuffercs,
-    sectorbuffercs_fast => sectorbuffercs_fast,
+      fastio_addr => unsigned(address),
+      fastio_addr_fast => unsigned(addr_fast),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata_sel) => data_o,
+      colourram_at_dc00 => colourram_at_dc00,
+      viciii_iomode => viciii_iomode,
+      sectorbuffermapped => sector_buffer_mapped,
+      sectorbuffermapped2 => sector_buffer_mapped_read,
+      sectorbuffercs => sectorbuffercs,
+      sectorbuffercs_fast => sectorbuffercs_fast,
 
-    qspicsn => qspicsn,
-    qspidb => qspidb,
-    qspidb_in => qspidb_in,
-    qspidb_oe => qspidb_oe,
-    qspi_clock => qspi_clock,
+      qspicsn => qspicsn,
+      qspidb => qspidb,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
+      qspi_clock => qspi_clock,
 
-    drive_led0 => drive_led0,
-    drive_led2 => drive_led2,
-    drive_ledsd => drive_ledsd,
-    motor => motor,
+      drive_led0 => drive_led0,
+      drive_led2 => drive_led2,
+      drive_ledsd => drive_ledsd,
+      motor => motor,
 
-    pwm_knob => volume_knob1,
-    volume_knob1_target => volume_knob1_target,
-    volume_knob2_target => volume_knob2_target,
-    volume_knob3_target => volume_knob3_target,
+      pwm_knob => volume_knob1,
+      volume_knob1_target => volume_knob1_target,
+      volume_knob2_target => volume_knob2_target,
+      volume_knob3_target => volume_knob3_target,
 
-    f_density => f_density,
-    f_motora => f_motora,
-    f_selecta => f_selecta,
-    f_motorb => f_motorb,
-    f_selectb => f_selectb,
-    f_stepdir => f_stepdir,
-    f_step => f_step,
-    f_wdata => f_wdata,
-    f_wgate => f_wgate,
-    f_side1 => f_side1,
-    f_index => f_index,
-    f_track0 => f_track0,
-    f_writeprotect => f_writeprotect,
-    f_rdata => f_rdata,
-    f_diskchanged => f_diskchanged,
-    f_rdata_loopback => f_rdata_loopback,
+      f_density => f_density,
+      f_motora => f_motora,
+      f_selecta => f_selecta,
+      f_motorb => f_motorb,
+      f_selectb => f_selectb,
+      f_stepdir => f_stepdir,
+      f_step => f_step,
+      f_wdata => f_wdata,
+      f_wgate => f_wgate,
+      f_side1 => f_side1,
+      f_index => f_index,
+      f_track0 => f_track0,
+      f_writeprotect => f_writeprotect,
+      f_rdata => f_rdata,
+      f_diskchanged => f_diskchanged,
+      f_rdata_loopback => f_rdata_loopback,
 
-    dipsw_hi => dipsw_hi,
-    dipsw => dipsw,
-    sw => sw,
-    j21in => j21in,
-    btn => btn,
+      dipsw_hi => dipsw_hi,
+      dipsw => dipsw,
+      sw => sw,
+      j21in => j21in,
+      btn => btn,
 
-    -- Internal virtual 1541 interface
-    sd1541_data => sd1541_data,
-    sd1541_ready_toggle => sd1541_ready_toggle,
-    sd1541_request_toggle => sd1541_request_toggle,
-    sd1541_enable => sd1541_enable,
-    sd1541_track => sd1541_track,
+      -- Internal virtual 1541 interface
+      sd1541_data => sd1541_data,
+      sd1541_ready_toggle => sd1541_ready_toggle,
+      sd1541_request_toggle => sd1541_request_toggle,
+      sd1541_enable => sd1541_enable,
+      sd1541_track => sd1541_track,
 
-    -- SD card interface
-    sd_interface_select => sd_interface_select,
-    cs_bo => cs_bo_sd,
-    sclk_o => sclk_o_sd,
-    mosi_o => mosi_o_sd,
-    miso_i => miso_i_sd,
+      -- SD card interface
+      sd_interface_select => sd_interface_select,
+      cs_bo => cs_bo_sd,
+      sclk_o => sclk_o_sd,
+      mosi_o => mosi_o_sd,
+      miso_i => miso_i_sd,
 
-    aclMISO => aclMISO,
-    aclMOSI => aclMOSI,
-    aclSS => aclSS,
-    aclSCK => aclSCK,
-    aclInt1 => aclInt1,
-    aclInt2 => aclInt2,
+      aclMISO => aclMISO,
+      aclMOSI => aclMOSI,
+      aclSS => aclSS,
+      aclSCK => aclSCK,
+      aclInt1 => aclInt1,
+      aclInt2 => aclInt2,
 
-    tmpSDA => tmpSDA,
-    tmpSCL => tmpSCL,
-    tmpInt => tmpInt,
-    tmpCT => tmpCT,
+      tmpSDA => tmpSDA,
+      tmpSCL => tmpSCL,
+      tmpInt => tmpInt,
+      tmpCT => tmpCT,
 
---    i2c1SDA => i2c1SDA,
---    i2c1SCL => i2c1SCL,
+  --    i2c1SDA => i2c1SDA,
+  --    i2c1SCL => i2c1SCL,
 
-    audio_mix_reg => audio_mix_reg,
-    audio_mix_write => audio_mix_write,
-    audio_mix_wdata => audio_mix_wdata,
-    audio_mix_rdata => audio_mix_rdata,
-    audio_loopback => audio_loopback,
-    pcm_left => pcm_left,
-    pcm_right => pcm_right,
+      audio_mix_reg => audio_mix_reg,
+      audio_mix_write => audio_mix_write,
+      audio_mix_wdata => audio_mix_wdata,
+      audio_mix_rdata => audio_mix_rdata,
+      audio_loopback => audio_loopback,
+      pcm_left => pcm_left,
+      pcm_right => pcm_right,
 
-    lcdpwm => lcdpwm,
-    touchSDA => touchSDA,
-    touchSCL => touchSCL,
-    touch1_valid => touch1_valid_int,
-    touch1_x => touch1_x,
-    touch1_y => touch1_y,
-    touch2_valid => touch2_valid,
-    touch2_x => touch2_x,
-    touch2_y => touch2_y,
+      lcdpwm => lcdpwm,
+      touchSDA => touchSDA,
+      touchSCL => touchSCL,
+      touch1_valid => touch1_valid_int,
+      touch1_x => touch1_x,
+      touch1_y => touch1_y,
+      touch2_valid => touch2_valid,
+      touch2_x => touch2_x,
+      touch2_y => touch2_y,
 
-    last_scan_code => last_scan_code,
+      last_scan_code => last_scan_code,
 
-    -- R3 board amplifier chip
-    r3_amplifier_enable => ampSD
-    );
+      -- R3 board amplifier chip
+      r3_amplifier_enable => ampSD
+      );
+
+    -- (the native lines are idle)
+    sd_clk <= "11";
+    sd_cmd_o <= "11";
+    sd_cmd_oe <= "00";
+    sd_dat_o <= (others => '1');
+    sd_dat_oe <= (others => '0');
+  end generate;
+
+  -- The native 4-bit SD controller (#890).  It drives both slots itself,
+  -- so the SPI lines and the slot switching below stay idle.  (The CIA
+  -- bit-bashing of the SD lines does not work with it.)
+  sd_nat : if sd_native generate
+    sdcard0 : entity work.sdcardio_native
+      generic map (
+        cpu_frequency => cpu_frequency,
+        target => target )
+      port map (
+      pixelclk => pixelclk,
+      clock => cpuclock,
+      reset => reset,
+      sdcardio_cs => sdcardio_cs,
+      f011_cs => f011_cs,
+      hypervisor_mode => cpu_hypervisor_mode,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,
+      virtualise_f011_drive0 => virtualised_hardware_in(0),
+      virtualise_f011_drive1 => virtualised_hardware_in(1),
+      secure_mode => protected_hardware_in(7),
+
+      hw_errata_level => hw_errata_level,
+      hw_errata_enable_toggle => hw_errata_enable_toggle,
+      hw_errata_disable_toggle => hw_errata_disable_toggle,
+
+      floppy_last_gap => floppy_last_gap,
+      floppy_gap_strobe => floppy_gap_strobe,
+
+      fpga_temperature => fpga_temperature,
+
+      fastio_addr => unsigned(address),
+      fastio_addr_fast => unsigned(addr_fast),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata_sel) => data_o,
+      colourram_at_dc00 => colourram_at_dc00,
+      viciii_iomode => viciii_iomode,
+      sectorbuffermapped => sector_buffer_mapped,
+      sectorbuffermapped2 => sector_buffer_mapped_read,
+      sectorbuffercs => sectorbuffercs,
+      sectorbuffercs_fast => sectorbuffercs_fast,
+
+      qspicsn => qspicsn,
+      qspidb => qspidb,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
+      qspi_clock => qspi_clock,
+
+      drive_led0 => drive_led0,
+      drive_led2 => drive_led2,
+      drive_ledsd => drive_ledsd,
+      motor => motor,
+
+      pwm_knob => volume_knob1,
+      volume_knob1_target => volume_knob1_target,
+      volume_knob2_target => volume_knob2_target,
+      volume_knob3_target => volume_knob3_target,
+
+      f_density => f_density,
+      f_motora => f_motora,
+      f_selecta => f_selecta,
+      f_motorb => f_motorb,
+      f_selectb => f_selectb,
+      f_stepdir => f_stepdir,
+      f_step => f_step,
+      f_wdata => f_wdata,
+      f_wgate => f_wgate,
+      f_side1 => f_side1,
+      f_index => f_index,
+      f_track0 => f_track0,
+      f_writeprotect => f_writeprotect,
+      f_rdata => f_rdata,
+      f_diskchanged => f_diskchanged,
+      f_rdata_loopback => f_rdata_loopback,
+
+      dipsw_hi => dipsw_hi,
+      dipsw => dipsw,
+      sw => sw,
+      j21in => j21in,
+      btn => btn,
+
+      -- Internal virtual 1541 interface
+      sd1541_data => sd1541_data,
+      sd1541_ready_toggle => sd1541_ready_toggle,
+      sd1541_request_toggle => sd1541_request_toggle,
+      sd1541_enable => sd1541_enable,
+      sd1541_track => sd1541_track,
+
+      -- SD card interface
+      sd_interface_select => sd_interface_select,
+      clock162 => clock162,
+      sd_clk => sd_clk,
+      sd_cmd_o => sd_cmd_o,
+      sd_cmd_oe => sd_cmd_oe,
+      sd_cmd_i => sd_cmd_i,
+      sd_dat_o => sd_dat_o,
+      sd_dat_oe => sd_dat_oe,
+      sd_dat_i => sd_dat_i,
+
+      aclMISO => aclMISO,
+      aclMOSI => aclMOSI,
+      aclSS => aclSS,
+      aclSCK => aclSCK,
+      aclInt1 => aclInt1,
+      aclInt2 => aclInt2,
+
+      tmpSDA => tmpSDA,
+      tmpSCL => tmpSCL,
+      tmpInt => tmpInt,
+      tmpCT => tmpCT,
+
+  --    i2c1SDA => i2c1SDA,
+  --    i2c1SCL => i2c1SCL,
+
+      audio_mix_reg => audio_mix_reg,
+      audio_mix_write => audio_mix_write,
+      audio_mix_wdata => audio_mix_wdata,
+      audio_mix_rdata => audio_mix_rdata,
+      audio_loopback => audio_loopback,
+      pcm_left => pcm_left,
+      pcm_right => pcm_right,
+
+      lcdpwm => lcdpwm,
+      touchSDA => touchSDA,
+      touchSCL => touchSCL,
+      touch1_valid => touch1_valid_int,
+      touch1_x => touch1_x,
+      touch1_y => touch1_y,
+      touch2_valid => touch2_valid,
+      touch2_x => touch2_x,
+      touch2_y => touch2_y,
+
+      last_scan_code => last_scan_code,
+
+      -- R3 board amplifier chip
+      r3_amplifier_enable => ampSD
+      );
+
+    cs_bo_sd <= '1';
+    sclk_o_sd <= '1';
+    mosi_o_sd <= '1';
+  end generate;
 
   process(reset)
   begin
