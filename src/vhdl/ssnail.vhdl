@@ -464,7 +464,7 @@ architecture shell of ssnail is
     A_SPAN, A_SPAN2, A_STR0, A_STR, A_SE, A_S_T, A_S_W, A_S_SC,
     A_E_T, A_E_W, A_E_P, A_E_3, A_E_R,
     A_O_F, A_O_F0, A_O_F1, A_O_F2, A_O_W, A_WR, A_WR2, A_HNEXT,
-    D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
+    D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_MXS, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
     D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
     G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQW,
@@ -547,6 +547,17 @@ architecture shell of ssnail is
   signal has_b     : std_logic := '0';                          -- B input stream
   signal has_out   : std_logic := '0';                          -- writes Z
   signal ve_kind   : unsigned(3 downto 0) := (others => '0');   -- element operation
+  signal ve_nx     : core_state_t := C_IDLE;      -- V_EL's next state for ve_kind (ve_next)
+  function ve_next(k : unsigned(3 downto 0)) return core_state_t is
+  begin
+    case k is
+      when K_ARGMAX => return V_EL;
+      when K_COPY => return V_ELST;
+      when K_SUM => return E_ACC;
+      when K_SILUMUL | K_GELU => return T_START;
+      when others => return C_FPU_WAIT;
+    end case;
+  end function;
   signal pb        : unsigned(27 downto 0) := (others => '0');
   signal bx, by, bz : unsigned(27 downto 0) := (others => '0'); -- instruction bases
   signal ve_acc    : unsigned(31 downto 0) := (others => '0');  -- pass accumulator
@@ -611,6 +622,7 @@ architecture shell of ssnail is
   signal rope_c, rope_s : unsigned(31 downto 0) := (others => '0');
   signal rp_a, rp_b, rp0, x1v : unsigned(31 downto 0) := (others => '0');
   signal cs_i      : unsigned(8 downto 0) := (others => '0');
+  signal cs_end    : boolean := false;               -- cs_i = rope_hd
   -- ARGMAX
   signal am_best   : unsigned(31 downto 0) := (others => '0');
   signal am_idx, ve_g : unsigned(31 downto 0) := (others => '0');
@@ -667,6 +679,7 @@ architecture shell of ssnail is
   signal rd_sel    : unsigned(1 downto 0) := "00";
   signal mw_active : std_logic := '0';
   signal mw_k, mw_lead, mw_vend : unsigned(8 downto 0) := (others => '0');
+  signal mw_ra     : unsigned(6 downto 0) := (others => '0');   -- mw_idx + mw_k
   signal mw_idx    : unsigned(6 downto 0) := (others => '0');
   -- DEQROW
   type grp_t is array (0 to 33) of unsigned(7 downto 0);
@@ -1727,8 +1740,8 @@ begin
     end if;
   end process;
 
-  -- Output burst read address is exactly the former buf expression.
-  ob_rd_addr <= mw_idx + mw_k(6 downto 0);
+  -- Output burst read address: mw_idx + mw_k, kept in a register (mw_ra)
+  ob_rd_addr <= mw_ra;
 
   ---------------------------------------------------------------------------
   -- FastIO register reads (asynchronous, as in buffereduart, to avoid wait
@@ -2048,6 +2061,7 @@ begin
       kw_d := (others => (others => '0'));
       hr_issue := '0';
       pf_go := false;
+      ve_nx <= ve_next(ve_kind);
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
       sd_issue := '0';
@@ -2086,6 +2100,7 @@ begin
         if mw_active = '1' then
           -- Vector output: word k of the burst, bytes enabled only within
           -- [lead, vend) relative to the burst start
+          assert mw_ra = mw_idx + mw_k(6 downto 0) report "SSNAIL: stale mw_ra" severity failure;
           wdata_r <= ob_rd_data;
           if mw_k & '0' >= mw_lead and mw_k & '0' < mw_vend then
             wbe_r(0) <= '1';
@@ -2098,6 +2113,7 @@ begin
             wbe_r(1) <= '0';
           end if;
           mw_k <= mw_k + 1;
+          mw_ra <= mw_ra + 1;
         elsif str_active = '1' then
           -- STR: an 8-byte burst; the register goes in words 0-1 or 2-3
           if str_k(0) = '0' then
@@ -2630,6 +2646,7 @@ begin
                 rope_hd <= n1(8 downto 0);
                 ef_addr <= ea_y; ef_f16 <= '0';
                 cs_i <= (others => '0');
+                cs_end <= false;                       -- (n1 >= 2)
                 ld_valid <= '0';
                 dec_next <= RO_CS;
               end if;
@@ -2995,6 +3012,7 @@ begin
           else
             mw_active <= '1';
             mw_k <= (others => '0');
+            mw_ra <= mw_idx;
             if dec_is_sd = '1' then
               sd_valid_i <= '1'; sd_cmd_op <= LUMP_OP_WRITE;
               sd_cmd_addr <= dec_local; sd_cmd_len <= wr_len;
@@ -3133,6 +3151,7 @@ begin
 
         when V_EL =>
           assert v_done = (v_i = v_e) report "SSNAIL: stale v_done" severity failure;
+          assert ve_nx = ve_next(ve_kind) report "SSNAIL: stale ve_nx" severity failure;
           if v_done then                                -- v_i = v_e
             if has_out = '1' then
               a0 := pz(27 downto 3) & "000";
@@ -3183,10 +3202,9 @@ begin
                 x1v <= pre_x1;
                 assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
                 fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= rope_c;
-                fpu_start <= '1'; fpu_ret <= E_R1; go(C_FPU_WAIT);
+                fpu_start <= '1'; fpu_ret <= E_R1;
               when K_COPY | K_SUM =>
                 fpu_r <= xv;
-                if ve_kind = K_SUM then go(E_ACC); else go(V_ELST); end if;
               when K_SILUMUL | K_GELU =>
                 tx <= xv;
                 if ve_kind = K_SILUMUL then
@@ -3197,7 +3215,6 @@ begin
                   tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
                 end if;
                 tab_ret <= E_K1;
-                go(T_START);
               when others =>
                 fpu_a <= xv;
                 case ve_kind is
@@ -3223,8 +3240,8 @@ begin
                     fpu_ret <= E_K1;
                 end case;
                 fpu_start <= '1';
-                go(C_FPU_WAIT);
             end case;
+            go(ve_nx);                            -- (ve_next(ve_kind), registered)
           end if;
 
         -- second and later steps of the element operations
@@ -3529,6 +3546,9 @@ begin
               when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
             end case;
             d_kind <= deq_kind(d_fmt);
+            if d_fmt = 39 then
+              fetch_ret <= D_MXS;                     -- (MXFP4: the scale first)
+            end if;
             if fmt_k(d_fmt) then                                                  -- K-quants
               gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
               dk <= '1';
@@ -3739,10 +3759,7 @@ begin
             when DK_K =>
               null;                                -- (K-quants: above)
             when others =>                         -- Q8_0 / Q4_0 / Q5_0 / IQ4_NL / MXFP4
-              if d_have_scale = '0' and d_kind = DK_MX then
-                dq_scale <= e8m0_half(grp(0));     -- (a power of two: no FPU)
-                d_have_scale <= '1';
-              elsif d_have_scale = '0' then
+              if d_have_scale = '0' then           -- (MXFP4's: in D_MXS)
                 fpu_op <= FOP_F16TOF32;
                 fpu_a <= x"0000" & grp(1) & grp(0);
                 fpu_start <= '1';
@@ -3781,6 +3798,13 @@ begin
 
         when D_SCALE =>
           dq_scale <= fpu_r;
+          d_have_scale <= '1';
+          go(D_EMIT);
+
+        -- MXFP4: the block's scale, a power of two (no FPU), before D_EMIT,
+        -- so D_EMIT's choice of next state does not depend on the format
+        when D_MXS =>
+          dq_scale <= e8m0_half(grp(0));
           d_have_scale <= '1';
           go(D_EMIT);
 
@@ -4323,7 +4347,8 @@ begin
 
         -- ROPE: load the cos/sin row, then rotate pairs through the engine
         when RO_CS =>
-          if cs_i = rope_hd then
+          assert cs_end = (cs_i = rope_hd) report "SSNAIL: stale cs_end" severity failure;
+          if cs_end then
             bx <= ea_x; px <= ea_x; pz <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
             o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
             ve_kind <= K_ROPE; rope_j <= (others => '0');
@@ -4336,6 +4361,7 @@ begin
         when RO_CS2 =>
           csv(to_integer(cs_i)) <= ef_val;
           cs_i <= cs_i + 1;
+          cs_end <= cs_i + 1 = rope_hd;
           ef_addr <= ef_addr + 4;
           go(RO_CS);
 
