@@ -619,6 +619,9 @@ architecture shell of ssnail is
   -- sarr's one read, at sx_icnt in the softmax engine, else at_t (by
   -- registers alone): sarr_q, then at_sv / sx_s a cycle later
   signal sarr_q    : unsigned(31 downto 0) := (others => '0');
+  signal sw_qwe    : boolean := false;
+  signal sw_qa     : unsigned(9 downto 0) := (others => '0');
+  signal sw_qd     : unsigned(31 downto 0) := (others => '0');
   signal at_k, at_v, at_rowaddr, at_ea : unsigned(27 downto 0) := (others => '0');
   signal at_nh, at_nkv, at_hd, at_fmt, at_pos : unsigned(31 downto 0) := (others => '0');
   -- EF_START needs the block at ef_addr loaded: recomputed every cycle,
@@ -6033,7 +6036,10 @@ begin
       -- xf: one write port (the x fill, ATTN's q) and one registered read
       -- (the float lane): a block RAM
       if xw_we then xf(to_integer(xw_a)) <= xw_d; end if;
-      if sw_we then sarr(to_integer(sw_a)) <= sw_d; end if;
+      -- (sarr's write a cycle later, from registers: nothing reads a value
+      -- that soon after it is written)
+      sw_qwe <= sw_we; sw_qa <= sw_a; sw_qd <= sw_d;
+      if sw_qwe then sarr(to_integer(sw_qa)) <= sw_qd; end if;
       xf_q <= xf(to_integer(fl_xa));
       if kw_we_q(0) = '1' then kq_sb0(to_integer(kw_a_q(0))) <= kw_d_q(0); end if;
       if kw_we_q(1) = '1' then kq_sb1(to_integer(kw_a_q(1))) <= kw_d_q(1); end if;
