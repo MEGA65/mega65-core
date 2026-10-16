@@ -305,6 +305,11 @@ architecture rtl of sdcard_native is
     return f;
   end function;
 
+  function boolean_to_sl(b : boolean) return std_logic is
+  begin
+    if b then return '1'; else return '0'; end if;
+  end function;
+
   -- tag a is later than tag b (16-bit wrapping)
   function later(a : unsigned(15 downto 0); b : unsigned(15 downto 0)) return boolean is
     variable d : unsigned(15 downto 0);
@@ -496,6 +501,15 @@ architecture rtl of sdcard_native is
   signal rx_dat    : std_logic_vector(3 downto 0) := "1111";
   signal rx_tag    : unsigned(15 downto 0) := (others => '0');
 
+  -- the same, one cycle later in the engine, with tag comparisons
+  signal rxd_v     : std_logic := '0';
+  signal rxd_cmd   : std_logic := '1';
+  signal rxd_dat   : std_logic_vector(3 downto 0) := "1111";
+  signal rxd_tag   : unsigned(15 downto 0) := (others => '0');
+  signal rf_cend, rf_c80, rf_dafter, rf_bafter, rf_tend, rf_t16 : std_logic := '0';
+  signal cmd_gap_ok : std_logic := '1';
+  signal wr_gap_ok  : std_logic := '0';
+
   ------------------------------------------------------------------------------
   -- engine (clock162)
   ------------------------------------------------------------------------------
@@ -531,11 +545,22 @@ architecture rtl of sdcard_native is
   signal istep       : natural range 0 to 31 := 0;
   signal tries       : natural range 0 to 15 := 0;
   signal tmo         : unsigned(27 downto 0) := (others => '0');
+  signal tmo_z       : std_logic := '1';     -- tmo is 0
   signal cnt         : unsigned(10 downto 0) := (others => '0');
 
   -- command mailbox
   signal e_req_s     : std_logic_vector(1 downto 0) := "00";
   signal e_ack       : std_logic := '0';
+  signal e_seen      : std_logic := '0';     -- the request toggle as last copied
+  signal cmd_pend    : std_logic := '0';     -- a copied command waits
+  signal e_code      : unsigned(3 downto 0) := (others => '0');
+  signal e_addr      : unsigned(31 downto 0) := (others => '0');
+  signal e_count     : unsigned(15 downto 0) := (others => '0');
+  signal e_arg       : unsigned(15 downto 0) := (others => '0');
+  signal e_cnt0      : std_logic := '0';     -- count = 0
+  signal e_argz      : std_logic := '0';     -- arg = 0
+  signal e_lt4       : std_logic := '0';     -- arg P < 4
+  signal e_lt13      : std_logic := '0';     -- arg P < 13
   attribute ASYNC_REG of e_req_s : signal is "TRUE";
 
   -- status
@@ -1105,13 +1130,34 @@ begin
     variable crc     : std_logic_vector(63 downto 0);
     variable b       : std_logic_vector(7 downto 0);
     variable next_ok : boolean;
-    variable more    : boolean;
     variable take    : boolean;
     variable granting : boolean;
     variable last_nib : unsigned(9 downto 0);
 
   begin
     if rising_edge(clock162) then
+
+      -- the sample stream, one cycle later, with the comparisons of its tag
+      -- already worked out (registers in front of the state logic)
+      rxd_v   <= rx_v;
+      rxd_cmd <= rx_cmd;
+      rxd_dat <= rx_dat;
+      rxd_tag <= rx_tag;
+      rf_cend   <= boolean_to_sl(later(rx_tag, c_end));
+      rf_c80    <= boolean_to_sl(rx_tag - c_end > 80);
+      rf_dafter <= boolean_to_sl(later(rx_tag, d_after));
+      rf_bafter <= boolean_to_sl(later(rx_tag, b_after));
+      rf_tend   <= boolean_to_sl(later(rx_tag, t_end));
+      rf_t16    <= boolean_to_sl(rx_tag - t_end > 16);
+      -- and the start of a command / of a write block: far enough after the
+      -- last one (one SD clock more than needed: it is a cycle late)
+      cmd_gap_ok <= boolean_to_sl(not later(c_earliest, ttag + 1));
+      wr_gap_ok  <= boolean_to_sl(later(ttag + 1, c_end + 1));
+
+      -- (A comparison flag above was worked out with the threshold of this
+      -- cycle; where the state logic changes a threshold it also clears its
+      -- flags for one cycle.  The samples in flight then are all of earlier
+      -- cycles, so "not later / no timeout" is right for them.)
 
       -- one-cycle pulses
       c_go    <= '0';
@@ -1125,6 +1171,21 @@ begin
 
       e_req_s <= e_req_s(0) & h_req;
 
+      -- a new command: take a copy into this clock domain first (and work out
+      -- the comparisons on it here), handle it from the next cycle on
+      if e_req_s(1) /= e_seen and cmd_pend = '0' then
+        e_seen   <= e_req_s(1);
+        cmd_pend <= '1';
+        e_code   <= h_code;
+        e_addr   <= h_addr;
+        e_count  <= h_count;
+        e_arg    <= h_arg;
+        if h_count = 0 then e_cnt0 <= '1'; else e_cnt0 <= '0'; end if;
+        if h_arg = 0 then e_argz <= '1'; else e_argz <= '0'; end if;
+        if h_arg(6 downto 0) < 4 then e_lt4 <= '1'; else e_lt4 <= '0'; end if;
+        if h_arg(6 downto 0) < 13 then e_lt13 <= '1'; else e_lt13 <= '0'; end if;
+      end if;
+
       -- the command frame, from registers (c_go is the cycle after do_cmd)
       if c_go = '1' then
         c_frame <= cmd_frame(c_idx, c_arg);
@@ -1136,8 +1197,13 @@ begin
         rd_next_ok <= '0';
       end if;
 
+      -- timeout: tmo_z says tmo has reached 0 (a register, so that the 28-bit
+      -- compare is not in front of the state logic)
       if tmo /= 0 then
         tmo <= tmo - 1;
+        if tmo = 1 then
+          tmo_z <= '1';
+        end if;
       end if;
 
       -- write FIFO: drop entries of an earlier fetch
@@ -1159,12 +1225,12 @@ begin
           case c_phase is
             when 0 =>
               -- send the frame, not before c_earliest (Nrc, Ncc)
-              if tick = '1' and (c_n /= 0 or not later(c_earliest, ttag + 1)) then
+              if tick = '1' and (c_n /= 0 or cmd_gap_ok = '1') then
                 cmd_oe_nx <= '1';
                 cmd_nx    <= c_frame(47);
                 c_frame   <= c_frame(46 downto 0) & '1';
                 if c_n = 47 then
-                  c_end <= ttag + 1;
+                  c_end <= ttag + 1;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
                   c_n   <= (others => '0');
                   if c_resp = R_NONE then
                     c_phase <= 2;
@@ -1181,22 +1247,22 @@ begin
                 cmd_oe_nx <= '0';
                 cmd_nx    <= '1';
               end if;
-              if rx_v = '1' and later(rx_tag, c_end) then
+              if rxd_v = '1' and rf_cend = '1' then
                 if c_n = 0 then
-                  if rx_cmd = '0' then
+                  if rxd_cmd = '0' then
                     c_n   <= to_unsigned(1, 8);
                     r_sr  <= (others => '0');
                     r_crc <= crc7_bit("0000000", '0');
-                  elsif rx_tag - c_end > 80 then
+                  elsif rf_c80 = '1' then
                     -- no response (Ncr is at most 64)
                     c_ok    <= '0';
-                    c_end   <= rx_tag;
+                    c_end   <= rxd_tag;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
                     c_phase <= 3;
                   end if;
                 else
-                  r_sr <= r_sr(46 downto 0) & rx_cmd;
+                  r_sr <= r_sr(46 downto 0) & rxd_cmd;
                   if c_n < 40 then
-                    r_crc <= crc7_bit(r_crc, rx_cmd);
+                    r_crc <= crc7_bit(r_crc, rxd_cmd);
                   end if;
                   if (c_resp = R_R2 and c_n = 135) or (c_resp /= R_R2 and c_n = 47) then
                     -- the end bit (r_sr still holds frame bits 46..1)
@@ -1207,7 +1273,7 @@ begin
                         c_ok <= '0';
                       end if;
                     end if;
-                    c_end   <= rx_tag;
+                    c_end   <= rxd_tag;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
                     c_phase <= 3;
                   else
                     c_n <= c_n + 1;
@@ -1225,7 +1291,7 @@ begin
             when others =>
               c_act      <= '0';
               c_done     <= '1';
-              c_earliest <= c_end + 8;
+              c_earliest <= c_end + 8;  cmd_gap_ok <= '0';
           end case;
         end if;
       end if;
@@ -1240,9 +1306,9 @@ begin
       else
         last_nib := to_unsigned(1023, 10);
       end if;
-      if mode_native = '1' and rx_v = '1' then
+      if mode_native = '1' and rxd_v = '1' then
         if d_act = '0' then
-          if d_arm = '1' and later(rx_tag, d_after) and rx_dat(0) = '0' then
+          if d_arm = '1' and rf_dafter = '1' and rxd_dat(0) = '0' then
             d_act       <= '1';
             d_arm       <= '0';
             d_phase     <= 0;
@@ -1250,11 +1316,11 @@ begin
             d_crc       <= (others => '0');
             d_crcn      <= 0;
             d_start     <= '1';
-            d_start_tag <= rx_tag;
+            d_start_tag <= rxd_tag;
             -- stop the clock after the end bit unless the next block may
             -- follow (this can be before the command's response is over)
             if d_small = '0' then
-              stop_at <= rx_tag + 1041 + lag;
+              stop_at <= rxd_tag + 1041 + lag;
               if rd_next_ok = '0' then
                 stop_en <= '1';
               end if;
@@ -1263,7 +1329,7 @@ begin
         else
           case d_phase is
             when 0 =>
-              nib := rx_dat;
+              nib := rxd_dat;
               crc := d_crc;
               for l in 0 to 3 loop
                 crc(16*l+15 downto 16*l) := crc16_bit(d_crc(16*l+15 downto 16*l), nib(l));
@@ -1287,7 +1353,7 @@ begin
               end if;
             when 1 =>
               for l in 0 to 3 loop
-                d_crcrx(16*l+15 downto 16*l) <= d_crcrx(16*l+14 downto 16*l) & rx_dat(l);
+                d_crcrx(16*l+15 downto 16*l) <= d_crcrx(16*l+14 downto 16*l) & rxd_dat(l);
               end loop;
               if d_crcn = 15 then
                 d_phase <= 2;
@@ -1298,8 +1364,8 @@ begin
               -- the end bit
               d_act     <= '0';
               d_done    <= '1';
-              d_end_tag <= rx_tag;
-              if d_crcrx = d_crc and rx_dat = "1111" then
+              d_end_tag <= rxd_tag;
+              if d_crcrx = d_crc and rxd_dat = "1111" then
                 d_ok <= '1';
                 if d_small = '0' and d_discard = '0' then
                   rpush("10", x"00");
@@ -1335,12 +1401,12 @@ begin
           dat_nx(2 downto 0) <= "111";
           dat_oe_nx          <= "1000";
         end if;
-        if rx_v = '1' then
+        if rxd_v = '1' then
           -- the sample tagged n is bit n + lag of the stream
-          sp_rxsr <= sp_rxsr(6 downto 0) & rx_dat(0);
-          if (rx_tag(2 downto 0) + lag(2 downto 0)) = "000" then
-            sp_byte <= sp_rxsr(6 downto 0) & rx_dat(0);
-            sp_bn   <= resize(shift_right(rx_tag + lag - 1, 3), 13);
+          sp_rxsr <= sp_rxsr(6 downto 0) & rxd_dat(0);
+          if (rxd_tag(2 downto 0) + lag(2 downto 0)) = "000" then
+            sp_byte <= sp_rxsr(6 downto 0) & rxd_dat(0);
+            sp_bn   <= resize(shift_right(rxd_tag + lag - 1, 3), 13);
             sp_new  <= '1';
           end if;
         end if;
@@ -1352,25 +1418,29 @@ begin
       --------------------------------------------------------------------------
       take     := false;
       granting := false;
-      if e_req_s(1) /= e_ack then
-        if h_code = C_MORE then
+      if cmd_pend = '1' then
+        if e_code = C_MORE then
           if op /= OP_NONE and op_closed = '0' then
             op_granted <= op_granted + 1;
-            op_closed  <= h_arg(0);
+            op_closed  <= e_arg(0);
             granting   := true;
           end if;
-          e_ack <= e_req_s(1);
-        elsif h_code = C_STOP then
+          e_ack <= e_seen;
+          cmd_pend <= '0';
+        elsif e_code = C_STOP then
           op_closed <= '1';
-          e_ack     <= e_req_s(1);
-        elsif h_code = C_NOP then
-          e_ack <= e_req_s(1);
-        elsif h_code = C_INIT then
+          e_ack     <= e_seen;
+          cmd_pend <= '0';
+        elsif e_code = C_NOP then
+          e_ack <= e_seen;
+          cmd_pend <= '0';
+        elsif e_code = C_INIT then
           take := true;
         elsif st /= S_IDLE then
           e_error <= '1';
           e_err   <= ERR_BUSY;
-          e_ack   <= e_req_s(1);
+          e_ack   <= e_seen;
+          cmd_pend <= '0';
         else
           take := true;
         end if;
@@ -1385,6 +1455,7 @@ begin
           run <= '0';
           if G_AUTO_INIT then
             tmo    <= to_unsigned(TMO_SETTLE, 28);
+            tmo_z    <= '0';
             e_busy <= '1';
             st     <= S_INIT;
           else
@@ -1398,7 +1469,7 @@ begin
         when S_INIT =>
           run     <= '0';
           stop_en <= '0';
-          if tmo = 0 and cg_frz = '1' then
+          if tmo_z = '1' and cg_frz = '1' then
             -- reset the tags now: in SPI mode the clock would otherwise run
             -- on to a byte boundary of the old count
             cg_clr  <= '1';
@@ -1464,7 +1535,7 @@ begin
           end if;
           if cnt = 63 then
             cg_clr     <= '1';
-            c_earliest <= (others => '0');
+            c_earliest <= (others => '0');  cmd_gap_ok <= '0';
             cnt        <= (others => '0');
             st         <= resync_ret;
           end if;
@@ -1477,8 +1548,9 @@ begin
           if rf_empty_e = '1' then
             e_busy <= '0';
           end if;
-          if take and h_code /= C_INIT then
-            e_ack     <= e_req_s(1);
+          if take and e_code /= C_INIT then
+            e_ack     <= e_seen;
+            cmd_pend <= '0';
             e_error   <= '0';
             e_err     <= ERR_NONE;
             e_pass    <= (others => '0');
@@ -1486,48 +1558,48 @@ begin
             op_done   <= (others => '0');
             op_try    <= 0;
             op_verify <= '0';
-            op_addr   <= h_addr;
+            op_addr   <= e_addr;
             w_reqd    <= '0';
-            if h_count = 0 then
+            if e_cnt0 = '1' then
               op_granted <= to_unsigned(1, 16);
               op_closed  <= '0';
             else
-              op_granted <= h_count;
+              op_granted <= e_count;
               op_closed  <= '1';
             end if;
-            if h_code = C_READ or h_code = C_WRITE or h_code = C_PROBE then
+            if e_code = C_READ or e_code = C_WRITE or e_code = C_PROBE then
               if ready = '0' then
                 e_error <= '1';
                 e_err   <= ERR_NOTREADY;
-              elsif h_code = C_PROBE and h_arg(6 downto 0) < 4 then
+              elsif e_code = C_PROBE and e_lt4 = '1' then
                 e_error <= '1';
                 e_err   <= ERR_BADCMD;
-              elsif h_code = C_PROBE and h_arg(6 downto 0) < 13 and hs = '0' then
+              elsif e_code = C_PROBE and e_lt13 = '1' and hs = '0' then
                 e_error <= '1';
                 e_err   <= ERR_NOHS;
               else
                 e_busy <= '1';
-                if h_code = C_READ then
+                if e_code = C_READ then
                   op <= OP_READ;
                   st <= S_DISPATCH;
-                elsif h_code = C_WRITE then
+                elsif e_code = C_WRITE then
                   op <= OP_WRITE;
                   st <= S_DISPATCH;
                 else
                   op         <= OP_PROBE;
                   op_granted <= to_unsigned(1, 16);
                   op_closed  <= '1';
-                  if h_count = 0 then
+                  if e_cnt0 = '1' then
                     op_reps <= to_unsigned(1, 8);
                   else
-                    op_reps <= h_count(7 downto 0);
+                    op_reps <= e_count(7 downto 0);
                   end if;
-                  new_set <= h_arg;
+                  new_set <= e_arg;
                   resync(S_DISPATCH);
                 end if;
               end if;
-            elsif h_code = C_ACCEPT then
-              if h_arg = 0 then
+            elsif e_code = C_ACCEPT then
+              if e_argz = '1' then
                 if hs = '1' then
                   new_set <= SET_HS; cur_set <= SET_HS;
                 else
@@ -1535,15 +1607,15 @@ begin
                 end if;
                 e_busy <= '1';
                 resync(S_FINISH);
-              elsif h_arg(6 downto 0) < 4 then
+              elsif e_lt4 = '1' then
                 e_error <= '1';
                 e_err   <= ERR_BADCMD;
-              elsif h_arg(6 downto 0) < 13 and hs = '0' then
+              elsif e_lt13 = '1' and hs = '0' then
                 e_error <= '1';
                 e_err   <= ERR_NOHS;
               else
-                new_set <= h_arg;
-                cur_set <= h_arg;
+                new_set <= e_arg;
+                cur_set <= e_arg;
                 e_busy  <= '1';
                 resync(S_FINISH);
               end if;
@@ -1622,6 +1694,7 @@ begin
             elsif mode_native = '1' then
               spi_fb <= '1';             -- give up on the native bus
               tmo    <= (others => '0');
+              tmo_z    <= '1';
               st     <= S_INIT;
             else
               ready   <= '0';
@@ -1706,9 +1779,10 @@ begin
           elsif c_done = '1' then
             st <= ret_st;
             if c_resp = R_R1B and c_ok = '1' then
-              b_after <= c_end;
+              b_after <= c_end;  rf_bafter <= '0';
               b_n     <= 0;
               tmo     <= to_unsigned(TMO_BUSY, 28);
+              tmo_z     <= '0';
               st      <= S_BUSY0;
             end if;
           end if;
@@ -1716,11 +1790,11 @@ begin
         -- busy on DAT0: up to 16 cycles for it to go low, then until high
         when S_BUSY0 =>
           run <= '1';
-          if rx_v = '1' and later(rx_tag, b_after) then
-            if rx_dat(0) = '0' then
+          if rxd_v = '1' and rf_bafter = '1' then
+            if rxd_dat(0) = '0' then
               st <= S_BUSY1;
             elsif b_n = 16 then
-              c_earliest <= rx_tag + 2;
+              c_earliest <= rxd_tag + 2;  cmd_gap_ok <= '0';
               st         <= ret_st;
             else
               b_n <= b_n + 1;
@@ -1729,10 +1803,10 @@ begin
 
         when S_BUSY1 =>
           run <= '1';
-          if rx_v = '1' and rx_dat(0) = '1' then
-            c_earliest <= rx_tag + 2;
+          if rxd_v = '1' and rxd_dat(0) = '1' then
+            c_earliest <= rxd_tag + 2;  cmd_gap_ok <= '0';
             st         <= ret_st;
-          elsif tmo = 0 then
+          elsif tmo_z = '1' then
             c_ok <= '0';
             st   <= ret_st;
           end if;
@@ -1764,6 +1838,7 @@ begin
                 sp_n <= 7;
               elsif c_resp = R_R1B then
                 tmo  <= to_unsigned(TMO_BUSY, 28);
+                tmo_z  <= '0';
                 sp_n <= 8;
               else
                 st <= ret_st;
@@ -1783,7 +1858,7 @@ begin
           elsif sp_n = 8 then
             if sp_new = '1' and sp_byte /= x"00" then
               st <= ret_st;
-            elsif tmo = 0 then
+            elsif tmo_z = '1' then
               c_ok <= '0';
               st   <= ret_st;
             end if;
@@ -1821,6 +1896,7 @@ begin
                 v2 <= '0';
               end if;
               tmo   <= to_unsigned(TMO_INIT, 28);
+              tmo_z   <= '0';
               istep <= 3;
             when 3 =>
               istep <= 4;
@@ -1842,7 +1918,7 @@ begin
               elsif r_sr(39) = '1' then
                 hc    <= r_sr(38) and v2;
                 istep <= 6;
-              elsif tmo = 0 then
+              elsif tmo_z = '1' then
                 istep <= 30;
               else
                 istep <= 3;
@@ -1907,13 +1983,14 @@ begin
               else
                 d_small   <= '1';
                 d_arm     <= '1';
-                d_after   <= ttag;
+                d_after   <= ttag;  rf_dafter <= '0';
                 hs_byte   <= (others => '0');
                 istep     <= 17;
                 do_cmd(6, x"80FFFFF1", R_R1, N_INIT);
               end if;
             when 17 =>
               tmo <= to_unsigned(TMO_PROBE, 28);
+              tmo_z <= '0';
               if c_ok = '0' or r1_bad(r_sr) then
                 d_arm   <= '0';
                 d_small <= '0';
@@ -1933,7 +2010,7 @@ begin
                 else
                   istep <= 13;
                 end if;
-              elsif tmo = 0 then
+              elsif tmo_z = '1' then
                 d_arm   <= '0';
                 d_act   <= '0';
                 d_small <= '0';
@@ -1974,6 +2051,7 @@ begin
               ready  <= '0';
               spi_fb <= '1';
               tmo    <= (others => '0');
+              tmo_z    <= '1';
               st     <= S_INIT;
           end case;
 
@@ -1984,12 +2062,14 @@ begin
           run <= '1';
           if op = OP_PROBE then
             tmo <= to_unsigned(TMO_PROBE, 28);
+            tmo_z <= '0';
           else
             tmo <= to_unsigned(TMO_READ, 28);
+            tmo_z <= '0';
           end if;
           -- the data may start before the response is over: scan from now
           d_arm   <= '1';
-          d_after <= ttag;
+          d_after <= ttag;  rf_dafter <= '0';
           d_small <= '0';
           if op_multi = '1' then
             do_cmd(18, card_addr(op_addr, op_done, hc), R_R1, N_RD_RESP);
@@ -2008,15 +2088,15 @@ begin
 
         when N_RD_BLOCK =>
           -- block op_done is coming in
-          more    := op_done + 1 < op_granted or op_closed = '0';
-          next_ok := op_done + 1 < op_granted and op_multi = '1' and
-                     op /= OP_PROBE and op_verify = '0';
+          -- (registered: rd_next_ok, worked out every cycle above)
+          next_ok := rd_next_ok = '1';
           run <= '1';
           if next_ok and d_start = '0' then
             stop_en <= '0';
           end if;
           if d_act = '1' or d_start = '1' then
             tmo <= to_unsigned(TMO_READ, 28);
+            tmo_z <= '0';
           end if;
           if d_done = '1' then
             if d_ok = '0' then
@@ -2039,7 +2119,7 @@ begin
                   -- scan on from the end bit (if the clock stops after it, it
                   -- runs again once the next block is granted)
                   d_arm   <= '1';
-                  d_after <= d_end_tag;
+                  d_after <= d_end_tag;  rf_dafter <= '0';
                 end if;
               end if;
             end if;
@@ -2055,7 +2135,8 @@ begin
               e_wait <= '1';
             end if;
             tmo <= to_unsigned(TMO_READ, 28);
-          elsif tmo = 0 then
+            tmo_z <= '0';
+          elsif tmo_z = '1' then
             failed(ERR_RD_TMO);
           end if;
 
@@ -2107,7 +2188,7 @@ begin
             e_wait <= '0';
           elsif w_ready = '1' then
             run <= '1';
-            if tick = '1' and later(ttag + 1, c_end + 1) then
+            if tick = '1' and wr_gap_ok = '1' then
               dat_oe_nx <= "1111";
               dat_nx    <= "0000";
               t_idx     <= (others => '0');
@@ -2149,12 +2230,13 @@ begin
               end loop;
             elsif t_idx = 1040 then
               dat_nx <= "1111";            -- end bit
-              t_end  <= ttag + 1;
+              t_end  <= ttag + 1;  rf_tend <= '0'; rf_t16 <= '0';
             else
               dat_oe_nx <= "0000";
               w_n       <= 0;
               w_stat    <= (others => '1');
               tmo       <= to_unsigned(TMO_BUSY, 28);
+              tmo_z       <= '0';
               st        <= N_WR_STATUS;
             end if;
             t_idx <= t_idx + 1;
@@ -2163,19 +2245,19 @@ begin
         -- CRC status (0 sss 1 on DAT0), then busy
         when N_WR_STATUS =>
           run <= '1';
-          if rx_v = '1' and later(rx_tag, t_end) then
+          if rxd_v = '1' and rf_tend = '1' then
             if w_n = 0 then
-              if rx_dat(0) = '0' then
+              if rxd_dat(0) = '0' then
                 w_n <= 1;
-              elsif rx_tag - t_end > 16 then
+              elsif rf_t16 = '1' then
                 failed(ERR_WR_TMO);
               end if;
             else
-              w_stat <= w_stat(2 downto 0) & rx_dat(0);
+              w_stat <= w_stat(2 downto 0) & rxd_dat(0);
               w_n    <= w_n + 1;
               if w_n = 4 then
-                if w_stat(2 downto 0) = "010" and rx_dat(0) = '1' then
-                  b_after <= rx_tag;
+                if w_stat(2 downto 0) = "010" and rxd_dat(0) = '1' then
+                  b_after <= rxd_tag;  rf_bafter <= '0';
                   b_n     <= 0;
                   c_ok    <= '1';
                   ret_st  <= N_WR_NEXT;
@@ -2187,7 +2269,7 @@ begin
                 end if;
               end if;
             end if;
-          elsif tmo = 0 then
+          elsif tmo_z = '1' then
             failed(ERR_WR_TMO);
           end if;
 
@@ -2202,7 +2284,7 @@ begin
             op_done <= op_done + 1;
             op_try  <= 0;
             w_reqd  <= '0';
-            c_end   <= c_earliest;
+            c_end   <= c_earliest;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
             if op_multi = '0' then
               st <= S_DISPATCH;
             else
@@ -2247,6 +2329,7 @@ begin
               end if;
             when 2 =>
               tmo <= to_unsigned(TMO_INIT, 28);
+              tmo_z <= '0';
               if c_ok = '1' and sp_r1 = x"01" and sp_ext(11 downto 0) = x"1AA" then
                 v2    <= '1';
                 istep <= 3;
@@ -2269,7 +2352,7 @@ begin
             when 5 =>
               if c_ok = '1' and sp_r1 = x"00" then
                 istep <= 6;
-              elsif c_ok = '1' and sp_r1 = x"01" and tmo /= 0 then
+              elsif c_ok = '1' and sp_r1 = x"01" and tmo_z = '0' then
                 istep <= 3;
               else
                 istep <= 30;
@@ -2385,8 +2468,10 @@ begin
           sp_cs_next <= '0';
           if op = OP_PROBE then
             tmo <= to_unsigned(TMO_PROBE, 28);
+            tmo_z <= '0';
           else
             tmo <= to_unsigned(TMO_READ, 28);
+            tmo_z <= '0';
           end if;
           if op_multi = '1' then
             do_cmd(18, card_addr(op_addr, op_done, hc), R_R1, P_RD_RESP);
@@ -2406,9 +2491,8 @@ begin
 
         -- token, 512 bytes, 2 CRC bytes
         when P_RD_BLOCK =>
-          more    := op_done + 1 < op_granted or op_closed = '0';
-          next_ok := op_done + 1 < op_granted and op_multi = '1' and
-                     op /= OP_PROBE and op_verify = '0';
+          -- (registered: rd_next_ok, worked out every cycle above)
+          next_ok := rd_next_ok = '1';
           run <= '1';
           if d_act = '1' and next_ok then
             stop_en <= '0';
@@ -2420,6 +2504,7 @@ begin
                 d_idx <= (others => '0');
                 d_crc <= (others => '0');
                 tmo   <= to_unsigned(TMO_READ, 28);
+                tmo_z   <= '0';
                 -- the block's last byte is sp_bn + 514: stop the clock after
                 -- it unless the next block can follow
                 stop_at <= shift_left(resize(sp_bn, 16) + 515, 3);
@@ -2480,7 +2565,8 @@ begin
               e_wait <= '1';
             end if;
             tmo <= to_unsigned(TMO_READ, 28);
-          elsif tmo = 0 then
+            tmo_z <= '0';
+          elsif tmo_z = '1' then
             e_err <= ERR_RD_TMO;
             sp_ok <= '0';
             st    <= P_RD_END;
@@ -2590,6 +2676,7 @@ begin
             else
               sp_tx_next <= x"FF";
               tmo        <= to_unsigned(TMO_BUSY, 28);
+              tmo_z        <= '0';
               sp_cnt     <= 0;
               st         <= P_WR_DRESP;
             end if;
@@ -2631,7 +2718,7 @@ begin
                 st    <= P_FIN;
               end if;
             end if;
-          elsif tmo = 0 then
+          elsif tmo_z = '1' then
             e_err <= ERR_WR_TMO;
             sp_ok <= '0';
             st    <= P_FIN;
@@ -2646,6 +2733,7 @@ begin
               sp_tok_bn  <= sp_ld_n + 2;  -- skip the byte after the token
               sp_cnt     <= 1;
               tmo        <= to_unsigned(TMO_BUSY, 28);
+              tmo_z        <= '0';
             else
               sp_tx_next <= x"FF";
             end if;
@@ -2653,7 +2741,7 @@ begin
           if sp_cnt = 1 and sp_new = '1' and sp_bn > sp_tok_bn and sp_byte /= x"00" then
             sp_ok <= '1';
             st    <= P_FIN;
-          elsif sp_cnt = 1 and tmo = 0 then
+          elsif sp_cnt = 1 and tmo_z = '1' then
             e_err <= ERR_WR_TMO;
             sp_ok <= '0';
             st    <= P_FIN;
@@ -2669,12 +2757,13 @@ begin
       --------------------------------------------------------------------------
       -- C_INIT at any time: drop everything (last, so it wins)
       --------------------------------------------------------------------------
-      if take and h_code = C_INIT then
-        e_ack     <= e_req_s(1);
-        spi_only  <= h_arg(0);
+      if take and e_code = C_INIT then
+        e_ack     <= e_seen;
+        cmd_pend <= '0';
+        spi_only  <= e_arg(0);
         spi_fb    <= '0';
-        no_hs     <= h_arg(1);
-        slot      <= h_arg(4);
+        no_hs     <= e_arg(1);
+        slot      <= e_arg(4);
         e_error   <= '0';
         e_err     <= ERR_NONE;
         e_busy    <= '1';
@@ -2690,6 +2779,7 @@ begin
         run       <= '0';
         w_seq     <= not w_seq;          -- orphan any write data in flight
         tmo       <= to_unsigned(TMO_SETTLE, 28);
+        tmo_z       <= '0';
         st        <= S_INIT;
       end if;
 
