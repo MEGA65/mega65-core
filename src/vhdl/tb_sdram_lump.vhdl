@@ -62,6 +62,8 @@ architecture test of tb_sdram_lump is
   signal wptr : integer := 0;          -- next write word to supply
   signal wrst : std_logic := '0';
   signal rmem : words_t := (others => x"0000");
+  type words1k_t is array (0 to 1023) of unsigned(15 downto 0);
+  signal rbig : words1k_t := (others => x"0000");   -- (the streaming test)
   signal rcount : integer := 0;        -- read words received (never reset)
   signal done_count : integer := 0;
 
@@ -131,6 +133,7 @@ begin
     if rising_edge(clock162) then
       if lump_rdata_valid = '1' then
         rmem(rcount mod 256) <= lump_rdata;
+        rbig(rcount mod 1024) <= lump_rdata;
         rcount <= rcount + 1;
       end if;
       if lump_cmd_done = '1' then
@@ -238,6 +241,8 @@ begin
     end procedure;
 
     variable r0 : integer;
+    variable t0 : time;
+    variable bad : integer;
   begin
     tick(20);
     -- The uploaded controller starts with sdram_prepped='1' (debug), so
@@ -332,6 +337,33 @@ begin
       wait_all;
       check_read(r0, 128, 10 + k, "soak block " & integer'image(k));
     end loop;
+
+    -- 7. Streaming: 8 back-to-back 256-byte reads through one 2 KB row (as
+    -- SSNAIL's stream reader issues them), timed
+    for k in 0 to 7 loop
+      fill(0, 128, 40 + k); wrst <= '1'; tick; wrst <= '0'; tick;
+      push(LUMP_OP_WRITE, 16#8000# + k * 256, 256);
+      wait_all;
+    end loop;
+    r0 := rcount;
+    t0 := now;
+    for k in 0 to 7 loop
+      push(LUMP_OP_READ, 16#8000# + k * 256, 256);
+    end loop;
+    wait_all;
+    report "STREAM: 1024 words in " & integer'image((now - t0) / 6 ns) & " cycles";
+    bad := 0;
+    for k in 0 to 7 loop
+      for i in 0 to 127 loop
+        if rbig((r0 + 128 * k + i) mod 1024) /= pat(40 + k, i) then bad := bad + 1; end if;
+      end loop;
+    end loop;
+    if bad = 0 then
+      report "streamed row: PASS (1024 words)";
+    else
+      errors <= errors + 1;
+      report "streamed row: FAIL (" & integer'image(bad) & " bad words)" severity error;
+    end if;
 
     if errors = 0 then
       report "ALL SDRAM LUMP TESTS PASSED (identical_clocks=" & integer'image(identical) & ")";

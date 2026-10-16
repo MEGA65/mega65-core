@@ -11,13 +11,12 @@
 #   open_checkpoint vivado/mega65r6.runs/synth_1/container.dcp
 #   source scripts/check_ram_inference.tcl
 
-# Instance glob, array name: every signal with ram_style "distributed" (or
-# "block": xf) in
+# Instance glob, array name: every signal with ram_style "distributed" in
 # ssnail.vhdl.  Add new ones here.
 set ram_checks {
   *ssnail0 {bank0 bank1 bank2 bank3 ring_lo ring_hi csv outv sarr
             qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb
-            kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3 xf}
+            kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3}
 }
 
 # A failed inference gives one flip-flop per bit (thousands); a handful can
@@ -39,6 +38,27 @@ foreach {inst arrays} $ram_checks {
       puts "WARNING: check_ram_inference: no cells found for $inst/$a (renamed or removed?)"
     } else {
       puts "check_ram_inference: $inst/$a: [llength $ram] RAM cells, OK"
+    }
+  }
+}
+
+# ... and those with ram_style "block": block RAM, not LUT RAM or flip-flops
+# (Vivado falls back to LUT RAM, silently, when it cannot map the accesses
+# to a block RAM's ports: xf as 4096 x 32 LUT RAM congested all of SSNAIL)
+set bram_checks {
+  *ssnail0 {xf}
+}
+foreach {inst arrays} $bram_checks {
+  foreach a $arrays {
+    set cells [get_cells -quiet -hierarchical -filter "NAME =~ ${inst}/${a}_reg*"]
+    set bram [get_cells -quiet -hierarchical -filter "NAME =~ ${inst}/${a}_reg* && REF_NAME =~ RAMB*"]
+    set other [expr {[llength $cells] - [llength $bram]}]
+    if {$other >= $ff_limit} {
+      lappend bad "$inst/$a: [llength $bram] block RAMs, $other other cells (LUT RAM or flip-flops)"
+    } elseif {[llength $bram] == 0} {
+      puts "WARNING: check_ram_inference: no cells found for $inst/$a (renamed or removed?)"
+    } else {
+      puts "check_ram_inference: $inst/$a: [llength $bram] block RAMs, OK"
     }
   }
 }

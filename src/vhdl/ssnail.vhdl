@@ -1353,7 +1353,18 @@ architecture shell of ssnail is
   type xf_t is array (0 to 4095) of unsigned(31 downto 0);
   signal xf : xf_t := (others => (others => '0'));
   attribute ram_style of xf : signal is "block";
-  type fl_st_t is (FL_RUN, FL_DRAIN, FL_AXW, FL_C0, FL_CW1, FL_CW2, FL_CW3, FL_CW4, FL_OUT, FL_DONE);
+  type fl_st_t is (FL_RUN, FL_ROWEND, FL_AXW, FL_DRAIN, FL_WAITC, FL_DONE);
+  -- the combine unit (its own adder): a finished row's bank of partials,
+  -- once its last sums are in (18 cycles), to ((p0 + p1) + (p2 + p3)) +
+  -- ((p4 + p5) + (p6 + p7)), the bank back to -0, the sum to the tail; the
+  -- lane meanwhile adds the next row into the other bank (fl_bk)
+  type cb_st_t is (CB_IDLE, CB_WAIT, CB_P, CB_W1, CB_Q, CB_W2, CB_S, CB_W3, CB_OUT);
+  signal cb_st     : cb_st_t := CB_IDLE;
+  signal cb_bk, fl_bk : std_logic := '0';
+  signal cb_cnt    : unsigned(4 downto 0) := (others => '0');
+  signal fc_rv     : std_logic := '0';
+  signal fc_r      : unsigned(31 downto 0) := (others => '0');
+  signal fc_rtag   : unsigned(2 downto 0) := (others => '0');
   signal fl_st     : fl_st_t := FL_DONE;
   signal fl_skip   : unsigned(1 downto 0) := "00";               -- words before the matrix
   signal fl_c      : unsigned(12 downto 0) := (others => '0');   -- column
@@ -1369,15 +1380,16 @@ architecture shell of ssnail is
   signal fl_xa     : unsigned(11 downto 0) := (others => '0');
   signal fl_w2, xf_q : unsigned(31 downto 0) := (others => '0');
   signal fl_cnt    : unsigned(4 downto 0) := (others => '0');
-  type f8_t is array (0 to 7) of unsigned(31 downto 0);
-  signal fl_p      : f8_t := (others => x"80000000");
+  type f16x_t is array (0 to 15) of unsigned(31 downto 0);
+  signal fl_p      : f16x_t := (others => x"80000000");          -- 2 banks of 8
   type f4_t is array (0 to 3) of unsigned(31 downto 0);
   signal fl_q      : f4_t := (others => (others => '0'));
   signal fl_s0, fl_s1, fl_res : unsigned(31 downto 0) := (others => '0');
   signal fm_rv, fa_v, fa_rv, cb_v : std_logic := '0';
   signal fm_r, fa_a, fa_b, fa_r, cb_a, cb_b : unsigned(31 downto 0) := (others => '0');
   signal fm_rtag   : unsigned(9 downto 0) := (others => '0');
-  signal fa_tag, fa_rtag, cb_tag : unsigned(9 downto 0) := (others => '0');
+  signal fa_tag, fa_rtag : unsigned(9 downto 0) := (others => '0');
+  signal cb_tag    : unsigned(2 downto 0) := (others => '0');
   signal g_j, g_k  : unsigned(5 downto 0) := (others => '0');
   signal g_amax    : unsigned(30 downto 0) := (others => '0');
   signal g_d, g_id, g_scale, g_accv, g_val : unsigned(31 downto 0) := (others => '0');
@@ -1890,6 +1902,10 @@ begin
     variable iv : unsigned(5 downto 0);
     variable ic2 : unsigned(1 downto 0);
     variable ic3 : unsigned(2 downto 0);
+    variable row_end : boolean;
+    variable xw_we : boolean;
+    variable xw_a : unsigned(11 downto 0);
+    variable xw_d : unsigned(31 downto 0);
     -- kq_sb's one write port per byte lane: the assembler (GEMV) or D_FETCH
     variable kw_we : std_logic_vector(0 to 3);
     variable kw_a : kw_a_t;
@@ -1916,6 +1932,7 @@ begin
       wf_arr := false;
       wf_pop := false;
       kw_we := "0000";
+      xw_we := false; xw_a := (others => '0'); xw_d := (others => '0');
       kq_fset <= '0';
       kw_a := (others => (others => '0'));
       kw_d := (others => (others => '0'));
@@ -3834,7 +3851,7 @@ begin
           else
             fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
             xb(to_integer(g_j)) <= fv;
-            xf(to_integer(gblk(6 downto 0) & g_j(4 downto 0))) <= fv;
+            xw_we := true; xw_a := gblk(6 downto 0) & g_j(4 downto 0); xw_d := fv;
             -- |x| ordering = integer ordering of the low 31 bits
             qf_v <= fv(30 downto 0);
             qf_vld <= true;
@@ -4067,9 +4084,8 @@ begin
             if fl_on = '1' then fl_st <= FL_RUN; else fl_st <= FL_DONE; end if;
             fl_skip <= ps(2 downto 1);
             fl_c <= (others => '0'); fl_cl <= false; fl_k <= (others => '0'); fl_hv <= '0';
-            fl_cz <= true; fl_first <= '1';
+            fl_cz <= true; fl_first <= '1'; fl_bk <= '0'; cb_st <= CB_IDLE;
             fl_rr <= g_rows; fl_rl <= g_rows = 1;
-            fl_p <= (others => x"80000000");
             mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
             mc_scale_ok <= '0';
             tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
@@ -4401,7 +4417,7 @@ begin
             go(EF_START);
           end if;
         when A_Q2 =>
-          xf(to_integer(at_i)) <= ef_val;         -- (q: the float lane's x)
+          xw_we := true; xw_a := "000" & at_i; xw_d := ef_val;   -- (q: the float lane's x)
           at_i <= at_i + 1;
           ef_addr <= ef_addr + 4;
           go(A_Q);
@@ -4877,6 +4893,7 @@ begin
         end if;
         -- Float lane: a weight from the FIFO (see fl_st)
         fl_v1 <= '0';
+        row_end := false;
         if fl_on = '1' and fl_st = FL_RUN and not wf_z
           and (fl_ax = '0' or not fl_cz or fl_wv = '1') then   -- (a row's w_t in)
           wv := wf(to_integer(wf_r(7 downto 0)));
@@ -4895,7 +4912,7 @@ begin
             if fl_ax = '1' then
               fl_tg1 <= fl_first & fl_c(8 downto 0);
             else
-              fl_tg1 <= "0000000" & fl_k;
+              fl_tg1 <= "000000" & fl_bk & fl_k;
             end if;
             if fl_cz then                              -- (ATTN: this row's w_t)
               fl_b1 <= fl_wq; fl_ws <= fl_wq;
@@ -4918,11 +4935,36 @@ begin
                 fl_cnt <= (others => '0');
                 fl_st <= FL_AXW;
               end if;
-            elsif fl_cl then                           -- the row's last weight
+            elsif fl_cl and fl_ax = '1' then           -- (the last row: drain)
               fl_cnt <= (others => '0');
               fl_st <= FL_DRAIN;
+            elsif fl_cl then                           -- the row's last weight
+              row_end := true;
             end if;
           end if;
+        end if;
+        -- (GEMV, scores) a row's end: its bank to the combine unit once that
+        -- is free, then the next row, in the other bank
+        if fl_st = FL_ROWEND then
+          row_end := true;
+        end if;
+        if row_end then
+          if cb_st = CB_IDLE then
+            cb_st <= CB_WAIT; cb_bk <= fl_bk; cb_cnt <= (others => '0');
+            if fl_rl then
+              fl_st <= FL_WAITC;
+            else
+              fl_st <= FL_RUN;
+              fl_c <= (others => '0'); fl_cz <= true; fl_cl <= fl_n = 1;
+              fl_k <= (others => '0'); fl_bk <= not fl_bk;
+              fl_rr <= fl_rr - 1; fl_rl <= fl_rr = 2;
+            end if;
+          else
+            fl_st <= FL_ROWEND;
+          end if;
+        end if;
+        if fl_st = FL_WAITC and cb_st = CB_IDLE then
+          fl_st <= FL_DONE;
         end if;
         -- ... as F32, with its x
         fl_v2 <= fl_v1;
@@ -4935,74 +4977,80 @@ begin
         else
           fl_w2 <= f16_to_f32(fl_raw1(15 downto 0));
         end if;
-        xf_q <= xf(to_integer(fl_xa));
-        -- the adder's results: partial sums, then the combination
+        -- the adders' results: partial sums (or ATTN's out); the combination
         if fa_rv = '1' and fl_ax = '1' then
           outv(to_integer(fa_rtag(7 downto 0))) <= fa_r;
         elsif fa_rv = '1' then
-          case to_integer(fa_rtag) is
-            when 0 to 7 => fl_p(to_integer(fa_rtag(2 downto 0))) <= fa_r;
-            when 8 to 11 => fl_q(to_integer(fa_rtag(1 downto 0))) <= fa_r;
-            when 12 => fl_s0 <= fa_r;
-            when 13 => fl_s1 <= fa_r;
-            when others => fl_res <= fa_r;
+          fl_p(to_integer(fa_rtag(3 downto 0))) <= fa_r;
+        end if;
+        if fc_rv = '1' then
+          case to_integer(fc_rtag) is
+            when 0 to 3 => fl_q(to_integer(fc_rtag(1 downto 0))) <= fc_r;
+            when 4 => fl_s0 <= fc_r;
+            when 5 => fl_s1 <= fc_r;
+            when others => fl_res <= fc_r;
           end case;
         end if;
-        -- a row's end: the last product into its partial (18 cycles), then
-        -- ((p0 + p1) + (p2 + p3)) + ((p4 + p5) + (p6 + p7)); the partials
-        -- start again from -0
         cb_v <= '0';
         case fl_st is
-          when FL_DRAIN =>
+          when FL_DRAIN =>                             -- (output pass: all in outv)
             fl_cnt <= fl_cnt + 1;
             if fl_cnt = 18 then
-              fl_cnt <= (others => '0');
-              if fl_ax = '1' then
-                fl_st <= FL_DONE;                      -- (output pass: all in outv)
-              else
-                fl_st <= FL_C0;
-              end if;
+              fl_st <= FL_DONE;
             end if;
           when FL_AXW =>
             fl_cnt <= fl_cnt + 1;
             if fl_cnt = 10 then
               fl_st <= FL_RUN;
             end if;
-          when FL_C0 =>
-            cb_v <= '1';
-            cb_a <= fl_p(2 * to_integer(fl_cnt(1 downto 0)));
-            cb_b <= fl_p(2 * to_integer(fl_cnt(1 downto 0)) + 1);
-            cb_tag <= "000000" & "10" & fl_cnt(1 downto 0);
-            fl_p(2 * to_integer(fl_cnt(1 downto 0))) <= x"80000000";
-            fl_p(2 * to_integer(fl_cnt(1 downto 0)) + 1) <= x"80000000";
-            fl_cnt <= fl_cnt + 1;
-            if fl_cnt = 3 then
-              fl_st <= FL_CW1;
-            end if;
-          when FL_CW1 =>                               -- (p6 + p7 in last)
-            if fa_rv = '1' and fa_rtag = 11 then
-              fl_st <= FL_CW2;
-              fl_cnt <= (others => '0');
-            end if;
-          when FL_CW2 =>
-            cb_v <= '1';
-            if fl_cnt(0) = '0' then
-              cb_a <= fl_q(0); cb_b <= fl_q(1); cb_tag <= to_unsigned(12, 10);
-            else
-              cb_a <= fl_q(2); cb_b <= fl_q(3); cb_tag <= to_unsigned(13, 10);
-              fl_st <= FL_CW3;
-            end if;
-            fl_cnt <= fl_cnt + 1;
-          when FL_CW3 =>
-            if fa_rv = '1' and fa_rtag = 13 then
-              fl_st <= FL_CW4;
-            end if;
-          when FL_CW4 =>
-            cb_v <= '1';
-            cb_a <= fl_s0; cb_b <= fl_s1; cb_tag <= to_unsigned(14, 10);
-            fl_st <= FL_OUT;
-            fl_cnt <= (others => '0');
           when others =>
+            null;
+        end case;
+        case cb_st is
+          when CB_WAIT =>
+            cb_cnt <= cb_cnt + 1;
+            if cb_cnt = 18 then
+              cb_cnt <= (others => '0');
+              cb_st <= CB_P;
+            end if;
+          when CB_P =>
+            cb_v <= '1';
+            cb_a <= fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '0'));
+            cb_b <= fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '1'));
+            cb_tag <= '0' & cb_cnt(1 downto 0);
+            fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '0')) <= x"80000000";
+            fl_p(to_integer(cb_bk & cb_cnt(1 downto 0) & '1')) <= x"80000000";
+            cb_cnt <= cb_cnt + 1;
+            if cb_cnt = 3 then
+              cb_st <= CB_W1;
+            end if;
+          when CB_W1 =>                                -- (p6 + p7 in last)
+            if fc_rv = '1' and fc_rtag = 3 then
+              cb_cnt <= (others => '0');
+              cb_st <= CB_Q;
+            end if;
+          when CB_Q =>
+            cb_v <= '1';
+            if cb_cnt(0) = '0' then
+              cb_a <= fl_q(0); cb_b <= fl_q(1); cb_tag <= to_unsigned(4, 3);
+            else
+              cb_a <= fl_q(2); cb_b <= fl_q(3); cb_tag <= to_unsigned(5, 3);
+              cb_st <= CB_W2;
+            end if;
+            cb_cnt <= cb_cnt + 1;
+          when CB_W2 =>
+            if fc_rv = '1' and fc_rtag = 5 then
+              cb_st <= CB_S;
+            end if;
+          when CB_S =>
+            cb_v <= '1';
+            cb_a <= fl_s0; cb_b <= fl_s1; cb_tag <= to_unsigned(6, 3);
+            cb_st <= CB_W3;
+          when CB_W3 =>
+            if fc_rv = '1' and fc_rtag = 6 then
+              cb_st <= CB_OUT;                         -- (fl_res next cycle)
+            end if;
+          when others =>                               -- CB_IDLE, CB_OUT (below)
             null;
         end case;
 
@@ -5582,20 +5630,10 @@ begin
           tl_free := false;
         end if;
         -- (float lane: the row's sum, once the adder has it)
-        if fl_st = FL_OUT and fl_cnt(4) = '1' and tl_free then
+        if cb_st = CB_OUT and tl_free then
           tl_full <= '1'; tl_term <= fl_res; tl_blk <= (others => '0');
           tl_free := false;
-          fl_cnt <= (others => '0');
-          if fl_rl then
-            fl_st <= FL_DONE;
-          else
-            fl_st <= FL_RUN;
-            fl_c <= (others => '0'); fl_cl <= fl_n = 1; fl_k <= (others => '0'); fl_cz <= true;
-          end if;
-          fl_rr <= fl_rr - 1;
-          fl_rl <= fl_rr = 2;
-        elsif fl_st = FL_OUT and fa_rv = '1' and fa_rtag = 14 then
-          fl_cnt(4) <= '1';                            -- (fl_res in next cycle)
+          cb_st <= CB_IDLE;
         end if;
         if th_v = '1' and tl_free then
           tl_full <= '1'; tl_term <= th_val; tl_blk <= th_blk;
@@ -5652,6 +5690,10 @@ begin
       -- with its last write), and its three registered read ports (the K
       -- reader's two, the header's)
       kw_we_q <= kw_we; kw_a_q <= kw_a; kw_d_q <= kw_d;
+      -- xf: one write port (the x fill, ATTN's q) and one registered read
+      -- (the float lane): a block RAM
+      if xw_we then xf(to_integer(xw_a)) <= xw_d; end if;
+      xf_q <= xf(to_integer(fl_xa));
       if kw_we_q(0) = '1' then kq_sb0(to_integer(kw_a_q(0))) <= kw_d_q(0); end if;
       if kw_we_q(1) = '1' then kq_sb1(to_integer(kw_a_q(1))) <= kw_d_q(1); end if;
       if kw_we_q(2) = '1' then kq_sb2(to_integer(kw_a_q(2))) <= kw_d_q(2); end if;
@@ -5710,14 +5752,16 @@ begin
               rv => fm_rv, r => fm_r, rtag => fm_rtag);
   -- (output pass: out[d], read at the product's d; +0 for row 0)
   ov_ra <= fm_rtag(7 downto 0) when fl_ax = '1' else at_i(7 downto 0);
-  fa_v <= fm_rv or cb_v;
-  fa_a <= cb_a when cb_v = '1'
-          else x"00000000" when fl_ax = '1' and fm_rtag(9) = '1'
+  fa_v <= fm_rv;
+  fa_a <= x"00000000" when fl_ax = '1' and fm_rtag(9) = '1'
           else outv(to_integer(ov_ra)) when fl_ax = '1'
           else fa_r when fa_rv = '1' and fa_rtag = fm_rtag
-          else fl_p(to_integer(fm_rtag(2 downto 0)));
-  fa_b <= cb_b when cb_v = '1' else fm_r;
-  fa_tag <= cb_tag when cb_v = '1' else fm_rtag;
+          else fl_p(to_integer(fm_rtag(3 downto 0)));
+  fa_b <= fm_r;
+  fa_tag <= fm_rtag;
+  fadd_c : entity work.ssnail_fadd_p generic map (TAGW => 3)
+    port map (clock => clock162, v => cb_v, a => cb_a, b => cb_b, tag => cb_tag,
+              rv => fc_rv, r => fc_r, rtag => fc_rtag);
   fadd_l : entity work.ssnail_fadd_p generic map (TAGW => 10)
     port map (clock => clock162, v => fa_v, a => fa_a, b => fa_b, tag => fa_tag,
               rv => fa_rv, r => fa_r, rtag => fa_rtag);
