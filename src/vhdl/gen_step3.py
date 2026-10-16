@@ -38,6 +38,7 @@ x1 = (rng.standard_normal(96) * 3).astype(np.float32)
 x1[32:64] = 0                                    # all-zero block: d = 0, id = 0
 x1[64] = np.float32(127.0)                       # block where x * id hits the
 x1[65] = np.nextafter(np.float32(0.5), np.float32(0))   # roundf edge
+x1[66:74] = [0.5, -0.5, 2.5, -2.5, 1.5, -3.5, 126.5, -126.5]   # id = 1: exact ties, away from 0
 x2 = (rng.standard_normal(64) * 0.7).astype(np.float32)
 acc = (rng.standard_normal(13) * 5).astype(np.float32)
 put(0x203, w1)
