@@ -2479,8 +2479,12 @@ begin
             when x"20" | x"21" | x"29" | x"23" | x"27" | x"22" | x"26" | x"28" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
-              -- (the element operation from the opcode alone: only the V_
-              -- states read it, so the checks below need not gate it)
+              -- (the element operation from the opcode alone, and the
+              -- working registers: only the V_ states read them, so the
+              -- checks below need not gate them)
+              bx <= ea_x; by <= ea_y; bz <= ea_z;
+              px <= ea_x; py <= ea_y; pz <= ea_z;
+              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
               case instr(7 downto 0) is
                 when x"20" => ve_kind <= K_ADD;
                 when x"21" => ve_kind <= K_MUL;
@@ -2501,9 +2505,6 @@ begin
               elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
                 dec_next <= C_NEXT;                       -- nothing to do
               else
-                bx <= ea_x; by <= ea_y; bz <= ea_z;
-                px <= ea_x; py <= ea_y; pz <= ea_z;
-                v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
                 o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
                 ve_first <= '1';
                 ve_ret <= C_NEXT;
