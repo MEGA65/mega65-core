@@ -453,6 +453,16 @@ architecture tacoma_narrows of sdram_controller is
   signal lump_cnt_init  : signed(8 downto 0) := (others => '1');
   -- Read data capture pipeline: bit k set => a READ was issued k+1 cycles ago
   signal lump_rd_pipe  : std_logic_vector(0 to 8) := (others => '0');
+  -- Read chaining: a READ at the queue head in the open row (lump_bank,
+  -- lump_row), with nothing of higher priority waiting, follows the last
+  -- READ of the current one without leaving LUMP_READ (no drain, no IDLE
+  -- and OPEN_CHK between them).  lump_chain_ok is that test, a cycle old
+  -- (the head only changes when we pop it, at least 4 cycles before the
+  -- next last READ).  The chained-from command's done follows its last word
+  -- through lump_last_pipe.
+  signal lump_chain_ok : std_logic := '0';
+  signal lump_last_issue : std_logic := '0';
+  signal lump_last_pipe : std_logic_vector(0 to 9) := (others => '0');
   signal lump_rd_issue : std_logic := '0';
 
   -- The one place read data crosses from clock162r to clock162.  Both the
@@ -823,6 +833,7 @@ begin
       lump_cmd_done    <= '0';
       lump_error       <= '0';
       lump_rd_issue    <= '0';
+      lump_last_issue  <= '0';
       fl_rd_issue      <= '0';
       lump_idle        <= not (lump_q_valid or lump_active or lump_q_pop);
 
@@ -838,6 +849,14 @@ begin
       -- has been updated by the time they are next computed.  The branch
       -- that consumes a command also clears its flag explicitly.
       lump_go     <= lump_q_valid and (not lump_q_op(1)) and (not lump_q_pop);
+      if lump_go = '1' and lump_is_write_pre = '0'
+        and a_bank(lump_q_addr) = lump_bank and lump_q_addr(25 downto 13) = lump_row
+        and refresh_due = '0' and tr_req = '0' and read_latched = '0' and write_latched = '0'
+        and vic_want = '0' and want_fill = '0' and x_want = '0' and w_ne = (w_ne'range => '0') then
+        lump_chain_ok <= '1';
+      else
+        lump_chain_ok <= '0';
+      end if;
       lump_inv_go <= lump_q_valid and lump_q_op(1) and (not lump_q_pop);
       lump_is_write_pre <= lump_q_op(0);
       if lump_q_op(0) = '1' then
@@ -876,6 +895,13 @@ begin
       ps_locked_s2 <= ps_locked_s1;
       lump_rd_pipe(0) <= lump_rd_issue;
       lump_rd_pipe(1 to 8) <= lump_rd_pipe(0 to 7);
+      lump_last_pipe(0) <= lump_last_issue;
+      lump_last_pipe(1 to 9) <= lump_last_pipe(0 to 8);
+      -- a chained-from command is done the cycle after its last word (the
+      -- fourth of its last READ: pipe position 8 - rd_c) is captured
+      if lump_last_pipe(9 - to_integer(rd_c)) = '1' then
+        lump_cmd_done <= '1';
+      end if;
       if (rd_c = "00" and (lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7) or lump_rd_pipe(8)) = '1')
         or (rd_c = "01" and (lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6) or lump_rd_pipe(7)) = '1')
         or (rd_c = "10" and (lump_rd_pipe(3) or lump_rd_pipe(4) or lump_rd_pipe(5) or lump_rd_pipe(6)) = '1')
@@ -1453,7 +1479,17 @@ begin
               lump_col(9 downto 2) <= lump_col(9 downto 2) + 1;
               lump_rd_issue       <= '1';
               read_jobs           <= read_jobs + 1;
-              if lump_cnt(8) = '1' then
+              if lump_cnt(8) = '1' and lump_chain_ok = '1' then
+                -- chain the next READ in this row: its first READ in 4
+                -- cycles, as if this command went on
+                report "LUMP: Chaining burst @ $" & to_hexstring(lump_q_addr);
+                lump_last_issue <= '1';
+                lump_q_pop <= '1';
+                lump_go <= '0';
+                lump_chain_ok <= '0';
+                lump_col <= lump_q_addr(10 downto 1);
+                lump_cnt <= lump_cnt_init;
+              elsif lump_cnt(8) = '1' then
                 sdram_state <= LUMP_READ_DRAIN;
               else
                 lump_cnt <= lump_cnt - 1;

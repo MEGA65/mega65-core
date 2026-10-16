@@ -66,6 +66,12 @@ architecture test of tb_sdram_lump is
   signal rbig : words1k_t := (others => x"0000");   -- (the streaming test)
   signal rcount : integer := 0;        -- read words received (never reset)
   signal done_count : integer := 0;
+  -- read words of each command, in order (writes 0), so a done can be
+  -- checked against the words in by then: a command must not be done
+  -- before its last word
+  type ilist_t is array (0 to 1023) of integer;
+  signal cmd_words : ilist_t := (others => 0);
+  signal words_due : integer := 0;
 
   signal finished : boolean := false;
   signal errors : integer := 0;
@@ -138,6 +144,12 @@ begin
       end if;
       if lump_cmd_done = '1' then
         done_count <= done_count + 1;
+        words_due <= words_due + cmd_words(done_count);
+        if rcount + 1 < words_due + cmd_words(done_count) then
+          report "LUMP command " & integer'image(done_count) & " done with "
+            & integer'image(rcount) & " words in, " & integer'image(words_due + cmd_words(done_count))
+            & " due" severity error;
+        end if;
       end if;
       if lump_error = '1' then
         report "LUMP error strobe seen" severity error;
@@ -168,6 +180,11 @@ begin
         exit when lump_cmd_ready = '1';
       end loop;
       lump_cmd_valid <= '0';
+      if op = LUMP_OP_READ then
+        cmd_words(expect_d) <= len / 2;
+      else
+        cmd_words(expect_d) <= 0;
+      end if;
       expect_d := expect_d + 1;
       if op = LUMP_OP_READ then
         expect_r := expect_r + len / 2;
@@ -363,6 +380,25 @@ begin
     else
       errors <= errors + 1;
       report "streamed row: FAIL (" & integer'image(bad) & " bad words)" severity error;
+    end if;
+    -- 8. Queued reads in one bank, different rows (no chaining across)
+    fill(0, 128, 60); wrst <= '1'; tick; wrst <= '0'; tick;
+    push(LUMP_OP_WRITE, 16#A000#, 256);                 -- bank 0, row 5
+    wait_all;
+    r0 := rcount;
+    push(LUMP_OP_READ, 16#8000#, 256);                  -- bank 0, row 4
+    push(LUMP_OP_READ, 16#A000#, 256);
+    wait_all;
+    bad := 0;
+    for i in 0 to 127 loop
+      if rbig((r0 + i) mod 1024) /= pat(40, i) then bad := bad + 1; end if;
+      if rbig((r0 + 128 + i) mod 1024) /= pat(60, i) then bad := bad + 1; end if;
+    end loop;
+    if bad = 0 then
+      report "row change in a bank: PASS";
+    else
+      errors <= errors + 1;
+      report "row change in a bank: FAIL (" & integer'image(bad) & " bad words)" severity error;
     end if;
 
     if errors = 0 then

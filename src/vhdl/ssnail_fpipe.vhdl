@@ -217,8 +217,9 @@ architecture rtl of ssnail_fadd_p is
   signal mx2, my2 : unsigned(23 downto 0) := (others => '0');
   signal x3, y3 : unsigned(26 downto 0) := (others => '0');   -- with 3 low bits
   signal s4 : unsigned(27 downto 0) := (others => '0');
-  signal ovf5, left_ok5 : boolean := false;
+  signal ovf5, nrm5, big4 : boolean := false;
   signal sh5 : integer range 0 to 27 := 0;
+  signal em4 : unsigned(4 downto 0) := (others => '0');   -- e4 - 1 (when < 28)
   signal s5 : unsigned(27 downto 0) := (others => '0');
   signal z5, z6 : boolean := false;
   signal n6 : unsigned(26 downto 0) := (others => '0');
@@ -292,8 +293,10 @@ begin
       end if;
       y3 <= yy;
 
-      -- 4: add or subtract (the big one is never smaller)
+      -- 4: add or subtract (the big one is never smaller); e - 1 for stage 5
       e4 <= e3;
+      big4 <= e3 >= 28;
+      em4 <= to_unsigned((e3 - 1) mod 32, 5);
       if sub3 = '1' then
         s4 <= ('0' & x3) - ('0' & y3);
       else
@@ -301,20 +304,29 @@ begin
       end if;
 
       -- 5: normalising shift: right one on a carry; else left by the
-      -- leading zeros, but not below exponent 1
+      -- leading zeros, but not below exponent 1 (e - lz >= 1 is
+      -- lz <= e - 1: no subtraction here)
       s5 <= s4;
       z5 <= s4 = 0;
+      e5 <= e4;
       lz := lzc(s4(26 downto 0));
       if s4(27) = '1' then
-        ovf5 <= true; sh5 <= 0; e5 <= e4 + 1;
-      elsif e4 - lz >= 1 then
-        ovf5 <= false; sh5 <= lz; e5 <= e4 - lz;
+        ovf5 <= true; nrm5 <= false; sh5 <= 0;
+      elsif big4 or lz <= to_integer(em4) then
+        ovf5 <= false; nrm5 <= true; sh5 <= lz;
       else
-        ovf5 <= false; sh5 <= e4 - 1; e5 <= 1;
+        ovf5 <= false; nrm5 <= false; sh5 <= to_integer(em4);
       end if;
 
-      -- 6: shifted
-      e6 <= e5; z6 <= z5;
+      -- 6: shifted; its exponent
+      z6 <= z5;
+      if ovf5 then
+        e6 <= e5 + 1;
+      elsif nrm5 then
+        e6 <= e5 - sh5;
+      else
+        e6 <= 1;
+      end if;
       if ovf5 then
         n6 <= s5(27 downto 2) & (s5(1) or s5(0));
       else

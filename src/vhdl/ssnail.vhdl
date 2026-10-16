@@ -462,7 +462,7 @@ architecture shell of ssnail is
     D_GROUP, D_FETCH0, D_FETCH, D_EMIT, D_EMIT_W, D_SCALE, D_QMUL, D_STORE, D_AFTER,
     D_KH0, D_KH1, D_KH, D_KDEC, D_KD, D_KDM, D_KA1, D_KA2, D_KB1, D_KB2,
     D_KQ, D_KQ2, D_KQ3, D_KMUL, D_KSUB,
-    G_QFILL0, G_QFILL, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
+    G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQR, G_QQS,
     G_SET, G_KAM, G_KX,
     G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_T1, G2_T2, G2_T3, G2_END,
     G2_KS,
@@ -3825,17 +3825,8 @@ begin
             g_j <= (others => '0');                    -- (K: d and id known)
             go(G_QQ);
           elsif g_j = 32 then
-            fpu_op <= FOP_DIV;                         -- d = amax / 127
-            -- (the last element's qf_v lands in g_amax only now)
-            if qf_vld and qf_v > g_amax then
-              fpu_a <= '0' & qf_v;
-            else
-              fpu_a <= '0' & g_amax;
-            end if;
-            fpu_b <= x"42FE0000";
-            fpu_start <= '1';
-            fpu_ret <= G_QID;
-            go(C_FPU_WAIT);
+            go(G_QAM);                                 -- (the last element's qf_v
+                                                       -- lands in g_amax now)
           elsif not qf_hit then                       -- px's block is not loaded
             a0 := px(27 downto 3) & "000";
             a1 := (px(27 downto 8) + 1) & x"00";
@@ -3860,6 +3851,15 @@ begin
             g_j <= g_j + 1;
           end if;
 
+        when G_QAM =>
+          assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
+          fpu_op <= FOP_DIV;                           -- d = amax / 127
+          fpu_a <= '0' & g_amax;
+          fpu_b <= x"42FE0000";
+          fpu_start <= '1';
+          fpu_ret <= G_QID;
+          go(C_FPU_WAIT);
+
         -- K-quants: the amax of 32 more elements (g_amax is complete now);
         -- after 256, d = amax / 127 as for Q8_0
         when G_KAM =>
@@ -3869,19 +3869,18 @@ begin
           end if;
           kq_sub <= kq_sub + 1;
           if kq_sub = 7 then
-            fpu_op <= FOP_DIV;
-            if g_amax > kq_amax then
-              fpu_a <= '0' & g_amax;
-            else
-              fpu_a <= '0' & kq_amax;
-            end if;
-            fpu_b <= x"42FE0000";
-            fpu_start <= '1';
-            fpu_ret <= G_QID;
-            go(C_FPU_WAIT);
+            go(G_KAM2);                                -- (kq_amax complete next)
           else
             go(G_QFILL0);
           end if;
+
+        when G_KAM2 =>
+          fpu_op <= FOP_DIV;
+          fpu_a <= '0' & kq_amax;
+          fpu_b <= x"42FE0000";
+          fpu_start <= '1';
+          fpu_ret <= G_QID;
+          go(C_FPU_WAIT);
 
         -- K-quants: the super-block's scale is F32 (not rounded to F16);
         -- read its 256 elements again, to quantise them
