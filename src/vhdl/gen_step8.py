@@ -1,5 +1,5 @@
 """Step 8 test: Mamba-2's VEXP, SOFTPLUS and SSMUPD (Falcon-H1), and the
-geometry ops VRECIP, VCVTI16, VMAX and VMIN, against the reference emulator
+geometry ops VRECIP, VCVTI16, VMAX, VMIN, VSUB and VPROJ16, against the reference emulator
 in hardware-numerics mode."""
 import os
 import struct
@@ -70,9 +70,13 @@ A(I.SETN, x=80);         A(I.VRECIP, x=B + 0x208, z=B + 0x1BB0)
 A(I.SETN, x=80, z=I.f32_bits(3000.0)); A(I.VCVTI16, x=B + 0x348, z=B + 0x1CF0)
 A(I.SETN, x=12, z=I.f32_bits(2.0));    A(I.VCVTI16, x=B + 0xD90, z=B + 0x1D90)
 A(I.SETN, x=40);         A(I.VMAX, x=B + 0x208, y=B + 0x348, z=B + 0x1DB0)
-A(I.SETN, x=40);         A(I.VMIN, x=B + 0x208, y=B + 0x348, z=B + 0x1E50)
+A(I.VMIN, x=B + 0x208, y=B + 0x348, z=B + 0x1E50)
 A(I.SETN, x=8);          A(I.VMAX, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1EF0)
-A(I.SETN, x=8);          A(I.VMIN, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1F10)
+A(I.VMIN, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1F10)
+A(I.VSUB, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1F30)
+# x / w to screen: w = 0 and tiny w (saturation), then ordinary values
+A(I.SETN, x=16, y=I.f32_bits(160.0), z=I.f32_bits(80.5)); A(I.VPROJ16, x=B + 0x348, y=B + 0x208, z=B + 0x1F50)
+A(I.SETN, x=16, y=I.f32_bits(-12.25), z=I.f32_bits(37.0)); A(I.VPROJ16, x=B + 0x248, y=B + 0x388, z=B + 0x1F70)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200

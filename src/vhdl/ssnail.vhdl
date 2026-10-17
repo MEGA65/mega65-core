@@ -305,6 +305,8 @@ architecture shell of ssnail is
   constant K_CVTI    : unsigned(4 downto 0) := "10000";   -- z = int16 sat(roundf(x * s_sc))
   constant K_MAX     : unsigned(4 downto 0) := "10001";   -- z = y if x < y else x
   constant K_MIN     : unsigned(4 downto 0) := "10010";   -- z = y if y < x else x
+  constant K_SUB     : unsigned(4 downto 0) := "10011";   -- z = x - y
+  constant K_PROJ    : unsigned(4 downto 0) := "10100";   -- z = int16 sat(roundf(x / y * s_sc + s_r))
 
   -- F16 -> F32, exact (finite inputs; GEMV block scales)
   function f16_to_f32(h : unsigned(15 downto 0)) return unsigned is
@@ -468,7 +470,7 @@ architecture shell of ssnail is
   -- the vector unit's steps (with RMSNORM, LAYERNORM, MEANROWS, ROPE and
   -- ARGMAX), while cstate = C_VEC; V_EXIT (only in ve_ret): to C_NEXT
   type vec_state_t is (
-    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_MM, E_CV, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
+    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_MM, E_CV, E_P1, E_P2, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
   signal vu_st : vec_state_t := V_CHUNK;
 
   type gemv_state_t is (
@@ -2709,7 +2711,7 @@ begin
               end if;
               dec_next <= C_NEXT;
             when x"20" | x"21" | x"29" | x"23" | x"27" | x"2A" | x"2B" | x"22" | x"26" | x"28"
-               | x"2E" | x"2F" | x"30" | x"31" =>
+               | x"2E" | x"2F" | x"30" | x"31" | x"32" | x"33" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
               -- (the element operation from the opcode alone, and the
@@ -2734,15 +2736,20 @@ begin
                 when x"2F" => ve_kind <= K_CVTI;
                 when x"30" => ve_kind <= K_MAX;
                 when x"31" => ve_kind <= K_MIN;
+                when x"32" => ve_kind <= K_SUB;
+                when x"33" => ve_kind <= K_PROJ;
                 when x"26" => ve_kind <= K_SUM;
                 when others => ve_kind <= K_COPY;
               end case;
               if ea_x(1 downto 0) /= "00"
                 or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
                      or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26"
-                     or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31") and ea_y(1 downto 0) /= "00")
-                or ((instr(7 downto 0) = x"29" or instr(7 downto 0) = x"2F") and ea_z(0) /= '0')
-                or (instr(7 downto 0) /= x"29" and instr(7 downto 0) /= x"2F" and ea_z(1 downto 0) /= "00") then
+                     or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31"
+                     or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") and ea_y(1 downto 0) /= "00")
+                or ((instr(7 downto 0) = x"29" or instr(7 downto 0) = x"2F" or instr(7 downto 0) = x"33")
+                    and ea_z(0) /= '0')
+                or (instr(7 downto 0) /= x"29" and instr(7 downto 0) /= x"2F" and instr(7 downto 0) /= x"33"
+                    and ea_z(1 downto 0) /= "00") then
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
@@ -2757,7 +2764,10 @@ begin
                   when x"29" => o16 <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"2F" => o16 <= '1'; s_sc <= n2; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"2E" => vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"30" | x"31" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"30" | x"31" | x"32" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"33" =>
+                    two_ops <= '1'; o16 <= '1'; s_sc <= n2; s_r <= n1;
+                    vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"23" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"27" | x"2A" | x"2B" => vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"22" =>                     -- RMSNORM pass 1: sum of squares
@@ -3438,6 +3448,12 @@ begin
                       fpu_op <= FOP_MUL; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
                     when K_SSM =>                     -- t = x * a
                       fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
+                    when K_SUB =>
+                      fpu_op <= FOP_ADD;
+                      fpu_b <= (not pre_y(31)) & pre_y(30 downto 0);
+                      vu_st <= V_ELST; fpu_ret <= C_VEC;
+                    when K_PROJ =>                    -- x / w, then * s, + o, roundf
+                      fpu_op <= FOP_DIV; fpu_b <= pre_y; vu_st <= E_P1; fpu_ret <= C_VEC;
                     when K_RECIP =>
                       fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= xv; vu_st <= V_ELST; fpu_ret <= C_VEC;
                     when K_CVTI =>                    -- x * s, then roundf
@@ -3463,7 +3479,7 @@ begin
                 fpu_start <= '1'; go(C_FPU_WAIT);
               when K_TAB =>
                 fpu_r <= tval; vgo(V_ELST);
-              when K_CVTI =>                          -- roundf (saturating 32-bit)
+              when K_CVTI | K_PROJ =>                 -- roundf (saturating 32-bit)
                 fpu_op <= FOP_ROUNDF; fpu_a <= fpu_r; vu_st <= E_CV; fpu_ret <= C_VEC;
                 fpu_start <= '1'; go(C_FPU_WAIT);
               when K_SSM =>                           -- s = y * u
@@ -3491,6 +3507,13 @@ begin
 
           when E_K3 =>                                -- K_LNOUT: ... + b
             fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; vu_st <= V_ELST; fpu_ret <= C_VEC;
+            fpu_start <= '1'; go(C_FPU_WAIT);
+
+          when E_P1 =>                                -- VPROJ16: (x / w) * s
+            fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_sc; vu_st <= E_P2; fpu_ret <= C_VEC;
+            fpu_start <= '1'; go(C_FPU_WAIT);
+          when E_P2 =>                                -- ... + o, then roundf in E_K1
+            fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
             fpu_start <= '1'; go(C_FPU_WAIT);
 
           when E_MM =>                                -- VMAX / VMIN: the choice
