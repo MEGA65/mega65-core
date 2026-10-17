@@ -6,7 +6,11 @@ the user interface, formula parsing and editing; SHITE evaluates formulas,
 detects what changed, maintains the per-row cell index and renders cells as
 screen text.
 
-Status: specification, draft 1.  Nothing here is implemented yet.
+Status: specification, draft 2: the canonical description.  It merges
+[the hardware codec proposal](hardware-codec-proposal.md) (whose
+[discussion record](formula-codec-discussion.md) is kept as history).
+Implemented so far: the build structure (section 1), REBALANCE_ROW and
+FIND_CELL, and the reference model `SSNAIL/shite.py`.
 
 Design goals, in order: correct and deterministic results; small area
 (iterative units, shared datapaths: several million simple cell updates per
@@ -58,8 +62,8 @@ needed.
 
 ### 3.1 Sheet descriptor (64 bytes, 16-byte aligned)
 
-Every command names a sheet descriptor; it holds the sheet's geometry and
-where results go.
+Every instruction names a sheet descriptor; it holds the sheet's geometry,
+where results go, and the codec's settings.
 
 | Offset | Size | Field |
 |---|---|---|
@@ -70,15 +74,19 @@ where results go.
 | 12 | 4 | change list address (16-byte aligned) |
 | 16 | 2 | change list capacity (entries) |
 | 18 | 2 | reserved, 0 |
-| 20 | 4 | previous change list address (0: none) |
-| 24 | 4 | round counter (SHITE increments it each RECALC) |
-| 28 | 4 | changed cells in the last round |
-| 32 | 4 | formulas evaluated in the last round |
-| 36 | 4 | errors produced in the last round |
-| 40 | 1 | result flags: bit 0 change list overflowed, bit 1 changed set equal to the previous round's |
+| 20 | 4 | previous change list address (0: no comparison) |
+| 24 | 4 | round counter (incremented by RECALC with END) |
+| 28 | 4 | changed cells this round |
+| 32 | 4 | formulas evaluated this round |
+| 36 | 4 | formulas whose result is an error, this round |
+| 40 | 1 | flags: bit 0 the change list overflowed this round, bit 1 this round's changes equal the previous round's |
 | 41 | 1 | reserved, 0 |
-| 42 | 2 | the row of a malformed row block (with ERR_FORMAT) |
-| 44 | 20 | reserved, 0 |
+| 42 | 2 | the row of a malformed row block (with ERR_FORMAT; $FFFF: the descriptor) |
+| 44 | 4 | changed cells in the previous round |
+| 48 | 4 | codec: function name table address (section 10) |
+| 52 | 1 | codec: decimal separator (ASCII, e.g. `.`) |
+| 53 | 1 | codec: argument separator (e.g. `,`, or `;` with a `,` decimal separator) |
+| 54 | 10 | reserved, 0 |
 
 ### 3.2 Row table
 
@@ -136,7 +144,7 @@ own format two.
 
 An UNCOMPILED cell holds a formula as typed that has not been compiled (or
 failed to compile: the code and the character position are the
-translator's, section 12).  SHITE never changes or interprets one: RECALC
+codec's, section 10).  SHITE never changes or interprets one: RECALC
 skips it, FORMAT_CELLS shows its text, and a formula referring to it gets
 #COMPILE!.
 
@@ -178,23 +186,48 @@ fixed point.
 
 ## 4. Values and arithmetic
 
-Value types are I32, I64 (each optionally fixed point, from the cell's
-format), F64 and text; errors propagate as values.
+Value types are I64 (I32 cells widen to it), optionally fixed point; F64;
+text; and errors, which propagate as values.  Fixed point is a cell's
+format byte 2 (or a FIX in a formula): v x 10^-k (decimal, k <= 18) or
+v x 2^-k (binary, k <= 62).
 
-- Integer with integer: I64, exactly.  Overflow is #NUM! (no silent switch
-  to F64).  Fixed-point operands are aligned to the larger k first (add,
-  subtract, compare); multiply adds the k's; the result keeps the cell's
-  own format's k if the formula's cell has one (rounded half away from
-  zero), else the arithmetic's k.
-- Anything with F64: F64.  Fixed-point integers convert exactly where they
-  can (to 2^53).
-- Divide: F64, unless both operands are fixed point with the same decimal
-  k, then I64 at that k, rounded half away from zero.
-- Comparisons give I64 0 or 1.  Text compares with text, bytewise; text
-  with a number is #VALUE!.
-- F64 follows IEEE 754 double, round to nearest even, except that
-  subnormals are flushed to zero (inputs and results, keeping the sign);
-  NaN and infinities become #NUM! when stored.
+- **Integers**: I64 with I64 gives I64, exactly.  Overflow is #NUM! (no
+  silent switch to F64).  Add, subtract and compare first align both to
+  the larger k (multiplying by 10^d or 2^d; overflow is #NUM!); multiply
+  adds the k's.  Mixed decimal and binary fixed point converts both to F64.
+- **F64**: anything with an F64 gives F64.  An integer converts as
+  F64(v) / F64(10^k) (decimal: two roundings; F64(10^k) is exact to
+  k = 22) or exactly scaled by 2^-k (binary).  IEEE 754 double, round to
+  nearest even, except that subnormals are flushed to zero (inputs and
+  results, keeping the sign).
+- **Divide**: F64, unless both are fixed point with the same decimal k:
+  then I64 at that k, (a x 10^k) / b rounded half away from zero.  A zero
+  divisor is #DIV/0! (integer or F64).
+- **Comparisons** give I64 0 or 1.  Text compares with text, bytewise;
+  text with a number is #VALUE!.
+- **Storing a formula's result**: an integer result is rescaled to the
+  formula cell's own fixed-point format (rounding half away from zero
+  when that drops digits; #NUM! on overflow); if the cell has no
+  fixed-point format, a result with k > 0 becomes F64.  An F64 NaN or
+  infinity is stored as #NUM!.
+
+References and ranges:
+
+- A **reference** pushes its cell's value, marked as coming from a
+  reference: EMPTY or no cell is I64 0, numbers with their format's fixed
+  point, TEXT its text, FORMULA its stored result, ERROR its code,
+  UNCOMPILED #COMPILE!.  A reference outside the sheet is #REF!.
+- A **range** (RECT, section 5) is a rectangle of cells, used by the
+  aggregate functions.  Within a range, rows are walked in ascending order
+  and the cells of a row in ascending column order (an in-order walk of
+  the row's tree: trees at most 32 deep, else ERR_FORMAT).
+- **Aggregates** (SUM, AVERAGE, MIN, MAX, COUNT; later PRODUCT, COUNTA)
+  take their arguments in order.  A range, or a value from a reference,
+  contributes its numbers and skips text and empty cells; any other value
+  must be a number (text is #VALUE!).  An error anywhere is the result (the
+  first, in order).  SUM is a left-to-right fold of ADD from I64 0; MIN
+  and MAX fold the comparison (no numbers: I64 0); COUNT counts the
+  numbers; AVERAGE is SUM / COUNT (no numbers: #DIV/0!).
 
 Errors (codes):
 
@@ -207,81 +240,194 @@ Errors (codes):
 | 5 | #CIRC! (set by the CPU, see 7) |
 | 6 | #N/A |
 | 7 | #STACK! (bad bytecode, stack over- or underflow) |
-| 8 | #NAME? (an unknown function) |
+| 8 | #NAME? (a function this hardware does not have) |
 | 9 | #COMPILE! (a reference to an UNCOMPILED cell) |
 
 An operation with an error operand gives that error (the first one, in
-evaluation order).  A reference to an EMPTY cell, or a missing one, is I64
-0; to a TEXT cell, its text.
+evaluation order).
 
 ## 5. Formula bytecode
 
-The CPU compiles formulas to postfix bytecode, evaluated on a 32-entry
-stack (each entry a 64-bit value and a kind).  One byte of opcode, then
-immediates, little-endian.
+Formulas are compiled to postfix (RPN) bytecode, run on a 32-entry stack.
+Each entry is a kind (I64, F64, text, error, range), a 64-bit payload, a
+fixed-point byte and a "from a reference" bit.  Execution starts at the
+first byte and ends at END; one value must then be on the stack.
 
-| Opcode | Mnemonic | Immediates | Effect |
+### 5.1 Framing
+
+Every item starts with one byte that says what it is:
+
+| First byte | Item |
+|---|---|
+| $00-$7F | an opcode, with its operands (5.4) |
+| $80-$FF | a short cell reference, 4 bytes (5.3) |
+
+### 5.2 Counts and identifiers
+
+Function identifiers, argument counts and lengths use one or two bytes:
+
+```text
+short: [0vvvvvvv]              0..127
+long:  [1vvvvvvv][wwwwwwww]    0..32767, value = (first & $7F) | (second << 7)
+```
+
+A small value may also be written long (a compiler can reserve two bytes
+and fill them in later); decoders accept both.
+
+### 5.3 Cell references
+
+A reference has a row and a column, each either absolute (`$`: a row or
+column number) or relative (a signed offset from the formula's own cell,
+modulo 32768).  Rows and columns are 0 to 32767.  References are stored
+big-endian, so that the first byte carries the marker.
+
+- **Short form, 4 bytes** (the usual one), first byte $80-$FF:
+
+  ```text
+  bit 31      1 (marker)
+  bit 30      row absolute
+  bits 29-15  row (absolute) or row offset (relative), 15 bits
+  bit 14      column absolute
+  bits 13-0   column (absolute: 0-16383) or column offset (relative, signed:
+              -8192..8191)
+  ```
+
+- **Long form, 5 bytes**: opcode REF, then 32 bits big-endian: bit 31 row
+  absolute, bits 30-16 row or offset, bit 15 column absolute, bits 14-0
+  column or offset.  For columns the short form cannot hold.
+
+A compiler uses the short form whenever it fits.  `A1`, `$A1`, `A$1` and
+`$A$1` are one reference each; a formula copied elsewhere keeps its meaning;
+and its text can be rebuilt exactly.
+
+### 5.4 Opcodes
+
+| Opcode | Mnemonic | Operands | Effect |
 |---|---|---|---|
-| $00 | END | | the top of the stack is the result |
-| $01 | I32 | 4 | push a constant |
-| $02 | I64 | 8 | push a constant |
-| $03 | F64 | 8 | push a constant |
-| $04 | STR | 1 length, bytes | push a text constant |
-| $05 | FIX | 1 k | the top (an integer) is fixed point k (the k byte as in a format) |
-| $08 | REF | 2 row, 2 col | push a cell's value |
-| $0A | RANGE | 2 r1, 2 c1, 2 r2, 2 c2, 1 function | aggregate over a rectangle |
-| $10-$17 | ADD SUB MUL DIV POW MOD NEG PCT | | arithmetic (PCT: divide by 100) |
+| $00 | END | | the formula's result is the stack's one value |
+| $01 | I8 | 1 (signed) | push an integer constant |
+| $02 | I32 | 4 | push an integer constant |
+| $03 | I64 | 8 | push an integer constant |
+| $04 | F64 | 8 | push an F64 constant |
+| $05 | STR | count, bytes | push a text constant (ASCII) |
+| $06 | FIX | 1 | the top (an integer) is fixed point, the byte as a format's byte 2 |
+| $07 | REF | 4 | push a cell's value (the long form of 5.3) |
+| $08 | RECT | two references | push a range: the rectangle between two cells |
+| $09 | HOSTCALL | count, text, reference | push the referenced cell's value; the text is the call as written (5.6) |
+| $0A | JZ | 2 | pop; if zero, jump forward (5.5) |
+| $0B | JMP | 2 | jump forward (5.5) |
+| $0C | CALL | function, count | call a function on the top `count` values (5.7) |
+| $10 | ADD | | |
+| $11 | SUB | | |
+| $12 | MUL | | |
+| $13 | DIV | | |
+| $14 | POW | | `^` |
+| $15 | NEG | | unary minus |
+| $16 | PCT | | `%`: divide by 100 |
+| $17 | CONCAT | | `&` |
 | $18-$1D | EQ NE LT LE GT GE | | comparisons |
-| $1E-$20 | AND OR NOT | | logic (non-zero is true) |
-| $21 | JZ | 2 | pop; jump (relative) if zero: lazy IF |
-| $22 | JMP | 2 | jump (relative) |
-| $28-$2F | ABS INT TRUNC ROUND SQRT SIGN MIN2 MAX2 | | (ROUND: value, decimals) |
-| $30-$3B | EXP LN LOG10 SIN COS TAN ASIN ACOS ATAN ATAN2 PI POW10 | | transcendentals, F64 |
-| $40-$48 | CONCAT LEN LEFT RIGHT MID UPPER LOWER TRIM VALUE | | text |
-| $49 | TEXT | 8 format | number to text, as the formatter |
+| $1E-$7F | | | reserved |
 
-Each reference row and column is 16 bits: bit 15 set means absolute (the
-`$`), and bits 14-0 are then the row or column number; clear means
-relative, and bits 14-0 are a signed offset from the formula's own cell,
-modulo 32768.  So `A1`, `$A1`, `A$1` and `$A$1` are all one opcode, a
-formula copied elsewhere keeps its meaning, and its text can be rebuilt
-exactly (section 12).  Rows and columns are 0 to 32767.
+Multi-byte operands are little-endian, except references (5.3).  An
+unknown opcode is #STACK!; a known one the hardware does not have yet is
+#NAME?.  Constants use the narrowest kind that holds them exactly; a
+decimal constant such as `1.25` is I64 125, FIX 2.
 
-RANGE functions: 0 SUM, 1 AVERAGE, 2 MIN, 3 MAX, 4 COUNT (numbers), 5 COUNTA
-(non-empty), 6 PRODUCT.  SUMIF and COUNTIF may follow (a criterion from the
-stack).  Ranges are walked row by row, and in column order within a row
-(an in-order walk of each row's tree from the range's first column).
+### 5.5 IF
+
+`IF(c, t, e)` compiles to jumps, so only the chosen branch runs:
+
+```text
+<c>  JZ else  <t>  JMP end  else: <e>  end:
+```
+
+JZ's and JMP's operand is a forward offset in bytes from the end of the
+instruction.  JZ pops a number (zero, I64 or F64 of either sign, is
+false); an error ends the formula with that error, text is #VALUE!.  Each
+branch leaves exactly one value.  `IF(c, t)` has `<e>` = I8 0.
+
+Compilers emit only this pattern, so the codec can rebuild `IF` exactly:
+the JMP is the last instruction before JZ's target, and its own target
+ends the else branch; both jumps are forward and properly nested (IFs may
+nest in any of the three parts).  The evaluator itself just follows the
+jumps; no other control flow is promised a formula text.
+
+### 5.6 Host calls
+
+A function SHITE does not do in hardware (or a sheet-level helper) is a
+HOSTCALL: the call's text as the user wrote it (so it can be shown and
+edited again, without keeping the formula's source elsewhere) and a result
+cell, an ordinary cell the CPU keeps up to date.  Execution skips the text
+and pushes the result cell's value, as a reference would.
+
+The CPU owns everything about host calls: which cells they depend on, when
+to recompute them (between RECALC calls, setting CHANGED on the result
+cells it updates, so they take part in the rounds and in convergence like
+any other change), and where result cells live (for example hidden rows).
+
+### 5.7 Functions
+
+CALL takes a function identifier and an argument count (both 5.2): the
+arguments are the top `count` stack entries, the first deepest.  The
+identifiers:
+
+| Id | Function | Id | Function | Id | Function |
+|---|---|---|---|---|---|
+| 0 | SUM | 10 | ROUND | 20 | LOG10 |
+| 1 | AVERAGE | 11 | SIGN | 21 | SIN |
+| 2 | MIN | 12 | SQRT | 22 | COS |
+| 3 | MAX | 13 | MOD | 23 | TAN |
+| 4 | COUNT | 14 | AND | 24 | ASIN |
+| 5 | COUNTA | 15 | OR | 25 | ACOS |
+| 6 | PRODUCT | 16 | NOT | 26 | ATAN |
+| 7 | ABS | 17 | IF (name only: compiled to jumps) | 27 | ATAN2 |
+| 8 | INT | 18 | EXP | 28 | PI |
+| 9 | TRUNC | 19 | LN | 29 | POWER |
+
+30-39 text: LEN, LEFT, RIGHT, MID, UPPER, LOWER, TRIM, VALUE, TEXT,
+CONCATENATE.  40-49 lookup and conditional aggregates: SUMIF, COUNTIF,
+VLOOKUP, HLOOKUP, MATCH, INDEX.  The rest of 0-32767 is free: new hardware
+functions, and names the codec maps to host calls.
 
 ## 6. Instructions
 
-SSNAIL opcodes $40-$43 (the usual 16-byte instruction: a, b, X, Y, Z).  X
-is the sheet descriptor (or FORMAT_CELLS's parameter block); results go to
+SSNAIL opcodes $40-$45: the usual 16-byte instruction (opcode, a, b, c,
+X, Y, Z).  X is the sheet descriptor (or a parameter block); results go to
 memory, and to SSNAIL registers where shown.  A malformed descriptor or row
-block ends the job with SSNAIL error ERR_FORMAT, the faulting row in the
-descriptor.
+block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 
 | Opcode | Instruction | Operands | Register results |
 |---|---|---|---|
-| $40 | RECALC | X descriptor | R[a] = cells changed |
+| $40 | RECALC | X descriptor, R[a] first row, R[b] last row, Z columns (first: bits 15-0, last: 31-16), c flags (bit 0 BEGIN, bit 1 END) | R[a] = cells changed by this call |
 | $41 | REBALANCE_ROW | X descriptor, R[a] first row, R[b] last row | |
 | $42 | FIND_CELL | X descriptor, R[a] row, R[b] column | R[a] = cell address, or 0 |
 | $43 | FORMAT_CELLS | X parameter block | |
+| $44 | COMPILE | X parameter block (section 10) | R[a] = bytecode length, or 0 |
+| $45 | DECOMPILE | X parameter block (section 10) | R[a] = text length, or 0 |
 
-### RECALC (one round)
+### RECALC
 
-Parameters: the sheet descriptor.
+Evaluates every FORMULA cell in the rows and columns given: rows ascending,
+and within a row in the order the cells lie in its row block, each with the
+values as they are at that moment (results computed earlier in the call
+are seen by later cells).  If a result differs from the stored one (kind,
+then bits: an F64 bit for bit, text bytewise), SHITE stores it, sets the
+cell's CHANGED flag (and ERROR as the result is an error or not), counts
+it, and appends `(row, col)` (2 + 2 bytes) to the change list.  Past the
+list's capacity the count stays exact and the overflow flag is set.  Each
+row visited gets its row header's changed count from this call.
 
-Visits every FORMULA cell, row by row (rows ascending) and within a row in
-the order the cells lie in its row block, and evaluates it with the values as they are at that moment
-(newly computed results are seen by later cells in the same round).  If the
-result differs from the stored one (kind, then bits: an F64 bit-for-bit,
-text bytewise), SHITE stores it, sets the cell's CHANGED flag, counts it in
-its row block and the descriptor, and appends `(row, col)` (2 + 2 bytes) to
-the change list.  If more cells change than the list holds, the count is
-still exact and the overflow flag is set.
+A round can be one call or several (a whole sheet, or a region at a time):
 
-At the end, if a previous change list is given, SHITE compares the two
-lists and sets the "same as the previous round" flag.
+- **BEGIN** zeroes this round's counts and flags.
+- **END** compares this round's change list with the previous round's (the
+  same count, neither overflowed, the same entries) and sets flag bit 1,
+  increments the round counter, keeps this round's count as the previous
+  one, and swaps the two list addresses, so the next round writes over the
+  older list.
+
+A whole-sheet round is one RECALC with both flags, rows 0 to 32767 and
+columns 0 to 32767.
 
 ### REBALANCE_ROW
 
@@ -321,7 +467,8 @@ chip RAM block copy).
 
 ## 7. Recalculation and cycles
 
-The CPU calls RECALC until a round changes nothing.  With row-major order a
+The CPU (or a SSNAIL program: RECALC leaves the count in R[a], so BNE
+loops) runs rounds until one changes nothing.  With row-major order a
 sheet whose formulas only refer upwards and leftwards settles in one round;
 others in a few more.
 
@@ -333,8 +480,10 @@ others in a few more.
 - "Same as the previous round" with a non-empty list is a strong early
   sign of a cycle (an oscillation).
 - A cycle that is stable (`A1 = B1`, `B1 = A1`) never changes, so rounds
-  cannot see it.  If that matters, a later command can do an exact check
-  by evaluating on demand with in-progress marks (it is not in draft 1).
+  cannot see it.  If that matters, a later instruction can do an exact
+  check by evaluating on demand with in-progress marks.
+- Host calls (5.6): the CPU recomputes their result cells between rounds
+  when their inputs changed, setting CHANGED, so the next round sees them.
 
 ## 8. Registers
 
@@ -360,57 +509,75 @@ interrupt are SSNAIL's.
   segments), a 64-entry (row, column) -> address cache in LUT RAM for
   references, the 32-entry evaluation stack, and a 256-byte text scratch.
 
-## 10. Testing
+## 10. Formula codec (COMPILE, DECOMPILE)
 
-As SSNAIL: a Python reference model (`shite_sim.py`) that defines the
-results exactly, a small formula compiler for tests, and GHDL benches that
-run the same sheets on the hardware model and compare memory.
+A hardware unit (a serial scanner and shunting-yard parser, RAM-backed
+stacks, a serial table reader and text writer) converting between formula
+text and bytecode, so the CPU never keeps the source of a compiled formula.
+It uses SHITE's arithmetic for numbers.  Parameter blocks (16-byte
+aligned):
 
-## 11. Phases
+| COMPILE | |
+|---|---|
+| 0 | the sheet descriptor (name table, separators) |
+| 4 | the source text (ASCII, without the `=`) |
+| 8 | its length (2), the formula cell's row (2) |
+| 12 | the formula cell's column (2), the output's capacity (2) |
+| 16 | the output buffer (bytecode) |
+| 20 | result: bytecode length (2), error code (1), host calls made (1) |
+| 24 | result: error position in the text (2), reserved (6) |
 
-Draft 1's hardware does the simple, common part first; the bytecode and
-formats leave room for the rest.
+DECOMPILE's block is the same with the roles swapped: input bytecode and
+its length, output text and its capacity, the text's length as the result.
+Errors (code, position) are the codec's to define, with 0 for none; a
+failed compile leaves the CPU to store the text as an UNCOMPILED cell
+(3.4).
 
-1. **Core**: I64 / I32 (with fixed point) and F64 numbers, text cells,
-   constants, REF, ADD SUB MUL DIV NEG, the comparisons, RANGE with SUM,
-   MIN, MAX, COUNT and AVERAGE, the errors; RECALC, REBALANCE_ROW,
-   FORMAT_CELLS (all the number formats); FIND_CELL.
-2. **More functions**: POW, MOD, PCT, AND / OR / NOT, JZ / JMP (IF), ABS,
-   INT, TRUNC, ROUND, SIGN, SQRT, MIN2 / MAX2, PRODUCT and COUNTA.
-3. **Transcendentals**: the CORDIC unit and EXP to POW10.
-4. **Text functions**: CONCAT to TEXT.
+- **Canonical text**: DECOMPILE may fully parenthesise
+  (`=A1*(B2+3)` gives `=(A1*(B2+3))`) and need not keep spacing, case or
+  redundant grouping.  It must keep the evaluation structure, the `$`
+  locks, function identity, IF (5.5), host-call text (5.6) and numbers
+  exactly enough that compiling the text again gives the same bytecode.
+- **Function names**: a table in attic RAM, `[identifier (5.2)][name, NUL]`
+  repeated, ending with an empty name; the first entry for an identifier is
+  its canonical spelling, later ones aliases.  So English and German (or any
+  renaming) are just tables.  Names match regardless of case; an unknown
+  name is a compile error.
+- **Host functions**: identifiers 16384-32767 in the table are the CPU's.
+  A call to one compiles to a HOSTCALL (5.6) holding the call's text and,
+  as its result cell, the placeholder absolute reference row 32767,
+  column 16383; COMPILE returns how many it made (block byte 23).  The CPU
+  then gives each its result cell, rewriting the reference (it can find
+  them by walking the bytecode by 5.1-5.4).
+- **Separators**: the descriptor's decimal and argument separators.
+- **Limits**: nesting and stack depths, and the output bounds, are the
+  codec's to state; exceeding them is a compile error with its position.
 
-An opcode the hardware does not have yet gives #NAME? (so a sheet still
+## 11. Testing
+
+As SSNAIL: a Python reference model (`SSNAIL/shite.py`, run by the
+emulator for SSNAIL's opcodes $40-$45) that defines the results exactly,
+and GHDL benches that run the same sheets on the hardware and compare
+memory (`tb_shite_step1`: REBALANCE_ROW and FIND_CELL).
+
+## 12. Phases
+
+1. **Done**: the build structure, REBALANCE_ROW, FIND_CELL.
+2. **RECALC core**: I64 (with fixed point) and F64, constants, references
+   (both forms), RECT, ADD SUB MUL DIV NEG, the comparisons, HOSTCALL,
+   CALL with SUM, AVERAGE, MIN, MAX and COUNT, the errors.
+3. **FORMAT_CELLS** (the number formats).
+4. **More**: POW, PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT,
+   TRUNC, ROUND, SIGN, SQRT, PRODUCT, COUNTA.
+5. **Transcendentals** (the CORDIC unit) and **text** (STR, CONCAT, the
+   text functions).
+6. **The codec** (section 10), in parallel.
+
+A function the hardware does not have yet is #NAME? (a sheet still
 recalculates, with that cell an error).
-
-## 12. Formula translator (planned, not in draft 1)
-
-The CPU needs to turn what the user types into bytecode, and bytecode back
-into text for the edit line.  Both directions share one table of functions
-(names, opcodes, argument counts) and one of operators (precedence,
-associativity):
-
-- **Compile**: ASCII formula (`=SUM(A1:A9)*$B$2+-3.5%`) to bytecode, by
-  shunting-yard (operator precedence) with function calls and ranges;
-  references relative to the formula's own cell, absolute where `$` says;
-  IF to JZ / JMP; constants as the narrowest exact kind (I32, I64, F64);
-  errors with a position for the edit line.
-- **Decompile**: bytecode back to ASCII, adding parentheses only where
-  precedence needs them, references rebuilt from the flags (so `$A1` stays
-  `$A1`), numbers in their shortest exact form.  Compile then decompile
-  gives the formula back with canonical spacing and capitals.
-- **Where**: a C version for the MEGA65 client and a Python version for
-  the tools and tests (it also writes the test sheets).  A later SHITE
-  command could do either direction in hardware, since the bytecode
-  machine and the formatter are already there.
-- **Tests**: round trips over a corpus of formulas, and compile, run on the
-  reference model, compare with a host spreadsheet's results.
 
 ## 13. Open questions
 
-- I64 overflow: #NUM! (as above), or promote to F64?
 - Text: ASCII in cells (as above), or PETSCII?
-- Lazy IF via JZ / JMP (as above), or a strict IF opcode?
-- Do formulas need names (named ranges) or cross-sheet references in this
-  version?
-- SUMIF / COUNTIF / VLOOKUP: draft 2?
+- Named ranges, cross-sheet references: not in this version.
+- An exact stable-cycle check (section 7).
