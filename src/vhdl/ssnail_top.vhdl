@@ -80,7 +80,7 @@ architecture rtl of ssnail_top is
   -- the coprocessor port
   signal cop_start, cop_own, cop_abort, cop_done, cop_wr : std_logic := '0';
   signal cop_op, cop_err : unsigned(7 downto 0) := (others => '0');
-  signal cop_ra, cop_rb, cop_result : unsigned(31 downto 0) := (others => '0');
+  signal cop_ra, cop_rb, cop_rc, cop_rd, cop_z, cop_result : unsigned(31 downto 0) := (others => '0');
   signal cop_x : unsigned(27 downto 0) := (others => '0');
   signal map_hr_base, map_hr_size, map_sd_base, map_sd_size : unsigned(7 downto 0);
 begin
@@ -103,7 +103,8 @@ begin
       sd_wdata_req => n_sd_wdata_req, sd_wdata => n_sd_wdata, sd_wdata_be => n_sd_wdata_be,
       sd_cmd_done => n_sd_cmd_done, sd_error => n_sd_error,
       cop_start => cop_start, cop_own => cop_own, cop_op => cop_op,
-      cop_ra => cop_ra, cop_rb => cop_rb, cop_x => cop_x,
+      cop_ra => cop_ra, cop_rb => cop_rb, cop_rc => cop_rc, cop_rd => cop_rd, cop_z => cop_z,
+      cop_x => cop_x,
       cop_done => cop_done, cop_err => cop_err, cop_wr => cop_wr, cop_result => cop_result,
       cop_abort => cop_abort,
       map_hr_base => map_hr_base, map_hr_size => map_hr_size,
@@ -113,7 +114,8 @@ begin
     sh : entity work.shite
       port map (
         clock162 => clock162,
-        start => cop_start, op => cop_op, ra => cop_ra, rb => cop_rb, x => cop_x,
+        start => cop_start, op => cop_op, ra => cop_ra, rb => cop_rb, rc => cop_rc,
+        rd => cop_rd, z => cop_z, x => cop_x,
         abort => cop_abort, done => cop_done, err => cop_err, wr => cop_wr, result => cop_result,
         map_hr_base => map_hr_base, map_hr_size => map_hr_size,
         map_sd_base => map_sd_base, map_sd_size => map_sd_size,

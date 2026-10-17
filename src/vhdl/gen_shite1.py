@@ -35,14 +35,14 @@ class Mem:
 
 # A sheet with rows in any column order, holes, empty rows, long cells
 NROWS = 12
-sh = SH.Sheet(NROWS, 200)
+sh = SH.Sheet(NROWS, SH.MAX_COLS)
 cells = []
 for r in range(NROWS):
     if r in (2, 7):
         continue
     n = [0, 1, 2, 9, 14][r % 5]
     for i, c in enumerate(rng.choice(200, size=n, replace=False)):
-        c = int(c)
+        c = int(c) << 14 | int(c) if i % 4 == 1 else int(c)    # some columns in the millions
         if i == 3:
             sh.free(r, 2)
         if i % 3 == 0:
@@ -58,18 +58,19 @@ end = max(SH.Descriptor(m, desc).row_block(r) or 0 for r in range(NROWS)) - B
 assert end < 0x1900, "sheet too big for the bench"
 
 # FIND_CELL probes: every cell, some misses, rows beyond the sheet; a loop
-# over tables of rows (at $1A00) and columns ($1B00), results at $1E00
+# over tables of rows (at $1A00) and columns ($1C00), results at $1E00
 probes = list(cells) + [(r, 199 - r) for r in range(NROWS) if (r, 199 - r) not in cells]
+probes += [(r, (1 << 24) - 1) for r in (0, 4)]
 probes += [(NROWS, 0), (500, 3), (2, 5)]
-assert len(probes) <= 64
+assert len(probes) <= 128, len(probes)
 m.write(B + 0x1A00, struct.pack(f"<{len(probes)}I", *[r for r, _ in probes]))
-m.write(B + 0x1B00, struct.pack(f"<{len(probes)}I", *[c for _, c in probes]))
+m.write(B + 0x1C00, struct.pack(f"<{len(probes)}I", *[c for _, c in probes]))
 a_ = [I.reg_addr(i) for i in range(16)]
 A = Asm()
 A(I.LI, 1, z=0); A(I.LI, 2, z=NROWS - 1); A(I.REBALANCE, 1, 2, x=desc)
 A(I.LI, 5, z=0); A(I.LI, 6, z=len(probes))
 A.label("loop")
-A(I.LEA, 0, 5, B + 0x1A00, z=4); A(I.LEA, 1, 5, B + 0x1B00, z=4); A(I.LEA, 2, 5, B + 0x1E00, z=4)
+A(I.LEA, 0, 5, B + 0x1A00, z=4); A(I.LEA, 1, 5, B + 0x1C00, z=4); A(I.LEA, 2, 5, B + 0x1E00, z=4)
 A(I.LDR, 3, x=a_[0]); A(I.LDR, 4, x=a_[1])
 A(I.FINDCELL, 3, 4, x=desc)
 A(I.STR, 3, x=a_[2])

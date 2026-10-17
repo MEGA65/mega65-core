@@ -25,6 +25,9 @@ entity shite is
     op     : in  unsigned(7 downto 0);
     ra     : in  unsigned(31 downto 0);
     rb     : in  unsigned(31 downto 0);
+    rc     : in  unsigned(31 downto 0);   -- R[c bits 3-0]
+    rd     : in  unsigned(31 downto 0);   -- R[c bits 7-4]
+    z      : in  unsigned(31 downto 0);   -- the instruction's Z
     x      : in  unsigned(27 downto 0);
     abort  : in  std_logic;
     done   : out std_logic := '0';
@@ -92,12 +95,12 @@ architecture rtl of shite is
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
-  signal r_a, r_b : unsigned(15 downto 0) := (others => '0');
+  signal r_a, r_b, r_c, r_d, r_z : unsigned(31 downto 0) := (others => '0');
   signal desc : unsigned(27 downto 0) := (others => '0');
   -- the descriptor
   signal rowtab : unsigned(27 downto 0) := (others => '0');
-  signal nrows : unsigned(15 downto 0) := (others => '0');
-  signal bad_row : unsigned(15 downto 0) := (others => '0');
+  signal nrows, ncols : unsigned(31 downto 0) := (others => '0');
+  signal bad_row : unsigned(31 downto 0) := (others => '0');
 
   -- memory primitive: m_addr (8-aligned), m_write; m_rd / m_wd; m_be (bytes)
   signal m_addr : unsigned(27 downto 0) := (others => '0');
@@ -112,15 +115,15 @@ architecture rtl of shite is
   signal hr_v, sd_v : std_logic := '0';
 
   -- row walk
-  signal row : unsigned(15 downto 0) := (others => '0');
-  signal rlast : unsigned(15 downto 0) := (others => '0');
+  signal row : unsigned(31 downto 0) := (others => '0');
+  signal rlast : unsigned(31 downto 0) := (others => '0');
   signal blk : unsigned(27 downto 0) := (others => '0');
   signal rh0, rh1 : unsigned(63 downto 0) := (others => '0');  -- the row header
   signal g, gfree : unsigned(15 downto 0) := (others => '0');
-  signal col : unsigned(15 downto 0) := (others => '0');
+  signal col : unsigned(23 downto 0) := (others => '0');
 
-  -- REBALANCE's list: per cell, column (63:48), granule (47:32), the
-  -- header's bytes 2-3 (kind and flags, length: 31:16).  One write port
+  -- REBALANCE's list: per cell, column (63:40), granule (39:24), the
+  -- header's bytes 3-4 (kind and flags, length: 23:8).  One write port
   -- and one registered read port (block RAM)
   type list_t is array (0 to max_row_cells - 1) of unsigned(63 downto 0);
   signal list : list_t;
@@ -167,7 +170,7 @@ begin
     begin
       err <= code; st <= S_FINISH;
     end procedure;
-    procedure format_fault(r : unsigned(15 downto 0)) is
+    procedure format_fault(r : unsigned(31 downto 0)) is
     begin
       bad_row <= r; st <= S_FAULT;
     end procedure;
@@ -204,7 +207,7 @@ begin
         when S_IDLE =>
           if start = '1' then
             err <= ERR_NONE; wr <= '0';
-            r_op <= op; r_a <= ra(15 downto 0); r_b <= rb(15 downto 0); desc <= x;
+            r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
             mem_read(x, D_RD0);
           end if;
 
@@ -212,9 +215,9 @@ begin
           done <= '1';
           st <= S_IDLE;
 
-        -- ERR_FORMAT: the row into the descriptor (bytes 42-43)
+        -- ERR_FORMAT: the row into the descriptor (bytes 48-51)
         when S_FAULT =>
-          mem_write(desc + 40, x"00000000" & bad_row & x"0000", "00001100", S_FAULT2);
+          mem_write(desc + 48, x"00000000" & bad_row, "00001111", S_FAULT2);
         when S_FAULT2 =>
           fault(ERR_FORMAT);
 
@@ -261,13 +264,14 @@ begin
         -- The descriptor: magic and row table, then the rows
         when D_RD0 =>
           if m_rd(31 downto 0) /= x"31544853" then         -- "SHT1"
-            format_fault(x"FFFF");
+            format_fault(x"FFFFFFFF");
           else
             rowtab <= m_rd(59 downto 32);
             mem_read(desc + 8, D_RD1);
           end if;
         when D_RD1 =>
-          nrows <= m_rd(15 downto 0);
+          nrows <= m_rd(31 downto 0);
+          ncols <= m_rd(63 downto 32);
           st <= D_CHK;
         when D_CHK =>
           if abort = '1' then
@@ -276,7 +280,7 @@ begin
             if r_a >= nrows then
               result <= (others => '0'); wr <= '1'; st <= S_FINISH;
             else
-              mem_read(rowtab + (r_a & "00"), F_ROW);
+              mem_read(rowtab + (r_a(25 downto 0) & "00"), F_ROW);
             end if;
           elsif r_op = x"41" then                   -- REBALANCE_ROW
             row <= r_a; rlast <= r_b;
@@ -294,10 +298,10 @@ begin
             result <= (others => '0'); wr <= '1'; st <= S_FINISH;
           else
             blk <= e(27 downto 0);
-            mem_read(e(27 downto 0), F_HDR);
+            mem_read(e(27 downto 0) + 8, F_HDR);
           end if;
         when F_HDR =>
-          g <= m_rd(63 downto 48);                  -- the root
+          g <= m_rd(15 downto 0);                   -- the root (bytes 8-9)
           st <= F_HDR2;
         when F_HDR2 =>
           if g = 0 then
@@ -306,13 +310,13 @@ begin
             mem_read(blk + (g & "0000"), F_CELL);
           end if;
         when F_CELL =>
-          col <= m_rd(15 downto 0);
-          if m_rd(15 downto 0) = r_b then
+          col <= m_rd(23 downto 0);
+          if r_b = resize(m_rd(23 downto 0), 32) then
             result <= x"0" & (blk + (g & "0000")); wr <= '1'; st <= S_FINISH;
-          elsif r_b < m_rd(15 downto 0) then
-            g <= m_rd(47 downto 32); st <= F_CELL2;
+          elsif r_b < resize(m_rd(23 downto 0), 32) then
+            g <= x"0" & m_rd(51 downto 40); st <= F_CELL2;     -- left
           else
-            g <= m_rd(63 downto 48); st <= F_CELL2;
+            g <= x"0" & m_rd(63 downto 52); st <= F_CELL2;     -- right
           end if;
         when F_CELL2 =>
           if abort = '1' then fault(ERR_ABORTED);
@@ -326,7 +330,7 @@ begin
           elsif abort = '1' then
             fault(ERR_ABORTED);
           else
-            mem_read(rowtab + (row & "00"), B_ROW2);
+            mem_read(rowtab + (row(25 downto 0) & "00"), B_ROW2);
           end if;
         when B_ROW2 =>
           if row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
@@ -345,11 +349,12 @@ begin
           rh1 <= m_rd;
           st <= B_HCHK;
         when B_HCHK =>
-          -- row number, first free granule within the block
-          if rh0(15 downto 0) /= row or rh1(15 downto 0) = 0 or rh1(15 downto 0) > rh0(31 downto 16) then
+          -- row number, first free granule within the block (<= 4096)
+          if rh0(31 downto 0) /= row or rh1(31 downto 16) = 0 or rh1(31 downto 16) > rh0(47 downto 32)
+            or rh0(47 downto 32) > 4096 then
             format_fault(row);
           else
-            gfree <= rh1(15 downto 0);
+            gfree <= rh1(31 downto 16);
             g <= to_unsigned(1, 16);
             l_n <= 0;
             st <= B_WALK;
@@ -362,16 +367,16 @@ begin
             mem_read(blk + (g & "0000"), B_WALK2);
           end if;
         when B_WALK2 =>
-          if m_rd(31 downto 24) = 0 or resize(g, 17) + resize(m_rd(31 downto 24), 17) > resize(gfree, 17) then
+          if m_rd(39 downto 32) = 0 or resize(g, 17) + resize(m_rd(39 downto 32), 17) > resize(gfree, 17) then
             format_fault(row);
-          elsif m_rd(19 downto 16) /= K_FREE and l_n = max_row_cells then
+          elsif m_rd(27 downto 24) /= K_FREE and l_n = max_row_cells then
             format_fault(row);                  -- (more cells than the list holds)
           else
-            if m_rd(19 downto 16) /= K_FREE then
-              list(l_n) <= m_rd(15 downto 0) & g & m_rd(31 downto 16) & x"0000";
+            if m_rd(27 downto 24) /= K_FREE then
+              list(l_n) <= m_rd(23 downto 0) & g & m_rd(39 downto 24) & x"00";
               l_n <= l_n + 1;
             end if;
-            g <= g + m_rd(31 downto 24);
+            g <= g + m_rd(39 downto 32);
             st <= B_WALK;
           end if;
 
@@ -398,9 +403,9 @@ begin
             l_ra <= l_j - 1; l_ret <= B_SORT3; st <= L_WAIT;
           end if;
         when B_SORT3 =>
-          if l_rd(63 downto 48) = l_key(63 downto 48) then
+          if l_rd(63 downto 40) = l_key(63 downto 40) then
             format_fault(row);                  -- two cells in one column
-          elsif l_rd(63 downto 48) > l_key(63 downto 48) then
+          elsif l_rd(63 downto 40) > l_key(63 downto 40) then
             list(l_j) <= l_rd;
             l_j <= l_j - 1;
             st <= B_SORT2;
@@ -450,7 +455,7 @@ begin
           end if;
         when B_TREE3 =>                         -- the node
           l_cur <= l_rd;
-          if first_node then g_root <= l_rd(47 downto 32); end if;
+          if first_node then g_root <= l_rd(39 downto 24); end if;
           first_node <= false;
           g_left <= (others => '0'); g_right <= (others => '0');
           if t_lo <= t_mid - 1 then
@@ -459,7 +464,7 @@ begin
             st <= B_TREE5;
           end if;
         when B_TREE4 =>                         -- its left child
-          g_left <= l_rd(47 downto 32);
+          g_left <= l_rd(39 downto 24);
           st <= B_TREE5;
         when B_TREE5 =>
           if t_mid + 1 <= t_hi then
@@ -468,26 +473,20 @@ begin
             st <= B_TREE7;
           end if;
         when B_TREE6 =>                         -- its right child
-          g_right <= l_rd(47 downto 32);
+          g_right <= l_rd(39 downto 24);
           st <= B_TREE7;
         when B_TREE7 =>                         -- the node's header
-          mem_write(blk + (l_cur(47 downto 32) & "0000"),
-                    g_right & g_left & l_cur(31 downto 16) & l_cur(63 downto 48),
+          mem_write(blk + (l_cur(39 downto 24) & "0000"),
+                    g_right(11 downto 0) & g_left(11 downto 0) & l_cur(23 downto 8) & l_cur(63 downto 40),
                     "11111111", B_TREE2);
 
         when B_RHDR =>
-          -- cell count and root (bytes 4-7)
-          rh0(63 downto 32) <= g_root & to_unsigned(l_n, 16);
-          mem_write(blk, g_root & to_unsigned(l_n, 16) & rh0(31 downto 0), "11111111", B_NEXT);
+          -- the cell count (bytes 6-7)
+          mem_write(blk, to_unsigned(l_n, 16) & rh0(47 downto 0), "11111111", B_NEXT);
         when B_NEXT =>
-          -- the stale flag (bytes 12-13) cleared, if it was set
-          if rh1(32) = '1' then
-            rh1(32) <= '0';
-            mem_write(blk + 8, rh1(63 downto 33) & '0' & rh1(31 downto 0), "11111111", B_NEXT);
-          else
-            row <= row + 1;
-            st <= B_ROW;
-          end if;
+          -- the root (bytes 8-9), the stale flag (bytes 14-15) cleared
+          mem_write(blk + 8, rh1(63 downto 49) & '0' & rh1(47 downto 16) & g_root, "11111111", B_ROW);
+          row <= row + 1;
 
         when others =>
           st <= S_IDLE;

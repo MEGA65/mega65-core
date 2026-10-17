@@ -287,6 +287,9 @@ entity ssnail is
     cop_op     : out unsigned(7 downto 0) := (others => '0');
     cop_ra     : out unsigned(31 downto 0) := (others => '0');
     cop_rb     : out unsigned(31 downto 0) := (others => '0');
+    cop_rc     : out unsigned(31 downto 0) := (others => '0');  -- R[c bits 3-0]
+    cop_rd     : out unsigned(31 downto 0) := (others => '0');  -- R[c bits 7-4]
+    cop_z      : out unsigned(31 downto 0) := (others => '0');  -- the instruction's Z
     cop_x      : out unsigned(27 downto 0) := (others => '0');
     cop_done   : in  std_logic := '0';
     cop_err    : in  unsigned(7 downto 0) := (others => '0');
@@ -2943,6 +2946,7 @@ begin
               if has_cop then
                 cop_op <= instr(7 downto 0);
                 cop_ra <= opr_a; cop_rb <= opr_b; cop_x <= ea_x;
+                cop_z <= instr(127 downto 96);
                 dec_next <= C_COP;
               else
                 dec_errv <= true; dec_err <= ERR_OPCODE;
@@ -2970,6 +2974,11 @@ begin
         -- Coprocessor: once SSNAIL's own LUMP commands are done, hand it
         -- the ports, and wait
         when C_COP =>
+          -- (two more registers, named by the c byte: R15 reads as 0)
+          if instr(27 downto 24) = x"F" then cop_rc <= (others => '0');
+          else cop_rc <= rf_r(to_integer(instr(27 downto 24))); end if;
+          if instr(31 downto 28) = x"F" then cop_rd <= (others => '0');
+          else cop_rd <= rf_r(to_integer(instr(31 downto 28))); end if;
           if out_z and hr_valid_i = '0' and sd_valid_i = '0' then
             cop_start <= '1';
             cop_own <= '1';
