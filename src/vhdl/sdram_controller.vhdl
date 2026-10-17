@@ -313,6 +313,14 @@ architecture tacoma_narrows of sdram_controller is
   type rs_t is (R_IDLE, R_LOOK, R_DECIDE, R_WAIT);
   signal rs : rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
+  -- A posted write's copy into the cached lines, a cycle after R_DECIDE,
+  -- from registers (its enables were the end of R_DECIDE's decisions).
+  -- Nothing reads c_data that cycle: R_LOOK is two cycles on at the
+  -- earliest, and the next/prev and VIC look-ups wait while wt_go.
+  signal wt_go : std_logic := '0';
+  signal wt_c : std_logic_vector(0 to NL - 1) := (others => '0');
+  signal wt_be : std_logic_vector(7 downto 0) := (others => '0');
+  signal wt_line : unsigned(63 downto 0) := (others => '0');
   signal lk_w : std_logic_vector(0 to NW - 1) := (others => '0');
   -- w_mask(j)(v_idx), taken in R_LOOK (with w_ne(j) in R_DECIDE it is the
   -- current bit: only a write-out, which clears w_ne, changes it meanwhile)
@@ -961,6 +969,18 @@ begin
       v_fill_done := false;
       v_pf_go := false;
       exp_moved <= '0';
+      wt_go <= '0';
+      if wt_go = '1' then
+        for i in 0 to NL - 1 loop
+          if wt_c(i) = '1' then
+            for k in 0 to 7 loop
+              if wt_be(k) = '1' then
+                c_data(i)(8 * k + 7 downto 8 * k) <= wt_line(8 * k + 7 downto 8 * k);
+              end if;
+            end loop;
+          end if;
+        end loop;
+      end if;
       for j in 0 to NW - 1 loop
         if w_mask(j) = x"FF" then w_full_q(j) <= '1'; else w_full_q(j) <= '0'; end if;
       end loop;
@@ -2184,17 +2204,21 @@ begin
                 -- right now), and the exported line
                 -- (lk_c is R_LOOK's c_tag match: a slot retagged since then
                 -- has c_val = 0, and no fill completes in this branch)
+                -- (done next cycle from wt_*: see wt_go)
+                wt_go <= '1';
+                wt_line <= v_line;
                 for i in 0 to NL - 1 loop
                   assert lk_c(i) = '1' or c_tag(i) /= latched_addr(26 downto 3) or c_val(i) = '0'
                     report "SDRAM: lk_c misses a valid copy" severity failure;
                   assert lk_c(i) = '0' or c_val(i) = '0' or c_tag(i) = latched_addr(26 downto 3)
                     report "SDRAM: lk_c names a reused slot" severity failure;
-                  if lk_c(i) = '1' and c_val(i) = '1' then
-                    for k in 0 to 7 loop
-                      if v_mask(k) = '1' and (k = v_idx or (rdata_16en = '1' and k = v_idx + 1)) then
-                        c_data(i)(8 * k + 7 downto 8 * k) <= v_line(8 * k + 7 downto 8 * k);
-                      end if;
-                    end loop;
+                  wt_c(i) <= lk_c(i) and c_val(i);
+                end loop;
+                for k in 0 to 7 loop
+                  if v_mask(k) = '1' and (k = v_idx or (rdata_16en = '1' and k = v_idx + 1)) then
+                    wt_be(k) <= '1';
+                  else
+                    wt_be(k) <= '0';
                   end if;
                 end loop;
                 current_cache_line_valid <= exp_valid;
@@ -2243,7 +2267,7 @@ begin
           end loop;
           x_any <= v_hit /= -1;
           if v_hit /= -1 then x_sel <= v_hit; end if;
-        elsif x_use = '1' then
+        elsif x_use = '1' and wt_go = '0' then     -- (c_data complete)
           x_use <= '0';
           if x_any and c_val(x_sel) = '1' and write_latched = '0' and write_guard_q = '0' then
             assert c_tag(x_sel) = x_addr report "SDRAM: x_sel slot reused" severity failure;
@@ -2272,7 +2296,7 @@ begin
           for i in 0 to NL - 1 loop
             if c_tag(i) = vic_tag then vic_hit(i) <= '1'; else vic_hit(i) <= '0'; end if;
           end loop;
-        elsif vic_use = '1' then
+        elsif vic_use = '1' and wt_go = '0' then   -- (c_data complete)
           vic_use <= '0';
           v_hit := -1;
           for i in 0 to NL - 1 loop

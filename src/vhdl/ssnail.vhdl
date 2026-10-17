@@ -680,6 +680,7 @@ architecture shell of ssnail is
   signal mw_active : std_logic := '0';
   signal mw_k, mw_lead, mw_vend : unsigned(8 downto 0) := (others => '0');
   signal mw_ra     : unsigned(6 downto 0) := (others => '0');   -- mw_idx + mw_k
+  signal pz_252    : boolean := false;        -- pz(7 downto 0) = 252, a cycle late (D_STORE)
   signal mw_idx    : unsigned(6 downto 0) := (others => '0');
   -- DEQROW
   type grp_t is array (0 to 33) of unsigned(7 downto 0);
@@ -1026,6 +1027,9 @@ architecture shell of ssnail is
   -- C_DECODE's choice of next state, taken in C_DEC2: one cycle per
   -- instruction keeps the opcode decode off cstate's next-state logic
   signal dec_next : core_state_t := C_IDLE;
+  -- ... and its fault, if any, into err in C_DEC2 (off err's other sources)
+  signal dec_err  : unsigned(7 downto 0) := (others => '0');
+  signal dec_errv : boolean := false;
   -- Q8_0 / Q4_0 element d_j of grp, as a signed integer: recomputed every
   -- cycle; grp and d_j are never written in the state just before D_EMIT
   -- (D_STORE goes through D_EMIT_W), asserted there
@@ -1239,6 +1243,9 @@ architecture shell of ssnail is
   signal sx_on     : std_logic := '0';
   signal sx_ph     : unsigned(2 downto 0) := (others => '0');
   signal sx_icnt, sx_wcnt : unsigned(15 downto 0) := (others => '0');
+  -- e_t written and not yet summed (sx_wcnt - at_t), and whether any is
+  signal sx_avn    : unsigned(4 downto 0) := (others => '0');
+  signal sx_hav    : boolean := false;
   signal sx_nm, sx_s : unsigned(31 downto 0) := (others => '0');
   type f32x8_t is array (0 to 7) of unsigned(31 downto 0);
   signal sx_d, sx_c0 : f32x8_t := (others => (others => '0'));
@@ -1259,6 +1266,10 @@ architecture shell of ssnail is
   signal xr_s1, xr_z1 : std_logic := '0';
   signal xr_fix    : unsigned(31 downto 0) := (others => '0');
   signal xr_q      : signed(7 downto 0) := (others => '0');
+  -- (a copy of xr_q per qx bank, each placed by its bank, as mc_xa)
+  type xr_qb_t is array (0 to 3) of signed(7 downto 0);
+  signal xr_qb     : xr_qb_t := (others => (others => '0'));
+  attribute dont_touch of xr_qb : signal is "true";
   signal fm_v, fm_vin : std_logic := '0';
   signal fm_a, fm_b : unsigned(31 downto 0) := (others => '0');
   signal fm_tag    : unsigned(9 downto 0) := (others => '0');
@@ -2017,6 +2028,7 @@ begin
     variable xw_d : unsigned(31 downto 0);
     -- sarr's one write port: A_S_SC or the softmax engine
     variable sw_we : boolean;
+    variable sx_take : boolean;                 -- A_E_P takes an e_t
     variable sw_a : unsigned(9 downto 0);
     variable sw_d : unsigned(31 downto 0);
     variable sa : unsigned(9 downto 0);
@@ -2055,6 +2067,7 @@ begin
       lane_start := false; lane_take := false;
       xw_we := false; xw_a := (others => '0'); xw_d := (others => '0');
       sw_we := false; sw_a := (others => '0'); sw_d := (others => '0');
+      sx_take := false;
       rom_a := 512 + to_integer(sx_ti);
       kq_fset <= '0';
       kw_a := (others => (others => '0'));
@@ -2062,6 +2075,7 @@ begin
       hr_issue := '0';
       pf_go := false;
       ve_nx <= ve_next(ve_kind);
+      pz_252 <= pz(7 downto 0) = 252;
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
       sd_issue := '0';
@@ -2496,6 +2510,7 @@ begin
         when C_DECODE =>
           go(C_DEC2);
           dec_next <= C_DECODE;                     -- (as if cstate were unchanged)
+          dec_errv <= false;
           -- MEANROWS set-up, for every instruction (only MEANROWS uses them),
           -- so the opcode and fault checks do not gate it
           mr_rows <= opr_a;
@@ -2523,7 +2538,7 @@ begin
               cp_zero <= instr(111 downto 96) = 0;
               if ea_x(2 downto 0) /= "000" or ea_y(2 downto 0) /= "000"
                 or instr(98 downto 96) /= "000" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
                 dec_next <= C_COPY_CALC;
@@ -2580,7 +2595,7 @@ begin
                      or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26") and ea_y(1 downto 0) /= "00")
                 or (instr(7 downto 0) = x"29" and ea_z(0) /= '0')
                 or (instr(7 downto 0) /= x"29" and ea_z(1 downto 0) /= "00") then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
                 dec_next <= C_NEXT;                       -- nothing to do
@@ -2615,17 +2630,17 @@ begin
               ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
               if not (fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8))
                       or instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 30) then
-                err <= ERR_FORMAT;
+                dec_errv <= true; dec_err <= ERR_FORMAT;
                 dec_next <= C_END;
               elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1'
                 or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
-                err <= ERR_OPCODE;
+                dec_errv <= true; dec_err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
                 or (instr(17) = '0' and ea_z(1 downto 0) /= "00")
                 or (instr(15 downto 8) = 0 and ea_x(1 downto 0) /= "00")      -- (F32 weights)
                 or ((instr(15 downto 8) = 1 or instr(15 downto 8) = 30) and ea_x(0) /= '0') then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n1_z then
                 dec_next <= C_NEXT;
@@ -2635,10 +2650,10 @@ begin
               end if;
             when x"24" =>             -- ROPE
               if ea_x(2 downto 0) /= "000" or ea_y(1 downto 0) /= "00" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n0(0) /= '0' or n1(0) /= '0' or n1_z or n1_big then
-                err <= ERR_OPCODE;
+                dec_errv <= true; dec_err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif n0_z then
                 dec_next <= C_NEXT;
@@ -2652,7 +2667,7 @@ begin
               end if;
             when x"12" =>             -- ARGMAX
               if ea_x(1 downto 0) /= "00" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n0_z then
                 dec_next <= C_NEXT;
@@ -2665,7 +2680,7 @@ begin
               end if;
             when x"25" =>             -- ATTN: read the parameter block first
               if ea_x(1 downto 0) /= "00" or ea_y(1 downto 0) /= "00" or ea_z(1 downto 0) /= "00" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
                 at_pos <= opr_a;
@@ -2681,10 +2696,10 @@ begin
                       or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
                 or fmt_iq(instr(15 downto 8))                -- (GEMV only)
                 or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
-                err <= ERR_OPCODE;
+                dec_errv <= true; dec_err <= ERR_OPCODE;
                 dec_next <= C_END;
               elsif ea_z(1 downto 0) /= "00" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
                 v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
@@ -2694,7 +2709,7 @@ begin
               end if;
             when x"09" | x"0A" =>     -- LDR / STR
               if ea_x(1 downto 0) /= "00" then
-                err <= ERR_ALIGNMENT;
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
                 if instr(7 downto 0) = x"0A" then
@@ -2706,12 +2721,13 @@ begin
                 dec_next <= C_MEM_DECODE;
               end if;
             when others =>
-              err <= ERR_OPCODE;
+              dec_errv <= true; dec_err <= ERR_OPCODE;
               dec_next <= C_END;
           end case;
           end if;
 
         when C_DEC2 =>
+          if dec_errv then err <= dec_err; end if;   -- (C_DECODE's fault, if any)
           go(dec_next);
 
         when C_LEA_MUL =>
@@ -3838,7 +3854,8 @@ begin
             kq_gs <= '0';                             -- (K: a new 16-group)
           end if;
           -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
-          if pz(7 downto 0) = 252 or v_n_one then      -- v_n = 1
+          assert pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_252" severity failure;
+          if pz_252 or v_n_one then                    -- pz(7 downto 0) = 252, v_n = 1
             -- flush the output written since ostart
             a0 := ostart(27 downto 3) & "000";
             a1 := a2 + 7;
@@ -4595,14 +4612,17 @@ begin
           go(A_E_W);
         when A_E_W =>
           assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+          assert sx_hav = (sx_wcnt /= at_t) and sx_avn = resize(sx_wcnt - at_t, 5)
+            report "SSNAIL: stale sx_hav" severity failure;
           if at_tend then                           -- at_t = at_pos + 1
             fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
             fpu_ret <= A_E_R; go(C_FPU_WAIT);
-          elsif sx_wcnt /= at_t then
+          elsif sx_hav then                         -- sx_wcnt /= at_t
             go(A_E_P);
           end if;
         when A_E_P =>
           at_t <= at_t + 1;
+          sx_take := true;
           assert sx_fq = sx_fifo(to_integer(at_t(3 downto 0))) report "SSNAIL: stale sx_fq" severity failure;
           if ve_first = '1' then
             at_acc <= sx_fq; ve_first <= '0';
@@ -5791,7 +5811,7 @@ begin
               end if;
           end case;
           if tready and tl_full = '1' then
-            tl_full_clr := '1'; tl_full <= '0';        -- (a producer may refill it below)
+            tl_full_clr := '1'; tl_full <= '0';
             assert tl_b0 = (tl_blk = 0) and tl_last = (tl_blk + 1 = g_nbt)
               report "SSNAIL: stale tl_b0/tl_last" severity failure;
             ta_first <= tl_b0; ta_lst <= tl_last;
@@ -5818,7 +5838,9 @@ begin
             end if;
           end if;
         end if;
-        tl_free := tl_full = '0' or tl_full_clr = '1';
+        -- (refilled only once empty: a term taken this cycle frees tl_* for
+        -- the next, not this one; the consumers' latency hides the cycle)
+        tl_free := tl_full = '0';
         if kq_fs = KF_OUT and tl_free then
           tl_full <= '1'; tl_term <= kq_t1; tl_term2 <= kq_t2; tl_blk <= kq_fsb; tl_b0 <= kq_fsb = 0; tl_last <= kq_fsb + 1 = g_nbt;
           if kq_fsb + 1 = kq_nsb then
@@ -5920,15 +5942,17 @@ begin
       xfx := xr_fix + x"00800000";                      -- + 0.5, then the integer part
       if xr_s1 = '1' then
         xr_q <= -signed(xfx(31 downto 24));
+        xr_qb <= (others => -signed(xfx(31 downto 24)));
       else
         xr_q <= signed(xfx(31 downto 24));
+        xr_qb <= (others => signed(xfx(31 downto 24)));
       end if;
       if xr_v2 = '1' then
         case to_integer(xr_j2(1 downto 0)) is
-          when 0 => qx0(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
-          when 1 => qx1(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
-          when 2 => qx2(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
-          when others => qx3(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_q;
+          when 0 => qx0(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_qb(0);
+          when 1 => qx1(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_qb(1);
+          when 2 => qx2(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_qb(2);
+          when others => qx3(to_integer(xq_blk & xr_j2(4 downto 2))) <= xr_qb(3);
         end case;
         -- the sum of each 16 (K-quants' mins)
         if xr_j2(3 downto 0) = 0 then
@@ -6056,12 +6080,18 @@ begin
           sx_fifo(to_integer(sx_wcnt(3 downto 0))) <= sx_e;
           sx_wcnt <= sx_wcnt + 1;
         end if;
+        if sx_ev = '1' and not sx_take then
+          sx_avn <= sx_avn + 1; sx_hav <= true;
+        elsif sx_ev = '0' and sx_take then
+          sx_avn <= sx_avn - 1; sx_hav <= sx_avn /= 1;
+        end if;
         assert nb <= 1 and nm <= 1 report "SSNAIL: softmax engine unit clash nb=" & integer'image(nb) & " nm=" & integer'image(nm) & " ph=" & integer'image(to_integer(sx_ph)) & " fcrv=" & std_logic'image(fc_rv) & " tag=" & integer'image(to_integer(fc_rtag)) & " fmrv=" & std_logic'image(fm_rv) & " fmtag=" & integer'image(to_integer(fm_rtag)) & " v3=" & std_logic'image(sx_v3) severity failure;
       else
         sx_ph <= (others => '0');
         sx_can <= false;
         sx_icnt <= (others => '0');
         sx_wcnt <= (others => '0');
+        sx_avn <= (others => '0'); sx_hav <= false;
       end if;
 
       -- xf: one write port (the x fill, ATTN's q) and one registered read
