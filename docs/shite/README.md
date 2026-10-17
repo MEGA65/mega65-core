@@ -7,8 +7,9 @@ detects what changed, maintains the per-row cell index and renders cells as
 screen text.
 
 Status: specification, draft 2: the canonical description.  It merges
-[the hardware codec proposal](hardware-codec-proposal.md) (whose
-[discussion record](formula-codec-discussion.md) is kept as history).
+[the hardware codec proposal](hardware-codec-proposal.md) and
+[its review notes](hardware-codec-review-notes.md) (with the
+[discussion record](formula-codec-discussion.md), kept as history).
 Implemented so far: the build structure (section 1), REBALANCE_ROW and
 FIND_CELL, and the reference model `SSNAIL/shite.py` (being brought to
 this draft's 24-bit columns, 12-bit links and 32-bit rows).
@@ -214,16 +215,19 @@ v x 2^-k (binary, k <= 62).
 References and ranges:
 
 - A **reference** pushes its cell's value, marked as coming from a
-  reference: EMPTY or no cell is I64 0, numbers with their format's fixed
-  point, TEXT its text, FORMULA its stored result, ERROR its code,
-  UNCOMPILED #COMPILE!.  A reference outside the sheet is #REF!.
-- A **range** (RECT, section 5) is a rectangle of cells, used by the
-  aggregate functions.  Within a range, rows are walked in ascending order
+  reference: an EMPTY cell or no cell is *blank* (kept as its own kind
+  until something uses it: arithmetic and comparisons take it as I64 0,
+  aggregates skip it), numbers with their format's fixed point, TEXT its
+  text, FORMULA its stored result, ERROR its code, UNCOMPILED #COMPILE!.
+  A reference outside the sheet is #REF!.  So with A1 empty, `COUNT(A1)`
+  is 0 and `AVERAGE(A1)` #DIV/0!, while with A1 = 0 they are 1 and 0.
+- A **range** (RECT, section 5) is a rectangle of cells, and a **cell
+  list** (CELLS) a list of single cells, used by the aggregate functions.  Within a range, rows are walked in ascending order
   and the cells of a row in ascending column order (an in-order walk of
   the row's tree: trees at most 32 deep, else ERR_FORMAT).
 - **Aggregates** (SUM, AVERAGE, MIN, MAX, COUNT; later PRODUCT, COUNTA)
-  take their arguments in order.  A range, or a value from a reference,
-  contributes its numbers and skips text and empty cells; any other value
+  take their arguments in order.  A range, a cell list, or a value from a
+  reference, contributes its numbers and skips text and blank cells; any other value
   must be a number (text is #VALUE!).  An error anywhere is the result (the
   first, in order).  SUM is a left-to-right fold of ADD from I64 0; MIN
   and MAX fold the comparison (no numbers: I64 0); COUNT counts the
@@ -251,8 +255,12 @@ evaluation order).
 Formulas are compiled to postfix (RPN) bytecode, run on a 32-entry stack:
 operands are pushed, and operators and functions take theirs from the top
 (a function's argument count is in its CALL).
-Each entry is a kind (I64, F64, text, error, range), a 64-bit payload, a
-fixed-point byte and a "from a reference" bit.  Execution starts at the
+Each entry is a kind (I64, F64, text, error, blank, range, cell list), a
+64-bit payload, a fixed-point byte and a "from a reference" bit.  The stack
+depth is a deliberate limit: COMPILE computes a formula's deepest point and
+rejects one past 32 with a positioned resource error (long argument lists of
+single cells do not count against it: they become one CELLS entry).
+Execution starts at the
 first byte and ends at END; one value must then be on the stack.
 
 ### 5.1 Framing
@@ -315,10 +323,11 @@ and its text can be rebuilt exactly.
 | $06 | FIX | 1 | the top (an integer) is fixed point, the byte as a format's byte 2 |
 | $07 | REF | 6 | push a cell's value (the long form of 5.3) |
 | $08 | RECT | two references | push a range: the rectangle between two cells |
-| $09 | HOSTCALL | count, text, reference | push the referenced cell's value; the text is the call as written (5.6) |
+| $09 | HOSTCALL | count, text, 6 | push the result cell's value; the text is the call as written; the 6 bytes are the result cell, always in the long form's payload (5.3, 5.6) |
 | $0A | JZ | 2 | pop; if zero, jump forward (5.5) |
 | $0B | JMP | 2 | jump forward (5.5) |
 | $0C | CALL | function, count | call a function on the top `count` values (5.7) |
+| $0D | CELLS | count, references | push a cell list: `count` references (each short or long), one stack entry |
 | $10 | ADD | | |
 | $11 | SUB | | |
 | $12 | MUL | | |
@@ -362,10 +371,16 @@ edited again, without keeping the formula's source elsewhere) and a result
 cell, an ordinary cell the CPU keeps up to date.  Execution skips the text
 and pushes the result cell's value, as a reference would.
 
+The result cell is always the 6-byte long-form payload (no REF opcode), so
+it can be rebound to any cell in place: nothing after it moves, and no
+jump changes.  A formula must not run (RECALC) until its host calls are
+bound.
+
 The CPU owns everything about host calls: which cells they depend on, when
-to recompute them (between RECALC calls, setting CHANGED on the result
-cells it updates, so they take part in the rounds and in convergence like
-any other change), and where result cells live (for example hidden rows).
+to recompute them, and where result cells live (for example hidden rows).
+It updates result cells only between rounds (after END, before the next
+BEGIN), setting CHANGED on those it changes; RECALC's counts and lists do
+not include them (section 7).
 
 ### 5.7 Functions
 
@@ -486,6 +501,10 @@ others in a few more.
   check by evaluating on demand with in-progress marks.
 - Host calls (5.6): the CPU recomputes their result cells between rounds
   when their inputs changed, setting CHANGED, so the next round sees them.
+  Convergence is then a round with no changes **and** no result cell
+  updated by the CPU since that round's BEGIN (and none waiting to be
+  computed): the driver counts its own updates, as RECALC's count and lists
+  hold only the formulas it recomputed.
 
 ## 8. Registers
 
@@ -538,9 +557,24 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
 
 - **Canonical text**: DECOMPILE may fully parenthesise
   (`=A1*(B2+3)` gives `=(A1*(B2+3))`) and need not keep spacing, case or
-  redundant grouping.  It must keep the evaluation structure, the `$`
-  locks, function identity, IF (5.5), host-call text (5.6) and numbers
-  exactly enough that compiling the text again gives the same bytecode.
+  redundant grouping.
+- **The round trip**: compiling DECOMPILE's text again (with the same
+  formula cell and codec settings) gives bytecode with the same meaning:
+  the same structure, evaluation order, value kinds and fixed points, `$`
+  locks, function identities, IFs (5.5) and host-call texts.  For
+  COMPILE's own (canonical) output it gives the same bytes, except that
+  host calls come back unbound (the placeholder result cell, for the CPU
+  to bind again).  Canonical bytecode: references in the short form when
+  they fit, counts and identifiers in their short form when they fit,
+  integer constants as the narrowest of I8, I32, I64, and runs of plain
+  cell arguments to an aggregate as one CELLS.  Other accepted streams (a
+  long count where a short one fits, say) round-trip by meaning only.
+- **Numbers**: a decimal with no exponent is an integer, or fixed point
+  when it has a fraction (`1.25` is I64 125, FIX 2: at most 18 decimals);
+  with an exponent it is F64 (`1.25E0`, `1E-3`).  DECOMPILE prints integers
+  and fixed point that way (keeping trailing zeros: `1.50` is k = 2), and F64
+  constants always with an exponent, as the shortest digits that read back
+  to the same bits (`-0E0` for negative zero).
 - **Function names**: a table in attic RAM, `[identifier (5.2)][name, NUL]`
   repeated, ending with an empty name; the first entry for an identifier is
   its canonical spelling, later ones aliases.  So English and German (or any
@@ -550,11 +584,10 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
   name is a compile error.
 - **Host functions**: identifiers 16384-32767 in the table are the CPU's.
   A call to one compiles to a HOSTCALL (5.6) holding the call's text and,
-  as its result cell, the placeholder absolute reference row 2^20 - 1,
-  column 2^24 - 1 (the long form); COMPILE returns how many it made
-  (block byte 27).  The CPU
-  then gives each its result cell, rewriting the reference (it can find
-  them by walking the bytecode by 5.1-5.4).
+  as its result cell, the placeholder absolute row 2^20 - 1, column
+  2^24 - 1; COMPILE returns how many it made (block byte 27).  The CPU
+  then binds each to its result cell, rewriting the 6-byte slot in place
+  (it finds them by walking the bytecode by 5.1-5.4).
 - **Separators**: the descriptor's decimal and argument separators.
 - **Limits**: nesting and stack depths, and the output bounds, are the
   codec's to state; exceeding them is a compile error with its position.
