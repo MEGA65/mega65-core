@@ -268,7 +268,7 @@ P03 = r'''
 210 PRINT " GOT";:FOR I=0 TO 7:PRINT " ";RIGHT$(HEX$(PEEK($8300100+I)),2);:NEXT:PRINT ",";
 220 GOSUB 9500
 230 NEXT K:GOTO 9700
-250 DATA $78,$56,$34,$12,0,0,0,0
+250 DATA 120,86,52,18,0,0,0,0
 '''
 
 P04 = r'''
@@ -642,6 +642,8 @@ def check_basic(name, text):
         problems.append("line numbers not unique and ascending")
     code = re.sub(r'"[^"]*"', '', text.upper())
     code = re.sub(r'REM.*', '', code)
+    if re.search(r'DATA[^"\n]*\$', code):
+        problems.append("$ hex in DATA (READ of a number takes decimal only)")
     code = re.sub(r'DATA.*', '', code)
     targets = set()
     for m in re.finditer(r'GO(?:SUB|TO) *(\d+)|THEN *(\d+)|RESTORE *(\d+)', code):
