@@ -34,6 +34,7 @@ Testbenches:
                       TQ2_0) vs the same
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
+    tb_ssnail_step8   VEXP, SOFTPLUS, SSMUPD (Falcon-H1's Mamba-2) vs the same
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
     tb_ssnail_perf_f16  float GEMV (F16) results and speed
     tb_ssnail_perf_attn ATTN results and speed
@@ -135,6 +136,10 @@ BENCHES = {
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step7_pkg.vhdl",
                          "tb_ssnail_step7.vhdl"],
                         "tb_ssnail_step7", [[]], r"TB_SSNAIL_STEP7: ALL PASSED"),
+    "tb_ssnail_step8": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step8_pkg.vhdl",
+                         "tb_ssnail_step8.vhdl"],
+                        "tb_ssnail_step8", [[]], r"TB_SSNAIL_STEP8: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
@@ -196,6 +201,7 @@ GENERATED = {
     "step3_pkg.vhdl": ("gen_step3.py", True),
     "step4_pkg.vhdl": ("gen_step4.py", True),
     "step5_pkg.vhdl": ("gen_step5.py", True),
+    "step8_pkg.vhdl": ("gen_step8.py", True),
     "step6_pkg.vhdl": ("gen_step6.py", True),
     "step7_pkg.vhdl": ("gen_step7.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),

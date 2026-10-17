@@ -297,9 +297,10 @@ architecture shell of ssnail is
   constant K_RMSOUT  : unsigned(3 downto 0) := x"8";   -- z = (x * r) * y
   constant K_LNOUT   : unsigned(3 downto 0) := x"9";   -- z = (((x - mu) * r) * y) + b
   constant K_SILUMUL : unsigned(3 downto 0) := x"A";   -- z = silu(x) * y
-  constant K_GELU    : unsigned(3 downto 0) := x"B";   -- z = gelu(x)
+  constant K_TAB     : unsigned(3 downto 0) := x"B";   -- z = f(x), f the vt_id table (GELU, exp, softplus)
   constant K_ROPE    : unsigned(3 downto 0) := x"C";   -- rotate pairs, in place
   constant K_ARGMAX  : unsigned(3 downto 0) := x"D";   -- index of the first maximum
+  constant K_SSM     : unsigned(3 downto 0) := x"E";   -- z = (x * s_sc) + (y * s_r) (SSMUPD)
 
   -- F16 -> F32, exact (finite inputs; GEMV block scales)
   function f16_to_f32(h : unsigned(15 downto 0)) return unsigned is
@@ -463,7 +464,7 @@ architecture shell of ssnail is
   -- the vector unit's steps (with RMSNORM, LAYERNORM, MEANROWS, ROPE and
   -- ARGMAX), while cstate = C_VEC; V_EXIT (only in ve_ret): to C_NEXT
   type vec_state_t is (
-    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
+    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
   signal vu_st : vec_state_t := V_CHUNK;
 
   type gemv_state_t is (
@@ -560,7 +561,7 @@ architecture shell of ssnail is
   begin
     case k is
       when K_ARGMAX | K_COPY | K_SUM => return C_VEC;
-      when K_SILUMUL | K_GELU => return T_START;
+      when K_SILUMUL | K_TAB => return T_START;
       when others => return C_FPU_WAIT;
     end case;
   end function;
@@ -597,10 +598,23 @@ architecture shell of ssnail is
   signal s_mu, s_r, s_sc, s_rn : unsigned(31 downto 0) := (others => '0');
   signal mr_r, mr_rows : unsigned(31 downto 0) := (others => '0');  -- MEANROWS
   signal mr_src_row : unsigned(27 downto 0) := (others => '0'); -- address for current MEANROWS row
+  -- SSMUPD: the parameter block (h, a, u, B), the next row of h, and a
+  -- and u for 64 rows at a time (ss_sa, ss_su, filled through the
+  -- element fetch), then each row through the engine as K_SSM
+  type ss_buf_t is array (0 to 63) of unsigned(31 downto 0);
+  signal ss_sa, ss_su : ss_buf_t := (others => (others => '0'));
+  signal ss_h, ss_a, ss_u, ss_b : unsigned(27 downto 0) := (others => '0');
+  signal ss_pi : unsigned(1 downto 0) := "00";
+  signal ss_j : unsigned(5 downto 0) := (others => '0');
+  signal ss_jend : boolean := false;            -- ss_j = 63 (kept with ss_j)
+  signal ss_fu : std_logic := '0';              -- filling ss_su (else ss_sa)
+  signal ss_gend : boolean := false;            -- the group's 64 rows done
+  signal ss_left : unsigned(15 downto 0) := (others => '0');  -- rows to go
+  signal ss_done : boolean := false;            -- ss_left = 0 (kept with it)
   -- table lookup subroutine
-  -- Three functions x 256 segments x {C0,C1}.  A single synchronous ROM
+  -- Four functions x 256 segments x {C0,C1}.  A single synchronous ROM
   -- replaces six independent asynchronous 32-bit coefficient multiplexers.
-  type coeff_rom_t is array (0 to 767) of unsigned(63 downto 0);
+  type coeff_rom_t is array (0 to 1023) of unsigned(63 downto 0);
   function init_coeff_rom return coeff_rom_t is
     variable r : coeff_rom_t;
   begin
@@ -608,6 +622,7 @@ architecture shell of ssnail is
       r(i)       := SILU_C0(i) & SILU_C1(i);
       r(256 + i) := GELU_C0(i) & GELU_C1(i);
       r(512 + i) := EXPT_C0(i) & EXPT_C1(i);
+      r(768 + i) := SOFTP_C0(i) & SOFTP_C1(i);
     end loop;
     return r;
   end function;
@@ -618,7 +633,9 @@ architecture shell of ssnail is
   -- coeff_word, registered (the BRAM's output register): the ROM's
   -- clock-to-out is not on the fpu_a mux
   signal coeff_q : unsigned(63 downto 0) := (others => '0');
-  signal tab_id    : unsigned(1 downto 0) := "00";              -- 0 SiLU, 1 GELU, 2 exp
+  signal tab_id    : unsigned(1 downto 0) := "00";              -- 0 SiLU, 1 GELU, 2 exp, 3 softplus
+  -- K_TAB's table (GELU, VEXP, SOFTPLUS: tab_id), set at decode
+  signal vt_id     : unsigned(1 downto 0) := "01";
   signal tx, tval, tc0 : unsigned(31 downto 0) := (others => '0');
   -- element fetch subroutine: ef_val = F32 element at ef_addr (F16 if ef_f16)
   signal ef_addr   : unsigned(27 downto 0) := (others => '0');
@@ -2114,7 +2131,7 @@ begin
     variable rj : unsigned(8 downto 0);
     variable tready, tfin : boolean;
     variable tacc : unsigned(31 downto 0);
-    variable rom_a : integer range 0 to 767;
+    variable rom_a : integer range 0 to 1023;
     variable nb, nm : integer range 0 to 3;
     variable sxf : unsigned(1 downto 0);
     variable sxe : integer range 0 to 255;
@@ -2611,7 +2628,8 @@ begin
           -- GEMV, ROPE, ATTN and DEQROW refill bufx: its block is stale (by
           -- the opcode alone, so the checks do not gate it)
           if instr(7 downto 0) = x"10" or instr(7 downto 0) = x"24"
-            or instr(7 downto 0) = x"25" or instr(7 downto 0) = x"11" then
+            or instr(7 downto 0) = x"25" or instr(7 downto 0) = x"11"
+            or instr(7 downto 0) = x"2C" then
             ld_valid <= '0';
           end if;
           -- MEANROWS set-up, for every instruction (only MEANROWS uses them),
@@ -2674,7 +2692,7 @@ begin
                 br_taken <= '1';
               end if;
               dec_next <= C_NEXT;
-            when x"20" | x"21" | x"29" | x"23" | x"27" | x"22" | x"26" | x"28" =>
+            when x"20" | x"21" | x"29" | x"23" | x"27" | x"2A" | x"2B" | x"22" | x"26" | x"28" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
               -- (the element operation from the opcode alone, and the
@@ -2683,12 +2701,17 @@ begin
               bx <= ea_x; by <= ea_y; bz <= ea_z;
               px <= ea_x; py <= ea_y; pz <= ea_z;
               v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+              case instr(3 downto 0) is              -- (only K_TAB reads it)
+                when x"A" => vt_id <= "10";            -- $2A VEXP
+                when x"B" => vt_id <= "11";            -- $2B SOFTPLUS
+                when others => vt_id <= "01";          -- $27 GELU
+              end case;
               case instr(7 downto 0) is
                 when x"20" => ve_kind <= K_ADD;
                 when x"21" => ve_kind <= K_MUL;
                 when x"29" => ve_kind <= K_CVT16;
                 when x"23" => ve_kind <= K_SILUMUL;
-                when x"27" => ve_kind <= K_GELU;
+                when x"27" | x"2A" | x"2B" => ve_kind <= K_TAB;
                 when x"22" => ve_kind <= K_SUMSQ;
                 when x"26" => ve_kind <= K_SUM;
                 when others => ve_kind <= K_COPY;
@@ -2711,7 +2734,7 @@ begin
                   when x"21" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"29" => o16 <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"23" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"27" => vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"27" | x"2A" | x"2B" => vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"22" =>                     -- RMSNORM pass 1: sum of squares
                     has_out <= '0'; ve_ret <= R_S0; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"26" =>                     -- LAYERNORM pass 1: sum
@@ -2792,6 +2815,24 @@ begin
                 at_pi <= (others => '0');
                 ef_addr <= ea_x; ef_f16 <= '0';
                 dec_next <= C_ATTN;
+              end if;
+            when x"2C" =>             -- SSMUPD: read the parameter block first
+              vu_st <= SS_PRM;                   -- (the first step, whatever the checks find)
+              ss_pi <= "00";
+              ef_addr <= ea_x; ef_f16 <= '0';
+              ss_left <= n1(15 downto 0); ss_done <= false;
+              if ea_x(1 downto 0) /= "00" then
+                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                dec_next <= C_END;
+              elsif n1(31 downto 16) /= 0 then
+                dec_errv <= true; dec_err <= ERR_OPCODE;
+                dec_next <= C_END;
+              elsif n0_z or n1_z then
+                dec_next <= C_NEXT;
+              else
+                o16 <= '0'; two_ops <= '1'; has_b <= '0'; has_out <= '1';
+                ve_kind <= K_SSM;
+                dec_next <= C_VEC;
               end if;
             when x"11" =>             -- DEQROW
               dq_st <= D_GROUP;                    -- (the first step, whatever the checks find)
@@ -3329,14 +3370,18 @@ begin
                   fpu_start <= '1'; vu_st <= E_R1; fpu_ret <= C_VEC;
                 when K_COPY | K_SUM =>
                   fpu_r <= xv;
-                when K_SILUMUL | K_GELU =>
+                when K_SILUMUL | K_TAB =>
                   tx <= xv;
                   if ve_kind = K_SILUMUL then
                     tab_id <= "00";
                     tx_below <= flt(xv, SILU_LO); tx_above <= not flt(xv, SILU_HI);
                   else
-                    tab_id <= "01";
-                    tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
+                    tab_id <= vt_id;
+                    case vt_id is
+                      when "10" => tx_below <= flt(xv, EXPT_LO); tx_above <= not flt(xv, EXPT_HI);
+                      when "11" => tx_below <= flt(xv, SOFTP_LO); tx_above <= not flt(xv, SOFTP_HI);
+                      when others => tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
+                    end case;
                   end if;
                   vu_st <= E_K1; tab_ret <= C_VEC;
                 when others =>
@@ -3359,6 +3404,8 @@ begin
                       fpu_op <= FOP_MUL; fpu_b <= xv; vu_st <= E_ACC; fpu_ret <= C_VEC;
                     when K_RMSOUT =>
                       fpu_op <= FOP_MUL; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
+                    when K_SSM =>                     -- t = x * a
+                      fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
                     when others =>                    -- K_LNVAR, K_LNOUT: d = x - mu
                       fpu_op <= FOP_ADD; fpu_b <= (not s_mu(31)) & s_mu(30 downto 0);
                       vu_st <= E_K1; fpu_ret <= C_VEC;
@@ -3378,8 +3425,12 @@ begin
               when K_SILUMUL =>                       -- silu(x) * y
                 fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
                 fpu_start <= '1'; go(C_FPU_WAIT);
-              when K_GELU =>
+              when K_TAB =>
                 fpu_r <= tval; vgo(V_ELST);
+              when K_SSM =>                           -- s = y * u
+                ev <= fpu_r;
+                fpu_op <= FOP_MUL; fpu_a <= ey; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
+                fpu_start <= '1'; go(C_FPU_WAIT);
               when K_RMSOUT =>                        -- (x * r) * g
                 fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
                 fpu_start <= '1'; go(C_FPU_WAIT);
@@ -3391,8 +3442,12 @@ begin
                 fpu_start <= '1'; go(C_FPU_WAIT);
             end case;
 
-          when E_K2 =>                                -- K_LNOUT: (d * r) * g
-            fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= E_K3; fpu_ret <= C_VEC;
+          when E_K2 =>
+            if ve_kind = K_SSM then                   -- K_SSM: t + s
+              fpu_op <= FOP_ADD; fpu_a <= ev; fpu_b <= fpu_r; vu_st <= V_ELST; fpu_ret <= C_VEC;
+            else                                      -- K_LNOUT: (d * r) * g
+              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= E_K3; fpu_ret <= C_VEC;
+            end if;
             fpu_start <= '1'; go(C_FPU_WAIT);
 
           when E_K3 =>                                -- K_LNOUT: ... + b
@@ -3533,6 +3588,80 @@ begin
             px <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
             ve_kind <= K_SCALE; two_ops <= '0'; has_out <= '1'; ve_ret <= V_EXIT;
             vgo(V_CHUNK);
+
+          -- SSMUPD: h[r][c] = (a[r] * h[r][c]) + (u[r] * B[c]), row by row
+          when SS_PRM =>                              -- parameter word ss_pi
+            vu_st <= SS_PRM2; ef_ret <= C_VEC;
+            go(EF_START);
+          when SS_PRM2 =>
+            case ss_pi is
+              when "00" => ss_h <= ef_val(27 downto 0);
+              when "01" => ss_a <= ef_val(27 downto 0);
+              when "10" => ss_u <= ef_val(27 downto 0);
+              when others => ss_b <= ef_val(27 downto 0);
+            end case;
+            ef_addr <= ef_addr + 4;
+            ss_pi <= ss_pi + 1;
+            if ss_pi = "11" then vgo(SS_CHK); else vgo(SS_PRM); end if;
+          when SS_CHK =>
+            if ss_h(1 downto 0) /= "00" or ss_a(1 downto 0) /= "00"
+              or ss_u(1 downto 0) /= "00" or ss_b(1 downto 0) /= "00" then
+              err <= ERR_ALIGNMENT;
+              go(C_END);
+            else
+              vgo(SS_GRP);
+            end if;
+          when SS_GRP =>                              -- a, u for the next 64 rows
+            -- (bufx holds rows of h and B: the fetch must reload it.  Written
+            -- two states before EF_START, as ef_miss needs)
+            ld_valid <= '0';
+            ef_addr <= ss_a;
+            ss_a <= ss_a + 256;
+            ss_fu <= '0';
+            ss_j <= (others => '0'); ss_jend <= false;
+            vgo(SS_FILL);
+          when SS_FILL =>
+            vu_st <= SS_FILL2; ef_ret <= C_VEC;
+            go(EF_START);
+          when SS_FILL2 =>
+            if ss_fu = '0' then
+              ss_sa(to_integer(ss_j)) <= ef_val;
+            else
+              ss_su(to_integer(ss_j)) <= ef_val;
+            end if;
+            ef_addr <= ef_addr + 4;
+            ss_j <= ss_j + 1;
+            ss_jend <= ss_j = 62;
+            if not ss_jend then
+              vgo(SS_FILL);
+            elsif ss_fu = '0' then                    -- now u
+              ss_fu <= '1';
+              ef_addr <= ss_u;
+              ss_u <= ss_u + 256;
+              vgo(SS_FILL);
+            else
+              ss_gend <= false;
+              vgo(SS_ROW);
+            end if;
+          when SS_ROW =>
+            assert ss_done = (ss_left = 0) report "SSNAIL: stale ss_done" severity failure;
+            if ss_done then
+              go(C_NEXT);
+            elsif ss_gend then
+              vgo(SS_GRP);
+            else
+              s_sc <= ss_sa(to_integer(ss_j));
+              s_r <= ss_su(to_integer(ss_j));
+              px <= ss_h; py <= ss_b; pz <= ss_h;
+              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+              ss_h <= ss_h + (n0(25 downto 0) & "00");
+              ss_j <= ss_j + 1;
+              ss_gend <= ss_j = 63;
+              ss_left <= ss_left - 1;
+              ss_done <= ss_left = 1;
+              ve_ret <= SS_ROW;
+              vgo(V_CHUNK);
+            end if;
 
           -- ROPE: load the cos/sin row, then rotate pairs through the engine
           when RO_CS =>
@@ -4422,15 +4551,16 @@ begin
           assert tx_above = not flt(tx, SILU_HI) or tab_id /= "00" report "SSNAIL: stale tx_above" severity failure;
           assert tx_below = flt(tx, GELU_LO) or tab_id /= "01" report "SSNAIL: stale tx_below" severity failure;
           assert tx_above = not flt(tx, GELU_HI) or tab_id /= "01" report "SSNAIL: stale tx_above" severity failure;
-          assert tx_below = flt(tx, EXPT_LO) or tab_id(1) /= '1' report "SSNAIL: stale tx_below" severity failure;
-          assert tx_above = not flt(tx, EXPT_HI) or tab_id(1) /= '1' report "SSNAIL: stale tx_above" severity failure;
-          if tab_id = "00" then
-            lo := SILU_LO; hi := SILU_HI;
-          elsif tab_id = "01" then
-            lo := GELU_LO; hi := GELU_HI;
-          else
-            lo := EXPT_LO; hi := EXPT_HI;
-          end if;
+          assert tx_below = flt(tx, EXPT_LO) or tab_id /= "10" report "SSNAIL: stale tx_below" severity failure;
+          assert tx_above = not flt(tx, EXPT_HI) or tab_id /= "10" report "SSNAIL: stale tx_above" severity failure;
+          assert tx_below = flt(tx, SOFTP_LO) or tab_id /= "11" report "SSNAIL: stale tx_below" severity failure;
+          assert tx_above = not flt(tx, SOFTP_HI) or tab_id /= "11" report "SSNAIL: stale tx_above" severity failure;
+          case tab_id is
+            when "00" => lo := SILU_LO; hi := SILU_HI;
+            when "01" => lo := GELU_LO; hi := GELU_HI;
+            when "10" => lo := EXPT_LO; hi := EXPT_HI;
+            when others => lo := SOFTP_LO; hi := SOFTP_HI;
+          end case;
           if tx_below then                             -- flt(tx, lo)
             tval <= (others => '0');                   -- below: 0
             go(tab_ret);
@@ -4438,7 +4568,7 @@ begin
             if tab_id = "10" then
               tval <= x"3F800000";                     -- exp above: 1
             else
-              tval <= tx;                              -- silu, gelu above: x
+              tval <= tx;                              -- silu, gelu, softplus above: x
             end if;
             go(tab_ret);
           else
@@ -4453,9 +4583,12 @@ begin
         when T_K =>
           fpu_op <= FOP_MUL;                           -- (x - lo) * k
           fpu_a <= fpu_r;
-          if tab_id = "00" then fpu_b <= SILU_K;
-          elsif tab_id = "01" then fpu_b <= GELU_K;
-          else fpu_b <= EXPT_K; end if;
+          case tab_id is
+            when "00" => fpu_b <= SILU_K;
+            when "01" => fpu_b <= GELU_K;
+            when "10" => fpu_b <= EXPT_K;
+            when others => fpu_b <= SOFTP_K;
+          end case;
           fpu_start <= '1';
           fpu_ret <= T_I;
           go(C_FPU_WAIT);
@@ -4477,15 +4610,10 @@ begin
           else
             ti := to_integer(fpu_r(15 downto 0));
           end if;
-          -- One synchronous ROM read.  Note that tab_id="11" historically
-          -- chose EXPT as well, so preserve that fallback explicitly.
-          -- Compute the banked ROM address *before* the clocked read,
-          -- ensuring Vivado sees only one physical read port.
-          if tab_id = "01" then
-            ti := ti + 256;
-          elsif tab_id /= "00" then
-            ti := ti + 512;
-          end if;
+          -- One synchronous ROM read: the table's bank is the address's top
+          -- two bits.  Compute the banked ROM address *before* the clocked
+          -- read, ensuring Vivado sees only one physical read port.
+          ti := ti + 256 * to_integer(tab_id);
           rom_a := ti;                    -- (read below)
           go(T_ROM2);
 
