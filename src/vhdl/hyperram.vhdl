@@ -577,6 +577,9 @@ architecture gothic of hyperram is
   signal rs : h_rs_t := R_IDLE;
   signal lk_c : std_logic_vector(0 to H_NL - 1) := (others => '0');
   signal lk_w : std_logic_vector(0 to H_NW - 1) := (others => '0');
+  -- w_mask(j)(v2_idx), read in R_LOOK with the bytes (a buffer's mask is
+  -- only cleared together with w_ne, so lk_wm and w_ne is exact in R_DECIDE)
+  signal lk_wm : std_logic_vector(0 to H_NW - 1) := (others => '0');
   -- R_LOOK also picks the read's two bytes out of every line and buffer,
   -- so R_DECIDE only chooses between registers.  c_data and w_data do not
   -- change between the two except by a fill completing (lk_fd: look again).
@@ -4574,6 +4577,7 @@ begin
             if w_tag(j) = l_addr(26 downto 3) then lk_w(j) <= '1'; else lk_w(j) <= '0'; end if;
             lk_wb(j)  <= byte_of(w_data(j), v2_idx);
             lk_wbh(j) <= byte_of(w_data(j), (v2_idx + 1) mod 8);
+            lk_wm(j) <= w_mask(j)(v2_idx);
           end loop;
           rs <= R_DECIDE;
         when R_DECIDE =>
@@ -4585,7 +4589,9 @@ begin
             v2_wh := -1;
             v2_hit := -1;
             for j in 0 to H_NW - 1 loop
-              if lk_w(j) = '1' and w_mask(j)(v2_idx) = '1' then v2_wh := j; end if;
+              assert (lk_wm(j) and w_ne(j)) = w_mask(j)(v2_idx)
+                report "HYPERRAM: stale lk_wm" severity failure;
+              if lk_w(j) = '1' and lk_wm(j) = '1' and w_ne(j) = '1' then v2_wh := j; end if;
             end loop;
             for i in H_NL - 1 downto 0 loop
               if lk_c(i) = '1' and c_val(i) = '1' then v2_hit := i; end if;

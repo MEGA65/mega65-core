@@ -1490,6 +1490,10 @@ architecture shell of ssnail is
   -- code intentionally uses only 20 low bits for byte-span calculation,
   -- but all 32 bits for the streamed block count.  Keep BOTH semantics.
   signal g_mul_nb : unsigned(7 downto 0) := (others => '0');
+  signal g_mul_end : boolean := false;     -- g_mul_nb(7 downto 1) = 0
+  -- (block bytes) * rows20, every cycle: g_rows and g_bl are set long
+  -- before G_ROW0 (so the DSP's product meets a register first)
+  signal g_rbl    : unsigned(27 downto 0) := (others => '0');
   signal g_mul_a32, g_mul_p32 : unsigned(31 downto 0) := (others => '0');
   signal g_mul_a28, g_mul_p28 : unsigned(27 downto 0) := (others => '0');
   signal g_rows, g_r : unsigned(31 downto 0) := (others => '0');
@@ -2153,6 +2157,7 @@ begin
       ve_nx <= ve_next(ve_kind); ve_nv <= ve_nextv(ve_kind);
       pz_252 <= pz(7 downto 0) = 252;
       pz_p4 <= pz + 4;
+      g_rbl <= resize(g_rows(19 downto 0) * g_bl, 28);
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
       sd_issue := '0';
@@ -2590,6 +2595,12 @@ begin
           go(C_DEC2);
           dec_next <= C_DECODE;                     -- (as if cstate were unchanged)
           dec_errv <= false;
+          -- GEMV, ROPE, ATTN and DEQROW refill bufx: its block is stale (by
+          -- the opcode alone, so the checks do not gate it)
+          if instr(7 downto 0) = x"10" or instr(7 downto 0) = x"24"
+            or instr(7 downto 0) = x"25" or instr(7 downto 0) = x"11" then
+            ld_valid <= '0';
+          end if;
           -- MEANROWS set-up, for every instruction (only MEANROWS uses them),
           -- so the opcode and fault checks do not gate it
           mr_rows <= opr_a;
@@ -2724,7 +2735,6 @@ begin
               elsif n1_z then
                 dec_next <= C_NEXT;
               else
-                ld_valid <= '0';
                 gm_st <= G_SET; dec_next <= C_GEMV;
               end if;
             when x"24" =>             -- ROPE
@@ -2741,7 +2751,6 @@ begin
                 ef_addr <= ea_y; ef_f16 <= '0';
                 cs_i <= (others => '0');
                 cs_end <= false;                       -- (n1 >= 2)
-                ld_valid <= '0';
                 vu_st <= RO_CS; dec_next <= C_VEC;
               end if;
             when x"12" =>             -- ARGMAX
@@ -2765,11 +2774,13 @@ begin
                 at_pos <= opr_a;
                 at_pi <= (others => '0');
                 ef_addr <= ea_x; ef_f16 <= '0';
-                ld_valid <= '0';
                 at_st <= A_PRM; dec_next <= C_ATTN;
               end if;
             when x"11" =>             -- DEQROW
               d_fmt <= instr(15 downto 8);
+              -- (its working registers whatever the checks find, as GEMV's)
+              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+              ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
               if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
                       or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
                       or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
@@ -2781,9 +2792,6 @@ begin
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
-                v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-                ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
-                ld_valid <= '0';
                 dq_st <= D_GROUP; dec_next <= C_DEQ;
               end if;
             when x"09" | x"0A" =>     -- LDR / STR
@@ -4194,14 +4202,17 @@ begin
             -- for as_blocks; only low 20 bits were used for byte-span above.
             if kq_on = '1' then
               g_mul_nb <= kq_nsb;                       -- super-blocks per row
+              g_mul_end <= kq_nsb(7 downto 1) = 0;
             else
               g_mul_nb <= g_nb;
+              g_mul_end <= g_nb(7 downto 1) = 0;
             end if;
             g_mul_a32 <= g_rows;
             g_mul_p32 <= (others => '0');
             g_mul_p28 <= (others => '0');
             -- (block bytes) * rows20, from registers
-            g_mul_a28 <= resize(g_rows(19 downto 0) * g_bl, 28);
+            assert g_rbl = resize(g_rows(19 downto 0) * g_bl, 28) report "SSNAIL: stale g_rbl" severity failure;
+            g_mul_a28 <= g_rbl;
             gm_st <= G_ROW_MUL;
             end if;
           when G_ROW_MUL =>
@@ -4214,7 +4225,9 @@ begin
             g_mul_a32 <= g_mul_a32(30 downto 0) & '0';
             g_mul_a28 <= g_mul_a28(26 downto 0) & '0';
             g_mul_nb <= '0' & g_mul_nb(7 downto 1);
-            if g_mul_nb(7 downto 1) = 0 then
+            g_mul_end <= g_mul_nb(7 downto 2) = 0;
+            assert g_mul_end = (g_mul_nb(7 downto 1) = 0) report "SSNAIL: stale g_mul_end" severity failure;
+            if g_mul_end then                         -- g_mul_nb(7 downto 1) = 0
               -- Final partial product is registered at this edge.  Consume
               -- it in the following state, not in this same cycle.
               gm_st <= G_ROW_ADDR;
