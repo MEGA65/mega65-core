@@ -169,6 +169,12 @@ architecture multicycle of ssnail_fpu is
   signal ai, bi : unsigned(31 downto 0);
   signal opi : unsigned(3 downto 0);
   signal starti : std_logic;
+  -- the operands' classes, for the special-case tests: with IN_REG,
+  -- registered with a_r / b_r (from a and b), so the tests are a stage
+  -- ahead of sp_val and the result muxes
+  signal a_nan_r, a_inf_r, b_nan_r, b_inf_r : boolean := false;
+  signal a_zero_r, b_zero_r : boolean := true;      -- (a_r, b_r start at 0)
+  signal a_nan, a_inf, a_zero, b_nan, b_inf, b_zero : boolean;
 
 begin
 
@@ -176,12 +182,20 @@ begin
   begin
     if rising_edge(clock) then
       a_r <= a; b_r <= b; op_r <= op; start_r <= start;
+      a_nan_r <= is_nan32(a); a_inf_r <= is_inf32(a); a_zero_r <= is_zero32(a);
+      b_nan_r <= is_nan32(b); b_inf_r <= is_inf32(b); b_zero_r <= is_zero32(b);
     end if;
   end process;
   ai <= a_r when IN_REG else a;
   bi <= b_r when IN_REG else b;
   opi <= op_r when IN_REG else op;
   starti <= start_r when IN_REG else start;
+  a_nan <= a_nan_r when IN_REG else is_nan32(a);
+  a_inf <= a_inf_r when IN_REG else is_inf32(a);
+  a_zero <= a_zero_r when IN_REG else is_zero32(a);
+  b_nan <= b_nan_r when IN_REG else is_nan32(b);
+  b_inf <= b_inf_r when IN_REG else is_inf32(b);
+  b_zero <= b_zero_r when IN_REG else is_zero32(b);
 
   process (clock) is
     variable sa, sb : std_logic;
@@ -212,6 +226,9 @@ begin
       case state is
 
         when S_IDLE =>
+          assert a_nan = is_nan32(ai) and a_inf = is_inf32(ai) and a_zero = is_zero32(ai)
+            and b_nan = is_nan32(bi) and b_inf = is_inf32(bi) and b_zero = is_zero32(bi)
+            report "FPU: stale operand classes" severity failure;
           -- Datapath set-up for MUL, DIV and SQRT, whatever the operation and
           -- whether or not a special case is taken (then they go unused), so
           -- the special-case tests do not gate it.  Every operation sets re
@@ -250,14 +267,14 @@ begin
             sp_val <= NAN32;
             if opi = FOP_ADD then
               -- -------------------------------------------------- add
-              if is_nan32(ai) or is_nan32(bi) or
-                (is_inf32(ai) and is_inf32(bi) and ai(31) /= bi(31)) then
+              if a_nan or b_nan or
+                (a_inf and b_inf and ai(31) /= bi(31)) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(ai) then
+              elsif a_inf then
                 special <= '1'; sp_val <= ai;
                 state <= S_PACK;
-              elsif is_inf32(bi) then
+              elsif b_inf then
                 special <= '1'; sp_val <= bi;
                 state <= S_PACK;
               else
@@ -270,7 +287,7 @@ begin
                   rs <= sa;
                 end if;
                 -- Zero results: (-0) + (-0) = -0; exact cancellation = +0
-                if is_zero32(ai) and is_zero32(bi) then
+                if a_zero and b_zero then
                   zero_sign <= sa and sb;
                 else
                   zero_sign <= '0';
@@ -279,11 +296,11 @@ begin
               end if;
             elsif opi = FOP_MUL then
               -- -------------------------------------------------- multiply
-              if is_nan32(ai) or is_nan32(bi) or
-                (is_inf32(ai) and is_zero32(bi)) or (is_zero32(ai) and is_inf32(bi)) then
+              if a_nan or b_nan or
+                (a_inf and b_zero) or (a_zero and b_inf) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(ai) or is_inf32(bi) then
+              elsif a_inf or b_inf then
                 special <= '1'; sp_val <= (ai(31) xor bi(31)) & "1111111100000000000000000000000";
                 state <= S_PACK;
               else
@@ -351,10 +368,10 @@ begin
               state <= S_PACK;
             elsif opi = FOP_F32TOF16 then
               to_f16 <= '1';
-              if is_nan32(ai) then
+              if a_nan then
                 special <= '1'; sp_val <= NAN16;
                 state <= S_PACK;
-              elsif is_inf32(ai) then
+              elsif a_inf then
                 special <= '1'; sp_val <= x"0000" & ai(31) & "111110000000000";
                 state <= S_PACK;
               else
@@ -367,14 +384,14 @@ begin
               end if;
             elsif opi = FOP_DIV then
               -- -------------------------------------------------- divide
-              if is_nan32(ai) or is_nan32(bi) or (is_inf32(ai) and is_inf32(bi))
-                or (is_zero32(ai) and is_zero32(bi)) then
+              if a_nan or b_nan or (a_inf and b_inf)
+                or (a_zero and b_zero) then
                 special <= '1'; sp_val <= NAN32;
                 state <= S_PACK;
-              elsif is_inf32(ai) or is_zero32(bi) then
+              elsif a_inf or b_zero then
                 special <= '1'; sp_val <= (ai(31) xor bi(31)) & "1111111100000000000000000000000";
                 state <= S_PACK;
-              elsif is_zero32(ai) or is_inf32(bi) then
+              elsif a_zero or b_inf then
                 special <= '1'; sp_val <= (ai(31) xor bi(31)) & "0000000000000000000000000000000";
                 state <= S_PACK;
               else
@@ -390,10 +407,10 @@ begin
               end if;
             elsif opi = FOP_SQRT then
               -- -------------------------------------------------- sqrt
-              if is_nan32(ai) or (ai(31) = '1' and not is_zero32(ai)) then
+              if a_nan or (ai(31) = '1' and not a_zero) then
                 special <= '1'; sp_val <= NAN32;      -- NaN, or negative
                 state <= S_PACK;
-              elsif is_zero32(ai) or is_inf32(ai) then
+              elsif a_zero or a_inf then
                 special <= '1'; sp_val <= ai;          -- +-0, +inf
                 state <= S_PACK;
               else
@@ -409,7 +426,7 @@ begin
             elsif opi = FOP_TRUNC then
               -- -------------------------------------------------- truncate
               special <= '1';
-              if is_nan32(ai) or ai(30 downto 23) < 127 then
+              if a_nan or ai(30 downto 23) < 127 then
                 sp_val <= (others => '0');          -- NaN, or |a| < 1
               else
                 -- |a| = m * 2^(e - 150)
@@ -427,7 +444,7 @@ begin
                   int_neg <= ai(31);
                 end if;
               end if;
-              if is_nan32(ai) or ai(30 downto 23) < 127
+              if a_nan or ai(30 downto 23) < 127
                 or to_integer(ai(30 downto 23)) - 150 >= 8 then
                 state <= S_PACK;
               else
@@ -436,7 +453,7 @@ begin
             elsif opi = FOP_ROUNDF then
               -- -------------------------------------------------- roundf
               special <= '1';
-              if is_nan32(ai) or ai(30 downto 23) < 126 then
+              if a_nan or ai(30 downto 23) < 126 then
                 sp_val <= (others => '0');          -- NaN, or |a| < 0.5
               else
                 -- 2|a| = m * 2^(e - 149); v2 = floor(2|a|); round = (v2 + 1) / 2
@@ -454,7 +471,7 @@ begin
                   int_neg <= ai(31);
                 end if;
               end if;
-              if is_nan32(ai) or ai(30 downto 23) < 126
+              if a_nan or ai(30 downto 23) < 126
                 or to_integer(ai(30 downto 23)) - 149 >= 9 then
                 state <= S_PACK;
               else

@@ -312,6 +312,9 @@ architecture tacoma_narrows of sdram_controller is
   -- for a line fill
   type rs_t is (R_IDLE, R_LOOK, R_DECIDE, R_WAIT);
   signal rs : rs_t := R_IDLE;
+  attribute max_fanout : integer;
+  -- (rs drives the CPU path's ~160 loads, the exported line among them)
+  attribute max_fanout of rs : signal is 40;
   signal lk_c : std_logic_vector(0 to NL - 1) := (others => '0');
   -- A posted write's copy into the cached lines, a cycle after R_DECIDE,
   -- from registers (its enables were the end of R_DECIDE's decisions).
@@ -529,7 +532,6 @@ architecture tacoma_narrows of sdram_controller is
   signal tr_st         : tr_state_t := T_START;
   -- (tr_st drives ~235 loads, the 112-bit scan register among them: let
   -- synthesis replicate it, so no copy is a long route from its loads)
-  attribute max_fanout : integer;
   attribute max_fanout of tr_st : signal is 40;
   signal tr_ret        : tr_state_t := T_START;   -- micro-ops
   signal tr_ret_n      : tr_state_t := T_START;   -- M_STEPN / M_SEEK
