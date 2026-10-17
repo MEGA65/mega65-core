@@ -10,7 +10,8 @@ Status: specification, draft 2: the canonical description.  It merges
 [the hardware codec proposal](hardware-codec-proposal.md) (whose
 [discussion record](formula-codec-discussion.md) is kept as history).
 Implemented so far: the build structure (section 1), REBALANCE_ROW and
-FIND_CELL, and the reference model `SSNAIL/shite.py`.
+FIND_CELL, and the reference model `SSNAIL/shite.py` (being brought to
+this draft's 24-bit columns, 12-bit links and 32-bit rows).
 
 Design goals, in order: correct and deterministic results; small area
 (iterative units, shared datapaths: several million simple cell updates per
@@ -63,30 +64,31 @@ needed.
 ### 3.1 Sheet descriptor (64 bytes, 16-byte aligned)
 
 Every instruction names a sheet descriptor; it holds the sheet's geometry,
-where results go, and the codec's settings.
+where results go, and the codec's settings.  A sheet has up to 2^20 rows
+and 2^24 columns: enough to keep several of the user's sheets as regions
+of one.
 
 | Offset | Size | Field |
 |---|---|---|
 | 0 | 4 | magic `"SHT1"` |
 | 4 | 4 | row table address |
-| 8 | 2 | number of rows (1-32768) |
-| 10 | 2 | number of columns (1-32768) |
-| 12 | 4 | change list address (16-byte aligned) |
-| 16 | 2 | change list capacity (entries) |
-| 18 | 2 | reserved, 0 |
-| 20 | 4 | previous change list address (0: no comparison) |
-| 24 | 4 | round counter (incremented by RECALC with END) |
-| 28 | 4 | changed cells this round |
-| 32 | 4 | formulas evaluated this round |
-| 36 | 4 | formulas whose result is an error, this round |
-| 40 | 1 | flags: bit 0 the change list overflowed this round, bit 1 this round's changes equal the previous round's |
-| 41 | 1 | reserved, 0 |
-| 42 | 2 | the row of a malformed row block (with ERR_FORMAT; $FFFF: the descriptor) |
-| 44 | 4 | changed cells in the previous round |
-| 48 | 4 | codec: function name table address (section 10) |
-| 52 | 1 | codec: decimal separator (ASCII, e.g. `.`) |
-| 53 | 1 | codec: argument separator (e.g. `,`, or `;` with a `,` decimal separator) |
-| 54 | 10 | reserved, 0 |
+| 8 | 4 | number of rows (1 to 2^20) |
+| 12 | 4 | number of columns (1 to 2^24) |
+| 16 | 4 | change list address (16-byte aligned) |
+| 20 | 4 | change list capacity (entries) |
+| 24 | 4 | previous change list address (0: no comparison) |
+| 28 | 4 | round counter (incremented by RECALC with END) |
+| 32 | 4 | changed cells this round |
+| 36 | 4 | formulas evaluated this round |
+| 40 | 4 | formulas whose result is an error, this round |
+| 44 | 1 | flags: bit 0 the change list overflowed this round, bit 1 this round's changes equal the previous round's |
+| 45 | 3 | reserved, 0 |
+| 48 | 4 | the row of a malformed row block (with ERR_FORMAT; $FFFFFFFF: the descriptor) |
+| 52 | 4 | changed cells in the previous round |
+| 56 | 4 | codec: function name table address (section 10) |
+| 60 | 1 | codec: decimal separator (ASCII, e.g. `.`) |
+| 61 | 1 | codec: argument separator (e.g. `,`, or `;` with a `,` decimal separator) |
+| 62 | 2 | reserved, 0 |
 
 ### 3.2 Row table
 
@@ -101,17 +103,16 @@ A header granule, then cells, each a whole number of granules.
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 2 | row number (checked against the table index) |
-| 2 | 2 | block length, granules (header included) |
-| 4 | 2 | number of cells |
-| 6 | 2 | tree root: granule offset of the root cell (0: no cells) |
-| 8 | 2 | first free granule (where the CPU appends a new cell) |
-| 10 | 2 | changed cells in the last RECALC |
-| 12 | 2 | row flags: bit 0 index stale (set by the CPU, cleared by REBALANCE) |
-| 14 | 2 | reserved, 0 |
+| 0 | 4 | row number (checked against the table index) |
+| 4 | 2 | block length, granules (header included; at most 4096) |
+| 6 | 2 | number of cells |
+| 8 | 2 | tree root: granule offset of the root cell (0: no cells) |
+| 10 | 2 | first free granule (where the CPU appends a new cell) |
+| 12 | 2 | changed cells in the last RECALC that visited the row |
+| 14 | 2 | row flags: bit 0 index stale (set by the CPU, cleared by REBALANCE) |
 
-Granule offsets are from the start of the row block, in 16-byte units, so a
-row block holds up to 1 MB.
+Granule offsets are from the start of the row block, in 16-byte units; a
+row block holds up to 4096 granules (64 KB).
 
 ### 3.4 Cell
 
@@ -119,11 +120,10 @@ Every cell starts with an 8-byte header:
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 2 | column number |
-| 2 | 1 | kind (bits 3-0) and flags (bits 7-4) |
-| 3 | 1 | length, granules (1-255: up to 4 KB) |
-| 4 | 2 | left child: granule offset (0: none) |
-| 6 | 2 | right child: granule offset (0: none) |
+| 0 | 3 | column number (24 bits) |
+| 3 | 1 | kind (bits 3-0) and flags (bits 7-4) |
+| 4 | 1 | length, granules (1-255: up to 4 KB) |
+| 5 | 3 | tree links, 24 bits: bits 11-0 the left child, bits 23-12 the right child (granule offsets, 0: none) |
 
 Kinds:
 
@@ -148,7 +148,7 @@ codec's, section 10).  SHITE never changes or interprets one: RECALC
 skips it, FORMAT_CELLS shows its text, and a formula referring to it gets
 #COMPILE!.
 
-Flags:
+Flags (byte 3):
 
 | Bit | Name | Meaning |
 |---|---|---|
@@ -248,7 +248,9 @@ evaluation order).
 
 ## 5. Formula bytecode
 
-Formulas are compiled to postfix (RPN) bytecode, run on a 32-entry stack.
+Formulas are compiled to postfix (RPN) bytecode, run on a 32-entry stack:
+operands are pushed, and operators and functions take theirs from the top
+(a function's argument count is in its CALL).
 Each entry is a kind (I64, F64, text, error, range), a 64-bit payload, a
 fixed-point byte and a "from a reference" bit.  Execution starts at the
 first byte and ends at END; one value must then be on the stack.
@@ -278,7 +280,7 @@ and fill them in later); decoders accept both.
 
 A reference has a row and a column, each either absolute (`$`: a row or
 column number) or relative (a signed offset from the formula's own cell,
-modulo 32768).  Rows and columns are 0 to 32767.  References are stored
+modulo 2^20 for rows and 2^24 for columns).  References are stored
 big-endian, so that the first byte carries the marker.
 
 - **Short form, 4 bytes** (the usual one), first byte $80-$FF:
@@ -286,15 +288,15 @@ big-endian, so that the first byte carries the marker.
   ```text
   bit 31      1 (marker)
   bit 30      row absolute
-  bits 29-15  row (absolute) or row offset (relative), 15 bits
+  bits 29-15  row: absolute 0-32767, or relative -16384..16383
   bit 14      column absolute
-  bits 13-0   column (absolute: 0-16383) or column offset (relative, signed:
-              -8192..8191)
+  bits 13-0   column: absolute 0-16383, or relative -8192..8191
   ```
 
-- **Long form, 5 bytes**: opcode REF, then 32 bits big-endian: bit 31 row
-  absolute, bits 30-16 row or offset, bit 15 column absolute, bits 14-0
-  column or offset.  For columns the short form cannot hold.
+- **Long form, 7 bytes**: opcode REF, then 48 bits big-endian: bit 47 row
+  absolute, bit 46 column absolute, bits 45-44 zero, bits 43-24 row (or
+  offset, 20 bits), bits 23-0 column (or offset, 24 bits).  For anything
+  the short form cannot hold.
 
 A compiler uses the short form whenever it fits.  `A1`, `$A1`, `A$1` and
 `$A$1` are one reference each; a formula copied elsewhere keeps its meaning;
@@ -311,7 +313,7 @@ and its text can be rebuilt exactly.
 | $04 | F64 | 8 | push an F64 constant |
 | $05 | STR | count, bytes | push a text constant (ASCII) |
 | $06 | FIX | 1 | the top (an integer) is fixed point, the byte as a format's byte 2 |
-| $07 | REF | 4 | push a cell's value (the long form of 5.3) |
+| $07 | REF | 6 | push a cell's value (the long form of 5.3) |
 | $08 | RECT | two references | push a range: the rectangle between two cells |
 | $09 | HOSTCALL | count, text, reference | push the referenced cell's value; the text is the call as written (5.6) |
 | $0A | JZ | 2 | pop; if zero, jump forward (5.5) |
@@ -398,7 +400,7 @@ block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 
 | Opcode | Instruction | Operands | Register results |
 |---|---|---|---|
-| $40 | RECALC | X descriptor, R[a] first row, R[b] last row, Z columns (first: bits 15-0, last: 31-16), c flags (bit 0 BEGIN, bit 1 END) | R[a] = cells changed by this call |
+| $40 | RECALC | X descriptor, R[a] first row, R[b] last row, R[c bits 3-0] first column, R[c bits 7-4] last column, Z flags (bit 0 BEGIN, bit 1 END) | R[a] = cells changed by this call |
 | $41 | REBALANCE_ROW | X descriptor, R[a] first row, R[b] last row | |
 | $42 | FIND_CELL | X descriptor, R[a] row, R[b] column | R[a] = cell address, or 0 |
 | $43 | FORMAT_CELLS | X parameter block | |
@@ -413,7 +415,7 @@ values as they are at that moment (results computed earlier in the call
 are seen by later cells).  If a result differs from the stored one (kind,
 then bits: an F64 bit for bit, text bytewise), SHITE stores it, sets the
 cell's CHANGED flag (and ERROR as the result is an error or not), counts
-it, and appends `(row, col)` (2 + 2 bytes) to the change list.  Past the
+it, and appends `(row, col)` (4 + 4 bytes) to the change list.  Past the
 list's capacity the count stays exact and the overflow flag is set.  Each
 row visited gets its row header's changed count from this call.
 
@@ -426,8 +428,8 @@ A round can be one call or several (a whole sheet, or a region at a time):
   one, and swaps the two list addresses, so the next round writes over the
   older list.
 
-A whole-sheet round is one RECALC with both flags, rows 0 to 32767 and
-columns 0 to 32767.
+Rows and columns beyond the sheet's are ignored, so a whole-sheet round is
+one RECALC with both flags and every register $FFFFFFFF but the firsts.
 
 ### REBALANCE_ROW
 
@@ -521,11 +523,12 @@ aligned):
 |---|---|
 | 0 | the sheet descriptor (name table, separators) |
 | 4 | the source text (ASCII, without the `=`) |
-| 8 | its length (2), the formula cell's row (2) |
-| 12 | the formula cell's column (2), the output's capacity (2) |
-| 16 | the output buffer (bytecode) |
-| 20 | result: bytecode length (2), error code (1), host calls made (1) |
-| 24 | result: error position in the text (2), reserved (6) |
+| 8 | its length (2), the output's capacity (2) |
+| 12 | the formula cell's row (4) |
+| 16 | the formula cell's column (4) |
+| 20 | the output buffer (bytecode) |
+| 24 | result: bytecode length (2), error code (1), host calls made (1) |
+| 28 | result: error position in the text (2), reserved (2) |
 
 DECOMPILE's block is the same with the roles swapped: input bytecode and
 its length, output text and its capacity, the text's length as the result.
@@ -541,12 +544,15 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
 - **Function names**: a table in attic RAM, `[identifier (5.2)][name, NUL]`
   repeated, ending with an empty name; the first entry for an identifier is
   its canonical spelling, later ones aliases.  So English and German (or any
-  renaming) are just tables.  Names match regardless of case; an unknown
+  renaming) are just tables: one at a time, the descriptor's, so changing
+  the language is pointing it at another table.  Names match regardless
+  of case; an unknown
   name is a compile error.
 - **Host functions**: identifiers 16384-32767 in the table are the CPU's.
   A call to one compiles to a HOSTCALL (5.6) holding the call's text and,
-  as its result cell, the placeholder absolute reference row 32767,
-  column 16383; COMPILE returns how many it made (block byte 23).  The CPU
+  as its result cell, the placeholder absolute reference row 2^20 - 1,
+  column 2^24 - 1 (the long form); COMPILE returns how many it made
+  (block byte 27).  The CPU
   then gives each its result cell, rewriting the reference (it can find
   them by walking the bytecode by 5.1-5.4).
 - **Separators**: the descriptor's decimal and argument separators.
