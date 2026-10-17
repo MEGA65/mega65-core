@@ -658,6 +658,10 @@ architecture shell of ssnail is
   signal sw_qd     : unsigned(31 downto 0) := (others => '0');
   signal at_k, at_v, at_rowaddr, at_ea : unsigned(27 downto 0) := (others => '0');
   signal at_nh, at_nkv, at_hd, at_fmt, at_pos : unsigned(31 downto 0) := (others => '0');
+  -- n_kv_heads * head_dim, F16 and F32 widths, every cycle (A_RS0 is two
+  -- states after the last parameter), so a DSP's product meets a register
+  signal at_p14   : unsigned(27 downto 0) := (others => '0');
+  signal at_p13   : unsigned(25 downto 0) := (others => '0');
   -- EF_START needs the block at ef_addr loaded: recomputed every cycle,
   -- which is enough because ef_addr, ld_block and ld_valid are never
   -- written in the state just before EF_START (asserted there)
@@ -670,6 +674,7 @@ architecture shell of ssnail is
   signal at_bad  : boolean := false;    -- the parameter block is invalid (A_CHK)
   signal at_hend : boolean := false;    -- at_h = at_nh: every head done
   signal at_ge   : boolean := false;    -- at_gc >= at_nkv (A_GRP)
+  signal at_glast : boolean := false;   -- at_gc + 1 = at_group, a cycle late (A_HNEXT)
   signal at_h, at_kvh, at_gc, at_group : unsigned(15 downto 0) := (others => '0');
   signal at_rowb   : unsigned(27 downto 0) := (others => '0');
   signal at_qhead_addr : unsigned(27 downto 0) := (others => '0'); -- Q head start
@@ -1039,6 +1044,7 @@ architecture shell of ssnail is
   signal kq_gs     : std_logic := '0';               -- the group's A, B are in
   signal kd32, kdm32, kq_ga32, kq_gb32 : unsigned(31 downto 0) := (others => '0');
   signal d_fmt     : unsigned(7 downto 0) := (others => '0');
+  signal d_isk, d_isiq : boolean := false;   -- fmt_k(d_fmt), fmt_iq(d_fmt): set with it
   -- DEQROW's d_fmt, decoded once a row (D_GROUP) for D_EMIT
   subtype dk_t is unsigned(2 downto 0);
   constant DK_F32 : dk_t := "000"; constant DK_F16 : dk_t := "001";
@@ -1213,6 +1219,9 @@ architecture shell of ssnail is
   -- g2 enables most of the GEMV pipeline: let synthesis replicate it
   attribute max_fanout : integer;
   attribute max_fanout of g2 : signal is 50;
+  -- the units' step registers drive their datapaths' muxes (gm_st: 137
+  -- loads, a 2.3 ns route): replicated likewise
+  attribute max_fanout of at_st, dq_st, gm_st, vu_st : signal is 40;
   signal mc_isum   : signed(31 downto 0) := (others => '0');
   -- mc_isum -> F32, three register stages (same result as i_to_f32).
   -- A finished block's sum, scale and index are captured into stage 1,
@@ -1321,6 +1330,9 @@ architecture shell of ssnail is
   type xr_qb_t is array (0 to 3) of signed(7 downto 0);
   signal xr_qb     : xr_qb_t := (others => (others => '0'));
   attribute dont_touch of xr_qb : signal is "true";
+  -- (ATTN's parameters stay flip-flops, not at_p14 / at_p13's DSP input
+  -- registers: they come from bufx's read, too long a path for a DSP's setup)
+  attribute dont_touch of at_nkv, at_hd : signal is "true";
   signal fm_v, fm_vin : std_logic := '0';
   signal fm_a, fm_b : unsigned(31 downto 0) := (others => '0');
   signal fm_tag    : unsigned(9 downto 0) := (others => '0');
@@ -1624,6 +1636,7 @@ architecture shell of ssnail is
   signal lp_k         : unsigned(8 downto 0) := (others => '0');
   signal wbe_r        : std_logic_vector(1 downto 0) := "11";
   signal ring_rd_idx  : unsigned(8 downto 0) := (others => '0');
+  attribute max_fanout of ring_rd_idx : signal is 40;   -- (146 LUT RAM loads)
   signal ring_rd_lo, ring_rd_hi : unsigned(7 downto 0);
 
   -- Return path pipeline stage (the one-stage port mux)
@@ -2157,6 +2170,9 @@ begin
       ve_nx <= ve_next(ve_kind); ve_nv <= ve_nextv(ve_kind);
       pz_252 <= pz(7 downto 0) = 252;
       pz_p4 <= pz + 4;
+      at_glast <= at_gc + 1 = at_group;
+      at_p14 <= at_nkv(13 downto 0) * at_hd(13 downto 0);
+      at_p13 <= at_nkv(12 downto 0) * at_hd(12 downto 0);
       g_rbl <= resize(g_rows(19 downto 0) * g_bl, 28);
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
@@ -2709,7 +2725,9 @@ begin
                 end case;
               end if;
             when x"10" =>             -- GEMV
+              gm_st <= G_SET;                    -- (the first step, whatever the checks find)
               d_fmt <= instr(15 downto 8);
+              d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
               g_addz <= instr(16);
               g_f16 <= instr(17);
               -- (its working registers whatever the checks find: only a
@@ -2735,9 +2753,10 @@ begin
               elsif n1_z then
                 dec_next <= C_NEXT;
               else
-                gm_st <= G_SET; dec_next <= C_GEMV;
+                dec_next <= C_GEMV;
               end if;
             when x"24" =>             -- ROPE
+              vu_st <= RO_CS;                    -- (the first step, whatever the checks find)
               if ea_x(2 downto 0) /= "000" or ea_y(1 downto 0) /= "00" then
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
@@ -2751,7 +2770,7 @@ begin
                 ef_addr <= ea_y; ef_f16 <= '0';
                 cs_i <= (others => '0');
                 cs_end <= false;                       -- (n1 >= 2)
-                vu_st <= RO_CS; dec_next <= C_VEC;
+                dec_next <= C_VEC;
               end if;
             when x"12" =>             -- ARGMAX
               if ea_x(1 downto 0) /= "00" then
@@ -2767,6 +2786,7 @@ begin
                 vu_st <= V_CHUNK; dec_next <= C_VEC;
               end if;
             when x"25" =>             -- ATTN: read the parameter block first
+              at_st <= A_PRM;                    -- (the first step, whatever the checks find)
               if ea_x(1 downto 0) /= "00" or ea_y(1 downto 0) /= "00" or ea_z(1 downto 0) /= "00" then
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
@@ -2774,10 +2794,12 @@ begin
                 at_pos <= opr_a;
                 at_pi <= (others => '0');
                 ef_addr <= ea_x; ef_f16 <= '0';
-                at_st <= A_PRM; dec_next <= C_ATTN;
+                dec_next <= C_ATTN;
               end if;
             when x"11" =>             -- DEQROW
+              dq_st <= D_GROUP;                    -- (the first step, whatever the checks find)
               d_fmt <= instr(15 downto 8);
+              d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
               -- (its working registers whatever the checks find, as GEMV's)
               v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
               ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
@@ -2792,7 +2814,7 @@ begin
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               else
-                dq_st <= D_GROUP; dec_next <= C_DEQ;
+                dec_next <= C_DEQ;
               end if;
             when x"09" | x"0A" =>     -- LDR / STR
               if ea_x(1 downto 0) /= "00" then
@@ -3603,7 +3625,7 @@ begin
             else
               gi <= (others => '0');
               d_j <= (others => '0');
-              d_jl <= fmt_k(d_fmt) = false and (d_fmt = 0 or d_fmt = 1 or d_fmt = 30);  -- (epg = 1)
+              d_jl <= d_isk = false and (d_fmt = 0 or d_fmt = 1 or d_fmt = 30);  -- (epg = 1)
               d_have_scale <= '0';
               kq_gs <= '0';
               fetch_ret <= D_EMIT;
@@ -3620,7 +3642,7 @@ begin
               if d_fmt = 39 then
                 fetch_ret <= D_MXS;                     -- (MXFP4: the scale first)
               end if;
-              if fmt_k(d_fmt) then                                                  -- K-quants
+              if d_isk then                                                  -- K-quants
                 gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
                 dk <= '1';
                 fetch_ret <= D_KH0;
@@ -3952,7 +3974,8 @@ begin
           -- assembler's), the tail's terms per row (super-blocks, for
           -- K-quants), and the K-quant state
           when G_SET =>
-            if fmt_k(d_fmt) then
+            assert d_isk = fmt_k(d_fmt) and d_isiq = fmt_iq(d_fmt) report "SSNAIL: stale d_isk" severity failure;
+            if d_isk then
               kq_on <= '1';
               g_bl <= to_unsigned(kq_bytes(d_fmt), 8);
               g_nbt <= "000" & g_nb(7 downto 3);
@@ -3994,11 +4017,11 @@ begin
             end if;
             -- the codebook formats (IQ front end)
             kq_kr <= '0'; iq_on <= '0'; kq_wo <= (others => '0'); kq_dsh <= "00";
-            if fmt_iq(d_fmt) then
+            if d_isiq then
               iq_on <= '1';
               kq_wo <= to_unsigned(2, 8);
               if d_fmt = 18 then kq_dsh <= "10"; elsif d_fmt /= 21 then kq_dsh <= "11"; end if;
-            elsif fmt_k(d_fmt) then
+            elsif d_isk then
               kq_kr <= '1';
             end if;
             if d_fmt = 18 or d_fmt = 21 then iq3 <= '1'; else iq3 <= '0'; end if;
@@ -4564,10 +4587,12 @@ begin
             else
               -- K/V row = n_kv_heads * head_dim elements
               if at_fmt = 1 then
-                at_rowb <= resize(at_nkv(13 downto 0) * at_hd(13 downto 0), 27) & '0';
+                assert at_p14 = at_nkv(13 downto 0) * at_hd(13 downto 0) and at_p13 = at_nkv(12 downto 0) * at_hd(12 downto 0)
+                  report "SSNAIL: stale at_p14 / at_p13" severity failure;
+                at_rowb <= resize(at_p14, 27) & '0';
                 at_kv_stride <= at_hd(26 downto 0) & '0';
               else
-                at_rowb <= resize(at_nkv(12 downto 0) * at_hd(12 downto 0), 26) & "00";
+                at_rowb <= at_p13 & "00";
                 at_kv_stride <= at_hd(25 downto 0) & "00";
               end if;
               fpu_op <= FOP_I2F; fpu_a <= at_hd; fpu_start <= '1';
@@ -4808,7 +4833,8 @@ begin
             at_h <= at_h + 1;
             at_hend <= at_h + 1 = at_nh(15 downto 0);
             at_qhead_addr <= at_qhead_addr + (at_hd(25 downto 0) & "00");
-            if at_gc + 1 = at_group then
+            assert at_glast = (at_gc + 1 = at_group) report "SSNAIL: stale at_glast" severity failure;
+            if at_glast then                          -- at_gc + 1 = at_group
               at_gc <= (others => '0');
               at_kvh <= at_kvh + 1;
               at_kv_offset <= at_kv_offset + at_kv_stride;

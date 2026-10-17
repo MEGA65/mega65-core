@@ -6,6 +6,7 @@
 --   2. LUMP reads it (64 bytes = 32 words)
 --   3. LUMP writes a second pattern; CPU reads it back; LUMP reads it back
 --   4. LUMP write with byte enables (odd bytes masked) over a known fill
+--   5. CPU write then an immediate CPU read of it (the posted write buffer)
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -383,6 +384,21 @@ begin
       end if;
     end loop;
     check(bad = 0, "LUMP write with byte enables (" & integer'image(bad) & " bad)");
+
+    -- 5. read after write, before the write-out: CPU writes to lines not
+    -- cached, each read back at once (from the posted write buffer)
+    bad := 0;
+    for i in 0 to 7 loop
+      cpu_write(16#30A000# + 64 * i + i, pat(i, 11));
+      cpu_read(16#30A000# + 64 * i + i, v);
+      if v /= pat(i, 11) then
+        bad := bad + 1;
+        report "  RAW +" & integer'image(64 * i + i) & " = $" & to_hstring(v)
+          & ", wanted $" & to_hstring(pat(i, 11));
+      end if;
+    end loop;
+    check(bad = 0, "CPU write -> CPU read at once, from the write buffer ("
+          & integer'image(bad) & " bad)");
     check(ca_bad = 0, "command bytes stable at the clock edges ("
           & integer'image(ca_bad) & " changed on an edge)");
 
