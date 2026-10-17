@@ -286,21 +286,25 @@ architecture shell of ssnail is
   constant ERR_FORMAT    : unsigned(7 downto 0) := x"06";   -- format not supported (yet)
 
   -- Vector engine element operations
-  constant K_ADD     : unsigned(3 downto 0) := x"0";   -- z = x + y
-  constant K_MUL     : unsigned(3 downto 0) := x"1";   -- z = x * y
-  constant K_CVT16   : unsigned(3 downto 0) := x"2";   -- z = f16(x)
-  constant K_COPY    : unsigned(3 downto 0) := x"3";   -- z = x
-  constant K_SCALE   : unsigned(3 downto 0) := x"4";   -- z = x * s_sc
-  constant K_SUMSQ   : unsigned(3 downto 0) := x"5";   -- acc += x * x
-  constant K_SUM     : unsigned(3 downto 0) := x"6";   -- acc += x
-  constant K_LNVAR   : unsigned(3 downto 0) := x"7";   -- acc += (x - mu)^2
-  constant K_RMSOUT  : unsigned(3 downto 0) := x"8";   -- z = (x * r) * y
-  constant K_LNOUT   : unsigned(3 downto 0) := x"9";   -- z = (((x - mu) * r) * y) + b
-  constant K_SILUMUL : unsigned(3 downto 0) := x"A";   -- z = silu(x) * y
-  constant K_TAB     : unsigned(3 downto 0) := x"B";   -- z = f(x), f the vt_id table (GELU, exp, softplus)
-  constant K_ROPE    : unsigned(3 downto 0) := x"C";   -- rotate pairs, in place
-  constant K_ARGMAX  : unsigned(3 downto 0) := x"D";   -- index of the first maximum
-  constant K_SSM     : unsigned(3 downto 0) := x"E";   -- z = (x * s_sc) + (y * s_r) (SSMUPD)
+  constant K_ADD     : unsigned(4 downto 0) := "00000";   -- z = x + y
+  constant K_MUL     : unsigned(4 downto 0) := "00001";   -- z = x * y
+  constant K_CVT16   : unsigned(4 downto 0) := "00010";   -- z = f16(x)
+  constant K_COPY    : unsigned(4 downto 0) := "00011";   -- z = x
+  constant K_SCALE   : unsigned(4 downto 0) := "00100";   -- z = x * s_sc
+  constant K_SUMSQ   : unsigned(4 downto 0) := "00101";   -- acc += x * x
+  constant K_SUM     : unsigned(4 downto 0) := "00110";   -- acc += x
+  constant K_LNVAR   : unsigned(4 downto 0) := "00111";   -- acc += (x - mu)^2
+  constant K_RMSOUT  : unsigned(4 downto 0) := "01000";   -- z = (x * r) * y
+  constant K_LNOUT   : unsigned(4 downto 0) := "01001";   -- z = (((x - mu) * r) * y) + b
+  constant K_SILUMUL : unsigned(4 downto 0) := "01010";   -- z = silu(x) * y
+  constant K_TAB     : unsigned(4 downto 0) := "01011";   -- z = f(x), f the vt_id table (GELU, exp, softplus)
+  constant K_ROPE    : unsigned(4 downto 0) := "01100";   -- rotate pairs, in place
+  constant K_ARGMAX  : unsigned(4 downto 0) := "01101";   -- index of the first maximum
+  constant K_SSM     : unsigned(4 downto 0) := "01110";   -- z = (x * s_sc) + (y * s_r) (SSMUPD)
+  constant K_RECIP   : unsigned(4 downto 0) := "01111";   -- z = 1 / x
+  constant K_CVTI    : unsigned(4 downto 0) := "10000";   -- z = int16 sat(roundf(x * s_sc))
+  constant K_MAX     : unsigned(4 downto 0) := "10001";   -- z = y if x < y else x
+  constant K_MIN     : unsigned(4 downto 0) := "10010";   -- z = y if y < x else x
 
   -- F16 -> F32, exact (finite inputs; GEMV block scales)
   function f16_to_f32(h : unsigned(15 downto 0)) return unsigned is
@@ -464,7 +468,7 @@ architecture shell of ssnail is
   -- the vector unit's steps (with RMSNORM, LAYERNORM, MEANROWS, ROPE and
   -- ARGMAX), while cstate = C_VEC; V_EXIT (only in ve_ret): to C_NEXT
   type vec_state_t is (
-    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
+    V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_MM, E_CV, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
   signal vu_st : vec_state_t := V_CHUNK;
 
   type gemv_state_t is (
@@ -552,24 +556,25 @@ architecture shell of ssnail is
   signal two_ops   : std_logic := '0';                          -- Y input stream
   signal has_b     : std_logic := '0';                          -- B input stream
   signal has_out   : std_logic := '0';                          -- writes Z
-  signal ve_kind   : unsigned(3 downto 0) := (others => '0');   -- element operation
+  signal ve_kind   : unsigned(4 downto 0) := (others => '0');   -- element operation
   -- V_EL's next state for ve_kind, registered: cstate's (ve_next: C_VEC,
   -- or the table engine or the FPU), and in C_VEC the step (ve_nextv)
   signal ve_nx     : core_state_t := C_IDLE;
   signal ve_nv     : vec_state_t := V_EL;
-  function ve_next(k : unsigned(3 downto 0)) return core_state_t is
+  function ve_next(k : unsigned(4 downto 0)) return core_state_t is
   begin
     case k is
-      when K_ARGMAX | K_COPY | K_SUM => return C_VEC;
+      when K_ARGMAX | K_COPY | K_SUM | K_MAX | K_MIN => return C_VEC;
       when K_SILUMUL | K_TAB => return T_START;
       when others => return C_FPU_WAIT;
     end case;
   end function;
-  function ve_nextv(k : unsigned(3 downto 0)) return vec_state_t is
+  function ve_nextv(k : unsigned(4 downto 0)) return vec_state_t is
   begin
     case k is
       when K_ARGMAX => return V_EL;
       when K_COPY => return V_ELST;
+      when K_MAX | K_MIN => return E_MM;
       when others => return E_ACC;                  -- (K_SUM; others leave C_VEC)
     end case;
   end function;
@@ -578,6 +583,7 @@ architecture shell of ssnail is
   signal ve_acc    : unsigned(31 downto 0) := (others => '0');  -- pass accumulator
   signal ve_first  : std_logic := '0';
   signal ex, ey, eb, ev : unsigned(31 downto 0) := (others => '0');  -- element values
+  signal ve_lt : boolean := false;              -- VMAX / VMIN: the compare, for E_MM
   -- Operands of element v_i, read by whichever state enters V_EL (pf_go):
   -- X, the next X (ROPE), Y and B; and v_i's byte offsets into the buffers
   -- Table lookup range checks of tx, made where tx is set: tx < lo, and
@@ -2702,7 +2708,8 @@ begin
                 br_taken <= '1';
               end if;
               dec_next <= C_NEXT;
-            when x"20" | x"21" | x"29" | x"23" | x"27" | x"2A" | x"2B" | x"22" | x"26" | x"28" =>
+            when x"20" | x"21" | x"29" | x"23" | x"27" | x"2A" | x"2B" | x"22" | x"26" | x"28"
+               | x"2E" | x"2F" | x"30" | x"31" =>
               -- Vector engine instructions.  All F32 vectors 4-byte aligned;
               -- CVT16 output 2-byte aligned.
               -- (the element operation from the opcode alone, and the
@@ -2723,14 +2730,19 @@ begin
                 when x"23" => ve_kind <= K_SILUMUL;
                 when x"27" | x"2A" | x"2B" => ve_kind <= K_TAB;
                 when x"22" => ve_kind <= K_SUMSQ;
+                when x"2E" => ve_kind <= K_RECIP;
+                when x"2F" => ve_kind <= K_CVTI;
+                when x"30" => ve_kind <= K_MAX;
+                when x"31" => ve_kind <= K_MIN;
                 when x"26" => ve_kind <= K_SUM;
                 when others => ve_kind <= K_COPY;
               end case;
               if ea_x(1 downto 0) /= "00"
                 or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
-                     or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26") and ea_y(1 downto 0) /= "00")
-                or (instr(7 downto 0) = x"29" and ea_z(0) /= '0')
-                or (instr(7 downto 0) /= x"29" and ea_z(1 downto 0) /= "00") then
+                     or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26"
+                     or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31") and ea_y(1 downto 0) /= "00")
+                or ((instr(7 downto 0) = x"29" or instr(7 downto 0) = x"2F") and ea_z(0) /= '0')
+                or (instr(7 downto 0) /= x"29" and instr(7 downto 0) /= x"2F" and ea_z(1 downto 0) /= "00") then
                 dec_errv <= true; dec_err <= ERR_ALIGNMENT;
                 dec_next <= C_END;
               elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
@@ -2743,6 +2755,9 @@ begin
                   when x"20" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"21" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"29" => o16 <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"2F" => o16 <= '1'; s_sc <= n2; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"2E" => vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  when x"30" | x"31" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"23" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"27" | x"2A" | x"2B" => vu_st <= V_CHUNK; dec_next <= C_VEC;
                   when x"22" =>                     -- RMSNORM pass 1: sum of squares
@@ -3383,6 +3398,10 @@ begin
                   fpu_start <= '1'; vu_st <= E_R1; fpu_ret <= C_VEC;
                 when K_COPY | K_SUM =>
                   fpu_r <= xv;
+                when K_MAX =>                       -- (selected in E_MM)
+                  ve_lt <= flt(xv, pre_y);
+                when K_MIN =>
+                  ve_lt <= flt(pre_y, xv);
                 when K_SILUMUL | K_TAB =>
                   tx <= xv;
                   if ve_kind = K_SILUMUL then
@@ -3419,6 +3438,10 @@ begin
                       fpu_op <= FOP_MUL; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
                     when K_SSM =>                     -- t = x * a
                       fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
+                    when K_RECIP =>
+                      fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= xv; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                    when K_CVTI =>                    -- x * s, then roundf
+                      fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
                     when others =>                    -- K_LNVAR, K_LNOUT: d = x - mu
                       fpu_op <= FOP_ADD; fpu_b <= (not s_mu(31)) & s_mu(30 downto 0);
                       vu_st <= E_K1; fpu_ret <= C_VEC;
@@ -3440,6 +3463,9 @@ begin
                 fpu_start <= '1'; go(C_FPU_WAIT);
               when K_TAB =>
                 fpu_r <= tval; vgo(V_ELST);
+              when K_CVTI =>                          -- roundf (saturating 32-bit)
+                fpu_op <= FOP_ROUNDF; fpu_a <= fpu_r; vu_st <= E_CV; fpu_ret <= C_VEC;
+                fpu_start <= '1'; go(C_FPU_WAIT);
               when K_SSM =>                           -- s = y * u
                 ev <= fpu_r;
                 fpu_op <= FOP_MUL; fpu_a <= ey; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
@@ -3466,6 +3492,20 @@ begin
           when E_K3 =>                                -- K_LNOUT: ... + b
             fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; vu_st <= V_ELST; fpu_ret <= C_VEC;
             fpu_start <= '1'; go(C_FPU_WAIT);
+
+          when E_MM =>                                -- VMAX / VMIN: the choice
+            if ve_lt then fpu_r <= ey; else fpu_r <= ex; end if;
+            vgo(V_ELST);
+
+          when E_CV =>                                -- VCVTI16: to int16, saturating
+            if fpu_r(31 downto 15) = 0 or fpu_r(31 downto 15) = '1' & x"FFFF" then
+              fpu_r <= x"0000" & fpu_r(15 downto 0);
+            elsif fpu_r(31) = '1' then
+              fpu_r <= x"00008000";
+            else
+              fpu_r <= x"00007FFF";
+            end if;
+            vgo(V_ELST);
 
           when E_ACC =>
             -- sequential sum: the first value as it is, then acc = acc + v

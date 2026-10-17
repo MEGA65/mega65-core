@@ -1,5 +1,6 @@
-"""Step 8 test: Mamba-2's VEXP, SOFTPLUS and SSMUPD (Falcon-H1) against the
-reference emulator in hardware-numerics mode."""
+"""Step 8 test: Mamba-2's VEXP, SOFTPLUS and SSMUPD (Falcon-H1), and the
+geometry ops VRECIP, VCVTI16, VMAX and VMIN, against the reference emulator
+in hardware-numerics mode."""
 import os
 import struct
 import sys
@@ -47,6 +48,14 @@ H1, H2 = B + 0x1288, B + 0x1928                            # h: copied out (COPY
 put(0xD60, struct.pack("<4I", H1, B + 0xB18, B + 0xC30, B + 0xD48))
 # 2 rows x 80 (rows cross 256-byte blocks): h = xp twice over, B = xe
 put(0xD70, struct.pack("<4I", H2, B + 0xB18, B + 0xC30, B + 0x208))
+# VCVTI16: roundf's ties (x 2), saturation, NaN and infinities
+ct = np.array([-1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 16383.75, -16384.25,
+               1e10, -1e10, np.nan, np.inf], dtype=F32)
+put(0xD90, ct.tobytes())
+# VMAX / VMIN: equal values and signed zeros
+mx = np.array([0.0, -0.0, 0.0, -0.0, 1.5, -2.0, 3.0, -1e-30], dtype=F32)
+my = np.array([-0.0, 0.0, 0.0, -0.0, 1.5, -2.0, -3.0, 1e-30], dtype=F32)
+put(0xDC0, mx.tobytes()); put(0xDE0, my.tobytes())
 assert not any(mem[0x1000:]), "test data must stay below $1000 (the bench loads only that)"
 
 A = Asm()
@@ -57,6 +66,13 @@ A(I.SETN, x=C1, y=R1);   A(I.SSMUPD, x=B + 0xD60)
 A(I.COPY, x=B + 0x348, y=H2, z=640)
 A(I.SETN, x=80, y=2);    A(I.SSMUPD, x=B + 0xD70)
 A(I.SETN, x=80, y=2);    A(I.SSMUPD, x=B + 0xD70)                # again: h from SSMUPD
+A(I.SETN, x=80);         A(I.VRECIP, x=B + 0x208, z=B + 0x1BB0)
+A(I.SETN, x=80, z=I.f32_bits(3000.0)); A(I.VCVTI16, x=B + 0x348, z=B + 0x1CF0)
+A(I.SETN, x=12, z=I.f32_bits(2.0));    A(I.VCVTI16, x=B + 0xD90, z=B + 0x1D90)
+A(I.SETN, x=40);         A(I.VMAX, x=B + 0x208, y=B + 0x348, z=B + 0x1DB0)
+A(I.SETN, x=40);         A(I.VMIN, x=B + 0x208, y=B + 0x348, z=B + 0x1E50)
+A(I.SETN, x=8);          A(I.VMAX, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1EF0)
+A(I.SETN, x=8);          A(I.VMIN, x=B + 0xDC0, y=B + 0xDE0, z=B + 0x1F10)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200
