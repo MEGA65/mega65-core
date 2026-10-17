@@ -64,7 +64,7 @@ TESTS = [
     ("11.vector", "DEQROW VADD VMUL CVT16", "ssn2", "gen_step2.py", "step2_pkg.vhdl",
      0x1000, 0x1000, 0x1000, None),
     ("12.gemv", "GEMV Q8_0/Q4_0, ACC, F16 OUT", "ssn3", "gen_step3.py", "step3_pkg.vhdl",
-     0x1000, 0x1000, 0x1000, None),
+     0x2000, 0x1000, 0x1000, None),     # (MXFP4 / IQ4_NL / Q5_0 weights above $1000)
     ("13.norms", "RMSNORM LAYERNORM SILU GELU MEANROWS", "ssn4", "gen_step4.py", "step4_pkg.vhdl",
      0x1000, 0x1000, 0x1000, None),
     ("14.attn", "ROPE ARGMAX ATTN", "ssn5", "gen_step5.py", "step5_pkg.vhdl",
@@ -784,7 +784,11 @@ def main():
             if r.returncode:
                 sys.exit(f"{gen} failed:\n{r.stdout}{r.stderr}")
             text = open(os.path.join(tmp, pkg)).read()
-            init = pkg_words(text, "INIT")[:il]
+            full = pkg_words(text, "INIT")
+            if any(full[il:]):
+                sys.exit(f"{name}: the bench's data has non-zero bytes from ${il:X}, "
+                         f"past the {il:#x} bytes the test loads (raise its init bytes)")
+            init = full[:il]
             expect = pkg_words(text, "EXPECT")[:en]
             if halt is None:
                 halt = int(re.search(r"HALT_PC : natural := (\d+);", text).group(1))
