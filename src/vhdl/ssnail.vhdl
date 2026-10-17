@@ -161,6 +161,13 @@ architecture banked of ssnail_output_buffer is
   signal bank0, bank1, bank2, bank3 : bank_t := (others => (others => '0'));
   attribute ram_style : string;
   attribute ram_style of bank0, bank1, bank2, bank3 : signal is "distributed";
+  type lane4_t is array (0 to 3) of unsigned(1 downto 0);
+  type row4_t is array (0 to 3) of unsigned(4 downto 0);
+  type d4_t is array (0 to 3) of unsigned(15 downto 0);
+  signal lane_a : lane4_t;
+  signal row_a  : row4_t;
+  signal d_a    : d4_t;
+  signal we_a   : std_logic_vector(0 to 3);
 begin
   -- Four independent asynchronous read ports, one per physical bank;
   -- the final 4:1 mux selects the requested word. This is only *one*
@@ -171,41 +178,31 @@ begin
     bank2(to_integer(rd_addr(6 downto 2))) when "10",
     bank3(to_integer(rd_addr(6 downto 2))) when others;
 
+  -- Each bank's write port from its own signals, with no variable shared
+  -- between the banks: bank k takes word lane_k = (k - wr_base[1:0]) mod 4
+  -- of the packet, at row wr_base[6:2], or the next row when k comes
+  -- before the packet's first bank (k < wr_base[1:0]: the packet wrapped).
+  -- (The banks once shared one lane / addr variable, reassigned per bank:
+  -- right in simulation, but on the board bank 3 was written a row late.)
+  gen_banks : for k in 0 to 3 generate
+    lane_a(k) <= to_unsigned(k, 2) - wr_base(1 downto 0);
+    row_a(k)  <= wr_base(6 downto 2) + 1 when k < to_integer(wr_base(1 downto 0))
+                 else wr_base(6 downto 2);
+    we_a(k)   <= wr_en and wr_mask(to_integer(lane_a(k)));
+    with lane_a(k) select d_a(k) <=
+      wr_data(15 downto 0)  when "00",
+      wr_data(31 downto 16) when "01",
+      wr_data(47 downto 32) when "10",
+      wr_data(63 downto 48) when others;
+  end generate;
+
   process(clk) is
-    variable lane : unsigned(1 downto 0);
-    variable addr : unsigned(6 downto 0);
   begin
     if rising_edge(clk) then
-      -- Each assignment below is the sole write port for that bank.
-      -- lane = (bank_number - wr_base[1:0]) modulo 4; arithmetic on
-      -- the seven-bit address wraps exactly as the old buf indexing did.
-      lane := to_unsigned(0, 2) - wr_base(1 downto 0);
-      addr := wr_base + resize(lane, 7);
-      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
-        bank0(to_integer(addr(6 downto 2))) <=
-          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
-      end if;
-
-      lane := to_unsigned(1, 2) - wr_base(1 downto 0);
-      addr := wr_base + resize(lane, 7);
-      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
-        bank1(to_integer(addr(6 downto 2))) <=
-          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
-      end if;
-
-      lane := to_unsigned(2, 2) - wr_base(1 downto 0);
-      addr := wr_base + resize(lane, 7);
-      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
-        bank2(to_integer(addr(6 downto 2))) <=
-          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
-      end if;
-
-      lane := to_unsigned(3, 2) - wr_base(1 downto 0);
-      addr := wr_base + resize(lane, 7);
-      if wr_en = '1' and wr_mask(to_integer(lane)) = '1' then
-        bank3(to_integer(addr(6 downto 2))) <=
-          wr_data(16 * to_integer(lane) + 15 downto 16 * to_integer(lane));
-      end if;
+      if we_a(0) = '1' then bank0(to_integer(row_a(0))) <= d_a(0); end if;
+      if we_a(1) = '1' then bank1(to_integer(row_a(1))) <= d_a(1); end if;
+      if we_a(2) = '1' then bank2(to_integer(row_a(2))) <= d_a(2); end if;
+      if we_a(3) = '1' then bank3(to_integer(row_a(3))) <= d_a(3); end if;
     end if;
   end process;
 end banked;
