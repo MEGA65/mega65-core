@@ -82,6 +82,9 @@ architecture multicycle of ssnail_fpu is
   -- Back end
   signal rs : std_logic := '0';
   signal re : integer range -2048 to 2047 := 0;
+  -- MUL's ea + eb - 127, from S_IDLE straight into a register (into re in
+  -- S_MUL: off re's many-source mux, where the adder was the long path)
+  signal mr_e : integer range -2048 to 2047 := 0;
   signal rm : unsigned(47 downto 0) := (others => '0');
   signal lz_pos : integer range -1 to 47 := -1;
   signal lz_k   : integer range -1 to 47 := 0;      -- 46 - lz_pos
@@ -212,13 +215,13 @@ begin
           -- Datapath set-up for MUL, DIV and SQRT, whatever the operation and
           -- whether or not a special case is taken (then they go unused), so
           -- the special-case tests do not gate it.  Every operation sets re
-          -- before using it (later assignments below override this one).
+          -- before using it (MUL from mr_e, in S_MUL).
           unpack32(ai, sa, ea, ma);
           unpack32(bi, sb, eb, mb);
           mul_a <= ma;
           mul_b <= mb;
           mul_nrm <= ma(23) and mb(23);
-          re <= ea + eb - 127;
+          mr_e <= ea + eb - 127;
           dv_ma <= ma; dv_mb <= mb; dv_ea <= ea; dv_eb <= eb;
           dv_r <= "00" & ma;
           dv_i <= 46;
@@ -290,7 +293,7 @@ begin
                 zero_sign <= sa xor sb;
                 -- 24 x 24 -> 48 bits (in S_MUL); with the hidden bits at 23,
                 -- the product's point is at 46, matching the back end
-                -- (mul_a, mul_b, mul_nrm and re: set above)
+                -- (mul_a, mul_b, mul_nrm and mr_e: set above)
                 state <= S_MUL;
               end if;
             elsif opi = FOP_F16TOF32 or opi = FOP_E5M2TOF32 then
@@ -540,6 +543,7 @@ begin
 
         when S_MUL =>
           mul_p <= mul_a * mul_b;
+          re <= mr_e;
           state <= S_MULZ;
 
         when S_MULZ =>
