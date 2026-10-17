@@ -221,7 +221,13 @@ entity ssnail is
     -- SDRAM $8000000-$BFFFFFF, HyperRAM $C000000-$C7FFFFF.  Without SDRAM:
     -- HyperRAM $8000000-$87FFFFF.  Either way a <= 8 MB image is at
     -- $8000000, so the same image works on every board.
-    has_sdram : boolean := false
+    has_sdram : boolean := false;
+    -- The LLM / vector units (GEMV, DEQROW, ARGMAX, the vector ops, ROPE,
+    -- ATTN, SSMUPD).  Without them those opcodes are ERR_OPCODE: the shell
+    -- (jobs, fetch, scalar and control instructions, COPY, SYNC) remains.
+    has_llm   : boolean := true;
+    -- A coprocessor (SHITE) on opcodes $40-$4F: see the cop_ ports
+    has_cop   : boolean := false
     );
   port (
     ---------------------------------------------------------------------------
@@ -268,7 +274,31 @@ entity ssnail is
     sd_wdata       : out unsigned(15 downto 0) := x"0000";
     sd_wdata_be    : out std_logic_vector(1 downto 0) := "11";
     sd_cmd_done    : in  std_logic := '0';
-    sd_error       : in  std_logic := '0'
+    sd_error       : in  std_logic := '0';
+
+    -- Coprocessor (has_cop): opcodes $40-$4F.  cop_start pulses for one
+    -- cycle once SSNAIL's own LUMP commands have all finished, with the
+    -- opcode and operands (R[a], R[b], addr(X)); SSNAIL then waits, issuing
+    -- no LUMP commands, until cop_done.  cop_err /= 0 ends the job with
+    -- that error; else cop_wr writes cop_result to R[a].  cop_own is high
+    -- from cop_start to cop_done: the coprocessor owns the LUMP ports.
+    cop_start  : out std_logic := '0';
+    cop_own    : out std_logic := '0';
+    cop_op     : out unsigned(7 downto 0) := (others => '0');
+    cop_ra     : out unsigned(31 downto 0) := (others => '0');
+    cop_rb     : out unsigned(31 downto 0) := (others => '0');
+    cop_x      : out unsigned(27 downto 0) := (others => '0');
+    cop_done   : in  std_logic := '0';
+    cop_err    : in  unsigned(7 downto 0) := (others => '0');
+    cop_wr     : in  std_logic := '0';
+    cop_result : in  unsigned(31 downto 0) := (others => '0');
+    cop_abort  : out std_logic := '0';  -- a stop request: end soon with ERR_ABORTED
+    -- SSNAIL's map (cop_x and the coprocessor's own addresses decode the
+    -- same way): HyperRAM and SDRAM base and size, MB
+    map_hr_base : out unsigned(7 downto 0);
+    map_hr_size : out unsigned(7 downto 0);
+    map_sd_base : out unsigned(7 downto 0);
+    map_sd_size : out unsigned(7 downto 0)
     );
 end ssnail;
 
@@ -454,7 +484,7 @@ architecture shell of ssnail is
   type core_state_t is (
     C_IDLE,
     C_FETCH_SETUP, C_FETCH_DECODE, C_FETCH_ISSUE, C_FETCH_WAIT, C_RESOLVE, C_DECODE, C_DEC2,
-    C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT,
+    C_LEA_MUL, C_MEM_DECODE, C_MEM_ISSUE, C_MEM_WAIT, C_COP, C_COP_WAIT,
     C_FPU_WAIT, C_RD_DEC, C_RD_ISSUE, C_RD_WAIT, C_WR_DEC, C_WR_ISSUE, C_WR_WAIT,
     C_VEC,                                     -- vector unit, norms, ROPE, ARGMAX: vu_st
     T_START, T_K, T_I, T_LOOK, T_ROM2, T_COEFF, T_C0, T_DONE,
@@ -1880,7 +1910,12 @@ begin
         when "00000" => fastio_rdata <= SSNAIL_ID;
         when "00001" => fastio_rdata <= SSNAIL_VERSION;
         when "00010" =>
-          if has_sdram then fastio_rdata <= x"03"; else fastio_rdata <= x"01"; end if;
+          -- capabilities: 0 HyperRAM, 1 SDRAM, 2 the LLM / vector units, 3 SHITE
+          fastio_rdata <= (others => '0');
+          fastio_rdata(0) <= '1';
+          if has_sdram then fastio_rdata(1) <= '1'; end if;
+          if has_llm then fastio_rdata(2) <= '1'; end if;
+          if has_cop then fastio_rdata(3) <= '1'; end if;
         when "00011" =>
           fastio_rdata <= (others => '0');
           fastio_rdata(7) <= irq_pend_done;
@@ -2212,6 +2247,7 @@ begin
       lp_inc := '0';
       lp_dec := '0';
       fpu_start <= '0';
+      cop_start <= '0';
       fpu2_start <= '0';
       fpu3_start <= '0';
       rq_push := false;
@@ -2902,15 +2938,56 @@ begin
                 dec_addr <= ea_x(27 downto 3) & "000";
                 dec_next <= C_MEM_DECODE;
               end if;
+            when x"40" | x"41" | x"42" | x"43" | x"44" | x"45" | x"46" | x"47"
+               | x"48" | x"49" | x"4A" | x"4B" | x"4C" | x"4D" | x"4E" | x"4F" =>
+              if has_cop then
+                cop_op <= instr(7 downto 0);
+                cop_ra <= opr_a; cop_rb <= opr_b; cop_x <= ea_x;
+                dec_next <= C_COP;
+              else
+                dec_errv <= true; dec_err <= ERR_OPCODE;
+                dec_next <= C_END;
+              end if;
             when others =>
               dec_errv <= true; dec_err <= ERR_OPCODE;
               dec_next <= C_END;
           end case;
+          -- Without the LLM units their opcodes are unknown (after the case:
+          -- this wins), so none of their states is ever entered
+          if not has_llm and (instr(7 downto 0) = x"10" or instr(7 downto 0) = x"11"
+              or instr(7 downto 0) = x"12" or instr(7 downto 4) = x"2"
+              or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31"
+              or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") then
+            dec_errv <= true; dec_err <= ERR_OPCODE;
+            dec_next <= C_END;
+          end if;
           end if;
 
         when C_DEC2 =>
           if dec_errv then err <= dec_err; end if;   -- (C_DECODE's fault, if any)
           go(dec_next);
+
+        -- Coprocessor: once SSNAIL's own LUMP commands are done, hand it
+        -- the ports, and wait
+        when C_COP =>
+          if out_z and hr_valid_i = '0' and sd_valid_i = '0' then
+            cop_start <= '1';
+            cop_own <= '1';
+            go(C_COP_WAIT);
+          end if;
+        when C_COP_WAIT =>
+          if cop_done = '1' then
+            cop_own <= '0';
+            if cop_err /= ERR_NONE then
+              err <= cop_err;
+              go(C_END);
+            else
+              if cop_wr = '1' and instr(11 downto 8) /= x"F" then
+                rf_r(to_integer(instr(11 downto 8))) <= cop_result;
+              end if;
+              go(C_NEXT);
+            end if;
+          end if;
 
         when C_LEA_MUL =>
           -- Shift-and-add, one bit of Z per cycle (LEA is rare)
@@ -6509,6 +6586,9 @@ begin
     end if;
   end process;
 
+  cop_abort <= abort_req;
+  map_hr_base <= c_hr_base; map_hr_size <= c_hr_size;
+  map_sd_base <= c_sd_base; map_sd_size <= c_sd_size;
   hr_cmd_valid <= hr_valid_i;
   sd_cmd_valid <= sd_valid_i;
   hr_wdata    <= wdata_r;

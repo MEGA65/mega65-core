@@ -1281,8 +1281,11 @@ begin
   -- HyperRAM/SDRAM ports.
   ssnail_gen : if (target = mega65r3) or (target = mega65r4)
               or (target = mega65r5) or (target = mega65r6) generate
-    ssnail0 : entity work.ssnail
-      generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6))
+    -- (has_shite: the spreadsheet engine, SHITE, on SSNAIL's opcodes $40-$4F;
+    -- has_llm => false leaves SSNAIL's shell for it alone)
+    ssnail0 : entity work.ssnail_top
+      generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6),
+                   has_llm => true, has_shite => false)
       port map (
       cpuclock => cpuclock,
       reset => reset,

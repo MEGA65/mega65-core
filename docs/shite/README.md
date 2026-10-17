@@ -129,6 +129,7 @@ Kinds:
 | 5 | I32 | value (4, sign-extended into 8); format (8) if flag bit 6 |
 | 6 | ERROR | error code (8) |
 | 7 | UNCOMPILED | format (8); compile error code (1), reserved (1), error position (2), text length (2), reserved (2); the formula's text, ASCII |
+| 15 | FREE | nothing: a hole (the CPU left it moving a cell that grew); every walk skips it, and it is never in the tree |
 
 So a plain number with the default format is a single granule, and with its
 own format two.
@@ -154,8 +155,10 @@ the result field) or 6 (an error, the code in the result field).  A result
 text longer than the capacity is an error (#VALUE!).
 
 Within a row, cells form a binary search tree by column number through the
-child links.  REBALANCE_ROW rebuilds it balanced; the CPU may also maintain
-it itself.
+child links.  REBALANCE_ROW rebuilds it balanced, as exactly this tree: the
+cells sorted by column c[0..n-1], the root c[(0 + n - 1) div 2], and below
+each c[m] of a range lo..hi the trees of lo..m-1 (left) and m+1..hi (right),
+each by the same rule.  The CPU may also maintain the tree itself.
 
 ### 3.5 Format (8 bytes)
 
@@ -189,8 +192,9 @@ format), F64 and text; errors propagate as values.
   k, then I64 at that k, rounded half away from zero.
 - Comparisons give I64 0 or 1.  Text compares with text, bytewise; text
   with a number is #VALUE!.
-- F64 follows IEEE 754 double, round to nearest even; NaN and infinities
-  become #NUM! when stored.
+- F64 follows IEEE 754 double, round to nearest even, except that
+  subnormals are flushed to zero (inputs and results, keeping the sign);
+  NaN and infinities become #NUM! when stored.
 
 Errors (codes):
 
@@ -267,8 +271,8 @@ descriptor.
 
 Parameters: the sheet descriptor.
 
-Visits every FORMULA cell in row-major order (rows ascending, then columns
-ascending) and evaluates it with the values as they are at that moment
+Visits every FORMULA cell, row by row (rows ascending) and within a row in
+the order the cells lie in its row block, and evaluates it with the values as they are at that moment
 (newly computed results are seen by later cells in the same round).  If the
 result differs from the stored one (kind, then bits: an F64 bit-for-bit,
 text bytewise), SHITE stores it, sets the cell's CHANGED flag, counts it in
@@ -334,8 +338,8 @@ others in a few more.
 
 ## 8. Registers
 
-SSNAIL's (`$FFD7500-$FFD751F`), with a capability register: bit 0 the LLM
-/ vector units, bit 1 SHITE.  Jobs, status, errors, stop requests and the
+SSNAIL's (`$FFD7500-$FFD751F`).  Its capability register ($02): bit 0
+HyperRAM, bit 1 SDRAM, bit 2 the LLM / vector units, bit 3 SHITE.  Jobs, status, errors, stop requests and the
 interrupt are SSNAIL's.
 
 ## 9. Hardware outline (area first)

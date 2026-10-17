@@ -169,6 +169,8 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_monitor.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ssnail_top.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ssnail_fpipe.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/lump_queue.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ssnail_tables_pkg.vhdl"]"\
@@ -511,6 +513,14 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/iomapper.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/ssnail_top.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

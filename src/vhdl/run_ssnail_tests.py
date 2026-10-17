@@ -35,6 +35,8 @@ Testbenches:
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
     tb_ssnail_step8   VEXP, SOFTPLUS, SSMUPD (Falcon-H1's Mamba-2) vs the same
+    tb_shite_step1    SHITE (through ssnail_top, with and without the LLM units):
+                      REBALANCE_ROW and FIND_CELL vs the reference model
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
     tb_ssnail_perf_f16  float GEMV (F16) results and speed
     tb_ssnail_perf_attn ATTN results and speed
@@ -114,7 +116,7 @@ BENCHES = {
                        r"TB_SSNAIL_LOAD: ALL PASSED"),
     "tb_ssnail_step1": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step1_pkg.vhdl", "tb_ssnail_step1.vhdl"],
-                        "tb_ssnail_step1", [[]], r"TB_SSNAIL_STEP1: ALL PASSED"),
+                        "tb_ssnail_step1", [[], ["-gllm=false"]], r"TB_SSNAIL_STEP1: ALL PASSED"),
     "tb_ssnail_fpu": (["ssnail_fpu.vhdl", "tb_ssnail_fpu.vhdl"], "tb_ssnail_fpu", [[]],
                       r"TB_SSNAIL_FPU: ALL PASSED"),
     "tb_ssnail_fpipe": (["ssnail_fpipe.vhdl", "tb_ssnail_fpipe.vhdl"], "tb_ssnail_fpipe", [[]],
@@ -140,6 +142,10 @@ BENCHES = {
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step8_pkg.vhdl",
                          "tb_ssnail_step8.vhdl"],
                         "tb_ssnail_step8", [[]], r"TB_SSNAIL_STEP8: ALL PASSED"),
+    "tb_shite_step1": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                        "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "shite.vhdl",
+                        "ssnail_top.vhdl", "shite1_pkg.vhdl", "tb_shite_step1.vhdl"],
+                       "tb_shite_step1", [[], ["-gllm=false"]], r"TB_SHITE_STEP1: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
@@ -202,6 +208,7 @@ GENERATED = {
     "step4_pkg.vhdl": ("gen_step4.py", True),
     "step5_pkg.vhdl": ("gen_step5.py", True),
     "step8_pkg.vhdl": ("gen_step8.py", True),
+    "shite1_pkg.vhdl": ("gen_shite1.py", True),
     "step6_pkg.vhdl": ("gen_step6.py", True),
     "step7_pkg.vhdl": ("gen_step7.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),

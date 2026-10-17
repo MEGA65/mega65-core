@@ -12,6 +12,9 @@ use work.lumptypes.all;
 use work.step1_pkg.all;
 
 entity tb_ssnail_step1 is
+  -- llm = false: the shell alone (the scalar and control instructions here
+  -- need nothing else)
+  generic (llm : boolean := true);
 end entity;
 
 architecture test of tb_ssnail_step1 is
@@ -73,6 +76,7 @@ begin
   end process;
 
   dut : entity work.ssnail
+    generic map (has_llm => llm)
     port map (
       cpuclock => cpuclock, reset => '1', irq => irq, ssnail_cs => cs,
       fastio_addr => addr, fastio_write => wr, fastio_read => rd,
