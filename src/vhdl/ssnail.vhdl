@@ -718,6 +718,13 @@ architecture shell of ssnail is
   signal mw_ra     : unsigned(6 downto 0) := (others => '0');   -- mw_idx + mw_k
   signal pz_252    : boolean := false;        -- pz(7 downto 0) = 252, a cycle late (D_STORE)
   signal pz_p4     : unsigned(27 downto 0) := (others => '0');   -- pz + 4, likewise
+  -- and for GEMV's F16 output (G_OUT4): pz(7 downto 0) = 254, pz + 2
+  signal pz_254    : boolean := false;
+  -- ATTN's output loop (A_WR) steps pz every cycle: its own pz + 4 and
+  -- pz(7 downto 0) = 252, kept with pz (taken from pz_p4 / pz_252 in A_O_W)
+  signal at_pz4    : unsigned(27 downto 0) := (others => '0');
+  signal at_pz252  : boolean := false;
+  signal pz_p2     : unsigned(27 downto 0) := (others => '0');
   signal mw_idx    : unsigned(6 downto 0) := (others => '0');
   -- DEQROW
   type grp_t is array (0 to 33) of unsigned(7 downto 0);
@@ -2059,6 +2066,7 @@ begin
     variable mb : unsigned(7 downto 0);
     variable room_s, room_d, rem9 : unsigned(8 downto 0);
     variable span9 : unsigned(8 downto 0);
+    variable vend9 : unsigned(8 downto 0);
     variable hr_issue, sd_issue : std_logic;
     variable lp_inc, lp_dec : std_logic;
     variable st_al, en_al : unsigned(27 downto 0);
@@ -2184,6 +2192,8 @@ begin
       ve_nx <= ve_next(ve_kind); ve_nv <= ve_nextv(ve_kind);
       pz_252 <= pz(7 downto 0) = 252;
       pz_p4 <= pz + 4;
+      pz_254 <= pz(7 downto 0) = 254;
+      pz_p2 <= pz + 2;
       at_glast <= at_gc + 1 = at_group;
       at_p14 <= at_nkv(13 downto 0) * at_hd(13 downto 0);
       at_p13 <= at_nkv(12 downto 0) * at_hd(12 downto 0);
@@ -3319,18 +3329,21 @@ begin
             assert ve_nx = ve_next(ve_kind) and ve_nv = ve_nextv(ve_kind) report "SSNAIL: stale ve_nx" severity failure;
             if v_done then                                -- v_i = v_e
               if has_out = '1' then
+                -- (a0 = pz rounded down to 8: so a2 - a0 = pz(2:0) + the
+                -- chunk's bytes, and a1 - a0 that rounded up to 8, all
+                -- modulo 512 as before, with no adder on pz's full width)
                 a0 := pz(27 downto 3) & "000";
                 if o16 = '1' then
-                  a2 := pz + (resize(v_e, 27) & "0");
+                  vend9 := resize(pz(2 downto 0), 9) + (v_e & "0");
                 else
-                  a2 := pz + (resize(v_e, 26) & "00");
+                  vend9 := resize(pz(2 downto 0), 9) + (v_e(6 downto 0) & "00");
                 end if;
-                a1 := a2 + 7;
-                a1(2 downto 0) := "000";
+                span9 := vend9 + 7;
+                span9(2 downto 0) := "000";
                 wr_addr <= a0;
-                wr_len <= resize(a1 - a0, 9);
-                mw_lead <= resize(pz - a0, 9);
-                mw_vend <= resize(a2 - a0, 9);
+                wr_len <= span9;
+                mw_lead <= resize(pz(2 downto 0), 9);
+                mw_vend <= vend9;
                 mw_idx <= a0(7 downto 1);
                 dec_addr <= a0;
                 vu_st <= V_ADV; wr_ret <= C_VEC;
@@ -4514,10 +4527,12 @@ begin
             gm_st <= G_OUT4;
 
           when G_OUT4 =>
+            assert pz_p2 = pz + 2 and pz_p4 = pz + 4 and pz_254 = (pz(7 downto 0) = 254)
+              and pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_p2 / pz_p4" severity failure;
             if g_f16 = '1' then
-              a2 := pz + 2;
+              a2 := pz_p2;
             else
-              a2 := pz + 4;
+              a2 := pz_p4;
             end if;
             pz <= a2;
             g_r <= g_r + 1;
@@ -4525,7 +4540,7 @@ begin
             g_end <= g_last;
             g_last <= g_r + 2 = g_rows;
             -- (a2 ends a 256-byte block: tested on pz, without the carry)
-            if (g_f16 = '1' and pz(7 downto 0) = 254) or (g_f16 = '0' and pz(7 downto 0) = 252)
+            if (g_f16 = '1' and pz_254) or (g_f16 = '0' and pz_252)
               or g_last then                            -- g_r + 1 = g_rows
               a0 := ostart(27 downto 3) & "000";
               a1 := a2 + 7;
@@ -4923,6 +4938,9 @@ begin
             at_t <= at_t + 1;
             at_st <= A_O_F;
           when A_O_W =>
+            assert pz_p4 = pz + 4 and pz_252 = (pz(7 downto 0) = 252)
+              report "SSNAIL: stale pz_p4 / pz_252" severity failure;
+            at_pz4 <= pz_p4; at_pz252 <= pz_252;
             at_st <= A_WR;
 
           -- write this head's output: through buf, flushed at 256-byte
@@ -4932,12 +4950,16 @@ begin
             if at_iend then                           -- at_i = at_hd
               at_st <= A_HNEXT;
             else
-              a2 := pz + 4;
+              assert at_pz4 = pz + 4 and at_pz252 = (pz(7 downto 0) = 252)
+                report "SSNAIL: stale at_pz4 / at_pz252" severity failure;
+              a2 := at_pz4;
               pz <= a2;
+              at_pz4 <= at_pz4 + 4;
+              at_pz252 <= at_pz4(7 downto 0) = 252;
               at_i <= at_i + 1;
               -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
               assert at_inx = (at_i + 1 = at_hd(8 downto 0)) report "SSNAIL: stale at_inx" severity failure;
-              if pz(7 downto 0) = 252 or at_inx then
+              if at_pz252 or at_inx then
                 a0 := ostart(27 downto 3) & "000";
                 a1 := a2 + 7;
                 a1(2 downto 0) := "000";
