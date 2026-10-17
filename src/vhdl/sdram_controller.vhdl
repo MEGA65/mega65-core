@@ -527,6 +527,10 @@ architecture tacoma_narrows of sdram_controller is
                       M_PS, M_PSW, M_WAIT, M_RWAIT, M_WRITE,
                       M_SEEK, M_SEEK2, M_STEPN);
   signal tr_st         : tr_state_t := T_START;
+  -- (tr_st drives ~235 loads, the 112-bit scan register among them: let
+  -- synthesis replicate it, so no copy is a long route from its loads)
+  attribute max_fanout : integer;
+  attribute max_fanout of tr_st : signal is 40;
   signal tr_ret        : tr_state_t := T_START;   -- micro-ops
   signal tr_ret_n      : tr_state_t := T_START;   -- M_STEPN / M_SEEK
   signal tr_ret_t      : tr_state_t := T_START;   -- the test sequence

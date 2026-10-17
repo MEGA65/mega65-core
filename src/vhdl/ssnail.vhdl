@@ -681,6 +681,7 @@ architecture shell of ssnail is
   signal mw_k, mw_lead, mw_vend : unsigned(8 downto 0) := (others => '0');
   signal mw_ra     : unsigned(6 downto 0) := (others => '0');   -- mw_idx + mw_k
   signal pz_252    : boolean := false;        -- pz(7 downto 0) = 252, a cycle late (D_STORE)
+  signal pz_p4     : unsigned(27 downto 0) := (others => '0');   -- pz + 4, likewise
   signal mw_idx    : unsigned(6 downto 0) := (others => '0');
   -- DEQROW
   type grp_t is array (0 to 33) of unsigned(7 downto 0);
@@ -991,6 +992,26 @@ architecture shell of ssnail is
     v := to_integer(lo) + to_integer(shift_left(hi, to_integer(c.wl))) - to_integer(c.off);
     return to_signed(v, 9);
   end function;
+  -- kq_q in two steps, for the MAC's two front stages: the fields ...
+  function kqf_lo(bl : unsigned(7 downto 0); c : kq_rd_t) return unsigned is
+  begin
+    return resize(shift_right(bl, to_integer(c.sl)) and ("0000" & c.ml), 4);
+  end function;
+  function kqf_hi(bh : unsigned(7 downto 0); c : kq_rd_t) return unsigned is
+  begin
+    return resize(shift_right(bh, to_integer(c.sh)) and ("000000" & c.mh), 2);
+  end function;
+  -- ... then q from them
+  function kq_comb(lo : unsigned(3 downto 0); hi : unsigned(1 downto 0);
+                   wl : unsigned(2 downto 0); off : unsigned(5 downto 0);
+                   tb : std_logic) return signed is
+  begin
+    if tb = '1' then
+      return iq4v(lo);
+    end if;
+    return to_signed(to_integer(lo) + to_integer(shift_left(resize(hi, 8), to_integer(wl)))
+                     - to_integer(off), 9);
+  end function;
 
   signal grp       : grp_t := (others => x"00");
   signal gi, gbytes : unsigned(7 downto 0) := (others => '0');
@@ -1203,6 +1224,19 @@ architecture shell of ssnail is
   signal mc_pair_q : mc_p2_t := (others => (others => '0'));
   signal mc_sum_q : signed(18 downto 0) := (others => '0');
   signal mc_v0, mc_v1, mc_v2, mc_v3 : std_logic := '0';
+  -- stage E, between operand selection (0) and the products (1): a K-quant
+  -- weight's fields (mc_e_lo / hi) become q (kq_comb) here, off the DSP
+  -- input registers' path
+  type mc_lo4_t is array (0 to 3) of unsigned(3 downto 0);
+  type mc_hi4_t is array (0 to 3) of unsigned(1 downto 0);
+  signal mc_e_lo   : mc_lo4_t := (others => (others => '0'));
+  signal mc_e_hi   : mc_hi4_t := (others => (others => '0'));
+  signal mc_e_w    : mc_w4_t := (others => (others => '0'));
+  signal mc_e_x    : mc_x4_t := (others => (others => '0'));
+  signal mc_e_k, mc_e_tb : std_logic := '0';
+  signal mc_e_wl   : unsigned(2 downto 0) := (others => '0');
+  signal mc_e_off  : unsigned(5 downto 0) := (others => '0');
+  signal mc_ve, mc_laste, mc_mide, mc_firste : std_logic := '0';
   signal mc_last0, mc_last1, mc_last2, mc_last3 : std_logic := '0';
   signal mc_scale_ok : std_logic := '0';
   signal mc_scale  : unsigned(31 downto 0) := (others => '0');
@@ -1550,6 +1584,9 @@ architecture shell of ssnail is
   signal lp_wr_idle   : boolean;            -- no data byte on its way into the ring
   signal lp_cmt_s1, lp_cmt_s2, lp_cmt_last : std_logic := '0';
   signal lp_pending   : unsigned(2 downto 0) := (others => '0');  -- complete blocks waiting
+  signal lp_pnz       : boolean := false;   -- lp_pending /= 0
+  signal lp_wr_idle_q : boolean := false;   -- lp_wr_idle, a cycle late (a commit's toggle
+                                            -- is at least 4 cycles behind its last byte's)
   signal lp_drain     : unsigned(27 downto 0) := (others => '0'); -- next address to write
   -- lp_drain = lp_cmt_end: set with every write of lp_drain, and
   -- recomputed every cycle for lp_cmt_end (written on the cpuclock side,
@@ -1585,6 +1622,11 @@ architecture shell of ssnail is
   signal cap_we, cap_cnt : std_logic := '0';
   signal cap_d   : unsigned(15 downto 0) := x"0000";
   signal cap_idx : unsigned(6 downto 0) := (others => '0');
+  -- (copies of cap_idx for bufx, bufy and bufb's write ports, each by its
+  -- buffer: one register fanned out to all of them was a 5.8 ns route)
+  type cap_ix_t is array (1 to 3) of unsigned(6 downto 0);
+  signal cap_ix : cap_ix_t := (others => (others => '0'));
+  attribute dont_touch of cap_ix : signal is "true";
   signal cap_dst : unsigned(1 downto 0) := "00";
   type ld_w_t is array (0 to 3) of unsigned(15 downto 0);
   signal ld_w : ld_w_t := (others => x"0000");      -- words 0-3 of a load (LDR)
@@ -2076,6 +2118,7 @@ begin
       pf_go := false;
       ve_nx <= ve_next(ve_kind);
       pz_252 <= pz(7 downto 0) = 252;
+      pz_p4 <= pz + 4;
       pf_x := vix; pf_y := viy; pf_b := vib;
       pf_i := v_i;
       sd_issue := '0';
@@ -2212,6 +2255,7 @@ begin
       cap_cnt <= '0';
       cap_d <= rdata_r;
       cap_idx <= buf_widx;
+      cap_ix <= (others => buf_widx);
       cap_dst <= cap_sel;
       if rvalid_r = '1' and g2 = '1' and rq_tag(to_integer(rq_r(1 downto 0))) = '1' then
         -- GEMV weight stream: into the word FIFO
@@ -2247,11 +2291,11 @@ begin
       -- every word written before they finish.
       if cap_we = '1' then
         if cap_dst = "01" then
-          bufx(to_integer(cap_idx)) <= cap_d;
+          bufx(to_integer(cap_ix(1))) <= cap_d;
         elsif cap_dst = "10" then
-          bufy(to_integer(cap_idx)) <= cap_d;
+          bufy(to_integer(cap_ix(2))) <= cap_d;
         elsif cap_dst = "11" then
-          bufb(to_integer(cap_idx)) <= cap_d;
+          bufb(to_integer(cap_ix(3))) <= cap_d;
         else
           buf_in(to_integer(cap_idx)) <= cap_d;
           -- the first four words also go to ld_w, for LDR: buf_in then
@@ -2352,9 +2396,10 @@ begin
           busy <= '0';
           -- Load port work comes first.  A chunk is [lp_drain, lp_end): a
           -- whole remaining block, or for a commit, whatever is left.
-          if lp_pending /= 0
-            or (lp_cmt_s2 /= lp_cmt_last and lp_wr_idle) then
-            if lp_pending /= 0 then
+          assert lp_pnz = (lp_pending /= 0) report "SSNAIL: stale lp_pnz" severity failure;
+          if lp_pnz
+            or (lp_cmt_s2 /= lp_cmt_last and lp_wr_idle_q) then
+            if lp_pnz then
               lp_end <= (lp_drain(27 downto 8) + 1) & x"00";
               en_al := (lp_drain(27 downto 8) + 1) & x"00";
               lp_is_commit <= '0';
@@ -2368,7 +2413,7 @@ begin
             end if;
             assert lp_pending /= 0 or lp_at_cmt = (lp_drain = lp_cmt_end)
               report "SSNAIL: stale lp_at_cmt" severity failure;
-            if lp_pending = 0 and lp_at_cmt then                -- lp_drain = lp_cmt_end
+            if not lp_pnz and lp_at_cmt then                    -- lp_drain = lp_cmt_end
               -- Nothing (more) to flush: the commit takes effect
               lp_drain <= lp_cmt_new;
               lp_at_cmt <= lp_cmt_new = lp_cmt_end;
@@ -2380,7 +2425,7 @@ begin
               en_al(2 downto 0) := "000";
               lp_lead <= resize(lp_drain(2 downto 0), 9);
               lp_vend <= resize(en_al - st_al, 9);   -- adjusted below
-              if lp_pending /= 0 then
+              if lp_pnz then
                 lp_vend <= resize(((lp_drain(27 downto 8) + 1) & x"00") - st_al, 9);
               else
                 lp_vend <= resize(lp_cmt_end - st_al, 9);
@@ -3842,7 +3887,8 @@ begin
           go(D_STORE);
 
         when D_STORE =>
-          a2 := pz + 4;
+          assert pz_p4 = pz + 4 report "SSNAIL: stale pz_p4" severity failure;
+          a2 := pz_p4;
           pz <= a2;
           v_n <= v_n - 1;
           v_n_z <= v_n_one;
@@ -5492,25 +5538,24 @@ begin
         if mc_busy = '1' then
           kwl := kq_wl_q;
           kwh := kq_wh_q;
+          kc := kq_rd_q;
+          if kc.wr = '1' and mc_c(2) = '1' then
+            kc.sl := kc.sl + 4;                         -- (the second 16: high nibbles)
+          end if;
+          mc_e_k <= kq_kr; mc_e_tb <= kc.tb; mc_e_wl <= kc.wl; mc_e_off <= kc.off;
           for k in 0 to 3 loop
             jj := to_integer(mc_c) * 4 + k;
-            if kq_kr = '1' then
-              kc := kq_rd_q;
-              if kc.wr = '1' and mc_c(2) = '1' then
-                kc.sl := kc.sl + 4;                     -- (the second 16: high nibbles)
-              end if;
-              qwv := kq_q(kwl(8 * k + 7 downto 8 * k), kwh(8 * k + 7 downto 8 * k), kc);
-            else
-              qwv := mc_wb(jj);
-            end if;
+            mc_e_lo(k) <= kqf_lo(kwl(8 * k + 7 downto 8 * k), kc);
+            mc_e_hi(k) <= kqf_hi(kwh(8 * k + 7 downto 8 * k), kc);
+            qwv := mc_wb(jj);
             case k is
               when 0 => qxv := qx0(to_integer(mc_xa(0)));
               when 1 => qxv := qx1(to_integer(mc_xa(1)));
               when 2 => qxv := qx2(to_integer(mc_xa(2)));
               when others => qxv := qx3(to_integer(mc_xa(3)));
             end case;
-            mc_w_q(k) <= qwv;
-            mc_x_q(k) <= qxv;
+            mc_e_w(k) <= qwv;
+            mc_e_x(k) <= qxv;
           end loop;
           if mc_c = 7 then
             mc_busy <= '0';
@@ -5528,11 +5573,32 @@ begin
         -- Stages 1..3: parallel products, two pair sums, final group sum.
         -- 9x8 products fit signed(16 downto 0); the 4-product sum fits 19
         -- bits.  Accumulation stays 32-bit and wraps exactly as previously.
-        mc_v1 <= mc_v0;
-        mc_last1 <= mc_last0;
-        mc_mid1 <= mc_mid0;
-        mc_first1 <= mc_first0;
+        -- Stage E: q of a K-quant weight from its fields; into the DSPs'
+        -- input registers
+        mc_ve <= mc_v0;
+        mc_laste <= mc_last0;
+        mc_mide <= mc_mid0;
+        mc_firste <= mc_first0;
         if mc_v0 = '1' then
+          for k in 0 to 3 loop
+            if mc_e_k = '1' then
+              assert kq_comb(mc_e_lo(k), mc_e_hi(k), mc_e_wl, mc_e_off, mc_e_tb) = kq_q(
+                resize(mc_e_lo(k), 8), resize(mc_e_hi(k), 8),
+                (la => (others => '0'), ha => (others => '0'), sl => "000", sh => "000",
+                 ml => "1111", mh => "11", wl => mc_e_wl, off => mc_e_off, wr => '0', tb => mc_e_tb))
+                report "SSNAIL: kq_comb" severity failure;
+              mc_w_q(k) <= kq_comb(mc_e_lo(k), mc_e_hi(k), mc_e_wl, mc_e_off, mc_e_tb);
+            else
+              mc_w_q(k) <= mc_e_w(k);
+            end if;
+            mc_x_q(k) <= mc_e_x(k);
+          end loop;
+        end if;
+        mc_v1 <= mc_ve;
+        mc_last1 <= mc_laste;
+        mc_mid1 <= mc_mide;
+        mc_first1 <= mc_firste;
+        if mc_ve = '1' then
           for k in 0 to 3 loop
             mc_p_q(k) <= mc_w_q(k) * mc_x_q(k);
           end loop;
@@ -5883,8 +5949,8 @@ begin
         sr_ok1 <= '0'; sr_ok2 <= '0';
         i2f_busy <= '0'; i2f_ok1 <= '0'; i2f_ok2 <= '0'; i2f_ok3 <= '0';
         mc_drain <= '0';
-        mc_v0 <= '0'; mc_v1 <= '0'; mc_v2 <= '0'; mc_v3 <= '0';
-        mc_last0 <= '0'; mc_last1 <= '0'; mc_last2 <= '0'; mc_last3 <= '0';
+        mc_v0 <= '0'; mc_v1 <= '0'; mc_v2 <= '0'; mc_v3 <= '0'; mc_ve <= '0';
+        mc_last0 <= '0'; mc_last1 <= '0'; mc_last2 <= '0'; mc_last3 <= '0'; mc_laste <= '0';
       end if;
 
       -- read-tag queue and in-flight count bookkeeping
@@ -5903,9 +5969,9 @@ begin
 
       -- Complete blocks waiting to be written
       if lp_inc = '1' and lp_dec = '0' then
-        lp_pending <= lp_pending + 1;
+        lp_pending <= lp_pending + 1; lp_pnz <= true;
       elsif lp_inc = '0' and lp_dec = '1' then
-        lp_pending <= lp_pending - 1;
+        lp_pending <= lp_pending - 1; lp_pnz <= lp_pending /= 1;
       end if;
 
       -- kq_sb: its write port per byte lane (the writes registered first,
@@ -6195,6 +6261,7 @@ begin
   begin
     if rising_edge(clock162) then
       lp_wr_s1 <= lp_wr_tgl; lp_wr_s2 <= lp_wr_s1;
+      lp_wr_idle_q <= lp_wr_idle;
       lp_blk_done <= '0';
       if lp_wr_s2 /= lp_wr_last then
         lp_wr_last <= lp_wr_s2;
