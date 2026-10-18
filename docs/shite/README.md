@@ -446,7 +446,7 @@ block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 | $43 | FORMAT_CELLS | X parameter block | |
 | $44 | COMPILE | X parameter block (section 10) | R[a] = bytecode length, or 0 |
 | $45 | DECOMPILE | X parameter block (section 10) | R[a] = text length, or 0 |
-| $46 | RENDER | X parameter block (section 10) | R[a] bit 0: negative, bit 1: did not fit |
+| $46 | RENDER | X parameter block (section 10) | R[a] bits 3-0: the colour chosen (normal or negative), bits 15-8: the renderer's error (0: none) |
 | $47 | PARSE | X parameter block (section 10) | R[a] = the kind found (0: not a number) |
 
 ### RECALC
@@ -509,7 +509,7 @@ Renders a rectangle of cells as screen text.  Parameter block (48 bytes,
 | 36 | 2 | colour stride |
 | 38 | 1 | default colour (cells without a format, and blank fields) |
 | 39 | 1 | reserved, 0 |
-| 40 | 4 | scratch: 512 bytes of attic RAM for the rendering (RENDER's) |
+| 40 | 4 | scratch: 1 KB of attic RAM (RENDER's 512 bytes, then a field for 16-bit characters) |
 | 44 | 4 | reserved, 0 |
 
 Row r is screen line r - first row; within a line the columns follow one
@@ -726,8 +726,10 @@ aligned):
 | 24 | 4 | destination |
 | 28 | 4 | scratch: 512 bytes of attic RAM |
 
-R[a] bit 0: the value is negative (the negative colour applies); bit 1:
-it did not fit (`#`s, or clipped).
+R[a] bits 3-0: the colour the format gives the value (the negative
+colour for a negative number with negatives = 2); bits 15-8: the
+renderer's error code (0: none; a number it cannot show is `#NUM!` in the
+field, not an error).
 
 ### PARSE
 
@@ -756,7 +758,9 @@ decimals, an optional exponent (`E` and a signed integer), and an optional
 with decimals fixed point (k decimals, k <= 18; more: F64); with an
 exponent F64, correctly rounded; `%` divides by 100 as the `%` operator
 does.  Anything else (a word, a date, two numbers) is not a number: kind
-0, and the CPU stores the text as text.
+0, and the CPU stores the text as text.  (So far the hardware parses the
+number literal alone; the front end for spaces, parentheses, a prefix,
+separators and `%` is to come.)
 
 ## 11. Testing
 

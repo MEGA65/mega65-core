@@ -4,14 +4,17 @@
 -- the reference model SSNAIL/shite.py).  SSNAIL hands over its LUMP ports
 -- for the length of an instruction (ssnail_top multiplexes them).
 --
--- FIND_CELL ($42), REBALANCE_ROW ($41) and RECALC ($40: so far integer
--- formulas: constants, references, ADD SUB MUL NEG and the comparisons).
+-- RECALC ($40), REBALANCE_ROW ($41), FIND_CELL ($42), and through the codec
+-- units (shite_formula_codec, shite_cell_text and the shared
+-- shite_number_text) FORMAT_CELLS ($43), COMPILE ($44), DECOMPILE ($45),
+-- RENDER ($46), PARSE ($47).
 -- Memory is reached one 8-byte group at a time (no cache yet).
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.lumptypes.all;
+use work.shite_codec_pkg.all;
 
 entity shite is
   generic (
@@ -116,9 +119,17 @@ architecture rtl of shite is
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
     B_TREE, B_TREE2, B_TREE3, B_TREE4, B_TREE5, B_TREE6, B_TREE7, B_RHDR, B_NEXT,
     -- the list RAM's read (one cycle)
-    L_WAIT
+    L_WAIT,
+    -- the codec units: a parameter block in, a job, its results out; their
+    -- RAM requests served meanwhile (SJ_)
+    X_P0, X_P8, X_P16, X_P24, X_D56, X_GO, X_RES, X_RES2, X_RES3,
+    SJ_WAIT, SJ_DONE, SJ_GAP,
+    -- FORMAT_CELLS
+    FC_P32, FC_P40, FC_D0, FC_D8, FC_D56, FC_ROWS, FC_COLS, FC_WID, FC_CELLS, FC_H, FC_G8, FC_G16, FC_G24,
+    FC_WFILL, FC_RENDER, FC_DONE1, FC_EXP, FC_EFILL, FC_EXP2, FC_COLR, FC_CLR, FC_NEXT
     );
   signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
+  signal sj_ret : state_t := S_IDLE;
   signal fp_ret, fn_ret, cv_ret, bo_ret : state_t := S_IDLE;
   signal vl_ret, rf_ret, vr_ret, tk_ret : state_t := S_IDLE;
 
@@ -494,12 +505,166 @@ architecture rtl of shite is
     return unsigned(resize(signed(v), 32));
   end function;
 
+  -- ---------------------------------------------------------------------
+  -- The codec units
+  signal co_start, ce_start, nu_start_self : std_logic := '0';
+  signal co_decompile : std_logic := '0';
+  signal co_source, co_dest, co_names : unsigned(27 downto 0) := (others => '0');
+  signal co_len, co_cap : unsigned(15 downto 0) := (others => '0');
+  signal co_row : unsigned(19 downto 0) := (others => '0');
+  signal co_col : unsigned(23 downto 0) := (others => '0');
+  signal co_dsep, co_asep : codec_byte := x"2E";
+  signal co_busy, co_done, ce_busy, ce_done, nu_busy, nu_done : std_logic;
+  signal co_error, ce_error, nu_error, co_hosts : codec_byte;
+  signal co_epos, co_rlen, ce_rlen, nu_epos, nu_rlen : unsigned(15 downto 0);
+  signal ce_colour : unsigned(3 downto 0);
+  -- the cell renderer's job
+  signal ce_kind : unsigned(3 downto 0) := (others => '0');
+  signal ce_value, ce_format : unsigned(63 downto 0) := (others => '0');
+  signal ce_text, ce_scratch, ce_dest : unsigned(27 downto 0) := (others => '0');
+  signal ce_tlen, ce_cap : unsigned(15 downto 0) := (others => '0');
+  signal ce_width : codec_byte := (others => '0');
+  signal ce_upper : std_logic := '0';
+  -- the shared number converter: its job from the codec, the renderer or
+  -- the execution unit itself (PARSE)
+  signal nu_start, nu_format, nu_negative, nu_kind, nu_display : std_logic;
+  signal nu_source, nu_dest : unsigned(27 downto 0);
+  signal nu_len, nu_cap : unsigned(15 downto 0);
+  signal nu_value : unsigned(63 downto 0);
+  signal nu_scale, nu_dsep, nu_decimals, nu_width : codec_byte;
+  signal nu_style : unsigned(3 downto 0);
+  signal nu_rvalue : unsigned(63 downto 0);
+  signal nu_rkind : std_logic;
+  signal nu_rscale : codec_byte;
+  -- the codec's and renderer's requests to the converter
+  signal cn_start, cn_format, cn_negative, cn_kind : std_logic;
+  signal cn_source, cn_dest : unsigned(27 downto 0);
+  signal cn_len, cn_cap : unsigned(15 downto 0);
+  signal cn_value : unsigned(63 downto 0);
+  signal cn_scale, cn_dsep : codec_byte;
+  signal en_start, en_kind : std_logic;
+  signal en_value : unsigned(63 downto 0);
+  signal en_scale, en_dsep, en_decimals, en_width : codec_byte;
+  signal en_dest : unsigned(27 downto 0);
+  signal en_style : unsigned(3 downto 0);
+  signal sf_source : unsigned(27 downto 0) := (others => '0');   -- PARSE's text
+  signal sf_len : unsigned(15 downto 0) := (others => '0');
+  -- which client asked the converter: 0 the codec, 1 the renderer, 2 PARSE
+  signal nu_client : unsigned(1 downto 0) := "00";
+  signal x_job : unsigned(1 downto 0) := "00";      -- 0 codec, 1 renderer, 2 PARSE
+  signal x_unit_abort : std_logic := '0';
+  -- their RAM requests (held valid until ready)
+  signal co_rv, co_rw, ce_rv, ce_rw, nu_rv, nu_rw : std_logic;
+  signal co_ra, ce_ra, nu_ra : unsigned(27 downto 0);
+  signal co_wd, ce_wd, nu_wd : unsigned(63 downto 0);
+  signal co_be, ce_be, nu_be : std_logic_vector(7 downto 0);
+  signal co_rdy, ce_rdy, nu_rdy, sj_rerr : std_logic := '0';
+  signal sj_rdata : unsigned(63 downto 0) := (others => '0');
+  signal sj_who : unsigned(1 downto 0) := "00";     -- 0 codec, 1 renderer, 2 converter
+  signal sj_mode : boolean := false;                -- memory faults go to the unit
+  signal sj_fault : boolean := false;
+  signal sj_seen_done : boolean := false;
+  signal xblk : unsigned(27 downto 0) := (others => '0'); -- the parameter block
+  signal xp0, xp8, xp16, xp24 : unsigned(63 downto 0) := (others => '0');
+  -- FORMAT_CELLS
+  signal xp32, xp40 : unsigned(63 downto 0) := (others => '0');
+  signal fc_row, fc_col : unsigned(31 downto 0) := (others => '0');
+  signal fc_line, fc_cline : unsigned(27 downto 0) := (others => '0');   -- this row's lines
+  signal fc_x, fc_cx : unsigned(15 downto 0) := (others => '0');         -- the field's offsets
+  signal fc_w : unsigned(7 downto 0) := (others => '0');
+  signal fc_hdr : unsigned(63 downto 0) := (others => '0');
+  signal fc_cell : unsigned(27 downto 0) := (others => '0');
+  signal fc_changed, fc_numfmt : boolean := false;
+  signal fc_i : unsigned(8 downto 0) := (others => '0');
+  signal fc_tag : unsigned(24 downto 0) := (others => '0');               -- a buffered group
+  signal fc_buf : unsigned(63 downto 0) := (others => '0');
+  signal fc_bvalid : boolean := false;
+  signal fw_tag : unsigned(24 downto 0) := (others => '0');               -- the width list's group
+  signal fw_buf : unsigned(63 downto 0) := (others => '0');
+  signal fw_valid : boolean := false;
+
   function mid_of(lo, hi : integer) return integer is
   begin
     return (lo + hi) / 2;
   end function;
 
 begin
+
+  -- The codec units (their RAM through the adapter below, SJ_)
+  codec : entity work.shite_formula_codec
+    port map (
+      clock => clock162, reset => '0', start => co_start, decompile => co_decompile,
+      abort => x_unit_abort,
+      source => co_source, destination => co_dest, names => co_names,
+      source_length => co_len, output_capacity => co_cap,
+      formula_row => co_row, formula_column => co_col,
+      decimal_separator => co_dsep, argument_separator => co_asep,
+      busy => co_busy, done => co_done, error => co_error, error_position => co_epos,
+      result_length => co_rlen, host_calls => co_hosts,
+      ram_valid => co_rv, ram_write => co_rw, ram_address => co_ra, ram_wdata => co_wd,
+      ram_byte_enable => co_be, ram_ready => co_rdy, ram_error => sj_rerr, ram_rdata => sj_rdata,
+      number_start => cn_start, number_format => cn_format, number_negative => cn_negative,
+      number_source => cn_source, number_destination => cn_dest,
+      number_length => cn_len, number_capacity => cn_cap,
+      number_value => cn_value, number_kind => cn_kind, number_scale => cn_scale,
+      number_decimal_separator => cn_dsep,
+      number_done => nu_done, number_error => nu_error,
+      number_error_position => nu_epos, number_result_length => nu_rlen,
+      number_result_value => nu_rvalue, number_result_kind => nu_rkind,
+      number_result_scale => nu_rscale);
+
+  renderer : entity work.shite_cell_text
+    port map (
+      clock => clock162, reset => '0', start => ce_start, abort => x_unit_abort,
+      kind => ce_kind, value => ce_value, cell_format => ce_format,
+      text_source => ce_text, scratch => ce_scratch, destination => ce_dest,
+      text_length => ce_tlen, capacity => ce_cap,
+      width => ce_width, decimal_separator => co_dsep,
+      screen_codes => '1', upper_case => ce_upper,
+      busy => ce_busy, done => ce_done, error => ce_error, result_length => ce_rlen,
+      colour => ce_colour,
+      ram_valid => ce_rv, ram_write => ce_rw, ram_address => ce_ra, ram_wdata => ce_wd,
+      ram_byte_enable => ce_be, ram_ready => ce_rdy, ram_error => sj_rerr, ram_rdata => sj_rdata,
+      number_start => en_start, number_value => en_value, number_kind => en_kind,
+      number_scale => en_scale, number_decimal_separator => en_dsep,
+      number_destination => en_dest, number_style => en_style,
+      number_decimals => en_decimals, number_width => en_width,
+      number_done => nu_done, number_error => nu_error, number_result_length => nu_rlen);
+
+  -- the converter's job: from whichever client is asking (one at a time)
+  nu_start <= cn_start or en_start or nu_start_self;
+  converter_job : process (nu_client, cn_format, cn_negative, cn_source, cn_dest, cn_len, cn_cap,
+                           cn_value, cn_kind, cn_scale, cn_dsep, en_value, en_kind, en_scale, en_dsep,
+                           en_dest, en_style, en_decimals, en_width, sf_source, sf_len, co_dsep)
+  begin
+    -- (the codec's)
+    nu_format <= cn_format; nu_negative <= cn_negative; nu_source <= cn_source; nu_dest <= cn_dest;
+    nu_len <= cn_len; nu_cap <= cn_cap; nu_value <= cn_value; nu_kind <= cn_kind; nu_scale <= cn_scale;
+    nu_dsep <= cn_dsep; nu_display <= '0'; nu_style <= x"0"; nu_decimals <= x"02"; nu_width <= x"FF";
+    if nu_client = "01" then                  -- the renderer: display text, 512 bytes of scratch
+      nu_format <= '1'; nu_negative <= '0'; nu_source <= (others => '0'); nu_dest <= en_dest;
+      nu_len <= (others => '0'); nu_cap <= to_unsigned(512, 16); nu_value <= en_value;
+      nu_kind <= en_kind; nu_scale <= en_scale; nu_dsep <= en_dsep; nu_display <= '1';
+      nu_style <= en_style; nu_decimals <= en_decimals; nu_width <= en_width;
+    elsif nu_client = "10" then               -- PARSE: the literal
+      nu_format <= '0'; nu_negative <= '0'; nu_source <= sf_source; nu_dest <= (others => '0');
+      nu_len <= sf_len; nu_cap <= (others => '0'); nu_value <= (others => '0'); nu_kind <= '0';
+      nu_scale <= (others => '0'); nu_dsep <= co_dsep;
+    end if;
+  end process;
+
+  converter : entity work.shite_number_text
+    port map (
+      clock => clock162, reset => '0', start => nu_start, format => nu_format, negative => nu_negative,
+      source => nu_source, destination => nu_dest, input_length => nu_len, capacity => nu_cap,
+      value => nu_value, kind => nu_kind, scale => nu_scale, decimal_separator => nu_dsep,
+      display => nu_display, display_style => nu_style, display_decimals => nu_decimals,
+      display_width => nu_width,
+      busy => nu_busy, done => nu_done, error => nu_error, error_position => nu_epos,
+      result_length => nu_rlen, result_value => nu_rvalue, result_kind => nu_rkind,
+      result_scale => nu_rscale, abort => x_unit_abort,
+      ram_valid => nu_rv, ram_write => nu_rw, ram_address => nu_ra, ram_wdata => nu_wd,
+      ram_byte_enable => nu_be, ram_ready => nu_rdy, ram_error => sj_rerr, ram_rdata => sj_rdata);
 
   hr_cmd_valid <= hr_v;
   sd_cmd_valid <= sd_v;
@@ -599,12 +764,25 @@ begin
 
       l_rd <= list(l_ra);                 -- (the list RAM's read port)
 
+      -- the codec units: one-cycle pulses, and their jobs' ends latched
+      co_start <= '0'; ce_start <= '0'; nu_start_self <= '0';
+      co_rdy <= '0'; ce_rdy <= '0'; nu_rdy <= '0'; sj_rerr <= '0';
+      if (x_job = "00" and co_done = '1') or (x_job = "01" and ce_done = '1')
+        or (x_job = "10" and nu_done = '1') then
+        sj_seen_done <= true;
+      end if;
+      x_unit_abort <= abort;
+
       case st is
         when S_IDLE =>
           if start = '1' then
             err <= ERR_NONE; wr <= '0'; cnt_loaded <= false;
             r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
-            mem_read(x, D_RD0);
+            if op = x"43" or op = x"44" or op = x"45" or op = x"46" or op = x"47" then
+              xblk <= x; mem_read(x, X_P0);         -- (X: a parameter block)
+            else
+              mem_read(x, D_RD0);
+            end if;
           end if;
 
         when S_FINISH =>
@@ -626,7 +804,9 @@ begin
         when M_DEC =>
           st <= M_ISSUE;                    -- (the map decodes m_addr now)
         when M_ISSUE =>
-          if m_ok = '0' then
+          if m_ok = '0' and sj_mode then
+            sj_fault <= true; st <= mem_ret;      -- (to the unit: ram_error)
+          elsif m_ok = '0' then
             fault(ERR_ADDRESS);
           else
             m_words <= (others => '0'); m_wk <= (others => '0'); m_done_seen <= '0';
@@ -647,14 +827,18 @@ begin
               m_words <= m_words + 1;
             end if;
             if sd_cmd_done = '1' then m_done_seen <= '1'; end if;
-            if sd_error = '1' then fault(ERR_READ); end if;
+            if sd_error = '1' then
+              if sj_mode then sj_fault <= true; st <= mem_ret; else fault(ERR_READ); end if;
+            end if;
           else
             if hr_rdata_valid = '1' and m_write = '0' then
               m_rd <= hr_rdata & m_rd(63 downto 16);
               m_words <= m_words + 1;
             end if;
             if hr_cmd_done = '1' then m_done_seen <= '1'; end if;
-            if hr_error = '1' then fault(ERR_READ); end if;
+            if hr_error = '1' then
+              if sj_mode then sj_fault <= true; st <= mem_ret; else fault(ERR_READ); end if;
+            end if;
           end if;
           if m_done_seen = '1' and (m_write = '1' or m_words = 4) then
             st <= mem_ret;
@@ -2549,6 +2733,292 @@ begin
             d44(0) <= '1';
             st <= E_NEXTCELL;
           end if;
+
+        -- --------------------------------------------------------------
+        -- COMPILE, DECOMPILE, RENDER, PARSE (section 10): the parameter
+        -- block (32 bytes) and the descriptor's codec settings, the job on
+        -- its unit, the results back
+        when X_P0 =>
+          xp0 <= m_rd; desc <= m_rd(27 downto 0);
+          mem_read(xblk + 8, X_P8);
+        when X_P8 =>
+          xp8 <= m_rd; mem_read(xblk + 16, X_P16);
+        when X_P16 =>
+          xp16 <= m_rd; mem_read(xblk + 24, X_P24);
+        when X_P24 =>
+          xp24 <= m_rd;
+          if r_op = x"43" then mem_read(xblk + 32, FC_P32);   -- (FORMAT_CELLS: 48 bytes)
+          else mem_read(desc + 56, X_D56); end if;
+        when X_D56 =>                           -- names, separators (0: "." and ",")
+          co_names <= m_rd(27 downto 0);
+          if m_rd(39 downto 32) = 0 then co_dsep <= x"2E"; else co_dsep <= m_rd(39 downto 32); end if;
+          if m_rd(47 downto 40) = 0 then co_asep <= x"2C"; else co_asep <= m_rd(47 downto 40); end if;
+          st <= X_GO;
+        when X_GO =>
+          sj_seen_done <= false; sj_mode <= true; sj_ret <= X_RES;
+          st <= SJ_WAIT;
+          case r_op is
+            when x"44" | x"45" =>                 -- COMPILE / DECOMPILE
+              co_source <= xp0(59 downto 32); co_len <= xp8(15 downto 0); co_cap <= xp8(31 downto 16);
+              co_row <= xp8(51 downto 32); co_col <= xp16(23 downto 0); co_dest <= xp16(59 downto 32);
+              co_decompile <= r_op(0);
+              x_job <= "00"; nu_client <= "00"; co_start <= '1';
+            when x"46" =>                         -- RENDER
+              ce_kind <= xp0(35 downto 32);
+              ce_format <= xp16(63 downto 24) & xp0(47 downto 40) & xp16(15 downto 0);   -- (byte 2: the block's fixed point)
+              ce_width <= xp0(55 downto 48); ce_upper <= xp0(63);
+              ce_value <= xp8; ce_text <= xp8(27 downto 0); ce_tlen <= xp8(47 downto 32);
+              ce_dest <= xp24(27 downto 0); ce_scratch <= xp24(59 downto 32);
+              ce_cap <= x"00" & xp0(55 downto 48);
+              x_job <= "01"; nu_client <= "01"; ce_start <= '1';
+            when others =>                        -- PARSE: the literal (the front end: to come)
+              sf_source <= xp0(59 downto 32); sf_len <= xp8(15 downto 0);
+              x_job <= "10"; nu_client <= "10"; nu_start_self <= '1';
+          end case;
+        when X_RES =>
+          sj_mode <= false;
+          wr <= '1';
+          case r_op is
+            when x"44" | x"45" =>                 -- length, error, host calls, position (bytes 24-29)
+              if co_error = CODEC_OK then result <= x"0000" & co_rlen; else result <= (others => '0'); end if;
+              mem_write(xblk + 24, x"0000" & co_epos & co_hosts & co_error & co_rlen, "11111111", X_RES2);
+            when x"46" =>                         -- R[a]: the colour; a renderer error in bits 15-8
+              result <= x"0000" & ce_error & x"0" & ce_colour;
+              st <= X_RES2;
+            when others =>                        -- PARSE: the value (bytes 16-23), then its kind
+              if nu_error /= CODEC_OK then
+                result <= (others => '0');
+                mem_write(xblk + 16, (others => '0'), "11111111", X_RES3);
+              else
+                if nu_rkind = '1' then result <= x"00000003"; else result <= x"00000004"; end if;
+                mem_write(xblk + 16, nu_rvalue, "11111111", X_RES3);
+              end if;
+          end case;
+        when X_RES3 =>                          -- PARSE: kind, fixed point, style, prefix (24-27)
+          if nu_error /= CODEC_OK then
+            mem_write(xblk + 24, (others => '0'), "11111111", X_RES2);
+          elsif nu_rkind = '1' then
+            mem_write(xblk + 24, x"00000000" & x"0000" & nu_rscale & x"03", "11111111", X_RES2);
+          else
+            mem_write(xblk + 24, x"00000000" & x"0000" & nu_rscale & x"04", "11111111", X_RES2);
+          end if;
+        when X_RES2 =>                          -- a unit's memory fault or abort ends the job
+          if (r_op /= x"46" and r_op /= x"47" and co_error = CODEC_MEMORY)
+            or (r_op = x"46" and ce_error = CODEC_MEMORY) or (r_op = x"47" and nu_error = CODEC_MEMORY) then
+            err <= ERR_ADDRESS;
+          elsif (r_op /= x"46" and r_op /= x"47" and co_error = CODEC_ABORTED)
+            or (r_op = x"46" and ce_error = CODEC_ABORTED) or (r_op = x"47" and nu_error = CODEC_ABORTED) then
+            err <= ERR_ABORTED;
+          end if;
+          st <= S_FINISH;
+
+        -- --------------------------------------------------------------
+        -- FORMAT_CELLS (section 6): rows r1..r2, columns c1..c2 (widths from
+        -- the list), each field rendered (RENDER's unit), colours, CHANGED
+        when FC_P32 =>
+          xp32 <= m_rd; mem_read(xblk + 40, FC_P40);
+        when FC_P40 =>
+          xp40 <= m_rd; mem_read(desc, FC_D0);
+        when FC_D0 =>                           -- the descriptor: magic, row table
+          if m_rd(31 downto 0) /= x"31544853" then
+            format_fault(x"FFFFFFFF");
+          else
+            rowtab <= m_rd(59 downto 32); mem_read(desc + 8, FC_D8);
+          end if;
+        when FC_D8 =>
+          nrows <= m_rd(31 downto 0); ncols <= m_rd(63 downto 32);
+          mem_read(desc + 56, FC_D56);
+        when FC_D56 =>
+          if m_rd(39 downto 32) = 0 then co_dsep <= x"2E"; else co_dsep <= m_rd(39 downto 32); end if;
+          fc_row <= xp0(63 downto 32);
+          fc_line <= xp24(27 downto 0); fc_cline <= xp32(27 downto 0);
+          fc_bvalid <= false; fw_valid <= false;
+          st <= FC_ROWS;
+        when FC_ROWS =>
+          if fc_row > xp8(31 downto 0) or fc_row >= nrows then
+            st <= S_FINISH;
+          elsif abort = '1' then
+            fault(ERR_ABORTED);
+          else
+            fc_col <= xp8(63 downto 32); fc_x <= (others => '0'); fc_cx <= (others => '0');
+            st <= FC_COLS;
+          end if;
+        when FC_COLS =>                          -- the column's width (a byte of the list)
+          if fc_col > xp16(31 downto 0) then
+            fc_row <= fc_row + 1;
+            fc_line <= fc_line + xp24(47 downto 32); fc_cline <= fc_cline + xp32(47 downto 32);
+            st <= FC_ROWS;
+          else
+            ad := xp16(59 downto 32) + resize(fc_col - xp8(63 downto 32), 28);
+            if fw_valid and ad(27 downto 3) = fw_tag then
+              fc_w <= fw_buf(to_integer(ad(2 downto 0)) * 8 + 7 downto to_integer(ad(2 downto 0)) * 8);
+              st <= FC_WID;
+            else
+              fw_tag <= ad(27 downto 3);
+              mem_read(ad, FC_WFILL);
+            end if;
+          end if;
+        when FC_WFILL =>
+          fw_buf <= m_rd; fw_valid <= true;
+          st <= FC_COLS;
+        when FC_WID =>
+          if fc_w = 0 then
+            fc_col <= fc_col + 1; st <= FC_COLS;   -- (a hidden column)
+          else
+            q_row <= fc_row; q_col <= fc_col; lk_ret <= FC_CELLS; st <= LK_START;
+          end if;
+        when FC_CELLS =>                         -- the cell (none: blank)
+          fc_cell <= q_addr;
+          ce_kind <= x"0"; ce_value <= (others => '0'); ce_format <= (others => '0');
+          ce_tlen <= (others => '0'); fc_changed <= false; fc_numfmt <= false;
+          if q_col >= ncols or q_addr = 0 then
+            if xp24(56) = '1' then st <= FC_NEXT; else st <= FC_RENDER; end if;
+          else
+            mem_read(q_addr, FC_H);
+          end if;
+        when FC_H =>                            -- its header: kind, CHANGED
+          fc_hdr <= m_rd;
+          fc_changed <= m_rd(28) = '1';
+          if xp24(56) = '1' and m_rd(28) = '0' then
+            st <= FC_NEXT;                        -- (only cells with CHANGED)
+          else
+            mem_read(fc_cell + 8, FC_G8);
+          end if;
+        when FC_G8 =>                           -- +8: a format, a value, or an error code
+          case fc_hdr(27 downto 24) is
+            when K_EMPTY =>
+              ce_kind <= x"0"; ce_format <= m_rd; st <= FC_RENDER;
+            when K_ERROR =>
+              ce_kind <= x"6"; ce_value <= m_rd; st <= FC_RENDER;
+            when K_F64 | K_I64 | K_I32 =>
+              ce_kind <= fc_hdr(27 downto 24); ce_value <= m_rd;
+              if fc_hdr(30) = '1' then mem_read(fc_cell + 16, FC_G16); else st <= FC_RENDER; end if;
+            when others =>                        -- TEXT, FORMULA, UNCOMPILED: the format, then +16
+              ce_format <= m_rd; mem_read(fc_cell + 16, FC_G16);
+          end case;
+        when FC_G16 =>
+          case fc_hdr(27 downto 24) is
+            when K_F64 | K_I64 | K_I32 =>         -- its format
+              ce_format <= m_rd; fc_numfmt <= true; st <= FC_RENDER;
+            when K_TEXT =>                        -- length (16-17), text at +18
+              ce_kind <= x"1"; ce_tlen <= m_rd(15 downto 0); ce_text <= fc_cell + 18; st <= FC_RENDER;
+            when K_UNCOMPILED =>                  -- length (20-21), text at +24
+              ce_kind <= x"7"; ce_tlen <= m_rd(47 downto 32); ce_text <= fc_cell + 24; st <= FC_RENDER;
+            when others =>                        -- FORMULA: the result (16-23), then its kind (24)
+              ce_value <= m_rd; mem_read(fc_cell + 24, FC_G24);
+          end case;
+        when FC_G24 =>
+          st <= FC_RENDER;
+          fc_numfmt <= true;
+          case m_rd(3 downto 0) is
+            when K_F64 | K_I64 | K_I32 => ce_kind <= m_rd(3 downto 0);
+            when K_ERROR => ce_kind <= x"6"; fc_numfmt <= false;
+            when K_TEXT =>                        -- its text: after the bytecode
+              ce_kind <= x"1"; ce_tlen <= ce_value(15 downto 0); fc_numfmt <= false;
+              ce_text <= fc_cell + 32 + resize(m_rd(31 downto 16), 28);
+            when others => ce_kind <= x"0"; fc_numfmt <= false;
+          end case;
+        when FC_RENDER =>                       -- one field (char size 2: into scratch, then expanded)
+          ce_width <= fc_w; ce_cap <= x"00" & fc_w; ce_upper <= xp24(58);
+          ce_scratch <= xp40(27 downto 0);
+          if xp24(49 downto 48) = "10" then
+            ce_dest <= xp40(27 downto 0) + 512;
+          else
+            ce_dest <= fc_line + resize(fc_x, 28);
+          end if;
+          x_job <= "01"; nu_client <= "01"; ce_start <= '1';
+          sj_seen_done <= false; sj_mode <= true; sj_ret <= FC_DONE1;
+          st <= SJ_WAIT;
+        when FC_DONE1 =>
+          sj_mode <= false;
+          if ce_error = CODEC_MEMORY then err <= ERR_ADDRESS; st <= S_FINISH;
+          elsif ce_error = CODEC_ABORTED then err <= ERR_ABORTED; st <= S_FINISH;
+          elsif xp24(49 downto 48) = "10" then
+            fc_i <= (others => '0'); fc_bvalid <= false; st <= FC_EXP;
+          else
+            fc_i <= (others => '0'); st <= FC_COLR;
+          end if;
+        when FC_EXP =>                          -- 16-bit characters: the code, then 0
+          if fc_i = resize(fc_w, 9) then
+            fc_i <= (others => '0'); fc_bvalid <= false; st <= FC_COLR;
+          else
+            ad := xp40(27 downto 0) + 512 + resize(fc_i, 28);
+            if fc_bvalid and ad(27 downto 3) = fc_tag then
+              e := (others => '0');
+              e(7 downto 0) := fc_buf(to_integer(ad(2 downto 0)) * 8 + 7 downto to_integer(ad(2 downto 0)) * 8);
+              ad := fc_line + resize(fc_x, 28) + resize(fc_i & '0', 28);
+              -- (the two bytes at ad: within one group, ad being even)
+              mem_write(ad, shift_left(e, to_integer(ad(2 downto 0)) * 8),
+                        std_logic_vector(shift_left(unsigned'(x"03"), to_integer(ad(2 downto 0)))), FC_EXP2);
+            else
+              fc_tag <= ad(27 downto 3);
+              mem_read(ad, FC_EFILL);
+            end if;
+          end if;
+        when FC_EFILL =>
+          fc_buf <= m_rd; fc_bvalid <= true;
+          st <= FC_EXP;
+        when FC_EXP2 =>
+          fc_i <= fc_i + 1;
+          st <= FC_EXP;
+        when FC_COLR =>                         -- the colour plane: one byte a character
+          if xp32(27 downto 0) = 0 or fc_i = resize(fc_w, 9) then
+            st <= FC_CLR;
+          else
+            ad := fc_cline + resize(fc_cx, 28) + resize(fc_i, 28);
+            e := (others => '0');
+            if fc_numfmt and ce_kind /= x"0" and ce_format /= 0 then
+              e(7 downto 0) := x"0" & ce_colour;
+            else
+              e(7 downto 0) := xp32(55 downto 48);
+            end if;
+            fc_i <= fc_i + 1;
+            mem_write(ad, shift_left(e, to_integer(ad(2 downto 0)) * 8),
+                      std_logic_vector(shift_left(unsigned'(x"01"), to_integer(ad(2 downto 0)))), FC_COLR);
+          end if;
+        when FC_CLR =>                          -- CHANGED cleared (flags bit 1)
+          if xp24(57) = '1' and fc_changed then
+            e := (others => '0');
+            e(31 downto 24) := fc_hdr(31 downto 29) & '0' & fc_hdr(27 downto 24);
+            mem_write(fc_cell, e, "00001000", FC_NEXT);
+          else
+            st <= FC_NEXT;
+          end if;
+        when FC_NEXT =>
+          if xp24(49 downto 48) = "10" then fc_x <= fc_x + (fc_w & '0'); else fc_x <= fc_x + fc_w; end if;
+          fc_cx <= fc_cx + fc_w;
+          fc_col <= fc_col + 1;
+          fc_bvalid <= false;
+          st <= FC_COLS;
+
+        -- --------------------------------------------------------------
+        -- The units' RAM: whichever holds ram_valid (one at a time) gets one
+        -- eight-byte transaction; ready (and ram_error) back for one cycle
+        when SJ_WAIT =>
+          sj_fault <= false;
+          if sj_seen_done then
+            st <= sj_ret;
+          elsif nu_rv = '1' then
+            sj_who <= "10";
+            if nu_rw = '1' then mem_write(nu_ra, nu_wd, nu_be, SJ_DONE); else mem_read(nu_ra, SJ_DONE); end if;
+          elsif co_rv = '1' then
+            sj_who <= "00";
+            if co_rw = '1' then mem_write(co_ra, co_wd, co_be, SJ_DONE); else mem_read(co_ra, SJ_DONE); end if;
+          elsif ce_rv = '1' then
+            sj_who <= "01";
+            if ce_rw = '1' then mem_write(ce_ra, ce_wd, ce_be, SJ_DONE); else mem_read(ce_ra, SJ_DONE); end if;
+          end if;
+        when SJ_DONE =>
+          sj_rdata <= m_rd;
+          if sj_fault then sj_rerr <= '1'; end if;
+          case sj_who is
+            when "00" => co_rdy <= '1';
+            when "01" => ce_rdy <= '1';
+            when others => nu_rdy <= '1';
+          end case;
+          st <= SJ_GAP;
+        when SJ_GAP =>                          -- (the unit sees ready now, and moves on)
+          st <= SJ_WAIT;
 
         when others =>
           st <= S_IDLE;

@@ -188,6 +188,12 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/pixel_fifo.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_codec_pkg.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_number_pkg.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_number_integer.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_number_text.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_formula_codec.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_cell_text.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ssnail_top.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shite.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ssnail_fpipe.vhdl"]"\
@@ -659,6 +665,30 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/iomapper.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_codec_pkg.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_number_pkg.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_number_integer.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_number_text.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_formula_codec.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_cell_text.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

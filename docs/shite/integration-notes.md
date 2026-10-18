@@ -20,11 +20,30 @@ of the codec units (`shite_formula_codec`, `shite_number_text`,
    - style 5 (text): general, aligned left by default (please check the
      renderer aligns it left);
    - prefix / suffix characters are screen codes, as built.
-4. **RENDER and FORMAT_CELLS take a 512-byte scratch area** (RENDER's
+4. **RENDER takes a 512-byte scratch area, FORMAT_CELLS 1 KB** (RENDER's
    parameter block offset 28, FORMAT_CELLS' offset 40), for the renderer's
    raw number text.
 
-## The execution unit's side (in progress)
+## Done (execution unit side), 2026-10-18
+
+The units are wired into `shite.vhdl` and run as SSNAIL instructions:
+COMPILE, DECOMPILE, RENDER, PARSE (the literal) and FORMAT_CELLS, sharing
+one converter, through an adapter from their RAM handshake to the
+execution unit's eight-byte LUMP transaction (a memory fault reaches the
+unit as `ram_error`; SSNAIL's stop request is their abort).
+`tb_shite_step8` runs 32 of `tests/test_shite_codec.py`'s compile and
+decompile jobs, RENDER, PARSE and FORMAT_CELLS (character sizes 1 and 2,
+colours, only-CHANGED and clearing) and checks the bytes each writes.
+
+Conformance points found on the way (README 6), for the renderer:
+
+- Scientific display text should have the exponent's sign and at least
+  two digits (`1.2E+06`); the renderer writes `1.2E6`.  (Canonical
+  formula numbers keep their own `1.2E6` style.)
+- Errors are centred by default (README 6, "What a cell shows"); the
+  renderer's notes say other kinds default to left.
+
+## The execution unit's side (as planned)
 
 - Dispatch of SSNAIL opcodes $43-$47 in `shite.vhdl`: reading each
   parameter block, driving the codec / renderer / converter job ports,
