@@ -42,6 +42,12 @@ static uint8_t native_controller, cache_control, stream_open, last_frame;
 static uint16_t frames, target_frames, window_mask;
 static uint32_t first_sector, frame_us;
 
+static void print_cpu_clock(void)
+{
+  printf("%lu.%03lu MHZ", (unsigned long)(SD_BENCH_CPU_HZ / 1000000UL),
+         (unsigned long)((SD_BENCH_CPU_HZ % 1000000UL) / 1000UL));
+}
+
 static uint32_t le32(const uint8_t *p)
 {
   return (uint32_t)p[0] | ((uint32_t)p[1] << 8)
@@ -245,7 +251,9 @@ int main(void)
   }
   frame_us = per_frame * 1000UL / (SD_BENCH_CPU_HZ / 1000UL);
   target_frames = (SD_BENCH_SECONDS * 1000000UL + frame_us - 1) / frame_us;
-  printf("CPU %lu HZ; %lu US/FRAME\n", SD_BENCH_CPU_HZ, (unsigned long)frame_us);
+  printf("CPU ");
+  print_cpu_clock();
+  printf("; %lu US/FRAME\n", (unsigned long)frame_us);
   if (!get_partition())
     goto out;
   for (copy = 0; copy != 2; ++copy) {
@@ -254,7 +262,9 @@ int main(void)
            PEEK(0xd680) >> 7,
            native_controller ? (PEEK(0xd686) & 2 ? "4-BIT" : "SPI") : "SPI",
            native_controller ? (PEEK(0xd686) & 4 ? " HS" : " DS") : "");
-    printf("LBA %lu; %lu HZ\n", (unsigned long)first_sector, SD_BENCH_CPU_HZ);
+    printf("FAT32 LBA %lu; CPU ", (unsigned long)first_sector);
+    print_cpu_clock();
+    puts("");
     puts(copy ? "SD BUFFER + 512-BYTE DMA TO RAM" : "SD CARD TO SECTOR BUFFER");
     puts("TEST          READS   MS    KIB/S");
     cache_control = 0;
@@ -272,7 +282,7 @@ int main(void)
     }
     if (native_controller) {
       if (!benchmark("META $0B", SCATTER, 0x0b, copy, 0)
-          || !benchmark("MULTI 07/08/09", MULTI, 0x02, copy, 0))
+          || !benchmark("MULTI 07--09", MULTI, 0x02, copy, 0))
         goto out;
     }
     if (!copy) {

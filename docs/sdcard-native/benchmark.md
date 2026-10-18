@@ -19,6 +19,9 @@ The program reads the MBR and uses a power-of-two window of up to 16384
 sectors (8 MiB) inside the first FAT32 partition. All benchmark reads stay
 inside that partition. It stops if the MBR, partition bounds or read status
 are invalid. There are **no card-write commands or write-gate commands**.
+The `FAT32 LBA` value is the partition's starting 512-byte sector number;
+2048 means a 1 MiB offset from the start of the card. The header's CPU clock
+is the configured timing-calibration frequency, displayed in MHz.
 
 There are two result pages:
 
