@@ -184,6 +184,20 @@ latency.
   off; LRU eviction order; random replacement; init emptying the cache.
 - `tb_sdcardio_native` passes with the cache in.
 
+**Card cleanup boundary (2026-10-18).** The upstream read completes when
+its sector arrives; the card can still be closing CMD12 or sending tail
+clocks. A free command mailbox is not an idle card. Cache misses and normal
+pass-through commands now wait for downstream `busy=0`, and cache control
+waits before switching away from downstream status. INIT can still abort,
+and MORE/STOP can still control an active transfer.
+
+`tb_sd_cache -gG_CLOSE_TEST=true -gG_HS_OK=false` reproduces the old race:
+back-to-back misses for sectors 7 and 15 failed at default speed while the
+first read was finishing. The regression also covers cache off/on followed
+by another read. `G_ROM_TEST=true -gG_LINES=16` reads a 128 KiB ROM with FAT
+lookups and software copy delays. `G_NAC=6 -gG_NAC_MULTI=0` tests early data
+and blocks with no idle clocks between them.
+
 **What it showed:** a program reading sequentially right behind a miss waits
 about 26 µs per sector at 40.5 MHz, because the fill only runs at card speed.
 Read-ahead into the next line (§2.3) is what removes that.

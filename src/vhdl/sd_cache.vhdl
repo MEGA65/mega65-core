@@ -511,20 +511,23 @@ begin
             sec := c_addr;
             lookup(tag, used, sec, hit, idx);
             if c_code = C_CACHE then
-              -- cache control (any fill has been stopped)
-              case c_arg(1 downto 0) is
-                when "00" => enabled <= '0';
-                             flush_all;
-                when "01" => enabled <= '1';
-                when "10" => flush_all;
-                when others => lru <= c_arg(4);
-              end case;
-              pt      <= '0';
-              o_busy  <= '0';
-              o_error <= '0';
-              o_err   <= (others => '0');
-              u_ready <= '1';
-              st      <= T_IDLE;
+              -- A completed fill may still be closing CMD12 / tail clocks.
+              -- Do not hide that busy period when changing to own status.
+              if dfree = '1' and d_busy = '0' then
+                case c_arg(1 downto 0) is
+                  when "00" => enabled <= '0';
+                               flush_all;
+                  when "01" => enabled <= '1';
+                  when "10" => flush_all;
+                  when others => lru <= c_arg(4);
+                end case;
+                pt      <= '0';
+                o_busy  <= '0';
+                o_error <= '0';
+                o_err   <= (others => '0');
+                u_ready <= '1';
+                st      <= T_IDLE;
+              end if;
             elsif c_code = C_READ and c_count = 1 and enabled = '1' then
               pt      <= '0';
               o_busy  <= '1';
@@ -563,7 +566,8 @@ begin
               end if;
             else
               -- straight through
-              if dfree = '1' then
+              if dfree = '1' and (d_busy = '0' or c_code = C_INIT
+                                   or c_code = C_MORE or c_code = C_STOP) then
                 pt <= '1';
                 if c_code = C_WRITE then
                   pt_wr   <= '1';
@@ -609,7 +613,10 @@ begin
 
           -- read from the requested sector to the end of the line
           when T_MISS_CMD =>
-            if dfree = '1' then
+            -- cmd_ready only means the mailbox is free. A first-sector
+            -- completion is published upstream before the card finishes its
+            -- stop/tail sequence; wait for that sequence before a new read.
+            if dfree = '1' and d_busy = '0' then
               if used(r_line) = '0' or tag(r_line) /= c_addr(31 downto 3) then
                 tag(r_line)  <= c_addr(31 downto 3);
                 used(r_line) <= '1';

@@ -344,7 +344,9 @@ begin
           end loop;
           exit when stopped;
           out_edge; drive("1111");
-          out_edge; dat_drv <= transport "ZZZZ" after G_TOH;
+          if not rd_multi or G_NAC_MULTI /= 0 then
+            out_edge; dat_drv <= transport "ZZZZ" after G_TOH;
+          end if;
           if rd_small then
             -- the switch takes effect after the status
             hs_mode <= G_HS_OK and sw_hs;

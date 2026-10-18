@@ -11,6 +11,15 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity tb_sd_cache is
+  generic (
+    G_LINES : positive := 4;
+    G_ROM_TEST : boolean := false;
+    G_ROM_COUNT : positive := 256;
+    G_CLOSE_TEST : boolean := false;
+    G_NAC : natural := 2000;
+    G_HS_OK : boolean := true;
+    G_NAC_MULTI : natural := 2
+    );
 end entity;
 
 architecture tb of tb_sd_cache is
@@ -18,7 +27,7 @@ architecture tb of tb_sd_cache is
   constant T162  : time := 6172 ps;
   constant TCPU  : time := 4 * T162;
   constant BOARD : time := 1500 ps;
-  constant LINES : natural := 4;
+  constant LINES : natural := G_LINES;
 
   function pattern(b : natural; i : natural) return unsigned is
   begin
@@ -168,7 +177,8 @@ begin
   -- a slow card (access latency ~50 us at 40.5 MHz), with one CRC error in
   -- the background fill of the first line
   card : entity work.sdcard_native_model
-    generic map (G_NAC => 2000, G_CRC_ERR_BLK => 99)
+    generic map (G_NAC => G_NAC, G_NAC_MULTI => G_NAC_MULTI,
+                 G_HS_OK => G_HS_OK, G_CRC_ERR_BLK => 99)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   host : process (cpuclock)
@@ -272,6 +282,35 @@ begin
     wait for 100 ns;
     wait until u_card_ready = '1' and u_busy = '0' for 40 ms;
     check(u_card_ready = '1' and cache_on = '1', "init, cache on");
+
+    if G_CLOSE_TEST then
+      read1(7, false, "last sector of first line", t);
+      read1(15, false, "last sector of next line before card cleanup finishes", t);
+      command(8, 0, 0, 0);
+      check(d_busy = '0', "cache control waits for card cleanup");
+      read1(23, false, "uncached read after cache control", t);
+      command(8, 0, 0, 1);
+      read1(31, false, "cached read after cache control", t);
+      report "ALL CLOSE TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
+
+    if G_ROM_TEST then
+      -- A full 128 KiB ROM crosses more lines than the hardware cache holds.
+      -- Let the card finish its fill while software copies each sector, and
+      -- interleave FAT lookups at cluster boundaries as Hyppo does.
+      for n in 0 to G_ROM_COUNT - 1 loop
+        if n mod 8 = 0 then
+          read1(2616 + 109665 / 128 + n / 1024, false, "ROM FAT lookup", t);
+        end if;
+        read1(922520 + n, false, "ROM sector " & integer'image(n), t);
+        wait for 150 us;
+      end loop;
+      report "ALL ROM TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
 
     -- a miss, then the same sector again
     read1(96, false, "sector 96 (miss)", t_miss);
