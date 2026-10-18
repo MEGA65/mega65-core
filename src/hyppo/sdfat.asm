@@ -286,11 +286,19 @@ sd_rws_checkbusy:
 sd_rws_checksuccess:
         jsr sdtimeoutreset                        ;; wait for sector to be read/written
 sd_rws_checksuccessloop:
+        ;; Legacy controllers deliberately leave BUSY set after an error.
+        ;; Notice that error immediately instead of waiting for the timeout.
+        bit $d680
+        bvs sd_rws_retry
         jsr sdreadytest
         bcs sd_rws_success                        ;; yes, sdcard is ready
         bne sd_rws_checksuccessloop               ;; not ready, and Z=0, so still busy -> check if ready again
         beq sd_rws_retry                          ;; not ready, and Z=1, so not busy any more -> timeout, so reread sector
 sd_rws_success:
+        ;; Idle does not imply success: a completed transfer can report a
+        ;; command/data error. Reset and retry rather than copying its buffer.
+        bit $d680
+        bvs sd_rws_retry
         sec
         rts
 

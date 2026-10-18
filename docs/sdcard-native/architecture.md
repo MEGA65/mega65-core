@@ -131,6 +131,12 @@ and the legacy controller's `$FE` data token bypass this warning.
 `src/hyppo/sd_spi_mode.test` exercises mode detection and key acknowledgement
 using `src/tools/hyppotest` after assembling Hyppo.
 
+Hyppo checks `$D680.6` both while polling and after ready. An error takes
+the existing reset/retry path immediately, including when legacy BUSY is
+deliberately stuck. A failed sector buffer is never accepted as a successful
+read. `src/hyppo/sd_read_errors.test` covers idle success, idle error, and
+error with BUSY still asserted.
+
 A [read-only benchmark](benchmark.md) builds as
 `src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native
 cache, metadata and multi-sector commands, with and without a RAM copy.
