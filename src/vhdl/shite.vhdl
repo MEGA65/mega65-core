@@ -93,7 +93,11 @@ architecture rtl of shite is
     -- formula evaluation: the byte reader, operands, operators, the result
     BF, BF_FILL, E_NEXT, E_OP, E_IMM, E_IMM2, E_I8, E_I32, E_I64, E_SREF, E_LREF, E_RESOLVE,
     VL_HDR, VL_V8, VL_FMT, VL_F8, VL_F16, VL_F24,
-    E_BIN, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
+    E_PUSHV, E_STR, E_HOST, E_RECT1, E_RECT2, E_CELLS, E_CELLS2, E_CALL1, E_CALL2,
+    RF_START, RF_B0, VR_START, VR_B0, VR_B1,
+    AG_START, AG_ARG, AG_NEXTARG, AG_RROW, AG_RROW2, AG_RROW3, AG_TW, AG_TW2, AG_VISITED,
+    AG_LNEXT, AG_LREF, AG_LTAKE, AG_TAKE, AG_SUMR, AG_MMR, AG_FINISH, AG_AVGR, AG_RESULT,
+    E_BIN, E_BINW, BO_START, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
     E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- the shared multiplier and divider
     MU_START, MU_STEP, DV_START, DV_STEP, DV_ROUND,
@@ -110,7 +114,8 @@ architecture rtl of shite is
     L_WAIT
     );
   signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
-  signal fp_ret, fn_ret, cv_ret : state_t := S_IDLE;
+  signal fp_ret, fn_ret, cv_ret, bo_ret : state_t := S_IDLE;
+  signal vl_ret, rf_ret, vr_ret, tk_ret : state_t := S_IDLE;
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -215,7 +220,8 @@ architecture rtl of shite is
   signal t_v : unsigned(63 downto 0) := (others => '0');
   signal t_k : unsigned(7 downto 0) := (others => '0');
   signal t_ref : std_logic := '0';
-  type est_t is array (0 to 31) of unsigned(75 downto 0);   -- kind, ref, k, value
+  type est_t is array (0 to 31) of unsigned(107 downto 0);  -- aux, kind, ref, k, value
+  signal t_aux : unsigned(31 downto 0) := (others => '0');
   signal est : est_t;
   signal esp : natural range 0 to 32 := 0;
   -- a reference being looked up, and the value it gives
@@ -245,6 +251,42 @@ architecture rtl of shite is
   signal xa, xb : unsigned(63 downto 0) := (others => '0');
   signal x_k : unsigned(7 downto 0) := (others => '0');      -- the result's fixed point
   signal sc_b : boolean := false;                             -- scaling b (else a)
+  -- the value subroutine's result
+  signal vr_kind : unsigned(2 downto 0) := (others => '0');
+  signal vr_v : unsigned(63 downto 0) := (others => '0');
+  signal vr_k : unsigned(7 downto 0) := (others => '0');
+  signal vr_ref : std_logic := '0';
+  -- a one- or two-byte count / identifier (VR_START)
+  signal vl_n : unsigned(15 downto 0) := (others => '0');
+  -- RECT's first corner; CELLS' list
+  signal rc_r1, rc_c1 : unsigned(31 downto 0) := (others => '0');
+  signal cl_pc, cl_n : unsigned(15 downto 0) := (others => '0');
+  -- aggregates: the function, its arguments, the running values
+  constant VK_R : unsigned(2 downto 0) := "101";   -- a range
+  constant VK_L : unsigned(2 downto 0) := "110";   -- a cell list
+  signal ag_fid, ag_argc : unsigned(15 downto 0) := (others => '0');
+  signal ag_i : natural range 0 to 32 := 0;
+  signal ag_cnt : unsigned(31 downto 0) := (others => '0');
+  signal ag_ferr, ag_fromc : boolean := false;
+  signal acc_kind, best_kind : unsigned(2 downto 0) := (others => '0');
+  signal acc_v, best_v : unsigned(63 downto 0) := (others => '0');
+  signal acc_k, best_k : unsigned(7 downto 0) := (others => '0');
+  signal ag_row, ag_rlast, ag_c1, ag_c2 : unsigned(31 downto 0) := (others => '0');
+  signal ag_blk : unsigned(27 downto 0) := (others => '0');
+  signal ag_pc : unsigned(15 downto 0) := (others => '0');
+  signal ag_ln : unsigned(15 downto 0) := (others => '0');
+  -- the range walk: an in-order walk of a row's tree, at most 32 deep
+  type tw_t is array (0 to 31) of unsigned(53 downto 0);   -- depth, right, column, granule
+  signal tws : tw_t;
+  signal tw_sp : natural range 0 to 32 := 0;
+  signal tw_cur : unsigned(11 downto 0) := (others => '0');
+  signal tw_d : unsigned(5 downto 0) := (others => '0');
+  signal tw_nxt : unsigned(11 downto 0) := (others => '0');
+  signal tw_nd : unsigned(5 downto 0) := (others => '0');
+  -- the binary-operator subroutine's operands and result
+  signal bo_ka, bo_kb, br_kind : unsigned(2 downto 0) := (others => '0');
+  signal bo_va, bo_vb, br_v : unsigned(63 downto 0) := (others => '0');
+  signal bo_fa, bo_fb, br_k, bo_op : unsigned(7 downto 0) := (others => '0');
   signal dv_raw : boolean := false;                           -- the divider: no rounding
 
   -- F64 (IEEE 754 double, round to nearest even, subnormals flushed to
@@ -378,7 +420,7 @@ begin
     variable ka, kb : unsigned(2 downto 0);
     variable va, vb : unsigned(63 downto 0);
     variable sum : unsigned(64 downto 0);
-    variable ent : unsigned(75 downto 0);
+    variable ent : unsigned(107 downto 0);
     variable lt, eq : boolean;
     variable fa, fb : unsigned(7 downto 0);
     variable kk : unsigned(6 downto 0);
@@ -405,15 +447,16 @@ begin
     end procedure;
     -- RECALC's stack
     procedure push(k : unsigned(2 downto 0); v : unsigned(63 downto 0);
-                   fx : unsigned(7 downto 0); rf : std_logic; nxt : state_t) is
+                   fx : unsigned(7 downto 0); rf : std_logic; nxt : state_t;
+                   ax : unsigned(31 downto 0) := x"00000000") is
     begin
       if esp = 32 then
         t_kind <= VK_E; t_v <= x"00000000000000" & E_STACK; esp <= 1; st <= E_STORE;
       else
         if esp > 0 then
-          est(esp - 1) <= t_kind & t_ref & t_k & t_v;
+          est(esp - 1) <= t_aux & t_kind & t_ref & t_k & t_v;
         end if;
-        t_kind <= k; t_v <= v; t_k <= fx; t_ref <= rf;
+        t_kind <= k; t_v <= v; t_k <= fx; t_ref <= rf; t_aux <= ax;
         esp <= esp + 1;
         st <= nxt;
       end if;
@@ -424,6 +467,11 @@ begin
       t_kind <= VK_E; t_v <= x"00000000000000" & code; esp <= 1; st <= E_STORE;
     end procedure;
     -- one byte of bytecode (bf_byte), then nxt
+    -- the value subroutine's result
+    procedure vr_set(k : unsigned(2 downto 0); v : unsigned(63 downto 0); fx : unsigned(7 downto 0)) is
+    begin
+      vr_kind <= k; vr_v <= v; vr_k <= fx; st <= vl_ret;
+    end procedure;
     procedure fetch(nxt : state_t) is
     begin
       fb_ret <= nxt; st <= BF;
@@ -949,7 +997,7 @@ begin
           cur_op <= bf_byte;
           if bf_byte(7) = '1' then                -- a short reference
             imm <= x"00000000000000" & bf_byte; fb_i <= x"1"; fb_n <= x"4"; fb_be <= true;
-            imm_ret <= E_SREF; st <= E_IMM;
+            rf_ret <= E_RESOLVE; imm_ret <= E_SREF; st <= E_IMM;
           else
             case bf_byte is
               when x"00" =>                       -- END
@@ -965,7 +1013,23 @@ begin
                 imm_ret <= E_I64; st <= E_IMM;
               when x"07" =>                       -- REF (the long form)
                 imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
-                imm_ret <= E_LREF; st <= E_IMM;
+                rf_ret <= E_RESOLVE; imm_ret <= E_LREF; st <= E_IMM;
+              when x"05" =>                       -- STR: skipped (text: later)
+                vr_ret <= E_STR; st <= VR_START;
+              when x"08" =>                       -- RECT
+                rf_ret <= E_RECT1; st <= RF_START;
+              when x"09" =>                       -- HOSTCALL: the text skipped
+                vr_ret <= E_HOST; st <= VR_START;
+              when x"0C" =>                       -- CALL
+                vr_ret <= E_CALL1; st <= VR_START;
+              when x"0D" =>                       -- CELLS
+                vr_ret <= E_CELLS; st <= VR_START;
+              when x"14" | x"17" =>               -- POW, CONCAT (not yet): two operands
+                if esp < 2 then e_abort(E_STACK);
+                else esp <= esp - 1; t_kind <= VK_E; t_v <= x"00000000000000" & E_NAME; t_ref <= '0'; st <= E_NEXT; end if;
+              when x"16" =>                       -- PCT (not yet): one operand
+                if esp < 1 then e_abort(E_STACK);
+                else t_kind <= VK_E; t_v <= x"00000000000000" & E_NAME; t_ref <= '0'; st <= E_NEXT; end if;
               when x"10" | x"11" | x"12" | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
                 st <= E_BIN;
               when x"15" =>
@@ -978,8 +1042,7 @@ begin
               when x"04" =>                       -- F64
                 imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"8"; fb_be <= false;
                 imm_ret <= E_STF; st <= E_IMM;
-              when x"05" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
-                 | x"14" | x"16" | x"17" =>
+              when x"0A" | x"0B" =>               -- JZ, JMP (not yet)
                 e_abort(E_NAME);
               when others =>
                 e_abort(E_STACK);
@@ -999,25 +1062,27 @@ begin
           if imm(14) = '1' then cc := resize(imm(13 downto 0), 32);
           else cc := (resize(hdr(23 downto 0), 32) + sext14(imm(13 downto 0))) and x"00FFFFFF"; end if;
           q_row <= rr; q_col <= cc;
-          st <= E_RESOLVE;
+          st <= rf_ret;
         when E_LREF =>
           if imm(47) = '1' then rr := resize(imm(43 downto 24), 32);
           else rr := (row + resize(imm(43 downto 24), 32)) and x"000FFFFF"; end if;
           if imm(46) = '1' then cc := resize(imm(23 downto 0), 32);
           else cc := (resize(hdr(23 downto 0), 32) + resize(imm(23 downto 0), 32)) and x"00FFFFFF"; end if;
           q_row <= rr; q_col <= cc;
-          st <= E_RESOLVE;
+          st <= rf_ret;
         when E_RESOLVE =>
           if q_row >= nrows or q_col >= ncols then
             push(VK_E, x"00000000000000" & E_REF, x"00", '1', E_NEXT);
           else
-            lk_ret <= VL_HDR; st <= LK_START;
+            vl_ret <= E_PUSHV; lk_ret <= VL_HDR; st <= LK_START;
           end if;
+        when E_PUSHV =>                         -- a reference's value, pushed
+          push(vr_kind, vr_v, vr_k, '1', E_NEXT);
 
         -- the referenced cell's value (q_addr; 0: no cell)
         when VL_HDR =>
           if q_addr = 0 then
-            push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+            vr_set(VK_Z, (others => '0'), x"00");
           else
             mem_read(q_addr, VL_V8);
           end if;
@@ -1025,43 +1090,43 @@ begin
           v_hdr <= m_rd;
           case m_rd(27 downto 24) is
             when K_EMPTY =>
-              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+              vr_set(VK_Z, (others => '0'), x"00");
             when K_TEXT =>
-              push(VK_T, (others => '0'), x"00", '1', E_NEXT);
+              vr_set(VK_T, (others => '0'), x"00");
             when K_UNCOMPILED =>
-              push(VK_E, x"00000000000000" & E_COMPILE, x"00", '1', E_NEXT);
+              vr_set(VK_E, x"00000000000000" & E_COMPILE, x"00");
             when K_F64 | K_I64 | K_I32 | K_ERROR | K_FORMULA =>
               mem_read(q_addr + 8, VL_FMT);
             when others =>
-              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+              vr_set(VK_Z, (others => '0'), x"00");
           end case;
         when VL_FMT =>                          -- the group at +8
           v_val <= m_rd;
           case v_hdr(27 downto 24) is
             when K_F64 =>
               if m_rd(62 downto 52) = 0 then        -- (subnormals flushed to zero)
-                push(VK_F, m_rd(63) & "000" & x"000000000000000", x"00", '1', E_NEXT);
+                vr_set(VK_F, m_rd(63) & "000" & x"000000000000000", x"00");
               else
-                push(VK_F, m_rd, x"00", '1', E_NEXT);
+                vr_set(VK_F, m_rd, x"00");
               end if;
             when K_ERROR =>
-              push(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00", '1', E_NEXT);
+              vr_set(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00");
             when K_I64 | K_I32 =>
               if v_hdr(30) = '1' then               -- HAS_FORMAT: its fixed point
                 mem_read(q_addr + 16, VL_F16);
               elsif v_hdr(27 downto 24) = K_I32 then
-                push(VK_I, unsigned(resize(signed(m_rd(31 downto 0)), 64)), x"00", '1', E_NEXT);
+                vr_set(VK_I, unsigned(resize(signed(m_rd(31 downto 0)), 64)), x"00");
               else
-                push(VK_I, m_rd, x"00", '1', E_NEXT);
+                vr_set(VK_I, m_rd, x"00");
               end if;
             when others =>                        -- FORMULA: its result, kind
               mem_read(q_addr + 24, VL_F24);
           end case;
         when VL_F16 =>                          -- a number's format: byte 2
           if v_hdr(27 downto 24) = K_I32 then
-            push(VK_I, unsigned(resize(signed(v_val(31 downto 0)), 64)), m_rd(23 downto 16), '1', E_NEXT);
+            vr_set(VK_I, unsigned(resize(signed(v_val(31 downto 0)), 64)), m_rd(23 downto 16));
           else
-            push(VK_I, v_val, m_rd(23 downto 16), '1', E_NEXT);
+            vr_set(VK_I, v_val, m_rd(23 downto 16));
           end if;
         when VL_F24 =>                          -- a formula's result kind
           case m_rd(3 downto 0) is
@@ -1070,23 +1135,298 @@ begin
               cmp_a <= m_rd;
               mem_read(q_addr + 16, VL_F8);
             when others =>
-              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+              vr_set(VK_Z, (others => '0'), x"00");
           end case;
         when VL_F8 =>                           -- (cmp_a: the kind; v_val: the format group)
           case cmp_a(3 downto 0) is
             when K_F64 =>
               if m_rd(62 downto 52) = 0 then
-                push(VK_F, m_rd(63) & "000" & x"000000000000000", x"00", '1', E_NEXT);
+                vr_set(VK_F, m_rd(63) & "000" & x"000000000000000", x"00");
               else
-                push(VK_F, m_rd, x"00", '1', E_NEXT);
+                vr_set(VK_F, m_rd, x"00");
               end if;
             when K_I64 | K_I32 =>
-              push(VK_I, m_rd, v_val(23 downto 16), '1', E_NEXT);
+              vr_set(VK_I, m_rd, v_val(23 downto 16));
             when K_ERROR =>
-              push(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00", '1', E_NEXT);
+              vr_set(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00");
             when others =>                        -- text
-              push(VK_T, (others => '0'), x"00", '1', E_NEXT);
+              vr_set(VK_T, (others => '0'), x"00");
           end case;
+
+        -- --------------------------------------------------------------
+        -- A reference (short, or REF and the long form) into q_row, q_col,
+        -- then rf_ret
+        when RF_START =>
+          fetch(RF_B0);
+        when RF_B0 =>
+          if bf_byte(7) = '1' then
+            imm <= x"00000000000000" & bf_byte; fb_i <= x"1"; fb_n <= x"4"; fb_be <= true;
+            imm_ret <= E_SREF; st <= E_IMM;
+          elsif bf_byte = x"07" then
+            imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
+            imm_ret <= E_LREF; st <= E_IMM;
+          else
+            e_abort(E_STACK);
+          end if;
+        -- A count / identifier (one or two bytes) into vl_n, then vr_ret
+        when VR_START =>
+          fetch(VR_B0);
+        when VR_B0 =>
+          vl_n <= x"00" & bf_byte;
+          if bf_byte(7) = '0' then st <= vr_ret;
+          else vl_n(7) <= '0'; fetch(VR_B1); end if;
+        when VR_B1 =>
+          vl_n(15) <= '0';
+          vl_n(14 downto 7) <= bf_byte;
+          st <= vr_ret;
+
+        when E_STR =>                           -- (text: not yet) skipped, #NAME?
+          pc <= pc + vl_n;
+          push(VK_E, x"00000000000000" & E_NAME, x"00", '0', E_NEXT);
+        when E_HOST =>                          -- the text skipped; the result cell
+          pc <= pc + vl_n;
+          imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
+          rf_ret <= E_RESOLVE; imm_ret <= E_LREF; st <= E_IMM;
+        when E_RECT1 =>
+          rc_r1 <= q_row; rc_c1 <= q_col;
+          rf_ret <= E_RECT2; st <= RF_START;
+        when E_RECT2 =>                         -- the rectangle, normalised
+          if rc_r1 >= nrows or q_row >= nrows or rc_c1 >= ncols or q_col >= ncols then
+            push(VK_E, x"00000000000000" & E_REF, x"00", '0', E_NEXT);
+          else
+            if rc_r1 <= q_row then rr := rc_r1; else rr := q_row; end if;
+            if rc_c1 <= q_col then cc := rc_c1; else cc := q_col; end if;
+            -- (value: r1, c1, r2; aux: c2)
+            if rc_r1 <= q_row then e(19 downto 0) := q_row(19 downto 0); else e(19 downto 0) := rc_r1(19 downto 0); end if;
+            e(63 downto 44) := rr(19 downto 0);
+            e(43 downto 20) := cc(23 downto 0);
+            if rc_c1 <= q_col then
+              push(VK_R, e, x"00", '0', E_NEXT, x"00" & q_col(23 downto 0));
+            else
+              push(VK_R, e, x"00", '0', E_NEXT, x"00" & rc_c1(23 downto 0));
+            end if;
+          end if;
+        when E_CELLS =>                         -- the list's references: walked past
+          cl_pc <= pc; cl_n <= vl_n; ag_ln <= vl_n;
+          st <= E_CELLS2;
+        when E_CELLS2 =>
+          if ag_ln = 0 then
+            push(VK_L, x"00000000" & cl_n & cl_pc, x"00", '0', E_NEXT);
+          else
+            ag_ln <= ag_ln - 1;
+            rf_ret <= E_CELLS2; st <= RF_START;
+          end if;
+        when E_CALL1 =>
+          ag_fid <= vl_n;
+          vr_ret <= E_CALL2; st <= VR_START;
+        when E_CALL2 =>
+          ag_argc <= vl_n;
+          st <= AG_START;
+
+        -- --------------------------------------------------------------
+        -- Aggregates (section 4): the arguments in order, each a range, a
+        -- cell list or a value; an error among them ends the formula, a
+        -- fold's error is kept as the result
+        when AG_START =>
+          if resize(ag_argc, 32) > to_unsigned(esp, 32) then
+            e_abort(E_STACK);
+          else
+            ag_i <= esp - to_integer(ag_argc);
+            ag_cnt <= (others => '0'); ag_ferr <= false;
+            acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00";
+            ag_pc <= pc;
+            if ag_fid > 4 then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NAME;
+              st <= AG_RESULT;
+            else
+              st <= AG_ARG;
+            end if;
+          end if;
+        when AG_ARG =>
+          if ag_i = esp then
+            st <= AG_FINISH;
+          else
+            if ag_i = esp - 1 then ent := t_aux & t_kind & t_ref & t_k & t_v;
+            else ent := est(ag_i); end if;
+            case ent(75 downto 73) is
+              when VK_R =>
+                ag_row <= x"000" & ent(63 downto 44);
+                if ent(19 downto 0) < nrows(19 downto 0) or nrows(31 downto 20) /= 0 then
+                  ag_rlast <= x"000" & ent(19 downto 0);
+                else
+                  ag_rlast <= nrows - 1;
+                end if;
+                ag_c1 <= x"00" & ent(43 downto 20);
+                ag_c2 <= x"00" & ent(99 downto 76);
+                st <= AG_RROW;
+              when VK_L =>
+                pc <= ent(15 downto 0); ag_ln <= ent(31 downto 16);
+                st <= AG_LNEXT;
+              when others =>
+                vr_kind <= ent(75 downto 73); vr_v <= ent(63 downto 0); vr_k <= ent(71 downto 64);
+                ag_fromc <= ent(72) = '1';
+                tk_ret <= AG_NEXTARG; st <= AG_TAKE;
+            end case;
+          end if;
+        when AG_NEXTARG =>
+          ag_i <= ag_i + 1;
+          st <= AG_ARG;
+
+        -- a range: rows ag_row..ag_rlast, columns ag_c1..ag_c2
+        when AG_RROW =>
+          if ag_row > ag_rlast then
+            st <= AG_NEXTARG;
+          else
+            mem_read(rowtab + (ag_row(25 downto 0) & "00"), AG_RROW2);
+          end if;
+        when AG_RROW2 =>
+          if ag_row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
+          else e := x"00000000" & m_rd(63 downto 32); end if;
+          if e(31 downto 0) = x"FFFFFFFF" then
+            ag_row <= ag_row + 1; st <= AG_RROW;
+          else
+            ag_blk <= e(27 downto 0);
+            mem_read(e(27 downto 0) + 8, AG_RROW3);
+          end if;
+        when AG_RROW3 =>                        -- the root: the walk starts
+          tw_cur <= m_rd(11 downto 0); tw_d <= to_unsigned(1, 6); tw_sp <= 0;
+          st <= AG_TW;
+        when AG_TW =>
+          if tw_cur /= 0 then
+            if tw_d > 32 then
+              format_fault(ag_row);             -- (a tree deeper than 32)
+            else
+              mem_read(ag_blk + (tw_cur & "0000"), AG_TW2);
+            end if;
+          elsif tw_sp = 0 then
+            ag_row <= ag_row + 1; st <= AG_RROW;   -- (the row's walk is over)
+          else
+            -- the next node in order: visit it (in the columns), then its right
+            tw_sp <= tw_sp - 1;
+            e := x"00" & resize(tws(tw_sp - 1), 56);
+            if e(35 downto 12) < ag_c2(23 downto 0) then
+              tw_nxt <= e(47 downto 36); tw_nd <= e(53 downto 48) + 1;
+            else
+              tw_nxt <= (others => '0'); tw_nd <= (others => '0');
+            end if;
+            if resize(e(35 downto 12), 32) >= ag_c1 and resize(e(35 downto 12), 32) <= ag_c2 then
+              q_addr <= ag_blk + (e(11 downto 0) & "0000");
+              vl_ret <= AG_VISITED; st <= VL_HDR;
+            else
+              st <= AG_VISITED;
+              vr_kind <= "111";                  -- (none: nothing to take)
+            end if;
+          end if;
+        when AG_TW2 =>                          -- a node: kept, then its left (if needed)
+          tws(tw_sp) <= tw_d & m_rd(63 downto 52) & m_rd(23 downto 0) & tw_cur;
+          tw_sp <= tw_sp + 1;
+          if resize(m_rd(23 downto 0), 32) > ag_c1 then
+            tw_cur <= m_rd(51 downto 40); tw_d <= tw_d + 1;
+          else
+            tw_cur <= (others => '0');
+          end if;
+          st <= AG_TW;
+        when AG_VISITED =>
+          tw_cur <= tw_nxt; tw_d <= tw_nd;
+          if vr_kind = "111" then
+            st <= AG_TW;
+          else
+            ag_fromc <= true; tk_ret <= AG_TW; st <= AG_TAKE;
+          end if;
+
+        -- a cell list: ag_ln references from pc
+        when AG_LNEXT =>
+          if ag_ln = 0 then
+            pc <= ag_pc; st <= AG_NEXTARG;
+          else
+            ag_ln <= ag_ln - 1;
+            rf_ret <= AG_LREF; st <= RF_START;
+          end if;
+        when AG_LREF =>
+          if q_row >= nrows or q_col >= ncols then
+            e_abort(E_REF);
+          else
+            vl_ret <= AG_LTAKE; lk_ret <= VL_HDR; st <= LK_START;
+          end if;
+        when AG_LTAKE =>
+          ag_fromc <= true; tk_ret <= AG_LNEXT; st <= AG_TAKE;
+
+        -- one value (vr_*; ag_fromc: from cells, whose text and blanks are
+        -- skipped) into the aggregate, then tk_ret
+        when AG_TAKE =>
+          if vr_kind = VK_E then
+            pc <= ag_pc; e_abort(vr_v(7 downto 0));
+          elsif vr_kind = VK_I or vr_kind = VK_F then
+            ag_cnt <= ag_cnt + 1;
+            st <= tk_ret;
+            if ag_fid = 0 or ag_fid = 1 then      -- SUM, AVERAGE: acc = acc + v
+              if not ag_ferr then
+                bo_ka <= acc_kind; bo_va <= acc_v; bo_fa <= acc_k;
+                bo_kb <= vr_kind; bo_vb <= vr_v; bo_fb <= vr_k;
+                bo_op <= x"10"; bo_ret <= AG_SUMR; st <= BO_START;
+              end if;
+            elsif ag_fid = 2 or ag_fid = 3 then   -- MIN, MAX
+              if ag_cnt = 0 then
+                best_kind <= vr_kind; best_v <= vr_v; best_k <= vr_k;
+              elsif not ag_ferr then
+                bo_ka <= vr_kind; bo_va <= vr_v; bo_fa <= vr_k;
+                bo_kb <= best_kind; bo_vb <= best_v; bo_fb <= best_k;
+                if ag_fid = 2 then bo_op <= x"1A"; else bo_op <= x"1C"; end if;
+                bo_ret <= AG_MMR; st <= BO_START;
+              end if;
+            end if;
+          elsif (vr_kind = VK_T or vr_kind = VK_Z) and ag_fromc then
+            st <= tk_ret;
+          else
+            pc <= ag_pc; e_abort(E_VALUE);
+          end if;
+        when AG_SUMR =>
+          acc_kind <= br_kind; acc_v <= br_v; acc_k <= br_k;
+          if br_kind = VK_E then ag_ferr <= true; end if;
+          st <= tk_ret;
+        when AG_MMR =>
+          if br_kind = VK_E then
+            ag_ferr <= true; best_kind <= br_kind; best_v <= br_v; best_k <= br_k;
+          elsif br_v(0) = '1' then
+            best_kind <= vr_kind; best_v <= vr_v; best_k <= vr_k;
+          end if;
+          st <= tk_ret;
+        when AG_FINISH =>
+          st <= AG_RESULT;
+          case ag_fid(2 downto 0) is
+            when "100" =>                         -- COUNT
+              acc_kind <= VK_I; acc_v <= x"00000000" & ag_cnt; acc_k <= x"00";
+            when "010" | "011" =>                 -- MIN, MAX
+              if ag_cnt = 0 then
+                acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00";
+              else
+                acc_kind <= best_kind; acc_v <= best_v; acc_k <= best_k;
+              end if;
+            when "001" =>                         -- AVERAGE: SUM / COUNT
+              if ag_ferr then
+                null;
+              elsif ag_cnt = 0 then
+                acc_kind <= VK_E; acc_v <= x"00000000000000" & E_DIV0;
+              else
+                bo_ka <= acc_kind; bo_va <= acc_v; bo_fa <= acc_k;
+                bo_kb <= VK_I; bo_vb <= x"00000000" & ag_cnt; bo_fb <= x"00";
+                bo_op <= x"13"; bo_ret <= AG_AVGR; st <= BO_START;
+              end if;
+            when others =>                        -- SUM
+              null;
+          end case;
+        when AG_AVGR =>
+          acc_kind <= br_kind; acc_v <= br_v; acc_k <= br_k;
+          st <= AG_RESULT;
+        when AG_RESULT =>                       -- the arguments replaced by the result
+          pc <= ag_pc;
+          if ag_argc = 0 then
+            push(acc_kind, acc_v, acc_k, '0', E_NEXT);
+          else
+            esp <= esp - to_integer(ag_argc) + 1;
+            t_kind <= acc_kind; t_v <= acc_v; t_k <= acc_k; t_ref <= '0'; t_aux <= (others => '0');
+            st <= E_NEXT;
+          end if;
 
         -- --------------------------------------------------------------
         -- The multiplier: mu_x * mu_y, then mu_ret
@@ -1134,33 +1474,46 @@ begin
             e_abort(E_STACK);
           else
             ent := est(esp - 2);
-            ka := ent(75 downto 73); va := ent(63 downto 0);
-            kb := t_kind; vb := t_v;
-            fa := ent(71 downto 64); fb := t_k;
+            bo_ka <= ent(75 downto 73); bo_va <= ent(63 downto 0); bo_fa <= ent(71 downto 64);
+            bo_kb <= t_kind; bo_vb <= t_v; bo_fb <= t_k;
+            bo_op <= cur_op; bo_ret <= E_BINW;
+            esp <= esp - 1;
+            st <= BO_START;
+          end if;
+        when E_BINW =>
+          t_kind <= br_kind; t_v <= br_v; t_k <= br_k; t_ref <= '0';
+          st <= E_NEXT;
+
+        -- a binary operator: bo_op on (bo_ka, bo_va, bo_fa), (bo_kb, ...),
+        -- the result in br_kind, br_v, br_k, then bo_ret
+        when BO_START =>
+          if false then
+            null;
+          else
+            ka := bo_ka; va := bo_va; kb := bo_kb; vb := bo_vb; fa := bo_fa; fb := bo_fb;
             -- blank is 0; text is #VALUE!
             if ka = VK_Z then ka := VK_I; va := (others => '0'); fa := x"00"; end if;
             if kb = VK_Z then kb := VK_I; vb := (others => '0'); fb := x"00"; end if;
-            esp <= esp - 1;
-            t_ref <= '0'; t_k <= x"00";
-            st <= E_NEXT;
+            br_k <= x"00";
+            st <= bo_ret;
             xa <= va; xb <= vb;
             if ka = VK_E then
-              t_kind <= VK_E; t_v <= va;
+              br_kind <= VK_E; br_v <= va;
             elsif ka /= VK_I and ka /= VK_F then
-              t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+              br_kind <= VK_E; br_v <= x"00000000000000" & E_VALUE;
             elsif ka = VK_I and bad_k(fa) then
-              t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+              br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM;
             elsif kb = VK_E then
-              t_kind <= VK_E; t_v <= vb;
+              br_kind <= VK_E; br_v <= vb;
             elsif kb /= VK_I and kb /= VK_F then
-              t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+              br_kind <= VK_E; br_v <= x"00000000000000" & E_VALUE;
             elsif kb = VK_I and bad_k(fb) then
-              t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+              br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM;
             elsif ka = VK_I and kb = VK_I and
               not (fa(6 downto 0) /= 0 and fb(6 downto 0) /= 0 and fa(7) /= fb(7)) then
               -- integers whose fixed points align (the same base, or one plain)
               if fa(6 downto 0) /= 0 then bin := fa(7); else bin := fb(7); end if;
-              case cur_op is
+              case bo_op is
                 when x"10" | x"11" | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
                   -- align to the larger fixed point (exactly), then add / compare
                   if fa(6 downto 0) >= fb(6 downto 0) then kk := fa(6 downto 0);
@@ -1185,7 +1538,7 @@ begin
                   end if;
                 when others =>                    -- x"13": divide
                   if vb = 0 then
-                    t_kind <= VK_E; t_v <= x"00000000000000" & E_DIV0;
+                    br_kind <= VK_E; br_v <= x"00000000000000" & E_DIV0;
                   elsif fa(6 downto 0) /= 0 and fa = fb and bin = '0' then
                     -- the same decimal fixed point: (a * 10^k) / b, rounded
                     x_k <= fa;
@@ -1201,7 +1554,7 @@ begin
           end if;
         when E_SCALED =>                        -- the scaled operand, unless it overflowed
           if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
-            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM; st <= E_NEXT;
+            br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM; st <= bo_ret;
           else
             if mu_neg then e := unsigned(-signed(mu_lo)); else e := mu_lo; end if;
             if sc_b then xb <= e; else xa <= e; end if;
@@ -1209,28 +1562,28 @@ begin
           end if;
         when E_ARITH =>                         -- xa op xb, aligned
           lt := signed(xa) < signed(xb); eq := xa = xb;
-          t_kind <= VK_I; t_k <= x"00";
-          st <= E_NEXT;
-          case cur_op is
+          br_kind <= VK_I; br_k <= x"00";
+          st <= bo_ret;
+          case bo_op is
             when x"10" | x"11" =>
-              if cur_op = x"10" then sum := unsigned(resize(signed(xa), 65) + resize(signed(xb), 65));
+              if bo_op = x"10" then sum := unsigned(resize(signed(xa), 65) + resize(signed(xb), 65));
               else sum := unsigned(resize(signed(xa), 65) - resize(signed(xb), 65)); end if;
-              if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
-              else t_v <= sum(63 downto 0); t_k <= x_k; end if;
-            when x"18" => t_v <= b64(eq);
-            when x"19" => t_v <= b64(not eq);
-            when x"1A" => t_v <= b64(lt);
-            when x"1B" => t_v <= b64(lt or eq);
-            when x"1C" => t_v <= b64(not (lt or eq));
-            when others => t_v <= b64(not lt);
+              if sum(64) /= sum(63) then br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM;
+              else br_v <= sum(63 downto 0); br_k <= x_k; end if;
+            when x"18" => br_v <= b64(eq);
+            when x"19" => br_v <= b64(not eq);
+            when x"1A" => br_v <= b64(lt);
+            when x"1B" => br_v <= b64(lt or eq);
+            when x"1C" => br_v <= b64(not (lt or eq));
+            when others => br_v <= b64(not lt);
           end case;
         when E_MULF =>                          -- the product, signed back
-          st <= E_NEXT;
+          st <= bo_ret;
           if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
-            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+            br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM;
           else
-            t_kind <= VK_I; t_k <= x_k;
-            if mu_neg then t_v <= unsigned(-signed(mu_lo)); else t_v <= mu_lo; end if;
+            br_kind <= VK_I; br_k <= x_k;
+            if mu_neg then br_v <= unsigned(-signed(mu_lo)); else br_v <= mu_lo; end if;
           end if;
         when E_DIVM =>                          -- a * 10^k (128 bits) / |b|
           dv_n <= mu_hi(63 downto 0) & mu_lo;
@@ -1238,12 +1591,12 @@ begin
           dv_neg <= mu_neg xor (xb(63) = '1');
           dv_raw <= false; dv_ret <= E_DIVF; st <= DV_START;
         when E_DIVF =>
-          st <= E_NEXT;
+          st <= bo_ret;
           if dv_q(127 downto 64) /= 0 or (dv_q(63) = '1' and not (dv_neg and dv_q(63 downto 0) = x"8000000000000000")) then
-            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+            br_kind <= VK_E; br_v <= x"00000000000000" & E_NUM;
           else
-            t_kind <= VK_I; t_k <= x_k;
-            if dv_neg then t_v <= unsigned(-signed(dv_q(63 downto 0))); else t_v <= dv_q(63 downto 0); end if;
+            br_kind <= VK_I; br_k <= x_k;
+            if dv_neg then br_v <= unsigned(-signed(dv_q(63 downto 0))); else br_v <= dv_q(63 downto 0); end if;
           end if;
         when E_FIX =>                           -- the top, an integer, is fixed point
           st <= E_NEXT;
@@ -1294,18 +1647,18 @@ begin
           fx_b <= fp_r;
           st <= E_FB3;
         when E_FB3 =>
-          t_kind <= VK_I; t_k <= x"00"; t_ref <= '0';
-          st <= E_NEXT;
-          case cur_op is
-            when x"18" => t_v <= b64(f_eq(fx_a, fx_b));
-            when x"19" => t_v <= b64(not f_eq(fx_a, fx_b));
-            when x"1A" => t_v <= b64(f_lt(fx_a, fx_b));
-            when x"1B" => t_v <= b64(f_lt(fx_a, fx_b) or f_eq(fx_a, fx_b));
-            when x"1C" => t_v <= b64(f_lt(fx_b, fx_a));
-            when x"1D" => t_v <= b64(f_lt(fx_b, fx_a) or f_eq(fx_a, fx_b));
+          br_kind <= VK_I; br_k <= x"00";
+          st <= bo_ret;
+          case bo_op is
+            when x"18" => br_v <= b64(f_eq(fx_a, fx_b));
+            when x"19" => br_v <= b64(not f_eq(fx_a, fx_b));
+            when x"1A" => br_v <= b64(f_lt(fx_a, fx_b));
+            when x"1B" => br_v <= b64(f_lt(fx_a, fx_b) or f_eq(fx_a, fx_b));
+            when x"1C" => br_v <= b64(f_lt(fx_b, fx_a));
+            when x"1D" => br_v <= b64(f_lt(fx_b, fx_a) or f_eq(fx_a, fx_b));
             when x"13" =>
               if f_zero(fx_b) then
-                t_kind <= VK_E; t_v <= x"00000000000000" & E_DIV0;
+                br_kind <= VK_E; br_v <= x"00000000000000" & E_DIV0;
               else
                 fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_DIV; fp_ret <= E_FBR; st <= FP_START;
               end if;
@@ -1314,8 +1667,8 @@ begin
             when others => fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_MUL; fp_ret <= E_FBR; st <= FP_START;
           end case;
         when E_FBR =>
-          t_kind <= VK_F; t_v <= fp_r;
-          st <= E_NEXT;
+          br_kind <= VK_F; br_v <= fp_r;
+          st <= bo_ret;
 
         -- conversions: cv_v (fixed point cv_k) to F64 in fp_r, then cv_ret:
         -- F64(v), then / F64(10^k) (decimal) or scaled by 2^-k (binary)

@@ -10,9 +10,9 @@ Status: specification, draft 2: the canonical description.  It merges
 [the hardware codec proposal](hardware-codec-proposal.md) and
 [its review notes](hardware-codec-review-notes.md) (with the
 [discussion record](formula-codec-discussion.md), kept as history).
-Implemented so far: the build structure (section 1), REBALANCE_ROW and
-FIND_CELL, and the reference model `SSNAIL/shite.py` (being brought to
-this draft's 24-bit columns, 12-bit links and 32-bit rows).
+Implemented so far (section 12): the build structure (section 1),
+REBALANCE_ROW, FIND_CELL and RECALC's core, in hardware and in the
+reference model `SSNAIL/shite.py`.
 
 Design goals, in order: correct and deterministic results; small area
 (iterative units, shared datapaths: several million simple cell updates per
@@ -465,24 +465,108 @@ CPU too.)
 
 ### FORMAT_CELLS
 
-Parameters (a block of 32 bytes): the sheet descriptor, first and last row,
-first and last column, the column width list (one byte per column, 0 hides
-a column), the destination address and stride (bytes per screen line), the
-character size (1: screen codes; 2: 16-bit characters with attributes), an
-optional colour destination and stride, and flags: bit 0 only cells with
-CHANGED (others are left untouched in the destination), bit 1 clear
-CHANGED on the cells rendered, bit 2 upper case character set.
+Renders a rectangle of cells as screen text.  Parameter block (48 bytes,
+16-byte aligned):
 
-Each cell is rendered into its column's width: numbers by their format (the
-fixed-point k, decimals with rounding half away from zero, separators,
-sign style, prefix and suffix; general: as many significant digits as fit,
-switching to scientific; `###` if it still does not fit), text clipped or
-by alignment, errors as their names, empty and missing cells as spaces.
-Text is stored as ASCII and written as screen codes.
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | the sheet descriptor |
+| 4 | 4 | first row |
+| 8 | 4 | last row |
+| 12 | 4 | first column |
+| 16 | 4 | last column |
+| 20 | 4 | column widths: one byte per column, from the first (0: the column is hidden) |
+| 24 | 4 | destination |
+| 28 | 2 | destination stride (bytes per screen line) |
+| 30 | 1 | character size: 1 (screen codes) or 2 (16-bit characters: the screen code, then 0) |
+| 31 | 1 | flags: bit 0 only cells with CHANGED; bit 1 clear CHANGED on the cells rendered; bit 2 the upper-case character set |
+| 32 | 4 | colour destination (0: none): one byte per character, the colour |
+| 36 | 2 | colour stride |
+| 38 | 1 | default colour (cells without a format, and blank fields) |
+| 39 | 9 | reserved, 0 |
+
+Row r is screen line r - first row; within a line the columns follow one
+another, each its width.  Every field is exactly its width: the rendered
+text aligned and padded with spaces.  With flag bit 0, the fields of cells
+without CHANGED (and of missing cells) are left as they are.
 
 The destination is in attic RAM: the VIC-IV shows screens from chip RAM,
-so the CPU copies the rendered area there with DMA (cheap: an attic to
-chip RAM block copy).
+so the CPU copies the rendered area there with DMA (an attic to chip RAM
+block copy).
+
+**What a cell shows** (then aligned, and clipped to the width):
+
+| Cell | Shows | Default alignment | Too wide |
+|---|---|---|---|
+| none, EMPTY | spaces | | |
+| TEXT, UNCOMPILED | its text | left | its first `width` characters |
+| ERROR, or a formula's error | the error's name (`#DIV/0!` ... `#COMPILE!`, section 4) | centre | its first `width` characters |
+| a number, or a formula's number | by its format (below) | right | `width` `#`s |
+
+The format's alignment (byte 0 bits 5-4) overrides the default; centring
+puts an odd space on the right.
+
+**Numbers.**  The style (format byte 0 bits 3-0), d = format byte 1 (0-15):
+
+| Style | Shows |
+|---|---|
+| 0 general | an integer: its digits; decimal fixed point k: k decimals; F64 and binary fixed point: the general rule below |
+| 1 fixed | d decimals |
+| 2 scientific | a mantissa with d decimals, `E`, a sign, the exponent in at least 2 digits (`1.50E+03`) |
+| 3 percent | the value x 100 with d decimals, then `%` |
+| 4 integer | no decimals |
+| 5 text | as general, aligned left by default |
+
+Format byte 3 adds: bit 0 thousands separators every three integer digits;
+bits 2-1 negatives: 0 a minus sign, 1 parentheses, 2 a minus sign and the
+negative colour (byte 6 bits 7-4); bit 3 leading zeros (the integer part
+padded with zeros to the width); bit 4 the prefix character (byte 4)
+after the sign; bit 5 the suffix character (byte 5) at the end.  The
+decimal point is the descriptor's decimal separator (`.` if 0); the
+thousands separator is `,`, or `.` when the decimal separator is `,`.
+
+**Digits, exactly.**  A value rounded to d decimals is an integer N, and
+the text is N's digits with the point d from the right (`0.05`, not `.05`):
+
+- I64, decimal fixed point k: N = v x 10^(d-k) when d >= k, else v / 10^(k-d)
+  rounded half away from zero.
+- I64, binary fixed point k: N = v x 10^d / 2^k, rounded half away.
+- F64 x: N = F64(x x F64(10^d)) (one F64 multiply), then rounded half away
+  to an integer.  |N| >= 2^63 shows `#`s.
+- Percent multiplies by 100 first (I64: exactly; F64: one F64 multiply).
+- Scientific: E is the exponent with F64(10^E) <= |x| < F64(10^(E+1))
+  (correctly rounded powers of ten); the mantissa is F64(x / F64(10^E)),
+  rounded to d decimals as above; if it rounds to 10, E + 1 and the
+  mantissa 1.  Integers and fixed point convert to F64 first.
+
+**General, for F64** (and binary fixed point): zero is `0`.  Otherwise,
+with E as above and s the sign's width (0 or 1):
+
+1. If -5 < E < 15: d = min(14 - E, width - s - max(E + 1, 1) - 1), at
+   least 0; render with d decimals, drop trailing zeros and then a trailing
+   point.  If that fits, it is the text.
+2. Else, or if it did not fit: scientific, with d = min(14, width - s - 2 -
+   len(`E+NN`)) (`E+NNN` for three-digit exponents), at least 0, trailing
+   zeros dropped from the mantissa.
+3. If that does not fit either: `#`s.
+
+**Characters.**  Text is ASCII and written as screen codes: `@` 0, `A`-`Z`
+65-90 and `a`-`z` 1-26 (with flag bit 2, the upper-case set: both 1-26),
+`[` 27, `]` 29, `^` 30, space to `?` (32-63) unchanged, `_` 100, `|` 93,
+`` ` `` 39, `{` 27, `}` 29, `~` 30, `\` 77, anything else `?` (63).
+
+**Colour** (with a colour destination): each character of a number's
+field takes the format's colour (byte 6 bits 3-0; bits 7-4 for a negative
+with negatives = 2), everything else the default colour.
+
+**Implementation (recommended split).**  Number-to-text belongs with the
+codec (section 10): DECOMPILE prints numbers too, with the same digit
+generator and text writer, and both use SHITE's shared F64 unit.  So the
+codec unit provides one operation, render a value (kind, payload, fixed
+point, format, width) into a field; and the execution unit implements
+FORMAT_CELLS itself, walking the rectangle (as RECALC's ranges do), taking
+each cell's value and format, calling that operation, and handling CHANGED
+and the colours.  20 000 to 200 000 cells a second is plenty.
 
 ## 7. Recalculation and cycles
 
@@ -599,15 +683,20 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
 As SSNAIL: a Python reference model (`SSNAIL/shite.py`, run by the
 emulator for SSNAIL's opcodes $40-$45) that defines the results exactly,
 and GHDL benches that run the same sheets on the hardware and compare
-memory (`tb_shite_step1`: REBALANCE_ROW and FIND_CELL).
+memory: `tb_shite_step1` REBALANCE_ROW and FIND_CELL; `step2` RECALC with
+integers, rounds, regions and change lists; `step3` fixed point; `step4`
+F64 (about 480 formulas: specials, rounding, the subnormal boundary,
+conversions); `step5` ranges, cell lists, aggregates and host calls.
 
 ## 12. Phases
 
 1. **Done**: the build structure, REBALANCE_ROW, FIND_CELL.
-2. **RECALC core**: I64 (with fixed point) and F64, constants, references
-   (both forms), RECT, ADD SUB MUL DIV NEG, the comparisons, HOSTCALL,
-   CALL with SUM, AVERAGE, MIN, MAX and COUNT, the errors.
-3. **FORMAT_CELLS** (the number formats).
+2. **Done**: RECALC's core: I64 (with fixed point) and F64, constants,
+   references (both forms), RECT, CELLS, ADD SUB MUL DIV NEG, the
+   comparisons, HOSTCALL, CALL with SUM, AVERAGE, MIN, MAX and COUNT, the
+   errors, rounds and change lists (benches `tb_shite_step1` to `step5`).
+3. **FORMAT_CELLS**: the rendering in the codec unit, the walk in the
+   execution unit (section 6).
 4. **More**: POW, PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT,
    TRUNC, ROUND, SIGN, SQRT, PRODUCT, COUNTA.
 5. **Transcendentals** (the CORDIC unit) and **text** (STR, CONCAT, the
