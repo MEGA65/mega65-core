@@ -93,6 +93,9 @@
 --                  is thrown away.
 --     C_ACCEPT (7) make clock setting arg the current one (no checks: probe it
 --                  first).  arg = 0 goes back to the normal setting.
+--     C_CLEAR  (9) clear errors without CMD0/reinitialisation. Native SD
+--                  confirms CMD12 + CMD13 Transfer/ready before reuse; SPI
+--                  clears the retired transfer's error with CS inactive.
 --
 --   Clock setting (arg of C_PROBE / C_ACCEPT, and clk_setting): bits 6..0 = P
 --   (4..127), bits 12..8 = D (0..31).  P < 13 needs a card that switched to
@@ -217,6 +220,7 @@ architecture rtl of sdcard_native is
   constant C_STOP   : unsigned(3 downto 0) := x"5";
   constant C_PROBE  : unsigned(3 downto 0) := x"6";
   constant C_ACCEPT : unsigned(3 downto 0) := x"7";
+  constant C_CLEAR  : unsigned(3 downto 0) := x"9";
 
   constant ERR_NONE     : unsigned(7 downto 0) := x"00";
   constant ERR_NOCARD   : unsigned(7 downto 0) := x"01";  -- no card answered
@@ -519,6 +523,7 @@ architecture rtl of sdcard_native is
   type t_state is (
     S_POWERUP, S_INIT, S_IDLE, S_DISPATCH, S_FINISH, S_FAIL, S_TAIL, S_DRAIN,
     S_RESYNC, S_RESYNC2, S_CMD_WAIT, S_CMD, S_BUSY0, S_BUSY1, S_ABORT,
+    S_CLOSE, S_CLOSE_RESP, S_CLOSE_STATUS, S_RECOVER,
     -- native
     N_PRE, N_INIT,
     N_RD_CMD, N_RD_RESP, N_RD_BLOCK, N_RD_STOP,
@@ -529,6 +534,8 @@ architecture rtl of sdcard_native is
     P_WR_CMD, P_WR_RESP, P_WR_WAIT, P_WR_DATA, P_WR_DRESP, P_WR_STOPTOK
     );
   signal st, ret_st, resync_ret, drain_ret : t_state := S_POWERUP;
+  signal close_ret : t_state := S_DISPATCH;
+  signal close_tries : natural range 0 to 2 := 0;
 
   -- mode / card
   signal mode_native : std_logic := '0';
@@ -1085,10 +1092,39 @@ begin
     begin
       e_err <= code;
       d_arm <= '0';
-      if op_multi = '1' and mode_native = '1' then
+      if mode_native = '1' and (op_multi = '1' or
+          (op = OP_READ and op_verify = '0')) then
         st <= S_ABORT;
       else
         st <= S_FAIL;
+      end if;
+    end procedure;
+
+    -- A failed stop must not be followed by another read into the old data
+    -- stream. Retry CMD12/status a bounded number of times, then require
+    -- explicit recovery or init before accepting another read.
+    procedure close_failed is
+    begin
+      if close_tries < 2 then
+        close_tries <= close_tries + 1;
+        if close_tries = 1 and cur_set /= SET_DS and cur_set /= SET_HS then
+          if hs = '1' then
+            cur_set <= SET_HS; new_set <= SET_HS;
+          else
+            cur_set <= SET_DS; new_set <= SET_DS;
+          end if;
+          resync(S_CLOSE);
+        else
+          st <= S_CLOSE;
+        end if;
+      else
+        ready   <= '0';
+        e_error <= '1';
+        e_err   <= ERR_CMD;
+        e_wait  <= '0';
+        op      <= OP_NONE;
+        cnt     <= (others => '0');
+        st      <= S_TAIL;
       end if;
     end procedure;
 
@@ -1598,6 +1634,21 @@ begin
                   resync(S_DISPATCH);
                 end if;
               end if;
+            elsif e_code = C_CLEAR then
+              op <= OP_NONE;
+              if mode_native = '1' and rca /= x"0000" then
+                e_busy <= '1';
+                close_ret <= S_RECOVER;
+                close_tries <= 0;
+                st <= S_CLOSE;
+              elsif ready = '1' then
+                -- SPI transfers finish deselected with trailing clocks.
+                e_busy <= '1';
+                st <= S_FINISH;
+              else
+                e_error <= '1';
+                e_err <= ERR_NOTREADY;
+              end if;
             elsif e_code = C_ACCEPT then
               if e_argz = '1' then
                 if hs = '1' then
@@ -1668,11 +1719,45 @@ begin
           cnt    <= (others => '0');
           st     <= S_TAIL;
 
-        -- CMD12 after a failed multi-block transfer, then S_FAIL
+        -- End a failed native read before resynchronising/retrying it, even
+        -- for CMD17: a framing error may have left the card mid-sector.
         when S_ABORT =>
+          close_ret   <= S_FAIL;
+          close_tries <= 0;
+          st          <= S_CLOSE;
+
+        when S_CLOSE =>
+          d_arm   <= '0';
+          cut_block;
+          d_discard <= '1';
           stop_en <= '0';
           run     <= '1';
-          do_cmd(12, x"00000000", R_R1B, S_FAIL);
+          do_cmd(12, x"00000000", R_R1B, S_CLOSE_RESP);
+
+        when S_CLOSE_RESP =>
+          if c_ok = '1' and not r1_bad(r_sr) then
+            -- CMD12 can appear accepted while the card remains in Data
+            -- state. Confirm Transfer state and READY_FOR_DATA positively.
+            do_cmd(13, rca & x"0000", R_R1, S_CLOSE_STATUS);
+          else
+            close_failed;
+          end if;
+
+        when S_CLOSE_STATUS =>
+          if c_ok = '1' and not r1_bad(r_sr)
+            and r_sr(20 downto 17) = "0100" and r_sr(16) = '1' then
+            st <= close_ret;
+          else
+            close_failed;
+          end if;
+
+        when S_RECOVER =>
+          -- CMD12/CMD13 proved the existing card session usable; no CMD0,
+          -- bus-width change, high-speed switch or reinitialisation needed.
+          ready <= '1';
+          e_error <= '0';
+          e_err <= ERR_NONE;
+          st <= S_FINISH;
 
         -- a transfer failed: retry, slow down, or give up
         when S_FAIL =>
@@ -2145,8 +2230,9 @@ begin
           d_arm   <= '0';
           stop_en <= '0';
           e_wait  <= '0';
-          run     <= '1';
-          do_cmd(12, x"00000000", R_R1B, S_DISPATCH);
+          close_ret   <= S_DISPATCH;
+          close_tries <= 0;
+          st          <= S_CLOSE;
 
         ------------------------------------------------------------------------
         -- native write

@@ -130,6 +130,7 @@ architecture rtl of sd_cache is
   constant C_MORE   : unsigned(3 downto 0) := x"4";
   constant C_STOP   : unsigned(3 downto 0) := x"5";
   constant C_CACHE  : unsigned(3 downto 0) := x"8";
+  constant C_CLEAR  : unsigned(3 downto 0) := x"9";
 
   function boolean_to_sl(b : boolean) return std_logic is
   begin
@@ -568,6 +569,9 @@ begin
               -- straight through
               if dfree = '1' and (d_busy = '0' or c_code = C_INIT
                                    or c_code = C_MORE or c_code = C_STOP) then
+                if c_code = C_CLEAR then
+                  flush_all;
+                end if;
                 pt <= '1';
                 if c_code = C_WRITE then
                   pt_wr   <= '1';

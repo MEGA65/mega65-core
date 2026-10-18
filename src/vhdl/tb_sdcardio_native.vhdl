@@ -25,6 +25,7 @@ use work.cputypes.all;
 entity tb_sdcardio_native is
   generic (
     G_BOOT_TEST   : boolean := false;
+    G_ERROR_TEST  : boolean := false;
     G_CACHE_LINES : natural := 16;
     G_SPI_CARD    : boolean := false
     );
@@ -291,11 +292,65 @@ begin
     wait_ready(40 ms);
     peek(16#D3686#, v);
     report "  $D686 = " & integer'image(to_integer(v));
-    check(v(0) = '1' and v(1) = '1' and v(2) = '1', "init: ready, native, high speed");
+    if G_SPI_CARD then
+      check(v(0) = '1' and v(1) = '0' and v(2) = '0', "init: ready, SPI fallback");
+    else
+      check(v(0) = '1' and v(1) = '1' and v(2) = '1', "init: ready, native, high speed");
+    end if;
     peek(16#D3687#, v);
     check(v = 0, "init: low-level error code 0");
     peek(16#D3680#, v);
     check(v(6) = '0', "init: no error");
+
+    if G_ERROR_TEST then
+      set_sector(5);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      check_buffer(5, false, "read before terminal error");
+      -- An error on an initialised card must stay busy for legacy software.
+      poke(16#D3681#, 3);                 -- invalid P: minimum is 4
+      poke(16#D3682#, 0);
+      poke(16#D3680#, 16#21#);
+      t0 := now;
+      loop
+        peek(16#D3687#, v);
+        exit when v = 16#43#;
+        assert now - t0 < 1 ms report "missing invalid-setting error" severity failure;
+        wait for 1 us;
+      end loop;
+      wait for 2 us;
+      peek(16#D3686#, v);
+      check(v(7) = '1' and v(0) = '1', "terminal error with card still initialised");
+      peek(16#D3680#, v);
+      check(v(1) = '1' and v(6) = '1', "legacy BUSY stays set on terminal error");
+      wait for 10 us;
+      peek(16#D3680#, v);
+      check(v(1) = '1', "error BUSY remains asserted after cleanup");
+      t0 := now;
+      poke(16#D3680#, 16#2A#);
+      wait_ready(5 ms);
+      check(now - t0 < 100 us, "clear/recover does not run card initialisation");
+      peek(16#D3686#, v);
+      if G_SPI_CARD then
+        check(v = 9, "clear preserves SPI session without reset");
+      else
+        check(v = 15, "clear/recover preserves native high-speed session");
+      end if;
+      peek(16#D3680#, v);
+      check(v(6) = '0', "clear/recover clears error BUSY without reset");
+      set_sector(5);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      check_buffer(5, false, "read after error recovery without reset");
+      if G_CACHE_LINES > 0 then
+        poke(16#D3680#, 16#28#);
+        peek(16#D3683#, v);
+        check(v = 2, "clear/recover invalidated the previous cached sector");
+      end if;
+      report "ALL ERROR TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
 
     -- single sector read
     set_sector(5);

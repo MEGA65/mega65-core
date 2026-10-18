@@ -26,7 +26,9 @@ entity sdcard_native_model is
     G_NAC         : natural := 6;       -- clocks from the read command to the data
     G_NAC_MULTI   : natural := 2;       -- clocks between blocks of CMD18
     G_WBUSY       : natural := 40;      -- programming busy, clocks
-    G_CRC_ERR_BLK : integer := -1       -- first read of this block has a bad CRC
+    G_CRC_ERR_BLK : integer := -1;      -- first read of this block has a bad CRC
+    G_STOP_FAILS : natural := 0;       -- first CMD12s have no response/effect
+    G_STOP_ACK_FAILS : natural := 0    -- first CMD12s reply but keep streaming
     );
   port (
     clk : in    std_logic;
@@ -130,6 +132,8 @@ begin
     variable rlen   : natural;
     variable rbusy  : natural;
     variable status : std_logic_vector(31 downto 0);
+    variable multi_active : boolean := false;
+    variable stop_attempts : natural := 0;
 
     procedure out_edge is
     begin
@@ -180,6 +184,7 @@ begin
                   spi_enter <= not spi_enter;
                 end if;
                 reset_go <= not reset_go;
+                multi_active := false;
                 sel := false; rca := x"0000"; acmd41 := 0;
               when 8 =>
                 resp(47 downto 0) := frame48(8, x"000001" & arg(7 downto 0), true); rlen := 48;
@@ -197,7 +202,10 @@ begin
               when 7 =>
                 sel := arg(31 downto 16) = rca;
                 resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
-              when 16 | 13 =>
+              when 13 =>
+                if multi_active then status := x"00000A00"; end if;
+                resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
+              when 16 =>
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
               when 6 =>
                 resp(47 downto 0) := frame48(6, status, true); rlen := 48;
@@ -206,6 +214,7 @@ begin
                 sw_hs    <= arg(31) = '1' and arg(3 downto 0) = x"1";
                 rd_go    <= not rd_go;
               when 17 | 18 =>
+                multi_active := idx = 18;
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
                 if G_SDHC then
                   rd_blk <= to_integer(unsigned(arg));
@@ -225,8 +234,14 @@ begin
                 wr_multi <= idx = 25;
                 wr_go    <= not wr_go;
               when 12 =>
-                stop_go <= not stop_go;
-                resp(47 downto 0) := frame48(12, status, true); rlen := 48; rbusy := 8;
+                stop_attempts := stop_attempts + 1;
+                if stop_attempts > G_STOP_FAILS then
+                  if stop_attempts > G_STOP_ACK_FAILS then
+                    stop_go <= not stop_go;
+                    multi_active := false;
+                  end if;
+                  resp(47 downto 0) := frame48(12, status, true); rlen := 48; rbusy := 8;
+                end if;
               when others =>
                 null;
             end case;

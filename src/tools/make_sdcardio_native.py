@@ -64,6 +64,8 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --       $D680 <- $25 / $26 / $27  cache on / off / empty
 --       $D680 <- $28  hit and miss counts (16 bits each) into $D681-$D684
 --       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
+--       $D680 <- $2A  clear errors/recover the current card without reset;
+--                     native SD verifies CMD12/CMD13, and empties the cache
 --   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,
 --     3 SDHC/SDXC, 4 transfer open and waiting, 5 multi-sector read open,
 --     6 multi-sector write open, 7 low-level error
@@ -108,7 +110,7 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
 
   -- the native SD controller
   type nat_kind_t is (K_SINGLE, K_FIRST, K_NEXT, K_LAST, K_PROBE, K_ACCEPT, K_NORMAL, K_STOP,
-                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY);
+                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY, K_CLEAR);
   signal nat_kind        : nat_kind_t := K_SINGLE;
   signal nat_cmd_valid   : std_logic := '0';
   signal nat_cmd_ready   : std_logic;
@@ -302,11 +304,12 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
 
   -- Legacy software (including Hyppo's external-slot probe) interprets both
   -- $D680 busy bits clear as a usable card, not just an idle SD engine.
-  -- Keep an absent/failed card busy, and cover the queued INIT and mailbox
-  -- latency so that polling cannot see the previous command's idle status.
+  -- Keep an absent/failed card and terminal errors busy, and cover queued
+  -- INIT/mailbox latency so polling never accepts a failed or stale sector.
   -- An open multi-sector transfer is still ready between granted blocks.
   sdcard_busy    <= sd_reset or nat_init_req or nat_init_wait
                    or not nat_quiet or not nat_cmd_ready or not nat_card_ready
+                   or nat_error or sdio_error
                    or (nat_busy and not nat_waiting);
 
   -- what used to come from the old controller
@@ -511,9 +514,10 @@ cut("""                when x"00" =>
                     sdio_fsm_error <= '1';
                   end if;
 
-                when x"25" | x"26" | x"27" | x"29" =>
+                when x"25" | x"26" | x"27" | x"29" | x"2A" =>
                   -- Sector cache: on ($25), off ($26), empty ($27),
                   -- replacement policy ($29: $D681 bit 0 = 0 random, 1 LRU)
+                  -- or clear errors/recover the card without reset ($2A).
                   if sdio_busy='1' then
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -522,6 +526,7 @@ cut("""                when x"00" =>
                       when x"25" => nat_kind <= K_CACHE_ON;
                       when x"26" => nat_kind <= K_CACHE_OFF;
                       when x"27" => nat_kind <= K_CACHE_FLUSH;
+                      when x"2A" => nat_kind <= K_CLEAR;
                       when others => nat_kind <= K_CACHE_POLICY;
                     end case;
                     sd_state <= NativeCommand;
@@ -756,6 +761,9 @@ rep("""        when QspiBusyArm =>""", """        when NativeCommand =>
               case nat_kind is
                 when K_PROBE => nat_cmd_code <= x"6";
                 when K_ACCEPT => nat_cmd_code <= x"7";
+                when K_CLEAR =>
+                  nat_cmd_code <= x"9";
+                  nat_cmd_arg <= (others => '0');
                 when K_CACHE_OFF =>
                   nat_cmd_code <= x"8";
                   nat_cmd_arg  <= x"0000";

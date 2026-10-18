@@ -16,7 +16,10 @@ use ieee.numeric_std.all;
 entity tb_sdcard_native is
   generic (
     G_SPI_CARD : boolean := false;
-    G_TRACE    : boolean := false
+    G_TRACE    : boolean := false;
+    G_STOP_TEST : boolean := false;
+    G_STOP_FAILS : natural := 0;
+    G_STOP_ACK_FAILS : natural := 0
     );
 end entity;
 
@@ -134,7 +137,8 @@ begin
   sd_dat_i(3 downto 0) <= transport to_X01(card_dat) after BOARD;
 
   card : entity work.sdcard_native_model
-    generic map (G_START_SPI => G_SPI_CARD, G_CRC_ERR_BLK => 101)
+    generic map (G_START_SPI => G_SPI_CARD, G_CRC_ERR_BLK => 101,
+                 G_STOP_FAILS => G_STOP_FAILS, G_STOP_ACK_FAILS => G_STOP_ACK_FAILS)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -248,6 +252,47 @@ begin
     else
       check(native_mode = '1' and high_speed = '1', "native, high speed");
       check(clk_setting = x"0808", "40.5 MHz setting");
+    end if;
+
+    if G_STOP_TEST then
+      clear_rx;
+      command(2, 200, 0, 0);
+      wait until waiting = '1' for 5 ms;
+      check(waiting = '1' and n_good = 1, "close test: open read paused");
+      command(5, 0, 0, 0);
+      wait_idle(10 ms);
+      if G_STOP_FAILS >= 3 or G_STOP_ACK_FAILS >= 3 then
+        check(error = '1' and card_ready = '0', "failed close invalidates card");
+        clear_rx;
+        command(2, 300, 1, 0);
+        wait_idle(5 ms);
+        check(error = '1' and err_code = x"41" and n_bytes = 0,
+              "read after failed close is rejected without stale data");
+        t0 := now;
+        command(9, 0, 0, 0);
+        wait_idle(5 ms);
+        if G_STOP_FAILS = 3 or G_STOP_ACK_FAILS = 3 then
+          check(error = '0' and card_ready = '1' and high_speed = '1'
+                and clk_setting = x"0808", "clear recovers existing card session");
+          check(now - t0 < 100 us, "recovery does not reinitialise the card");
+          clear_rx;
+          command(2, 300, 1, 0);
+          wait_idle(5 ms);
+          check_blocks(300, 1, false, "requested sector after clear/recover");
+        else
+          check(error = '1' and card_ready = '0', "clear cannot falsely acknowledge an unclosed card");
+        end if;
+      else
+        check(error = '0' and card_ready = '1', "close recovered and card ready");
+        clear_rx;
+        command(2, 300, 1, 0);
+        wait_idle(5 ms);
+        check(error = '0' and n_good = 1, "read after checked close");
+        check_blocks(300, 1, false, "read after close is requested sector");
+      end if;
+      report "ALL STOP TESTS PASSED";
+      done <= true;
+      wait;
     end if;
 
     -- single block read

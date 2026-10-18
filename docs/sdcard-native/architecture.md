@@ -100,6 +100,7 @@ The fork keeps the existing `$D680` interface and adds:
 | `$22` | Back to the normal setting |
 | `$23` | Re-initialise in SPI mode only |
 | `$24` | Re-initialise, staying at default speed |
+| `$2A` | Clear errors/recover without card reset; invalidate cached data |
 
 - `$D686` (read) returns status flags and `$D687` (read) the low-level error
   code.
@@ -123,6 +124,16 @@ Open multi-sector transfers continue to clear busy between granted blocks.
 fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
+Terminal native or upper-controller errors also keep `$D680.1` asserted.
+This preserves software that detects failure by a busy timeout. New callers
+can issue `$2A` after `$D680.0` clears instead of resetting the card. Native
+SD uses a checked CMD12/CMD13 recovery; SPI clears the error after the
+retired transfer has deselected the card. Success clears the error and busy
+flags without changing the selected slot or reinitialising bus mode. If
+recovery fails, error/BUSY stay asserted. The sector address is preserved.
+`G_ERROR_TEST=true` covers this with 16 cache lines, with `G_CACHE_LINES=0`,
+and with `G_SPI_CARD=true`.
+
 Hyppo also checks the selected card's native status after initialisation.
 If it is ready in SPI mode, it displays
 `SD STUCK IN SPI MODE. POWER-CYCLE TO FIX` and waits for a fresh keypress
@@ -136,6 +147,22 @@ the existing reset/retry path immediately, including when legacy BUSY is
 deliberately stuck. A failed sector buffer is never accepted as a successful
 read. `src/hyppo/sd_read_errors.test` covers idle success, idle error, and
 error with BUSY still asserted.
+
+**Checked native close.** A read's final CMD12 now checks its response and
+busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.
+An accepted-looking stop is insufficient if the card still reports Data
+state. Three failed attempts invalidate the card session and block further
+reads; `$2A` can recover that session once a checked close succeeds. Failed
+single-sector reads also use the stop/status sequence before retrying,
+because a framing error can leave part of their sector on the bus. Receiver
+data is discarded during cleanup. Clock defaults and BRAM use are unchanged.
+
+`tb_sdcard_native -gG_STOP_TEST=true` exercises missing CMD12 responses
+(`G_STOP_FAILS=1`), a stop acknowledged without actually stopping
+(`G_STOP_ACK_FAILS=1`), permanent failure (`99`), and recovery without init
+after three failed stops (`G_STOP_FAILS=3`). The permanent acknowledged-stop
+case failed before the checked-close change. See the
+[ROM-load investigation](rom-load-debug.md) for the physical captures.
 
 A [read-only benchmark](benchmark.md) builds as
 `src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native
