@@ -4,8 +4,9 @@
 -- the reference model SSNAIL/shite.py).  SSNAIL hands over its LUMP ports
 -- for the length of an instruction (ssnail_top multiplexes them).
 --
--- Phase 1: FIND_CELL ($42) and REBALANCE_ROW ($41).  Memory is reached one
--- 8-byte group at a time (no cache yet).
+-- FIND_CELL ($42), REBALANCE_ROW ($41) and RECALC ($40: so far integer
+-- formulas: constants, references, ADD SUB MUL NEG and the comparisons).
+-- Memory is reached one 8-byte group at a time (no cache yet).
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -82,8 +83,17 @@ architecture rtl of shite is
     M_DEC, M_ISSUE, M_WAIT,
     -- the descriptor (both instructions)
     D_RD0, D_RD1, D_CHK,
-    -- FIND_CELL
-    F_ROW, F_ROW2, F_HDR, F_HDR2, F_CELL, F_CELL2,
+    -- FIND_CELL, and the cell lookup it shares with RECALC's references
+    F_DONE, LK_START, LK_ROW, LK_HDR, LK_HDR2, LK_CELL, LK_CELL2,
+    -- RECALC: the descriptor's counters, rows, cells
+    RC_D16, RC_D24, RC_D32, RC_D40, RC_D48,
+    RC_ROW, RC_ROW2, RC_HDR0, RC_HDR1, RC_HCHK, RC_WALK, RC_WALK2, RC_RCHG,
+    RC_FMT, RC_RES, RC_INFO,
+    RC_CW1, RC_CW2, RC_END, RC_CMP, RC_CMP2, RC_CMP3, RC_SW1, RC_SW2, RC_SW3, RC_PREV, RC_FIN,
+    -- formula evaluation: the byte reader, operands, operators, the result
+    BF, BF_FILL, E_NEXT, E_OP, E_IMM, E_IMM2, E_I8, E_I32, E_I64, E_SREF, E_LREF, E_RESOLVE,
+    VL_HDR, VL_V8, VL_FMT, VL_F8, VL_F16, VL_F24,
+    E_BIN, E_MUL, E_MULF, E_NEG, E_STORE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- REBALANCE_ROW
     B_ROW, B_ROW2, B_HDR0, B_HDR1, B_HCHK, B_WALK, B_WALK2,
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
@@ -91,7 +101,7 @@ architecture rtl of shite is
     -- the list RAM's read (one cycle)
     L_WAIT
     );
-  signal st, mem_ret, l_ret : state_t := S_IDLE;
+  signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret : state_t := S_IDLE;
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -140,6 +150,96 @@ architecture rtl of shite is
   signal sp : natural range 0 to 32 := 0;
   signal t_lo, t_hi, t_mid : integer range -1 to max_row_cells := 0;
 
+  -- ---------------------------------------------------------------------
+  -- RECALC
+  -- value kinds on the stack
+  constant VK_Z : unsigned(2 downto 0) := "000";  -- blank
+  constant VK_I : unsigned(2 downto 0) := "001";  -- I64 (fixed point in its k)
+  constant VK_F : unsigned(2 downto 0) := "010";  -- F64
+  constant VK_T : unsigned(2 downto 0) := "011";  -- text
+  constant VK_E : unsigned(2 downto 0) := "100";  -- error
+  -- cell kinds
+  constant K_EMPTY : unsigned(3 downto 0) := x"0";
+  constant K_TEXT  : unsigned(3 downto 0) := x"1";
+  constant K_FORMULA : unsigned(3 downto 0) := x"2";
+  constant K_F64   : unsigned(3 downto 0) := x"3";
+  constant K_I64   : unsigned(3 downto 0) := x"4";
+  constant K_I32   : unsigned(3 downto 0) := x"5";
+  constant K_ERROR : unsigned(3 downto 0) := x"6";
+  constant K_UNCOMPILED : unsigned(3 downto 0) := x"7";
+  -- formula errors
+  constant E_DIV0 : unsigned(7 downto 0) := x"01";
+  constant E_VALUE : unsigned(7 downto 0) := x"02";
+  constant E_REF : unsigned(7 downto 0) := x"03";
+  constant E_NUM : unsigned(7 downto 0) := x"04";
+  constant E_STACK : unsigned(7 downto 0) := x"07";
+  constant E_NAME : unsigned(7 downto 0) := x"08";
+  constant E_COMPILE : unsigned(7 downto 0) := x"09";
+
+  -- the descriptor's fields, kept here during a RECALC and written back at
+  -- its end (or on a format fault)
+  signal cl, cap, pcl, round_n, n_chg, n_evals, n_errs, prev_chg : unsigned(31 downto 0) := (others => '0');
+  signal d44, d48 : unsigned(31 downto 0) := (others => '0');   -- bytes 44-47 (flags), 48-51
+  signal cnt_loaded : boolean := false;
+  signal call_chg : unsigned(31 downto 0) := (others => '0');
+  signal row_chg : unsigned(15 downto 0) := (others => '0');
+  signal same : boolean := false;
+  signal cmp_i : unsigned(31 downto 0) := (others => '0');
+  signal cmp_a : unsigned(63 downto 0) := (others => '0');
+  -- the formula cell
+  signal cell : unsigned(27 downto 0) := (others => '0');
+  signal hdr : unsigned(63 downto 0) := (others => '0');
+  signal fk, old_rk : unsigned(7 downto 0) := (others => '0');
+  signal old_v : unsigned(63 downto 0) := (others => '0');
+  signal bclen, pc : unsigned(15 downto 0) := (others => '0');
+  -- the byte reader: one group buffered
+  signal bf_tag : unsigned(24 downto 0) := (others => '0');
+  signal bf_data : unsigned(63 downto 0) := (others => '0');
+  signal bf_valid : boolean := false;
+  signal bf_byte : unsigned(7 downto 0) := (others => '0');
+  -- multi-byte operands
+  signal imm : unsigned(63 downto 0) := (others => '0');
+  signal fb_i, fb_n : unsigned(3 downto 0) := (others => '0');
+  signal fb_be : boolean := false;
+  -- the stack: its top in registers, the rest in a RAM
+  signal t_kind : unsigned(2 downto 0) := VK_Z;
+  signal t_v : unsigned(63 downto 0) := (others => '0');
+  signal t_k : unsigned(7 downto 0) := (others => '0');
+  signal t_ref : std_logic := '0';
+  type est_t is array (0 to 31) of unsigned(75 downto 0);   -- kind, ref, k, value
+  signal est : est_t;
+  signal esp : natural range 0 to 32 := 0;
+  -- a reference being looked up, and the value it gives
+  signal q_row, q_col : unsigned(31 downto 0) := (others => '0');
+  signal q_addr : unsigned(27 downto 0) := (others => '0');
+  signal lk_blk : unsigned(27 downto 0) := (others => '0');   -- the lookup's own
+  signal lk_g : unsigned(15 downto 0) := (others => '0');
+  signal cur_op : unsigned(7 downto 0) := (others => '0');
+  signal swap : boolean := false;
+  signal v_hdr : unsigned(63 downto 0) := (others => '0');
+  signal v_val : unsigned(63 downto 0) := (others => '0');
+  -- the multiplier: shift and add, 64 steps
+  signal mu_a, mu_b, mu_lo : unsigned(63 downto 0) := (others => '0');
+  signal mu_hi : unsigned(64 downto 0) := (others => '0');
+  signal mu_n : natural range 0 to 64 := 0;
+  signal mu_neg : boolean := false;
+  -- the result to store
+  signal new_rk : unsigned(7 downto 0) := (others => '0');
+  signal new_v : unsigned(63 downto 0) := (others => '0');
+
+  function b64(c : boolean) return unsigned is
+  begin
+    if c then return x"0000000000000001"; else return x"0000000000000000"; end if;
+  end function;
+  function sext15(v : unsigned(14 downto 0)) return unsigned is
+  begin
+    return unsigned(resize(signed(v), 32));
+  end function;
+  function sext14(v : unsigned(13 downto 0)) return unsigned is
+  begin
+    return unsigned(resize(signed(v), 32));
+  end function;
+
   function mid_of(lo, hi : integer) return integer is
   begin
     return (lo + hi) / 2;
@@ -155,6 +255,13 @@ begin
     variable w : unsigned(15 downto 0);
     variable e : unsigned(63 downto 0);
     variable lo, hi, md : integer;
+    variable ad : unsigned(27 downto 0);
+    variable ka, kb : unsigned(2 downto 0);
+    variable va, vb : unsigned(63 downto 0);
+    variable sum : unsigned(64 downto 0);
+    variable ent : unsigned(75 downto 0);
+    variable lt, eq : boolean;
+    variable rr, cc : unsigned(31 downto 0);
 
     procedure mem_read(a : unsigned(27 downto 0); ret : state_t) is
     begin
@@ -173,6 +280,31 @@ begin
     procedure format_fault(r : unsigned(31 downto 0)) is
     begin
       bad_row <= r; st <= S_FAULT;
+    end procedure;
+    -- RECALC's stack
+    procedure push(k : unsigned(2 downto 0); v : unsigned(63 downto 0);
+                   fx : unsigned(7 downto 0); rf : std_logic; nxt : state_t) is
+    begin
+      if esp = 32 then
+        t_kind <= VK_E; t_v <= x"00000000000000" & E_STACK; esp <= 1; st <= E_STORE;
+      else
+        if esp > 0 then
+          est(esp - 1) <= t_kind & t_ref & t_k & t_v;
+        end if;
+        t_kind <= k; t_v <= v; t_k <= fx; t_ref <= rf;
+        esp <= esp + 1;
+        st <= nxt;
+      end if;
+    end procedure;
+    -- the formula's result is an error, at once
+    procedure e_abort(code : unsigned(7 downto 0)) is
+    begin
+      t_kind <= VK_E; t_v <= x"00000000000000" & code; esp <= 1; st <= E_STORE;
+    end procedure;
+    -- one byte of bytecode (bf_byte), then nxt
+    procedure fetch(nxt : state_t) is
+    begin
+      fb_ret <= nxt; st <= BF;
     end procedure;
   begin
     if rising_edge(clock162) then
@@ -193,7 +325,8 @@ begin
       end if;
 
       -- write data: each request is answered the next cycle
-      if (hr_wdata_req = '1' and m_is_sd = '0') or (sd_wdata_req = '1' and m_is_sd = '1') then
+      if st = M_WAIT and m_write = '1' and m_wk /= 4
+        and ((hr_wdata_req = '1' and m_is_sd = '0') or (sd_wdata_req = '1' and m_is_sd = '1')) then
         w := m_wd(to_integer(m_wk) * 16 + 15 downto to_integer(m_wk) * 16);
         hr_wdata <= w; sd_wdata <= w;
         hr_wdata_be <= m_be(to_integer(m_wk) * 2 + 1) & m_be(to_integer(m_wk) * 2);
@@ -206,7 +339,7 @@ begin
       case st is
         when S_IDLE =>
           if start = '1' then
-            err <= ERR_NONE; wr <= '0';
+            err <= ERR_NONE; wr <= '0'; cnt_loaded <= false;
             r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
             mem_read(x, D_RD0);
           end if;
@@ -217,7 +350,11 @@ begin
 
         -- ERR_FORMAT: the row into the descriptor (bytes 48-51)
         when S_FAULT =>
-          mem_write(desc + 48, x"00000000" & bad_row, "00001111", S_FAULT2);
+          if cnt_loaded then                      -- (RECALC's counters first)
+            cnt_loaded <= false; cw_ret <= S_FAULT; st <= RC_CW1;
+          else
+            mem_write(desc + 48, x"00000000" & bad_row, "00001111", S_FAULT2);
+          end if;
         when S_FAULT2 =>
           fault(ERR_FORMAT);
 
@@ -277,11 +414,9 @@ begin
           if abort = '1' then
             fault(ERR_ABORTED);
           elsif r_op = x"42" then                   -- FIND_CELL
-            if r_a >= nrows then
-              result <= (others => '0'); wr <= '1'; st <= S_FINISH;
-            else
-              mem_read(rowtab + (r_a(25 downto 0) & "00"), F_ROW);
-            end if;
+            q_row <= r_a; q_col <= r_b; lk_ret <= F_DONE; st <= LK_START;
+          elsif r_op = x"40" then                   -- RECALC
+            mem_read(desc + 16, RC_D16);
           elsif r_op = x"41" then                   -- REBALANCE_ROW
             row <= r_a; rlast <= r_b;
             st <= B_ROW;
@@ -290,37 +425,47 @@ begin
           end if;
 
         -- --------------------------------------------------------------
-        -- FIND_CELL: the row's block, its root, then the tree
-        when F_ROW =>
-          if r_a(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
+        -- The cell lookup (q_row, q_col -> q_addr, 0: none): the row's
+        -- block, its root, then the tree.  Returns to lk_ret.
+        when LK_START =>
+          if q_row >= nrows then
+            q_addr <= (others => '0'); st <= lk_ret;
+          else
+            mem_read(rowtab + (q_row(25 downto 0) & "00"), LK_ROW);
+          end if;
+        when LK_ROW =>
+          if q_row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
           else e := x"00000000" & m_rd(63 downto 32); end if;
           if e(31 downto 0) = x"FFFFFFFF" then
-            result <= (others => '0'); wr <= '1'; st <= S_FINISH;
+            q_addr <= (others => '0'); st <= lk_ret;
           else
-            blk <= e(27 downto 0);
-            mem_read(e(27 downto 0) + 8, F_HDR);
+            lk_blk <= e(27 downto 0);
+            mem_read(e(27 downto 0) + 8, LK_HDR);
           end if;
-        when F_HDR =>
-          g <= m_rd(15 downto 0);                   -- the root (bytes 8-9)
-          st <= F_HDR2;
-        when F_HDR2 =>
-          if g = 0 then
-            result <= (others => '0'); wr <= '1'; st <= S_FINISH;
+        when LK_HDR =>
+          lk_g <= m_rd(15 downto 0);                   -- the root (bytes 8-9)
+          st <= LK_HDR2;
+        when LK_HDR2 =>
+          if lk_g = 0 then
+            q_addr <= (others => '0'); st <= lk_ret;
           else
-            mem_read(blk + (g & "0000"), F_CELL);
+            mem_read(lk_blk + (lk_g & "0000"), LK_CELL);
           end if;
-        when F_CELL =>
-          col <= m_rd(23 downto 0);
-          if r_b = resize(m_rd(23 downto 0), 32) then
-            result <= x"0" & (blk + (g & "0000")); wr <= '1'; st <= S_FINISH;
-          elsif r_b < resize(m_rd(23 downto 0), 32) then
-            g <= x"0" & m_rd(51 downto 40); st <= F_CELL2;     -- left
+        when LK_CELL =>
+          if q_col = resize(m_rd(23 downto 0), 32) then
+            q_addr <= lk_blk + (lk_g & "0000"); st <= lk_ret;
+          elsif q_col < resize(m_rd(23 downto 0), 32) then
+            lk_g <= x"0" & m_rd(51 downto 40); st <= LK_CELL2;     -- left
           else
-            g <= x"0" & m_rd(63 downto 52); st <= F_CELL2;     -- right
+            lk_g <= x"0" & m_rd(63 downto 52); st <= LK_CELL2;     -- right
           end if;
-        when F_CELL2 =>
+        when LK_CELL2 =>
           if abort = '1' then fault(ERR_ABORTED);
-          else st <= F_HDR2; end if;
+          else st <= LK_HDR2; end if;
+
+        -- FIND_CELL
+        when F_DONE =>
+          result <= x"0" & q_addr; wr <= '1'; st <= S_FINISH;
 
         -- --------------------------------------------------------------
         -- REBALANCE_ROW, rows row..rlast
@@ -487,6 +632,471 @@ begin
           -- the root (bytes 8-9), the stale flag (bytes 14-15) cleared
           mem_write(blk + 8, rh1(63 downto 49) & '0' & rh1(47 downto 16) & g_root, "11111111", B_ROW);
           row <= row + 1;
+
+        -- --------------------------------------------------------------
+        -- RECALC: the descriptor's counters
+        when RC_D16 =>
+          cl <= m_rd(31 downto 0); cap <= m_rd(63 downto 32);
+          mem_read(desc + 24, RC_D24);
+        when RC_D24 =>
+          pcl <= m_rd(31 downto 0); round_n <= m_rd(63 downto 32);
+          mem_read(desc + 32, RC_D32);
+        when RC_D32 =>
+          n_chg <= m_rd(31 downto 0); n_evals <= m_rd(63 downto 32);
+          mem_read(desc + 40, RC_D40);
+        when RC_D40 =>
+          n_errs <= m_rd(31 downto 0); d44 <= m_rd(63 downto 32);
+          mem_read(desc + 48, RC_D48);
+        when RC_D48 =>
+          d48 <= m_rd(31 downto 0); prev_chg <= m_rd(63 downto 32);
+          if r_z(0) = '1' then                      -- BEGIN
+            n_chg <= (others => '0'); n_evals <= (others => '0'); n_errs <= (others => '0');
+            d44(1 downto 0) <= "00";
+          end if;
+          cnt_loaded <= true;
+          call_chg <= (others => '0');
+          row <= r_a;
+          st <= RC_ROW;
+
+        -- rows r_a..r_b
+        when RC_ROW =>
+          if row > r_b or row >= nrows then
+            st <= RC_CW1; cw_ret <= RC_END;
+          else
+            mem_read(rowtab + (row(25 downto 0) & "00"), RC_ROW2);
+          end if;
+        when RC_ROW2 =>
+          if row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
+          else e := x"00000000" & m_rd(63 downto 32); end if;
+          if e(31 downto 0) = x"FFFFFFFF" then
+            row <= row + 1;
+            st <= RC_ROW;
+          else
+            blk <= e(27 downto 0);
+            mem_read(e(27 downto 0), RC_HDR0);
+          end if;
+        when RC_HDR0 =>
+          rh0 <= m_rd;
+          mem_read(blk + 8, RC_HDR1);
+        when RC_HDR1 =>
+          rh1 <= m_rd;
+          st <= RC_HCHK;
+        when RC_HCHK =>
+          if rh0(31 downto 0) /= row or rh1(31 downto 16) = 0 or rh1(31 downto 16) > rh0(47 downto 32)
+            or rh0(47 downto 32) > 4096 then
+            format_fault(row);
+          else
+            gfree <= rh1(31 downto 16);
+            g <= to_unsigned(1, 16);
+            row_chg <= (others => '0');
+            st <= RC_WALK;
+          end if;
+        -- the row's cells in memory order
+        when RC_WALK =>
+          if abort = '1' then
+            fault(ERR_ABORTED);
+          elsif g >= gfree then
+            -- the row's changed count (bytes 12-13)
+            mem_write(blk + 8, x"0000" & row_chg & x"00000000", "00110000", RC_RCHG);
+          else
+            mem_read(blk + (g & "0000"), RC_WALK2);
+          end if;
+        when RC_RCHG =>
+          row <= row + 1;
+          st <= RC_ROW;
+        when RC_WALK2 =>
+          hdr <= m_rd;
+          cell <= blk + (g & "0000");
+          if m_rd(39 downto 32) = 0 or resize(g, 17) + resize(m_rd(39 downto 32), 17) > resize(gfree, 17) then
+            format_fault(row);
+          elsif m_rd(27 downto 24) = K_FORMULA and resize(m_rd(23 downto 0), 32) >= r_c
+            and resize(m_rd(23 downto 0), 32) <= r_d then
+            mem_read(blk + (g & "0000") + 8, RC_FMT);
+          else
+            st <= E_NEXTCELL;
+          end if;
+        when RC_FMT =>                          -- the format (its byte 2: fixed point)
+          fk <= m_rd(23 downto 16);
+          mem_read(cell + 16, RC_RES);
+        when RC_RES =>                          -- the result as stored
+          old_v <= m_rd;
+          mem_read(cell + 24, RC_INFO);
+        when RC_INFO =>                         -- its kind, the bytecode's length
+          old_rk <= m_rd(7 downto 0);
+          bclen <= m_rd(31 downto 16);
+          pc <= (others => '0');
+          esp <= 0;
+          bf_valid <= false;
+          st <= E_NEXT;
+        when E_NEXTCELL =>
+          g <= g + hdr(39 downto 32);
+          st <= RC_WALK;
+
+        -- the counters back into the descriptor, then cw_ret
+        when RC_CW1 =>
+          mem_write(desc + 32, n_evals & n_chg, "11111111", RC_CW2);
+        when RC_CW2 =>
+          mem_write(desc + 40, d44 & n_errs, "11111111", cw_ret);
+
+        -- END: compare with the previous round's list, swap the lists,
+        -- the round counter, this round's count as the previous one
+        when RC_END =>
+          if r_z(1) = '0' then
+            st <= RC_FIN;
+          elsif pcl = 0 then
+            swap <= false;
+            st <= RC_SW2;
+          else
+            swap <= true;
+            same <= n_chg = prev_chg and n_chg <= cap;
+            cmp_i <= (others => '0');
+            st <= RC_CMP;
+          end if;
+        when RC_CMP =>
+          if not same or cmp_i >= n_chg then
+            if same then d44(1) <= '1'; else d44(1) <= '0'; end if;
+            st <= RC_SW1;
+          else
+            mem_read(cl(27 downto 0) + (cmp_i(24 downto 0) & "000"), RC_CMP2);
+          end if;
+        when RC_CMP2 =>
+          cmp_a <= m_rd;
+          mem_read(pcl(27 downto 0) + (cmp_i(24 downto 0) & "000"), RC_CMP3);
+        when RC_CMP3 =>
+          if m_rd /= cmp_a then same <= false; end if;
+          cmp_i <= cmp_i + 1;
+          st <= RC_CMP;
+        when RC_SW1 =>                          -- the flags again
+          mem_write(desc + 40, d44 & n_errs, "11111111", RC_SW3);
+        when RC_SW3 =>                          -- the list address: the previous one's
+          mem_write(desc + 16, cap & pcl, "00001111", RC_SW2);
+        when RC_SW2 =>                          -- the round counter, and the previous list
+          if swap then
+            mem_write(desc + 24, (round_n + 1) & cl, "11111111", RC_PREV);
+          else
+            mem_write(desc + 24, (round_n + 1) & pcl, "11110000", RC_PREV);
+          end if;
+        when RC_PREV =>                         -- the previous round's count (bytes 52-55)
+          mem_write(desc + 48, n_chg & d48, "11110000", RC_FIN);
+        when RC_FIN =>
+          result <= call_chg; wr <= '1';
+          cnt_loaded <= false;
+          st <= S_FINISH;
+
+        -- --------------------------------------------------------------
+        -- The byte reader: bytecode byte pc of the cell (at cell + 32)
+        when BF =>
+          if pc >= bclen then
+            e_abort(E_STACK);
+          else
+            ad := cell + 32 + pc;
+            if bf_valid and ad(27 downto 3) = bf_tag then
+              bf_byte <= bf_data(to_integer(ad(2 downto 0)) * 8 + 7 downto to_integer(ad(2 downto 0)) * 8);
+              pc <= pc + 1;
+              st <= fb_ret;
+            else
+              mem_read(ad, BF_FILL);
+            end if;
+          end if;
+        when BF_FILL =>
+          ad := cell + 32 + pc;
+          bf_data <= m_rd; bf_tag <= ad(27 downto 3); bf_valid <= true;
+          st <= BF;
+
+        -- multi-byte operands: fb_n bytes into imm (little-endian, or
+        -- big-endian: references), then imm_ret
+        when E_IMM =>
+          if fb_i = fb_n then
+            st <= imm_ret;
+          else
+            fetch(E_IMM2);
+          end if;
+        when E_IMM2 =>
+          if fb_be then
+            imm <= imm(55 downto 0) & bf_byte;
+          else
+            imm(to_integer(fb_i) * 8 + 7 downto to_integer(fb_i) * 8) <= bf_byte;
+          end if;
+          fb_i <= fb_i + 1;
+          st <= E_IMM;
+
+        -- the next item
+        when E_NEXT =>
+          fetch(E_OP);
+        when E_OP =>
+          cur_op <= bf_byte;
+          if bf_byte(7) = '1' then                -- a short reference
+            imm <= x"00000000000000" & bf_byte; fb_i <= x"1"; fb_n <= x"4"; fb_be <= true;
+            imm_ret <= E_SREF; st <= E_IMM;
+          else
+            case bf_byte is
+              when x"00" =>                       -- END
+                if esp /= 1 then e_abort(E_STACK); else st <= E_STORE; end if;
+              when x"01" =>                       -- I8
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"1"; fb_be <= false;
+                imm_ret <= E_I8; st <= E_IMM;
+              when x"02" =>                       -- I32
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"4"; fb_be <= false;
+                imm_ret <= E_I32; st <= E_IMM;
+              when x"03" =>                       -- I64
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"8"; fb_be <= false;
+                imm_ret <= E_I64; st <= E_IMM;
+              when x"07" =>                       -- REF (the long form)
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
+                imm_ret <= E_LREF; st <= E_IMM;
+              when x"10" | x"11" | x"12" | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
+                st <= E_BIN;
+              when x"15" =>
+                st <= E_NEG;
+              -- (not in hardware yet: the rest of section 5.4)
+              when x"04" | x"05" | x"06" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
+                 | x"13" | x"14" | x"16" | x"17" =>
+                e_abort(E_NAME);
+              when others =>
+                e_abort(E_STACK);
+            end case;
+          end if;
+        when E_I8 =>
+          push(VK_I, unsigned(resize(signed(imm(7 downto 0)), 64)), x"00", '0', E_NEXT);
+        when E_I32 =>
+          push(VK_I, unsigned(resize(signed(imm(31 downto 0)), 64)), x"00", '0', E_NEXT);
+        when E_I64 =>
+          push(VK_I, imm, x"00", '0', E_NEXT);
+
+        -- references: the cell, relative to the formula's own (row, col)
+        when E_SREF =>
+          if imm(30) = '1' then rr := resize(imm(29 downto 15), 32);
+          else rr := (row + sext15(imm(29 downto 15))) and x"000FFFFF"; end if;
+          if imm(14) = '1' then cc := resize(imm(13 downto 0), 32);
+          else cc := (resize(hdr(23 downto 0), 32) + sext14(imm(13 downto 0))) and x"00FFFFFF"; end if;
+          q_row <= rr; q_col <= cc;
+          st <= E_RESOLVE;
+        when E_LREF =>
+          if imm(47) = '1' then rr := resize(imm(43 downto 24), 32);
+          else rr := (row + resize(imm(43 downto 24), 32)) and x"000FFFFF"; end if;
+          if imm(46) = '1' then cc := resize(imm(23 downto 0), 32);
+          else cc := (resize(hdr(23 downto 0), 32) + resize(imm(23 downto 0), 32)) and x"00FFFFFF"; end if;
+          q_row <= rr; q_col <= cc;
+          st <= E_RESOLVE;
+        when E_RESOLVE =>
+          if q_row >= nrows or q_col >= ncols then
+            push(VK_E, x"00000000000000" & E_REF, x"00", '1', E_NEXT);
+          else
+            lk_ret <= VL_HDR; st <= LK_START;
+          end if;
+
+        -- the referenced cell's value (q_addr; 0: no cell)
+        when VL_HDR =>
+          if q_addr = 0 then
+            push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+          else
+            mem_read(q_addr, VL_V8);
+          end if;
+        when VL_V8 =>
+          v_hdr <= m_rd;
+          case m_rd(27 downto 24) is
+            when K_EMPTY =>
+              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+            when K_TEXT =>
+              push(VK_T, (others => '0'), x"00", '1', E_NEXT);
+            when K_UNCOMPILED =>
+              push(VK_E, x"00000000000000" & E_COMPILE, x"00", '1', E_NEXT);
+            when K_F64 | K_I64 | K_I32 | K_ERROR | K_FORMULA =>
+              mem_read(q_addr + 8, VL_FMT);
+            when others =>
+              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+          end case;
+        when VL_FMT =>                          -- the group at +8
+          v_val <= m_rd;
+          case v_hdr(27 downto 24) is
+            when K_F64 =>
+              if m_rd(62 downto 52) = 0 then        -- (subnormals flushed to zero)
+                push(VK_F, m_rd(63) & "000" & x"000000000000000", x"00", '1', E_NEXT);
+              else
+                push(VK_F, m_rd, x"00", '1', E_NEXT);
+              end if;
+            when K_ERROR =>
+              push(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00", '1', E_NEXT);
+            when K_I64 | K_I32 =>
+              if v_hdr(30) = '1' then               -- HAS_FORMAT: its fixed point
+                mem_read(q_addr + 16, VL_F16);
+              elsif v_hdr(27 downto 24) = K_I32 then
+                push(VK_I, unsigned(resize(signed(m_rd(31 downto 0)), 64)), x"00", '1', E_NEXT);
+              else
+                push(VK_I, m_rd, x"00", '1', E_NEXT);
+              end if;
+            when others =>                        -- FORMULA: its result, kind
+              mem_read(q_addr + 24, VL_F24);
+          end case;
+        when VL_F16 =>                          -- a number's format: byte 2
+          if v_hdr(27 downto 24) = K_I32 then
+            push(VK_I, unsigned(resize(signed(v_val(31 downto 0)), 64)), m_rd(23 downto 16), '1', E_NEXT);
+          else
+            push(VK_I, v_val, m_rd(23 downto 16), '1', E_NEXT);
+          end if;
+        when VL_F24 =>                          -- a formula's result kind
+          case m_rd(3 downto 0) is
+            when K_F64 | K_I64 | K_I32 | K_ERROR | K_TEXT =>
+              q_addr <= q_addr;                 -- (the result itself next)
+              cmp_a <= m_rd;
+              mem_read(q_addr + 16, VL_F8);
+            when others =>
+              push(VK_Z, (others => '0'), x"00", '1', E_NEXT);
+          end case;
+        when VL_F8 =>                           -- (cmp_a: the kind; v_val: the format group)
+          case cmp_a(3 downto 0) is
+            when K_F64 =>
+              if m_rd(62 downto 52) = 0 then
+                push(VK_F, m_rd(63) & "000" & x"000000000000000", x"00", '1', E_NEXT);
+              else
+                push(VK_F, m_rd, x"00", '1', E_NEXT);
+              end if;
+            when K_I64 | K_I32 =>
+              push(VK_I, m_rd, v_val(23 downto 16), '1', E_NEXT);
+            when K_ERROR =>
+              push(VK_E, x"00000000000000" & m_rd(7 downto 0), x"00", '1', E_NEXT);
+            when others =>                        -- text
+              push(VK_T, (others => '0'), x"00", '1', E_NEXT);
+          end case;
+
+        -- --------------------------------------------------------------
+        -- binary operators: a (below the top) op b (the top)
+        when E_BIN =>
+          if esp < 2 then
+            e_abort(E_STACK);
+          else
+            ent := est(esp - 2);
+            ka := ent(75 downto 73); va := ent(63 downto 0);
+            kb := t_kind; vb := t_v;
+            -- blank is 0; text is #VALUE!
+            if ka = VK_Z then ka := VK_I; va := (others => '0'); end if;
+            if kb = VK_Z then kb := VK_I; vb := (others => '0'); end if;
+            esp <= esp - 1;
+            t_ref <= '0'; t_k <= x"00";
+            st <= E_NEXT;
+            if ka = VK_E then
+              t_kind <= VK_E; t_v <= va;
+            elsif ka /= VK_I and ka /= VK_F then
+              t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+            elsif kb = VK_E then
+              t_kind <= VK_E; t_v <= vb;
+            elsif kb /= VK_I and kb /= VK_F then
+              t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+            elsif ka = VK_I and kb = VK_I then
+              -- (integers without fixed point: so far)
+              lt := signed(va) < signed(vb); eq := va = vb;
+              t_kind <= VK_I;
+              case cur_op is
+                when x"10" =>
+                  sum := unsigned(resize(signed(va), 65) + resize(signed(vb), 65));
+                  if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+                  else t_v <= sum(63 downto 0); end if;
+                when x"11" =>
+                  sum := unsigned(resize(signed(va), 65) - resize(signed(vb), 65));
+                  if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+                  else t_v <= sum(63 downto 0); end if;
+                when x"12" =>                     -- multiply: 64 steps on the magnitudes
+                  if va(63) = '1' then mu_a <= unsigned(-signed(va)); else mu_a <= va; end if;
+                  if vb(63) = '1' then mu_b <= unsigned(-signed(vb)); else mu_b <= vb; end if;
+                  mu_neg <= (va(63) xor vb(63)) = '1';
+                  mu_hi <= (others => '0'); mu_lo <= (others => '0'); mu_n <= 0;
+                  st <= E_MUL;
+                when x"18" => t_v <= b64(eq);
+                when x"19" => t_v <= b64(not eq);
+                when x"1A" => t_v <= b64(lt);
+                when x"1B" => t_v <= b64(lt or eq);
+                when x"1C" => t_v <= b64(not (lt or eq));
+                when others => t_v <= b64(not lt);
+              end case;
+            else
+              e_abort(E_NAME);                    -- (F64 arithmetic: not yet)
+            end if;
+          end if;
+        when E_MUL =>
+          if mu_n = 64 then
+            st <= E_MULF;
+          else
+            if mu_b(0) = '1' then
+              sum := mu_hi + ('0' & mu_a);
+            else
+              sum := mu_hi;
+            end if;
+            mu_hi <= '0' & sum(64 downto 1);
+            mu_lo <= sum(0) & mu_lo(63 downto 1);
+            mu_b <= '0' & mu_b(63 downto 1);
+            mu_n <= mu_n + 1;
+          end if;
+        when E_MULF =>                          -- the product mu_hi:mu_lo, signed back
+          st <= E_NEXT;
+          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+          elsif mu_neg then
+            t_kind <= VK_I; t_v <= unsigned(-signed(mu_lo));
+          else
+            t_kind <= VK_I; t_v <= mu_lo;
+          end if;
+        when E_NEG =>
+          st <= E_NEXT;
+          if esp < 1 then
+            e_abort(E_STACK);
+          elsif t_kind = VK_Z then
+            t_kind <= VK_I; t_v <= (others => '0'); t_ref <= '0';
+          elsif t_kind = VK_I then
+            if t_v = x"8000000000000000" then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+            else t_v <= unsigned(-signed(t_v)); end if;
+            t_ref <= '0';
+          elsif t_kind = VK_F then
+            t_v(63) <= not t_v(63); t_ref <= '0';
+          elsif t_kind /= VK_E then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+          end if;
+
+        -- --------------------------------------------------------------
+        -- the result (the top) as stored: (new_rk, new_v)
+        when E_STORE =>
+          n_evals <= n_evals + 1;
+          case t_kind is
+            when VK_Z =>
+              new_rk <= x"04"; new_v <= (others => '0');
+            when VK_I =>
+              new_rk <= x"04"; new_v <= t_v;      -- (fixed point: not yet)
+            when VK_F =>
+              if t_v(62 downto 52) = "11111111111" then
+                new_rk <= x"06"; new_v <= x"00000000000000" & E_NUM;
+              else
+                new_rk <= x"03"; new_v <= t_v;
+              end if;
+            when VK_E =>
+              new_rk <= x"06"; new_v <= x"00000000000000" & t_v(7 downto 0);
+            when others =>
+              new_rk <= x"06"; new_v <= x"00000000000000" & E_VALUE;
+          end case;
+          st <= E_W1;
+        when E_W1 =>
+          if new_rk = x"06" then n_errs <= n_errs + 1; end if;
+          if new_rk = old_rk and new_v = old_v then
+            st <= E_NEXTCELL;                     -- unchanged
+          else
+            mem_write(cell + 16, new_v, "11111111", E_W2);
+          end if;
+        when E_W2 =>
+          mem_write(cell + 24, x"00000000000000" & new_rk, "00000001", E_W3);
+        when E_W3 =>                            -- the header's flags: CHANGED, ERROR
+          e := (others => '0');
+          e(31 downto 24) := hdr(31 downto 30) & '0' & '1' & hdr(27 downto 24);
+          if new_rk = x"06" then e(29) := '1'; end if;
+          mem_write(cell, e, "00001000", E_W4);
+          row_chg <= row_chg + 1;
+          call_chg <= call_chg + 1;
+        when E_W4 =>                            -- the change list
+          n_chg <= n_chg + 1;
+          if n_chg < cap then
+            mem_write(cl(27 downto 0) + (n_chg(24 downto 0) & "000"), resize(hdr(23 downto 0), 32) & row,
+                      "11111111", E_NEXTCELL);
+          else
+            d44(0) <= '1';
+            st <= E_NEXTCELL;
+          end if;
 
         when others =>
           st <= S_IDLE;
