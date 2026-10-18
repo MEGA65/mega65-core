@@ -41,6 +41,7 @@ Testbenches:
     tb_shite_step3    SHITE RECALC: fixed point
     tb_shite_step4    SHITE RECALC: F64 (475 formulas: specials, rounding, conversions)
     tb_shite_step5    SHITE RECALC: ranges, cell lists, aggregates, host calls
+    tb_shite_step6    SHITE RECALC: IF, %, AND OR NOT, PRODUCT, COUNTA, ABS SIGN INT TRUNC MOD
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
     tb_ssnail_perf_f16  float GEMV (F16) results and speed
     tb_ssnail_perf_attn ATTN results and speed
@@ -166,6 +167,10 @@ BENCHES = {
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "shite.vhdl",
                         "ssnail_top.vhdl", "shite5_pkg.vhdl", "tb_shite_step5.vhdl"],
                        "tb_shite_step5", [["-gllm=false"]], r"TB_SHITE_STEP5: ALL PASSED"),
+    "tb_shite_step6": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                        "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "shite.vhdl",
+                        "ssnail_top.vhdl", "shite6_pkg.vhdl", "tb_shite_step6.vhdl"],
+                       "tb_shite_step6", [["-gllm=false"]], r"TB_SHITE_STEP6: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
@@ -233,6 +238,7 @@ GENERATED = {
     "shite3_pkg.vhdl": ("gen_shite3.py", True),
     "shite4_pkg.vhdl": ("gen_shite4.py", True),
     "shite5_pkg.vhdl": ("gen_shite5.py", True),
+    "shite6_pkg.vhdl": ("gen_shite6.py", True),
     "step6_pkg.vhdl": ("gen_step6.py", True),
     "step7_pkg.vhdl": ("gen_step7.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),

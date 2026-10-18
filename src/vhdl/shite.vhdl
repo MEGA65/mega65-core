@@ -97,6 +97,9 @@ architecture rtl of shite is
     RF_START, RF_B0, VR_START, VR_B0, VR_B1,
     AG_START, AG_ARG, AG_NEXTARG, AG_RROW, AG_RROW2, AG_RROW3, AG_TW, AG_TW2, AG_VISITED,
     AG_LNEXT, AG_LREF, AG_LTAKE, AG_TAKE, AG_SUMR, AG_MMR, AG_FINISH, AG_AVGR, AG_RESULT,
+    E_JUMP, E_JZ, E_PCT, E_PCT2,
+    SF_START, SF_ARG2, SF_INTDIV, SF_MODI, SF_MODI2, SF_MODI3, SF_MODF, SF_MODF2, SF_MODF3, SF_MODF4,
+    SF_FLOOR, SF_DONE,
     E_BIN, E_BINW, BO_START, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
     E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- the shared multiplier and divider
@@ -268,6 +271,13 @@ architecture rtl of shite is
   signal ag_i : natural range 0 to 32 := 0;
   signal ag_cnt : unsigned(31 downto 0) := (others => '0');
   signal ag_ferr, ag_fromc : boolean := false;
+  signal ag_all, ag_any, ag_bad : boolean := false;          -- AND / OR
+  -- scalar functions: the arguments (as numbers), the step
+  signal sa_kind, sb_kind : unsigned(2 downto 0) := (others => '0');
+  signal sa_v, sb_v : unsigned(63 downto 0) := (others => '0');
+  signal sa_k, sb_k : unsigned(7 downto 0) := (others => '0');
+  signal sf_neg : boolean := false;
+  signal jmp_off : unsigned(15 downto 0) := (others => '0');
   signal acc_kind, best_kind : unsigned(2 downto 0) := (others => '0');
   signal acc_v, best_v : unsigned(63 downto 0) := (others => '0');
   signal acc_k, best_k : unsigned(7 downto 0) := (others => '0');
@@ -383,6 +393,52 @@ architecture rtl of shite is
     elsif f_zero(a) and f_zero(b) then return true;
     else return a = b;
     end if;
+  end function;
+  -- F64 rounded toward zero (on the bits: the fraction bits cleared)
+  function f_trunc(fv : unsigned(63 downto 0)) return unsigned is
+    variable e : integer;
+    variable r : unsigned(63 downto 0);
+  begin
+    e := to_integer(fv(62 downto 52)) - 1023;
+    if fv(62 downto 52) = "11111111111" or e >= 52 then return fv;   -- integral, inf, NaN
+    elsif e < 0 then return fv(63) & "000" & x"000000000000000";    -- |fv| < 1: a signed zero
+    else
+      r := fv;
+      for i in 0 to 51 loop
+        if i < 52 - e then r(i) := '0'; end if;
+      end loop;
+      return r;
+    end if;
+  end function;
+  -- whether x has a fraction (finite, not integral)
+  function f_frac(fv : unsigned(63 downto 0)) return boolean is
+    variable e : integer;
+  begin
+    e := to_integer(fv(62 downto 52)) - 1023;
+    if fv(62 downto 52) = "11111111111" or e >= 52 or fv(62 downto 52) = 0 then return false;
+    elsif e < 0 then return true;
+    else
+      for i in 0 to 51 loop
+        if i < 52 - e and fv(i) = '1' then return true; end if;
+      end loop;
+      return false;
+    end if;
+  end function;
+  -- floor: trunc, then a negative with a fraction one further (-1 when |x| < 1)
+  function f_floor(fv : unsigned(63 downto 0)) return unsigned is
+    variable t : unsigned(63 downto 0);
+    variable e : integer;
+  begin
+    t := f_trunc(fv);
+    if fv(63) = '1' and f_frac(fv) then
+      e := to_integer(fv(62 downto 52)) - 1023;
+      if e < 0 then
+        return x"BFF0000000000000";                       -- -1.0
+      else
+        return '1' & (t(62 downto 0) + shift_left(to_unsigned(1, 63), 52 - e));
+      end if;
+    end if;
+    return t;
   end function;
   function b2s(c : boolean) return std_logic is
   begin
@@ -1027,9 +1083,8 @@ begin
               when x"14" | x"17" =>               -- POW, CONCAT (not yet): two operands
                 if esp < 2 then e_abort(E_STACK);
                 else esp <= esp - 1; t_kind <= VK_E; t_v <= x"00000000000000" & E_NAME; t_ref <= '0'; st <= E_NEXT; end if;
-              when x"16" =>                       -- PCT (not yet): one operand
-                if esp < 1 then e_abort(E_STACK);
-                else t_kind <= VK_E; t_v <= x"00000000000000" & E_NAME; t_ref <= '0'; st <= E_NEXT; end if;
+              when x"16" =>                       -- PCT
+                st <= E_PCT;
               when x"10" | x"11" | x"12" | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
                 st <= E_BIN;
               when x"15" =>
@@ -1042,8 +1097,10 @@ begin
               when x"04" =>                       -- F64
                 imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"8"; fb_be <= false;
                 imm_ret <= E_STF; st <= E_IMM;
-              when x"0A" | x"0B" =>               -- JZ, JMP (not yet)
-                e_abort(E_NAME);
+              when x"0A" | x"0B" =>               -- JZ, JMP: a 2-byte forward offset
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"2"; fb_be <= false;
+                if bf_byte = x"0A" then imm_ret <= E_JZ; else imm_ret <= E_JUMP; end if;
+                st <= E_IMM;
               when others =>
                 e_abort(E_STACK);
             end case;
@@ -1223,6 +1280,207 @@ begin
           ag_argc <= vl_n;
           st <= AG_START;
 
+        -- JMP / JZ (IF): forward by imm(15:0)
+        when E_JUMP =>
+          pc <= pc + imm(15 downto 0);
+          st <= E_NEXT;
+        when E_JZ =>                            -- pop; zero (blank, I64 0, F64 +-0): jump
+          if esp < 1 then
+            e_abort(E_STACK);
+          elsif t_kind = VK_E then
+            e_abort(t_v(7 downto 0));
+          elsif t_kind /= VK_Z and t_kind /= VK_I and t_kind /= VK_F then
+            e_abort(E_VALUE);
+          elsif t_kind = VK_I and bad_k(t_k) then
+            e_abort(E_NUM);
+          else
+            if t_kind = VK_Z or (t_kind = VK_I and t_v = 0) or (t_kind = VK_F and f_zero(t_v)) then
+              pc <= pc + imm(15 downto 0);
+            end if;
+            -- (the pop: the entry below to the top)
+            if esp > 1 then
+              ent := est(esp - 2);
+              t_aux <= ent(107 downto 76); t_kind <= ent(75 downto 73); t_ref <= ent(72);
+              t_k <= ent(71 downto 64); t_v <= ent(63 downto 0);
+            end if;
+            esp <= esp - 1;
+            st <= E_NEXT;
+          end if;
+        -- %: integers two more decimals of fixed point, else F64 / 100
+        when E_PCT =>
+          st <= E_NEXT;
+          t_ref <= '0';
+          if esp < 1 then
+            e_abort(E_STACK);
+          elsif t_kind = VK_Z then
+            t_kind <= VK_I; t_v <= (others => '0'); t_k <= x"02";
+          elsif t_kind = VK_E then
+            null;
+          elsif t_kind /= VK_I and t_kind /= VK_F then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+          elsif t_kind = VK_I and bad_k(t_k) then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+          elsif t_kind = VK_I and not (t_k(6 downto 0) /= 0 and t_k(7) = '1') and t_k(6 downto 0) <= 16 then
+            t_k <= '0' & (t_k(6 downto 0) + 2);
+          elsif t_kind = VK_I then
+            cv_v <= t_v; cv_k <= t_k; cv_ret <= E_PCT2; cv_step <= 0; st <= CV_START;
+          else
+            fp_r <= t_v; st <= E_PCT2;
+          end if;
+        when E_PCT2 =>                          -- F64: x / 100
+          fp_a <= fp_r; fp_b <= x"4059000000000000"; fp_op <= FP_DIV; fp_ret <= E_FBR;
+          bo_ret <= E_BINW; st <= FP_START;
+          -- (E_FBR sets br_*, then E_BINW: the top)
+
+        -- --------------------------------------------------------------
+        -- Scalar functions (5.7): ABS INT TRUNC SIGN MOD NOT
+        when SF_START =>
+          if (ag_fid = 13 and ag_argc /= 2) or (ag_fid /= 13 and ag_argc /= 1) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE; st <= AG_RESULT;
+          else
+            ent := est(ag_i);
+            if ag_argc = 1 then ent := t_aux & t_kind & t_ref & t_k & t_v; end if;
+            -- as a number: blank 0; text, ranges #VALUE!; past-the-limit fixed point #NUM!
+            ka := ent(75 downto 73); va := ent(63 downto 0); fa := ent(71 downto 64);
+            if ka = VK_Z then ka := VK_I; va := (others => '0'); fa := x"00"; end if;
+            sa_kind <= ka; sa_v <= va; sa_k <= fa;
+            st <= SF_DONE;
+            acc_kind <= VK_I; acc_k <= x"00";
+            if ka = VK_E then
+              acc_kind <= VK_E; acc_v <= va;
+            elsif ka /= VK_I and ka /= VK_F then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
+            elsif ka = VK_I and bad_k(fa) then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+            else
+              case ag_fid(4 downto 0) is
+                when "10000" =>                   -- NOT
+                  if (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then acc_v <= b64(true);
+                  else acc_v <= b64(false); end if;
+                when "00111" =>                   -- ABS
+                  if ka = VK_F then
+                    acc_kind <= VK_F; acc_v <= '0' & va(62 downto 0);
+                  elsif va = x"8000000000000000" then
+                    acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+                  else
+                    acc_k <= fa;
+                    if va(63) = '1' then acc_v <= unsigned(-signed(va)); else acc_v <= va; end if;
+                  end if;
+                when "01011" =>                   -- SIGN
+                  if ka = VK_F and f_nan(va) then
+                    acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+                  elsif (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then
+                    acc_v <= (others => '0');
+                  elsif va(63) = '1' then
+                    acc_v <= (others => '1');
+                  else
+                    acc_v <= b64(true);
+                  end if;
+                when "01000" | "01001" =>         -- INT, TRUNC
+                  if ka = VK_F then
+                    acc_kind <= VK_F;
+                    if ag_fid = 8 then acc_v <= f_floor(va); else acc_v <= f_trunc(va); end if;
+                  elsif fa(6 downto 0) = 0 then
+                    acc_v <= va;
+                  elsif fa(7) = '1' then          -- binary: a shift
+                    if ag_fid = 8 then
+                      acc_v <= unsigned(shift_right(signed(va), to_integer(fa(6 downto 0))));
+                    elsif va(63) = '1' then
+                      acc_v <= unsigned(-signed(shift_right(unsigned(-signed(va)), to_integer(fa(6 downto 0)))));
+                    else
+                      acc_v <= shift_right(va, to_integer(fa(6 downto 0)));
+                    end if;
+                  else                            -- decimal: |v| / 10^k
+                    if va(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(va));
+                    else dv_n <= x"0000000000000000" & va; end if;
+                    dv_d <= pw(fa(6 downto 0), '0');
+                    dv_raw <= true; dv_ret <= SF_INTDIV; st <= DV_START;
+                  end if;
+                when others =>                    -- MOD: the second argument
+                  st <= SF_ARG2;
+              end case;
+            end if;
+          end if;
+        when SF_INTDIV =>                       -- INT rounds down, TRUNC toward zero
+          st <= SF_DONE;
+          if sa_v(63) = '0' then
+            acc_v <= dv_q(63 downto 0);
+          elsif ag_fid = 8 and dv_r /= 0 then
+            acc_v <= unsigned(-signed(dv_q(63 downto 0) + 1));
+          else
+            acc_v <= unsigned(-signed(dv_q(63 downto 0)));
+          end if;
+        when SF_ARG2 =>                         -- MOD's b
+          if ag_i + 1 = esp - 1 then ent := t_aux & t_kind & t_ref & t_k & t_v;
+          else ent := est(ag_i + 1); end if;
+          kb := ent(75 downto 73); vb := ent(63 downto 0); fb := ent(71 downto 64);
+          if kb = VK_Z then kb := VK_I; vb := (others => '0'); fb := x"00"; end if;
+          sb_kind <= kb; sb_v <= vb; sb_k <= fb;
+          st <= SF_DONE;
+          if kb = VK_E then
+            acc_kind <= VK_E; acc_v <= vb;
+          elsif kb /= VK_I and kb /= VK_F then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
+          elsif kb = VK_I and bad_k(fb) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+          elsif (kb = VK_I and vb = 0) or (kb = VK_F and f_zero(vb)) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_DIV0;
+          elsif sa_kind = VK_I and kb = VK_I and
+            not (sa_k(6 downto 0) /= 0 and fb(6 downto 0) /= 0 and sa_k(7) /= fb(7)) then
+            -- integers: aligned through the operators' path (SUB's alignment)
+            bo_ka <= sa_kind; bo_va <= sa_v; bo_fa <= sa_k;
+            bo_kb <= kb; bo_vb <= vb; bo_fb <= fb;
+            bo_op <= x"18"; bo_ret <= SF_MODI; st <= BO_START;   -- (EQ: just the alignment)
+          else
+            fx_a <= sa_v; fx_b <= vb; fx_ka <= sa_kind; fx_kb <= kb; fx_fa <= sa_k; fx_fb <= fb;
+            cv_v <= sa_v; cv_k <= sa_k;
+            if sa_kind = VK_I then cv_ret <= SF_MODF; cv_step <= 0; st <= CV_START;
+            else fp_r <= sa_v; st <= SF_MODF; end if;
+          end if;
+        when SF_MODI =>                         -- xa, xb aligned (or #NUM!): |a| mod |b|
+          if br_kind = VK_E then
+            acc_kind <= VK_E; acc_v <= br_v; st <= SF_DONE;
+          else
+            if xa(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(xa));
+            else dv_n <= x"0000000000000000" & xa; end if;
+            if xb(63) = '1' then dv_d <= unsigned(-signed(xb)); else dv_d <= xb; end if;
+            dv_raw <= true; dv_ret <= SF_MODI2; st <= DV_START;
+          end if;
+        when SF_MODI2 =>                        -- floor mod: the divisor's sign
+          acc_kind <= VK_I; acc_k <= x_k;
+          st <= SF_DONE;
+          if dv_r = 0 then
+            acc_v <= (others => '0');
+          elsif xa(63) = xb(63) then
+            if xb(63) = '1' then acc_v <= unsigned(-signed(dv_r(63 downto 0))); else acc_v <= dv_r(63 downto 0); end if;
+          else
+            if xb(63) = '1' then acc_v <= unsigned(-signed(dv_d - dv_r(63 downto 0)));
+            else acc_v <= dv_d - dv_r(63 downto 0); end if;
+          end if;
+        when SF_MODF =>                         -- F64: a (fp_r), then b
+          fx_a <= fp_r;
+          if sb_kind = VK_I then
+            cv_v <= sb_v; cv_k <= sb_k; cv_ret <= SF_MODF2; cv_step <= 0; st <= CV_START;
+          else
+            fp_r <= sb_v; st <= SF_MODF2;
+          end if;
+        when SF_MODF2 =>                        -- q = a / b
+          fx_b <= fp_r;
+          fp_a <= fx_a; fp_b <= fp_r; fp_op <= FP_DIV; fp_ret <= SF_FLOOR; st <= FP_START;
+        when SF_FLOOR =>                        -- floor(q) (inf / NaN: the result NaN), b x it
+          if fp_r(62 downto 52) = "11111111111" then
+            acc_kind <= VK_F; acc_v <= F64_NAN; st <= SF_DONE;
+          else
+            fp_a <= fx_b; fp_b <= f_floor(fp_r); fp_op <= FP_MUL; fp_ret <= SF_MODF3; st <= FP_START;
+          end if;
+        when SF_MODF3 =>                        -- a - b x floor(q)
+          fp_a <= fx_a; fp_b <= fp_r; fp_op <= FP_SUB; fp_ret <= SF_MODF4; st <= FP_START;
+        when SF_MODF4 =>
+          acc_kind <= VK_F; acc_v <= fp_r; acc_k <= x"00";
+          st <= SF_DONE;
+        when SF_DONE =>
+          st <= AG_RESULT;
+
         -- --------------------------------------------------------------
         -- Aggregates (section 4): the arguments in order, each a range, a
         -- cell list or a value; an error among them ends the formula, a
@@ -1235,11 +1493,15 @@ begin
             ag_cnt <= (others => '0'); ag_ferr <= false;
             acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00";
             ag_pc <= pc;
-            if ag_fid > 4 then
+            ag_all <= true; ag_any <= false; ag_bad <= false;
+            if ag_fid = 6 then acc_v <= x"0000000000000001"; end if;   -- PRODUCT: from 1
+            if ag_fid <= 6 or ag_fid = 14 or ag_fid = 15 then
+              st <= AG_ARG;                       -- an aggregate
+            elsif ag_fid = 7 or ag_fid = 8 or ag_fid = 9 or ag_fid = 11 or ag_fid = 13 or ag_fid = 16 then
+              st <= SF_START;                     -- a scalar function
+            else
               acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NAME;
               st <= AG_RESULT;
-            else
-              st <= AG_ARG;
             end if;
           end if;
         when AG_ARG =>
@@ -1354,16 +1616,27 @@ begin
         -- one value (vr_*; ag_fromc: from cells, whose text and blanks are
         -- skipped) into the aggregate, then tk_ret
         when AG_TAKE =>
-          if vr_kind = VK_E then
+          if ag_fid = 5 then                      -- COUNTA: everything but blanks
+            if vr_kind /= VK_Z then ag_cnt <= ag_cnt + 1; end if;
+            st <= tk_ret;
+          elsif vr_kind = VK_E then
             pc <= ag_pc; e_abort(vr_v(7 downto 0));
           elsif vr_kind = VK_I or vr_kind = VK_F then
             ag_cnt <= ag_cnt + 1;
             st <= tk_ret;
-            if ag_fid = 0 or ag_fid = 1 then      -- SUM, AVERAGE: acc = acc + v
+            if ag_fid = 0 or ag_fid = 1 or ag_fid = 6 then   -- SUM, AVERAGE (+), PRODUCT (*)
               if not ag_ferr then
                 bo_ka <= acc_kind; bo_va <= acc_v; bo_fa <= acc_k;
                 bo_kb <= vr_kind; bo_vb <= vr_v; bo_fb <= vr_k;
-                bo_op <= x"10"; bo_ret <= AG_SUMR; st <= BO_START;
+                if ag_fid = 6 then bo_op <= x"12"; else bo_op <= x"10"; end if;
+                bo_ret <= AG_SUMR; st <= BO_START;
+              end if;
+            elsif ag_fid = 14 or ag_fid = 15 then -- AND, OR
+              if vr_kind = VK_I and bad_k(vr_k) then ag_bad <= true; end if;
+              if (vr_kind = VK_I and vr_v = 0) or (vr_kind = VK_F and f_zero(vr_v)) then
+                ag_all <= false;
+              else
+                ag_any <= true;
               end if;
             elsif ag_fid = 2 or ag_fid = 3 then   -- MIN, MAX
               if ag_cnt = 0 then
@@ -1393,9 +1666,23 @@ begin
           st <= tk_ret;
         when AG_FINISH =>
           st <= AG_RESULT;
+          if ag_fid = 14 or ag_fid = 15 then      -- AND, OR
+            acc_kind <= VK_I; acc_k <= x"00";
+            if ag_cnt = 0 then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
+            elsif ag_bad then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+            elsif ag_fid = 14 then
+              acc_v <= b64(ag_all);
+            else
+              acc_v <= b64(ag_any);
+            end if;
+          else
           case ag_fid(2 downto 0) is
-            when "100" =>                         -- COUNT
+            when "100" | "101" =>                 -- COUNT, COUNTA
               acc_kind <= VK_I; acc_v <= x"00000000" & ag_cnt; acc_k <= x"00";
+            when "110" =>                         -- PRODUCT (no numbers: 0)
+              if ag_cnt = 0 then acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00"; end if;
             when "010" | "011" =>                 -- MIN, MAX
               if ag_cnt = 0 then
                 acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00";
@@ -1415,6 +1702,7 @@ begin
             when others =>                        -- SUM
               null;
           end case;
+          end if;
         when AG_AVGR =>
           acc_kind <= br_kind; acc_v <= br_v; acc_k <= br_k;
           st <= AG_RESULT;

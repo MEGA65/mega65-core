@@ -403,6 +403,26 @@ identifiers:
 | 8 | INT | 18 | EXP | 28 | PI |
 | 9 | TRUNC | 19 | LN | 29 | POWER |
 
+What they do (a range or cell-list argument to a function that is not an
+aggregate is #VALUE!; a wrong argument count for a fixed one, too):
+
+| Function | Arguments | Result |
+|---|---|---|
+| SUM, AVERAGE, MIN, MAX, COUNT | any | section 4 |
+| PRODUCT | any | a left-to-right fold of MUL from I64 1; no numbers: I64 0 |
+| COUNTA | any | how many values are not blank (text and errors count) |
+| AND, OR | any | as the aggregates (text and blanks from cells skipped), each number true when not zero; I64 1 or 0; no numbers: #VALUE! |
+| NOT | 1 | I64 1 if the value is zero (blank: zero), else 0 |
+| ABS | 1 | the magnitude, keeping the fixed point (I64 -2^63: #NUM!) |
+| SIGN | 1 | I64 -1, 0 or 1 (F64 NaN: #NUM!) |
+| INT | 1 | rounded down: an integer to I64 (fixed point dropped); F64 to F64 (a zero result keeps its sign, as IEEE floor) |
+| TRUNC | 1 | rounded toward zero, likewise |
+| MOD | 2 | a - b x floor(a / b) (the divisor's sign): integers aligned as for ADD, exactly; else F64, as q = floor(F64(a / b)), then F64(a - F64(b x q)); b zero: #DIV/0! |
+| `%` (PCT) | 1 | / 100: an integer gets two more decimals of fixed point (decimal, up to k = 18); else F64(x / 100) |
+
+JZ's test (5.5) is NOT's: zero (I64, F64 of either sign, blank) is false.
+F64 NaN is true.  POW, ROUND, SQRT and the transcendentals follow.
+
 30-39 text: LEN, LEFT, RIGHT, MID, UPPER, LOWER, TRIM, VALUE, TEXT,
 CONCATENATE.  40-49 lookup and conditional aggregates: SUMIF, COUNTIF,
 VLOOKUP, HLOOKUP, MATCH, INDEX.  The rest of 0-32767 is free: new hardware
@@ -410,7 +430,7 @@ functions, and names the codec maps to host calls.
 
 ## 6. Instructions
 
-SSNAIL opcodes $40-$45: the usual 16-byte instruction (opcode, a, b, c,
+SSNAIL opcodes $40-$47: the usual 16-byte instruction (opcode, a, b, c,
 X, Y, Z).  X is the sheet descriptor (or a parameter block); results go to
 memory, and to SSNAIL registers where shown.  A malformed descriptor or row
 block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
@@ -423,6 +443,8 @@ block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 | $43 | FORMAT_CELLS | X parameter block | |
 | $44 | COMPILE | X parameter block (section 10) | R[a] = bytecode length, or 0 |
 | $45 | DECOMPILE | X parameter block (section 10) | R[a] = text length, or 0 |
+| $46 | RENDER | X parameter block (section 10) | R[a] bit 0: negative, bit 1: did not fit |
+| $47 | PARSE | X parameter block (section 10) | R[a] = the kind found (0: not a number) |
 
 ### RECALC
 
@@ -562,9 +584,8 @@ with negatives = 2), everything else the default colour.
 **Implementation (recommended split).**  Number-to-text belongs with the
 codec (section 10): DECOMPILE prints numbers too, with the same digit
 generator and text writer, and both use SHITE's shared F64 unit.  So the
-codec unit provides one operation, render a value (kind, payload, fixed
-point, format, width) into a field; and the execution unit implements
-FORMAT_CELLS itself, walking the rectangle (as RECALC's ranges do), taking
+codec unit provides RENDER (a value into a field); and the execution unit
+implements FORMAT_CELLS itself, walking the rectangle (as RECALC's ranges do), taking
 each cell's value and format, calling that operation, and handling CHANGED
 and the colours.  20 000 to 200 000 cells a second is plenty.
 
@@ -616,12 +637,14 @@ interrupt are SSNAIL's.
   segments), a 64-entry (row, column) -> address cache in LUT RAM for
   references, the 32-entry evaluation stack, and a 256-byte text scratch.
 
-## 10. Formula codec (COMPILE, DECOMPILE)
+## 10. The codec: COMPILE, DECOMPILE, RENDER, PARSE
 
 A hardware unit (a serial scanner and shunting-yard parser, RAM-backed
-stacks, a serial table reader and text writer) converting between formula
-text and bytecode, so the CPU never keeps the source of a compiled formula.
-It uses SHITE's arithmetic for numbers.  Parameter blocks (16-byte
+stacks, a serial table reader and text writer) for everything between text
+and SHITE's values: formula text to bytecode and back (so the CPU never
+keeps the source of a compiled formula), and numbers to and from text (a
+cell's display, a value typed in).  It uses SHITE's shared arithmetic (the
+F64 unit, the multiplier and divider) for numbers.  Parameter blocks (16-byte
 aligned):
 
 | COMPILE | |
@@ -678,6 +701,58 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
 - **Limits**: nesting and stack depths, and the output bounds, are the
   codec's to state; exceeding them is a compile error with its position.
 
+### RENDER
+
+One value into a field of exactly `width` characters, as FORMAT_CELLS
+shows a cell (section 6: what a cell shows, the number formats, the exact
+digits, the characters).  FORMAT_CELLS uses it for each cell; the CPU can
+too (a status line, an edit line).  Parameter block (32 bytes, 16-byte
+aligned):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | the sheet descriptor (the separators) |
+| 4 | 1 | the value's kind: 0 blank, 1 text, 3 F64, 4 I64, 6 error (3.4's codes) |
+| 5 | 1 | its fixed point (I64; as a format's byte 2) |
+| 6 | 1 | width |
+| 7 | 1 | character size (1 or 2, as FORMAT_CELLS); bit 7: the upper-case set |
+| 8 | 8 | the value (I64, F64, or the error code); for text: its address (4) and length (2) |
+| 16 | 8 | the format (3.5; all zero: the default) |
+| 24 | 4 | destination |
+| 28 | 4 | reserved, 0 |
+
+R[a] bit 0: the value is negative (the negative colour applies); bit 1:
+it did not fit (`#`s, or clipped).
+
+### PARSE
+
+A value typed in, to the value a cell would hold.  Parameter block (32
+bytes, 16-byte aligned):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | the sheet descriptor (the separators) |
+| 4 | 4 | the text (ASCII) |
+| 8 | 2 | its length |
+| 10 | 6 | reserved, 0 |
+| 16 | 8 | result: the value |
+| 24 | 1 | result: its kind (0: not a number, 3 F64, 4 I64) |
+| 25 | 1 | result: its fixed point (a format's byte 2) |
+| 26 | 1 | result: a style for the cell, if the text implies one (0 none, 3 percent, 1 fixed with the prefix below) |
+| 27 | 1 | result: a prefix character it carried (a currency sign), else 0 |
+| 28 | 4 | reserved, 0 |
+
+The text: spaces around it, then an optional sign (or the whole number in
+parentheses, negative), an optional prefix character (a currency sign:
+not a digit, sign, separator or letter), digits with optional thousands
+separators (the descriptor's), an optional decimal separator and
+decimals, an optional exponent (`E` and a signed integer), and an optional
+`%`.  As COMPILE's numbers (above): without an exponent an integer is I64,
+with decimals fixed point (k decimals, k <= 18; more: F64); with an
+exponent F64, correctly rounded; `%` divides by 100 as the `%` operator
+does.  Anything else (a word, a date, two numbers) is not a number: kind
+0, and the CPU stores the text as text.
+
 ## 11. Testing
 
 As SSNAIL: a Python reference model (`SSNAIL/shite.py`, run by the
@@ -697,11 +772,13 @@ conversions); `step5` ranges, cell lists, aggregates and host calls.
    errors, rounds and change lists (benches `tb_shite_step1` to `step5`).
 3. **FORMAT_CELLS**: the rendering in the codec unit, the walk in the
    execution unit (section 6).
-4. **More**: POW, PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT,
-   TRUNC, ROUND, SIGN, SQRT, PRODUCT, COUNTA.
+4. **More**: done: PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT,
+   TRUNC, SIGN, PRODUCT, COUNTA (`tb_shite_step6`); to do: POW, ROUND,
+   SQRT.
 5. **Transcendentals** (the CORDIC unit) and **text** (STR, CONCAT, the
    text functions).
-6. **The codec** (section 10), in parallel.
+6. **The codec** (section 10: COMPILE, DECOMPILE, RENDER, PARSE), in
+   parallel.
 
 A function the hardware does not have yet is #NAME? (a sheet still
 recalculates, with that cell an error).
