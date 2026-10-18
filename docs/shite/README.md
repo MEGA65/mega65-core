@@ -419,9 +419,12 @@ aggregate is #VALUE!; a wrong argument count for a fixed one, too):
 | TRUNC | 1 | rounded toward zero, likewise |
 | MOD | 2 | a - b x floor(a / b) (the divisor's sign): integers aligned as for ADD, exactly; else F64, as q = floor(F64(a / b)), then F64(a - F64(b x q)); b zero: #DIV/0! |
 | `%` (PCT) | 1 | / 100: an integer gets two more decimals of fixed point (decimal, up to k = 18); else F64(x / 100) |
+| `^` (POW), POWER | 2 | b must be an integer (I64, no fixed point; else #NAME? until the transcendentals); 0^0 #NUM!, 0^(b < 0) #DIV/0!.  An integer a with b >= 0: exactly, the fixed point times b (past its limit: F64), overflow #NUM!.  Else F64, square and multiply from b's lowest bit (r = 1; for each bit: r = r x x if set; x = x x x if bits remain), then 1 / r for b < 0 (1 / +-0: +-infinity) |
+| ROUND | 2 | x to n decimals, half away from zero; n an integer -18..18 (else #NUM!).  An integer or decimal fixed point: exactly (n >= k: unchanged; n >= 0: k = n; n < 0: k = 0); else F64: n >= 0 as F64(round(F64(x x F64(10^n))) / F64(10^n)), n < 0 as F64(round(F64(x / F64(10^-n))) x F64(10^-n)), round being exact, half away |
+| SQRT | 1 | F64, correctly rounded; negative #NUM! (-0: -0) |
 
 JZ's test (5.5) is NOT's: zero (I64, F64 of either sign, blank) is false.
-F64 NaN is true.  POW, ROUND, SQRT and the transcendentals follow.
+F64 NaN is true.  The transcendentals follow.
 
 30-39 text: LEN, LEFT, RIGHT, MID, UPPER, LOWER, TRIM, VALUE, TEXT,
 CONCATENATE.  40-49 lookup and conditional aggregates: SUMIF, COUNTIF,
@@ -772,9 +775,9 @@ conversions); `step5` ranges, cell lists, aggregates and host calls.
    errors, rounds and change lists (benches `tb_shite_step1` to `step5`).
 3. **FORMAT_CELLS**: the rendering in the codec unit, the walk in the
    execution unit (section 6).
-4. **More**: done: PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT,
-   TRUNC, SIGN, PRODUCT, COUNTA (`tb_shite_step6`); to do: POW, ROUND,
-   SQRT.
+4. **Done**: PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT, TRUNC,
+   SIGN, PRODUCT, COUNTA (`tb_shite_step6`); POW / POWER (integer
+   exponents), ROUND, SQRT (`tb_shite_step7`).
 5. **Transcendentals** (the CORDIC unit) and **text** (STR, CONCAT, the
    text functions).
 6. **The codec** (section 10: COMPILE, DECOMPILE, RENDER, PARSE), in

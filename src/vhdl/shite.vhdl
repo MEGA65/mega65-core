@@ -99,7 +99,8 @@ architecture rtl of shite is
     AG_LNEXT, AG_LREF, AG_LTAKE, AG_TAKE, AG_SUMR, AG_MMR, AG_FINISH, AG_AVGR, AG_RESULT,
     E_JUMP, E_JZ, E_PCT, E_PCT2,
     SF_START, SF_ARG2, SF_INTDIV, SF_MODI, SF_MODI2, SF_MODI3, SF_MODF, SF_MODF2, SF_MODF3, SF_MODF4,
-    SF_FLOOR, SF_DONE,
+    SF_FLOOR, SF_DONE, SF_B2, SF_POWI, SF_POWI2, SF_POWF, SF_POWF2, SF_POWF3, SF_POWF4, SF_POWF5,
+    SF_RNDI, SF_RNDI2, SF_RNDI3, SF_RNDF, SF_RNDF2, SF_RNDF3, SF_RNDF4, SF_POWSQ, SF_SQRT, SQ_STEP,
     E_BIN, E_BINW, BO_START, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
     E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- the shared multiplier and divider
@@ -278,6 +279,18 @@ architecture rtl of shite is
   signal sa_k, sb_k : unsigned(7 downto 0) := (others => '0');
   signal sf_neg : boolean := false;
   signal jmp_off : unsigned(15 downto 0) := (others => '0');
+  -- POW: the exponent's magnitude, the square-and-multiply registers
+  signal pw_n : unsigned(63 downto 0) := (others => '0');
+  signal pw_r, pw_b : unsigned(63 downto 0) := (others => '0');
+  signal pw_neg : boolean := false;
+  -- ROUND: n; F64(10^|n|)
+  signal rn_n : signed(7 downto 0) := (others => '0');
+  signal rn_p : unsigned(63 downto 0) := (others => '0');
+  -- the square root: radicand, remainder, root
+  signal sq_r : unsigned(127 downto 0) := (others => '0');
+  signal sq_rem : unsigned(65 downto 0) := (others => '0');
+  signal sq_root : unsigned(63 downto 0) := (others => '0');
+  signal sq_i : natural range 0 to 64 := 0;
   signal acc_kind, best_kind : unsigned(2 downto 0) := (others => '0');
   signal acc_v, best_v : unsigned(63 downto 0) := (others => '0');
   signal acc_k, best_k : unsigned(7 downto 0) := (others => '0');
@@ -333,12 +346,12 @@ architecture rtl of shite is
   signal new_v : unsigned(63 downto 0) := (others => '0');
 
   -- 10^d, d = 0..18
-  type p10_t is array (0 to 18) of unsigned(63 downto 0);
+  type p10_t is array (0 to 19) of unsigned(63 downto 0);
   function init_p10 return p10_t is
     variable r : p10_t;
     variable v : unsigned(63 downto 0) := to_unsigned(1, 64);
   begin
-    for i in 0 to 18 loop
+    for i in 0 to 19 loop
       r(i) := v;
       v := resize(v * to_unsigned(10, 4), 64);
     end loop;
@@ -439,6 +452,23 @@ architecture rtl of shite is
       end if;
     end if;
     return t;
+  end function;
+  -- an F64 rounded half away from zero to an integer, exactly (a zero keeps the sign)
+  function f_rnd(fv : unsigned(63 downto 0)) return unsigned is
+    variable t : unsigned(63 downto 0);
+    variable e : integer;
+  begin
+    e := to_integer(fv(62 downto 52)) - 1023;
+    if fv(62 downto 52) = "11111111111" or e >= 52 then return fv;
+    elsif e < -1 then return fv(63) & "000" & x"000000000000000";
+    elsif e = -1 then return fv(63) & "011" & x"FF0000000000000";   -- +-1.0
+    else
+      t := f_trunc(fv);
+      if fv(51 - e) = '1' then
+        return fv(63) & (t(62 downto 0) + shift_left(to_unsigned(1, 63), 52 - e));
+      end if;
+      return t;
+    end if;
   end function;
   function b2s(c : boolean) return std_logic is
   begin
@@ -1080,7 +1110,10 @@ begin
                 vr_ret <= E_CALL1; st <= VR_START;
               when x"0D" =>                       -- CELLS
                 vr_ret <= E_CELLS; st <= VR_START;
-              when x"14" | x"17" =>               -- POW, CONCAT (not yet): two operands
+              when x"14" =>                       -- POW: as POWER(a, b)
+                ag_fid <= to_unsigned(29, 16); ag_argc <= to_unsigned(2, 16);
+                st <= AG_START;
+              when x"17" =>                       -- CONCAT (not yet): two operands
                 if esp < 2 then e_abort(E_STACK);
                 else esp <= esp - 1; t_kind <= VK_E; t_v <= x"00000000000000" & E_NAME; t_ref <= '0'; st <= E_NEXT; end if;
               when x"16" =>                       -- PCT
@@ -1335,7 +1368,8 @@ begin
         -- --------------------------------------------------------------
         -- Scalar functions (5.7): ABS INT TRUNC SIGN MOD NOT
         when SF_START =>
-          if (ag_fid = 13 and ag_argc /= 2) or (ag_fid /= 13 and ag_argc /= 1) then
+          if ((ag_fid = 13 or ag_fid = 10 or ag_fid = 29) and ag_argc /= 2)
+            or (ag_fid /= 13 and ag_fid /= 10 and ag_fid /= 29 and ag_argc /= 1) then
             acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE; st <= AG_RESULT;
           else
             ent := est(ag_i);
@@ -1396,7 +1430,10 @@ begin
                     dv_d <= pw(fa(6 downto 0), '0');
                     dv_raw <= true; dv_ret <= SF_INTDIV; st <= DV_START;
                   end if;
-                when others =>                    -- MOD: the second argument
+                when "01100" =>                   -- SQRT: as F64
+                  if ka = VK_I then cv_v <= va; cv_k <= fa; cv_ret <= SF_SQRT; cv_step <= 0; st <= CV_START;
+                  else fp_r <= va; st <= SF_SQRT; end if;
+                when others =>                    -- MOD, ROUND, POWER: the second argument
                   st <= SF_ARG2;
               end case;
             end if;
@@ -1423,6 +1460,8 @@ begin
             acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
           elsif kb = VK_I and bad_k(fb) then
             acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+          elsif ag_fid /= 13 then
+            st <= SF_B2;                          -- ROUND, POWER
           elsif (kb = VK_I and vb = 0) or (kb = VK_F and f_zero(vb)) then
             acc_kind <= VK_E; acc_v <= x"00000000000000" & E_DIV0;
           elsif sa_kind = VK_I and kb = VK_I and
@@ -1478,6 +1517,189 @@ begin
         when SF_MODF4 =>
           acc_kind <= VK_F; acc_v <= fp_r; acc_k <= x"00";
           st <= SF_DONE;
+        -- ROUND and POWER: the second argument, an integer
+        when SF_B2 =>
+          st <= SF_DONE;
+          if ag_fid = 10 then                     -- ROUND(x, n): n in -18..18
+            if sb_kind /= VK_I or sb_k(6 downto 0) /= 0 or signed(sb_v) > 18 or signed(sb_v) < -18 then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+            else
+              rn_n <= signed(sb_v(7 downto 0));
+              if sa_kind = VK_I and not (sa_k(6 downto 0) /= 0 and sa_k(7) = '1') then
+                st <= SF_RNDI;
+              else
+                if sa_kind = VK_I then cv_v <= sa_v; cv_k <= sa_k; cv_ret <= SF_RNDF; cv_step <= 0; st <= CV_START;
+                else fp_r <= sa_v; st <= SF_RNDF; end if;
+              end if;
+            end if;
+          else                                    -- POWER(a, n)
+            if sb_kind /= VK_I or sb_k(6 downto 0) /= 0 then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NAME;   -- (a fractional exponent: later)
+            elsif ((sa_kind = VK_I and sa_v = 0) or (sa_kind = VK_F and f_zero(sa_v))) and sb_v = 0 then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+            elsif ((sa_kind = VK_I and sa_v = 0) or (sa_kind = VK_F and f_zero(sa_v))) and sb_v(63) = '1' then
+              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_DIV0;
+            else
+              pw_neg <= sb_v(63) = '1';
+              if sb_v(63) = '1' then pw_n <= unsigned(-signed(sb_v)); else pw_n <= sb_v; end if;
+              -- integers to a non-negative power, exactly, while the fixed point fits
+              if sa_kind = VK_I and sb_v(63) = '0' and
+                (sa_k(6 downto 0) = 0 or (sb_v < 63 and
+                  ((sa_k(7) = '1' and to_integer(sa_k(6 downto 0)) * to_integer(sb_v(5 downto 0)) <= 62) or
+                   (sa_k(7) = '0' and to_integer(sa_k(6 downto 0)) * to_integer(sb_v(5 downto 0)) <= 18)))) then
+                acc_kind <= VK_I; acc_v <= x"0000000000000001";
+                if sa_k(6 downto 0) = 0 or sb_v = 0 then acc_k <= x"00";
+                else acc_k <= sa_k(7) & to_unsigned(to_integer(sa_k(6 downto 0)) * to_integer(sb_v(5 downto 0)), 7); end if;
+                if sb_v = 0 then
+                  null;
+                elsif sa_v = 0 or sa_v = 1 then
+                  acc_v <= sa_v;
+                elsif sa_v = x"FFFFFFFFFFFFFFFF" then
+                  if sb_v(0) = '1' then acc_v <= sa_v; end if;
+                elsif sb_v > 63 then
+                  acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+                else
+                  st <= SF_POWI;
+                end if;
+              else
+                if sa_kind = VK_I then cv_v <= sa_v; cv_k <= sa_k; cv_ret <= SF_POWF; cv_step <= 0; st <= CV_START;
+                else fp_r <= sa_v; st <= SF_POWF; end if;
+              end if;
+            end if;
+          end if;
+        -- integer power: acc = acc x a, pw_n times
+        when SF_POWI =>
+          if pw_n = 0 then
+            st <= SF_DONE;
+          else
+            mu_x <= acc_v; mu_y <= sa_v; mu_ret <= SF_POWI2; st <= MU_START;
+          end if;
+        when SF_POWI2 =>
+          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM; st <= SF_DONE;
+          else
+            if mu_neg then acc_v <= unsigned(-signed(mu_lo)); else acc_v <= mu_lo; end if;
+            pw_n <= pw_n - 1;
+            st <= SF_POWI;
+          end if;
+        -- F64 power: square and multiply from the low bit, then 1 / r for n < 0
+        when SF_POWF =>
+          pw_b <= fp_r; pw_r <= x"3FF0000000000000";
+          st <= SF_POWF2;
+        when SF_POWF2 =>
+          if pw_n = 0 then
+            st <= SF_POWF5;
+          elsif pw_n(0) = '1' then
+            fp_a <= pw_r; fp_b <= pw_b; fp_op <= FP_MUL; fp_ret <= SF_POWF3; st <= FP_START;
+          else
+            st <= SF_POWF4;
+          end if;
+        when SF_POWF3 =>
+          pw_r <= fp_r;
+          st <= SF_POWF4;
+        when SF_POWF4 =>                        -- the next bit; a square only if one remains
+          pw_n <= '0' & pw_n(63 downto 1);
+          if pw_n(63 downto 1) /= 0 then
+            fp_a <= pw_b; fp_b <= pw_b; fp_op <= FP_MUL; fp_ret <= SF_POWSQ; st <= FP_START;
+          else
+            st <= SF_POWF2;
+          end if;
+        when SF_POWSQ =>                        -- the square into pw_b
+          pw_b <= fp_r;
+          st <= SF_POWF2;
+        when SF_POWF5 =>
+          acc_kind <= VK_F; acc_k <= x"00";
+          st <= SF_DONE;
+          if not pw_neg then
+            acc_v <= pw_r;
+          elsif f_zero(pw_r) then                 -- 1 / +-0: +-inf
+            acc_v <= pw_r(63) & "11111111111" & x"0000000000000";
+          else
+            fp_a <= x"3FF0000000000000"; fp_b <= pw_r; fp_op <= FP_DIV; fp_ret <= SF_MODF4; st <= FP_START;
+          end if;
+        -- ROUND, integers (decimal fixed point k): to n decimals, half away
+        when SF_RNDI =>
+          if rn_n >= signed(resize(sa_k(6 downto 0), 8)) then
+            acc_kind <= VK_I; acc_v <= sa_v; acc_k <= sa_k; st <= SF_DONE;
+          elsif to_integer(signed(resize(sa_k(6 downto 0), 8))) - to_integer(rn_n) > 19 then
+            acc_kind <= VK_I; acc_v <= (others => '0'); acc_k <= x"00";   -- (rounds to 0)
+            if rn_n >= 0 then acc_k <= unsigned(rn_n); end if;
+            st <= SF_DONE;
+          else
+            if sa_v(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(sa_v));
+            else dv_n <= x"0000000000000000" & sa_v; end if;
+            dv_d <= P10(to_integer(signed(resize(sa_k(6 downto 0), 8))) - to_integer(rn_n));
+            dv_neg <= sa_v(63) = '1';
+            dv_raw <= false; dv_ret <= SF_RNDI2; st <= DV_START;
+          end if;
+        when SF_RNDI2 =>                        -- q; n < 0: q x 10^-n
+          if dv_neg then e := unsigned(-signed(dv_q(63 downto 0))); else e := dv_q(63 downto 0); end if;
+          if rn_n >= 0 then
+            acc_kind <= VK_I; acc_v <= e; acc_k <= unsigned(rn_n); st <= SF_DONE;
+          else
+            acc_kind <= VK_I; acc_k <= x"00";
+            mu_x <= e; mu_y <= P10(-to_integer(rn_n)); mu_ret <= SF_RNDI3; st <= MU_START;
+          end if;
+        when SF_RNDI3 =>                        -- q x 10^-n, unless it overflowed
+          st <= SF_DONE;
+          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+          elsif mu_neg then
+            acc_v <= unsigned(-signed(mu_lo));
+          else
+            acc_v <= mu_lo;
+          end if;
+        -- ROUND, F64: x x F64(10^n), rounded, / F64(10^n)  (n < 0: / then x)
+        when SF_RNDF =>
+          sb_v <= fp_r;                           -- (x)
+          if rn_n >= 0 then cv_v <= P10(to_integer(rn_n)); else cv_v <= P10(-to_integer(rn_n)); end if;
+          cv_k <= x"00"; cv_ret <= SF_RNDF2; cv_step <= 0; st <= CV_START;
+        when SF_RNDF2 =>
+          rn_p <= fp_r;
+          fp_a <= sb_v; fp_b <= fp_r; fp_ret <= SF_RNDF3; st <= FP_START;
+          if rn_n >= 0 then fp_op <= FP_MUL; else fp_op <= FP_DIV; end if;
+        when SF_RNDF3 =>
+          fp_a <= f_rnd(fp_r); fp_b <= rn_p; fp_ret <= SF_RNDF4; st <= FP_START;
+          if rn_n >= 0 then fp_op <= FP_DIV; else fp_op <= FP_MUL; end if;
+        when SF_RNDF4 =>
+          acc_kind <= VK_F; acc_v <= fp_r; acc_k <= x"00";
+          st <= SF_DONE;
+        -- SQRT, F64: negatives #NUM!; NaN, infinity, zeros as they are
+        when SF_SQRT =>
+          st <= SF_DONE;
+          acc_kind <= VK_F; acc_k <= x"00";
+          if f_nan(fp_r) or f_zero(fp_r) or (f_inf(fp_r) and fp_r(63) = '0') then
+            acc_v <= fp_r;
+          elsif fp_r(63) = '1' then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+          else
+            -- the significand, times 2^74 (or 2^75: an odd exponent)
+            if fp_r(52) = '1' then                -- (biased odd: exponent - 1023 even)
+              sq_r <= "01" & fp_r(51 downto 0) & x"0000000000000000" & "0000000000";   -- m x 2^74
+            else
+              sq_r <= '1' & fp_r(51 downto 0) & x"0000000000000000" & "00000000000";   -- m x 2^75
+            end if;
+            sq_rem <= (others => '0'); sq_root <= (others => '0'); sq_i <= 0;
+            fn_e <= to_signed(1023, 14) + shift_right(signed(resize(fp_r(62 downto 52), 14)) - 1023, 1);
+            st <= SQ_STEP;
+          end if;
+        when SQ_STEP =>                         -- one root bit a step (restoring)
+          if sq_i = 64 then
+            fn_s <= '0'; fn_sig <= sq_root; fn_st <= b2s(sq_rem /= 0);
+            fn_ret <= SF_MODF4; st <= FN_NORM;
+          else
+            e := (others => '0');
+            sq_rem <= (sq_rem(63 downto 0) & sq_r(127 downto 126));
+            if (sq_rem(63 downto 0) & sq_r(127 downto 126)) >= (sq_root & "01") then
+              sq_rem <= (sq_rem(63 downto 0) & sq_r(127 downto 126)) - (sq_root & "01");
+              sq_root <= sq_root(62 downto 0) & '1';
+            else
+              sq_root <= sq_root(62 downto 0) & '0';
+            end if;
+            sq_r <= sq_r(125 downto 0) & "00";
+            sq_i <= sq_i + 1;
+          end if;
+
         when SF_DONE =>
           st <= AG_RESULT;
 
@@ -1497,7 +1719,8 @@ begin
             if ag_fid = 6 then acc_v <= x"0000000000000001"; end if;   -- PRODUCT: from 1
             if ag_fid <= 6 or ag_fid = 14 or ag_fid = 15 then
               st <= AG_ARG;                       -- an aggregate
-            elsif ag_fid = 7 or ag_fid = 8 or ag_fid = 9 or ag_fid = 11 or ag_fid = 13 or ag_fid = 16 then
+            elsif ag_fid = 7 or ag_fid = 8 or ag_fid = 9 or ag_fid = 10 or ag_fid = 11 or ag_fid = 12
+              or ag_fid = 13 or ag_fid = 16 or ag_fid = 29 then
               st <= SF_START;                     -- a scalar function
             else
               acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NAME;
