@@ -36,11 +36,26 @@ extern void sd_bench_irq_mask(void);
 extern void sd_bench_clear(void);
 extern void sd_bench_key(void);
 
-enum { REPEAT, SEQUENTIAL, SCATTER, MULTI };
+enum { REPEAT, SEQUENTIAL, RANDOM_512, RANDOM_4K, MULTI };
 static uint8_t mbr[512];
 static uint8_t native_controller, cache_control, stream_open, last_frame;
 static uint16_t frames, target_frames, window_mask;
 static uint32_t first_sector, frame_us;
+static uint8_t retry_stats;
+
+/* Native retry-statistics v1: latch and read two wrapping 16-bit counters.
+ * Older native/legacy builds return no signature; display -- on those. */
+static uint32_t read_retry_counts(void)
+{
+  uint8_t i;
+  uint32_t value = 0;
+  POKE(0xd6ce, 0x80);
+  for (i = 0; i != 4; ++i) {
+    POKE(0xd6ce, i);
+    value |= (uint32_t)PEEK(0xd6cf) << (8 * i);
+  }
+  return value;
+}
 
 static void print_cpu_clock(void)
 {
@@ -136,17 +151,22 @@ static uint8_t get_partition(void)
 static uint8_t benchmark(const char *name, uint8_t pattern, uint8_t code,
                          uint8_t copy, uint8_t cached)
 {
-  uint8_t result, op;
+  uint8_t result, op, in_random = 0, random_sectors = 8;
   uint16_t offset = 0, in_stream = 0, chunk;
-  uint32_t count = 0, elapsed_ms, kib_tenths;
+  uint32_t count = 0, elapsed_ms, kib_tenths, retries_before = 0, retries_after;
   if (cache_control && command(0x27))
     return 0;
   if (cached && pattern == REPEAT) {
     sd_bench_sector(first_sector);
     if (command(code))
       return 0;
+    /* Retain warmed data, but retire its background fill before timing. */
+    if (cache_control && command(0x25))
+      return 0;
   }
   printf("%-13s ", name);
+  if (retry_stats)
+    retries_before = read_retry_counts();
   sd_bench_irq_mask();
   if (!frame_edge()) {
     puts("FRAME CLOCK STOPPED");
@@ -155,6 +175,8 @@ static uint8_t benchmark(const char *name, uint8_t pattern, uint8_t code,
   last_frame = PEEK(0xd7fa);
   frames = 0;
   chunk = window_mask + 1;
+  if (chunk < random_sectors)
+    random_sectors = (uint8_t)chunk;
   if (chunk > 128)
     chunk = 128;
   stream_open = 0;
@@ -184,12 +206,19 @@ static uint8_t benchmark(const char *name, uint8_t pattern, uint8_t code,
     if (copy)
       sd_bench_copy();
     ++count;
-    if (pattern == SCATTER)
+    if (pattern == RANDOM_512)
       offset = (offset + 509) & window_mask;
+    else if (pattern == RANDOM_4K) {
+      if (++in_random == random_sectors) {
+        in_random = 0;
+        offset = (offset + 509U * random_sectors - (random_sectors - 1)) & window_mask;
+      } else
+        offset = (offset + 1) & window_mask;
+    }
     else if (pattern != REPEAT)
       offset = (offset + 1) & window_mask;
     tick();
-  } while (frames < target_frames);
+  } while (frames < target_frames || (pattern == RANDOM_4K && in_random));
   if (stream_open) {
     result = sd_bench_command(0x0a);
     tick();
@@ -199,14 +228,25 @@ static uint8_t benchmark(const char *name, uint8_t pattern, uint8_t code,
     }
     stream_open = 0;
   }
+  /* Include the last fill/close in the time and retry count. Each workload
+   * starts empty, so draining and invalidating here costs no useful hits. */
+  if (cache_control && command(0x27))
+    return 0;
+  tick();
   elapsed_ms = ((uint32_t)frames * frame_us) / 1000;
   if (!elapsed_ms)
     return 0;
   kib_tenths = (count / elapsed_ms) * 5000UL
     + (count % elapsed_ms) * 5000UL / elapsed_ms;
-  printf("%6lu%5lu%7lu.%lu\n", (unsigned long)count,
-         (unsigned long)elapsed_ms, (unsigned long)(kib_tenths / 10),
+  printf("%6lu%8lu.%lu", (unsigned long)count,
+         (unsigned long)(kib_tenths / 10),
          (unsigned long)(kib_tenths % 10));
+  if (retry_stats) {
+    retries_after = read_retry_counts();
+    printf("%6lu\n", (unsigned long)((uint16_t)(retries_after - retries_before)
+      + (uint32_t)(uint16_t)((retries_after >> 16) - (retries_before >> 16))));
+  } else
+    puts("    --");
   return 1;
 }
 
@@ -214,7 +254,8 @@ static uint8_t plain_reads(uint8_t copy, uint8_t cached)
 {
   return benchmark("REPEAT $02", REPEAT, 0x02, copy, cached)
     && benchmark("SEQUENTIAL", SEQUENTIAL, 0x02, copy, cached)
-    && benchmark("SCATTER 509", SCATTER, 0x02, copy, cached);
+    && benchmark("RANDOM 512B", RANDOM_512, 0x02, copy, cached)
+    && benchmark("RANDOM 4K", RANDOM_4K, 0x02, copy, cached);
 }
 
 int main(void)
@@ -256,6 +297,7 @@ int main(void)
   printf("; %lu US/FRAME\n", (unsigned long)frame_us);
   if (!get_partition())
     goto out;
+  retry_stats = native_controller && PEEK(0xd6cc) == 0x53 && PEEK(0xd6cd) == 1;
   for (copy = 0; copy != 2; ++copy) {
     sd_bench_clear();
     printf("%s SLOT %u: %s%s\n", native_controller ? "NATIVE" : "LEGACY",
@@ -266,22 +308,22 @@ int main(void)
     print_cpu_clock();
     puts("");
     puts(copy ? "SD BUFFER + 512-BYTE DMA TO RAM" : "SD CARD TO SECTOR BUFFER");
-    puts("TEST          READS   MS    KIB/S");
+    puts("TEST          READS     KIB/S RETRY");
     cache_control = 0;
     if (native_controller && !sd_bench_command(0x26))
       cache_control = 1;
-    puts(cache_control ? "CACHE OFF:" : "COMMON $02 READS:");
+    puts(cache_control ? "\nCACHE OFF:" : "\nCOMMON $02 READS:");
     if (!plain_reads(copy, 0))
       goto out;
     if (cache_control) {
       if (command(0x25))
         goto out;
-      puts("CACHE ON (REPEAT IS WARM):");
+      puts("\nCACHE ON (REPEAT IS WARM):");
       if (!plain_reads(copy, 1))
         goto out;
     }
     if (native_controller) {
-      if (!benchmark("META $0B", SCATTER, 0x0b, copy, 0)
+      if (!benchmark("META $0B", RANDOM_512, 0x0b, copy, 0)
           || !benchmark("MULTI 07--09", MULTI, 0x02, copy, 0))
         goto out;
     }

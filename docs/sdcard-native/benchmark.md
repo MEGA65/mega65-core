@@ -36,15 +36,26 @@ the timed runs; monitor memory access can stall the CPU while video time
 continues.
 
 Both controllers run exactly the same `$02` workloads: repeated reads of one
-sector, sequential sectors, and a deterministic scattered walk with a
-509-sector stride. The native controller additionally runs those workloads
+sector, sequential sectors, `RANDOM 512B` (one sector per scattered location),
+and `RANDOM 4K` (eight consecutive sectors at each scattered location).
+The deterministic walk uses a 509-sector stride for 512-byte requests and a
+509-block stride for 4 KiB requests. The 4 KiB case uses eight ordinary `$02`
+commands on both controllers, and completes each group before stopping.
+Tiny partition windows use their full two- or four-sector size instead.
+The native controller additionally runs those workloads
 with the cache off and on (the repeated-sector cache test is warmed first),
 scattered metadata reads with `$0B`, and explicit multi-sector reads with
 `$07/$08/$09` in runs of up to 128 sectors. `$0A` closes the final partial
 run. Cache controls are skipped if a native build has no cache handler.
 New-controller commands are never sent to the legacy controller.
 
-Each result shows completed sector reads, elapsed milliseconds and KiB/s.
+Each result shows completed 512-byte sector reads, KiB/s and `RETRY`.
+The elapsed-time column is omitted because each workload has the same target
+duration. `RETRY` is the sum of read-retry and stop/recovery-retry events
+during the workload. It requires retry-statistics v1 in the FPGA; legacy and
+older native builds display `--`, not zero. Initialisation/probe errors are
+excluded. The last background fill/close is drained before timing and retry
+counting end. Counts use wrapping 16-bit deltas per event type.
 Printing, cache setup, warm-up and keyboard waits are outside the timed
 regions. Reads include controller error checking; this is a throughput
 benchmark, not a full data-integrity test or a filesystem benchmark.
@@ -80,5 +91,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_sd_read_
 These run the actual C benchmark logic against a register/card model. They
 check legacy command gating, native multi-sector sequencing, cache bypass,
 small and overflowing partition bounds, bad MBRs, stream/read errors and a
-stopped clock. They do not emulate the 6502 polling or DMA hardware; those
+stopped clock. They also check random request addresses/group completion and
+optional retry-counter deltas across wrapping counters. They do not emulate
+the 6502 polling or DMA hardware; those
 paths still need the on-machine run with the next bitstream.

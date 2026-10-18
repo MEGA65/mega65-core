@@ -12,6 +12,9 @@ static unsigned commands[256], frame_polls, data_reads, copies;
 static uint32_t sector, stream_sector, partition_length = 16384;
 static int native, cache, open_stream, fault, irq_depth, stopped_clock;
 static unsigned fault_at;
+static FILE *trace;
+static uint8_t stats_snapshot[16];
+static uint16_t retry_reads = 65530, retry_stops = 65533;
 
 uint8_t bench_peek(uint16_t address)
 {
@@ -19,10 +22,22 @@ uint8_t bench_peek(uint16_t address)
     return (uint8_t)(++frame_polls / 16);
   if (address >= 0xde00 && address <= 0xdfff)
     return sector_buffer[address - 0xde00];
+  if (address == 0xd6cf && regs[0xd6cc] == 0x53)
+    return stats_snapshot[regs[0xd6ce] & 15];
   return regs[address];
 }
 
-void bench_poke(uint16_t address, uint8_t value) { regs[address] = value; }
+void bench_poke(uint16_t address, uint8_t value)
+{
+  if (address == 0xd6ce && regs[0xd6cc] == 0x53) {
+    if (value & 0x80) {
+      stats_snapshot[0] = retry_reads; stats_snapshot[1] = retry_reads >> 8;
+      stats_snapshot[2] = retry_stops; stats_snapshot[3] = retry_stops >> 8;
+    }
+    value &= 15;
+  }
+  regs[address] = value;
+}
 void sd_bench_irq_save(void) { assert(irq_depth++ == 0); }
 void sd_bench_irq_restore(void) { assert(--irq_depth == 0); }
 void sd_bench_irq_mask(void) { assert(irq_depth == 1); }
@@ -65,6 +80,8 @@ uint8_t sd_bench_command(uint8_t op)
   }
   assert(!sector || (sector >= 2048 && sector - 2048 < partition_length));
   ++data_reads;
+  if (trace) fprintf(trace, "%02x %lu\n", op, (unsigned long)sector);
+  ++retry_reads; retry_stops += 2; /* Synthetic events, including counter wrap. */
   if ((fault == 1 && op == 0x08) || (fault == 2 && data_reads == fault_at)) {
     regs[0xd680] |= 0x40;
     return 1;
@@ -85,6 +102,10 @@ int main(int argc, char **argv)
   int result, expected_ok = 1;
   unsigned i;
   assert(argc == 2);
+  if (getenv("SD_BENCH_TRACE")) {
+    trace = fopen(getenv("SD_BENCH_TRACE"), "w");
+    assert(trace);
+  }
   native = strcmp(argv[1], "legacy") != 0;
   cache = strcmp(argv[1], "uncached") != 0;
   regs[0xd680] = 0x10;
@@ -94,6 +115,7 @@ int main(int argc, char **argv)
   regs[0xd031] = 0x20;
   regs[0xd054] = 0x20;
   regs[0xd689] = 0x20;
+  if (!strcmp(argv[1], "stats")) { regs[0xd6cc] = 0x53; regs[0xd6cd] = 1; }
   le32(regs + 0xd7f2, 812500); /* 50 Hz at 40.625 MHz. */
   sector_buffer[510] = 0x55;
   sector_buffer[511] = 0xaa;
@@ -117,6 +139,7 @@ int main(int argc, char **argv)
     stopped_clock = 1; expected_ok = 0;
   }
   result = sd_read_bench_run();
+  if (trace) fclose(trace);
   assert(result == !expected_ok);
   assert(!open_stream && !irq_depth);
   assert(regs[0xd030] == 0xa0 && regs[0xd031] == 0x20);
