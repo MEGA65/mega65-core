@@ -93,7 +93,10 @@ architecture rtl of shite is
     -- formula evaluation: the byte reader, operands, operators, the result
     BF, BF_FILL, E_NEXT, E_OP, E_IMM, E_IMM2, E_I8, E_I32, E_I64, E_SREF, E_LREF, E_RESOLVE,
     VL_HDR, VL_V8, VL_FMT, VL_F8, VL_F16, VL_F24,
-    E_BIN, E_MUL, E_MULF, E_NEG, E_STORE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
+    E_BIN, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
+    E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
+    -- the shared multiplier and divider
+    MU_START, MU_STEP, DV_START, DV_STEP, DV_ROUND,
     -- REBALANCE_ROW
     B_ROW, B_ROW2, B_HDR0, B_HDR1, B_HCHK, B_WALK, B_WALK2,
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
@@ -101,7 +104,7 @@ architecture rtl of shite is
     -- the list RAM's read (one cycle)
     L_WAIT
     );
-  signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret : state_t := S_IDLE;
+  signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -218,15 +221,57 @@ architecture rtl of shite is
   signal swap : boolean := false;
   signal v_hdr : unsigned(63 downto 0) := (others => '0');
   signal v_val : unsigned(63 downto 0) := (others => '0');
-  -- the multiplier: shift and add, 64 steps
+  -- the multiplier: mu_x * mu_y (signed) by shift and add on the
+  -- magnitudes, 64 steps: the 128-bit magnitude mu_hi:mu_lo, its sign mu_neg
+  signal mu_x, mu_y : unsigned(63 downto 0) := (others => '0');
   signal mu_a, mu_b, mu_lo : unsigned(63 downto 0) := (others => '0');
   signal mu_hi : unsigned(64 downto 0) := (others => '0');
   signal mu_n : natural range 0 to 64 := 0;
   signal mu_neg : boolean := false;
+  -- the divider: dv_n (128-bit magnitude) / dv_d (64-bit magnitude),
+  -- restoring, 128 steps, rounded half away from zero; dv_neg the sign
+  signal dv_n, dv_q : unsigned(127 downto 0) := (others => '0');
+  signal dv_d : unsigned(63 downto 0) := (others => '0');
+  signal dv_r : unsigned(64 downto 0) := (others => '0');
+  signal dv_i : natural range 0 to 128 := 0;
+  signal dv_neg : boolean := false;
+  -- the operands of a binary operator, aligned
+  signal xa, xb : unsigned(63 downto 0) := (others => '0');
+  signal x_k : unsigned(7 downto 0) := (others => '0');      -- the result's fixed point
+  signal sc_b : boolean := false;                             -- scaling b (else a)
   -- the result to store
   signal new_rk : unsigned(7 downto 0) := (others => '0');
   signal new_v : unsigned(63 downto 0) := (others => '0');
 
+  -- 10^d, d = 0..18
+  type p10_t is array (0 to 18) of unsigned(63 downto 0);
+  function init_p10 return p10_t is
+    variable r : p10_t;
+    variable v : unsigned(63 downto 0) := to_unsigned(1, 64);
+  begin
+    for i in 0 to 18 loop
+      r(i) := v;
+      v := resize(v * to_unsigned(10, 4), 64);
+    end loop;
+    return r;
+  end function;
+  constant P10 : p10_t := init_p10;
+  -- 10^d or 2^d (binary)
+  function pw(d : unsigned(6 downto 0); binary : std_logic) return unsigned is
+  begin
+    if binary = '1' then
+      return shift_left(to_unsigned(1, 64), to_integer(d));
+    elsif d > 18 then
+      return x"0000000000000000";
+    else
+      return P10(to_integer(d));
+    end if;
+  end function;
+  -- a fixed point past its limits (decimal 18, binary 62): #NUM!
+  function bad_k(k : unsigned(7 downto 0)) return boolean is
+  begin
+    if k(7) = '1' then return k(6 downto 0) > 62; else return k(6 downto 0) > 18; end if;
+  end function;
   function b64(c : boolean) return unsigned is
   begin
     if c then return x"0000000000000001"; else return x"0000000000000000"; end if;
@@ -261,6 +306,9 @@ begin
     variable sum : unsigned(64 downto 0);
     variable ent : unsigned(75 downto 0);
     variable lt, eq : boolean;
+    variable fa, fb : unsigned(7 downto 0);
+    variable kk : unsigned(6 downto 0);
+    variable bin : std_logic;
     variable rr, cc : unsigned(31 downto 0);
 
     procedure mem_read(a : unsigned(27 downto 0); ret : state_t) is
@@ -848,9 +896,13 @@ begin
                 st <= E_BIN;
               when x"15" =>
                 st <= E_NEG;
+              when x"06" =>                       -- FIX: one byte
+                fetch(E_FIX);
               -- (not in hardware yet: the rest of section 5.4)
-              when x"04" | x"05" | x"06" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
-                 | x"13" | x"14" | x"16" | x"17" =>
+              when x"13" =>
+                st <= E_BIN;
+              when x"04" | x"05" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
+                 | x"14" | x"16" | x"17" =>
                 e_abort(E_NAME);
               when others =>
                 e_abort(E_STACK);
@@ -960,6 +1012,45 @@ begin
           end case;
 
         -- --------------------------------------------------------------
+        -- The multiplier: mu_x * mu_y, then mu_ret
+        when MU_START =>
+          if mu_x(63) = '1' then mu_a <= unsigned(-signed(mu_x)); else mu_a <= mu_x; end if;
+          if mu_y(63) = '1' then mu_b <= unsigned(-signed(mu_y)); else mu_b <= mu_y; end if;
+          mu_neg <= (mu_x(63) xor mu_y(63)) = '1';
+          mu_hi <= (others => '0'); mu_lo <= (others => '0'); mu_n <= 0;
+          st <= MU_STEP;
+        when MU_STEP =>
+          if mu_n = 64 then
+            st <= mu_ret;
+          else
+            if mu_b(0) = '1' then sum := mu_hi + ('0' & mu_a); else sum := mu_hi; end if;
+            mu_hi <= '0' & sum(64 downto 1);
+            mu_lo <= sum(0) & mu_lo(63 downto 1);
+            mu_b <= '0' & mu_b(63 downto 1);
+            mu_n <= mu_n + 1;
+          end if;
+        -- The divider: dv_n / dv_d, the quotient rounded half away, then dv_ret
+        when DV_START =>
+          dv_r <= (others => '0'); dv_q <= (others => '0'); dv_i <= 0;
+          st <= DV_STEP;
+        when DV_STEP =>
+          if dv_i = 128 then
+            st <= DV_ROUND;
+          else
+            sum := dv_r(63 downto 0) & dv_n(127);
+            if sum >= ('0' & dv_d) then
+              dv_r <= sum - ('0' & dv_d); dv_q <= dv_q(126 downto 0) & '1';
+            else
+              dv_r <= sum; dv_q <= dv_q(126 downto 0) & '0';
+            end if;
+            dv_n <= dv_n(126 downto 0) & '0';
+            dv_i <= dv_i + 1;
+          end if;
+        when DV_ROUND =>                        -- 2r >= d: away from zero
+          if (dv_r(63 downto 0) & '0') >= ('0' & dv_d) then dv_q <= dv_q + 1; end if;
+          st <= dv_ret;
+
+        -- --------------------------------------------------------------
         -- binary operators: a (below the top) op b (the top)
         when E_BIN =>
           if esp < 2 then
@@ -968,72 +1059,124 @@ begin
             ent := est(esp - 2);
             ka := ent(75 downto 73); va := ent(63 downto 0);
             kb := t_kind; vb := t_v;
+            fa := ent(71 downto 64); fb := t_k;
             -- blank is 0; text is #VALUE!
-            if ka = VK_Z then ka := VK_I; va := (others => '0'); end if;
-            if kb = VK_Z then kb := VK_I; vb := (others => '0'); end if;
+            if ka = VK_Z then ka := VK_I; va := (others => '0'); fa := x"00"; end if;
+            if kb = VK_Z then kb := VK_I; vb := (others => '0'); fb := x"00"; end if;
             esp <= esp - 1;
             t_ref <= '0'; t_k <= x"00";
             st <= E_NEXT;
+            xa <= va; xb <= vb;
             if ka = VK_E then
               t_kind <= VK_E; t_v <= va;
             elsif ka /= VK_I and ka /= VK_F then
               t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
+            elsif ka = VK_I and bad_k(fa) then
+              t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
             elsif kb = VK_E then
               t_kind <= VK_E; t_v <= vb;
             elsif kb /= VK_I and kb /= VK_F then
               t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE;
-            elsif ka = VK_I and kb = VK_I then
-              -- (integers without fixed point: so far)
-              lt := signed(va) < signed(vb); eq := va = vb;
-              t_kind <= VK_I;
+            elsif kb = VK_I and bad_k(fb) then
+              t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+            elsif ka = VK_I and kb = VK_I and
+              not (fa(6 downto 0) /= 0 and fb(6 downto 0) /= 0 and fa(7) /= fb(7)) then
+              -- integers whose fixed points align (the same base, or one plain)
+              if fa(6 downto 0) /= 0 then bin := fa(7); else bin := fb(7); end if;
               case cur_op is
-                when x"10" =>
-                  sum := unsigned(resize(signed(va), 65) + resize(signed(vb), 65));
-                  if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
-                  else t_v <= sum(63 downto 0); end if;
-                when x"11" =>
-                  sum := unsigned(resize(signed(va), 65) - resize(signed(vb), 65));
-                  if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
-                  else t_v <= sum(63 downto 0); end if;
-                when x"12" =>                     -- multiply: 64 steps on the magnitudes
-                  if va(63) = '1' then mu_a <= unsigned(-signed(va)); else mu_a <= va; end if;
-                  if vb(63) = '1' then mu_b <= unsigned(-signed(vb)); else mu_b <= vb; end if;
-                  mu_neg <= (va(63) xor vb(63)) = '1';
-                  mu_hi <= (others => '0'); mu_lo <= (others => '0'); mu_n <= 0;
-                  st <= E_MUL;
-                when x"18" => t_v <= b64(eq);
-                when x"19" => t_v <= b64(not eq);
-                when x"1A" => t_v <= b64(lt);
-                when x"1B" => t_v <= b64(lt or eq);
-                when x"1C" => t_v <= b64(not (lt or eq));
-                when others => t_v <= b64(not lt);
+                when x"10" | x"11" | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
+                  -- align to the larger fixed point (exactly), then add / compare
+                  if fa(6 downto 0) >= fb(6 downto 0) then kk := fa(6 downto 0);
+                  else kk := fb(6 downto 0); end if;
+                  if kk /= 0 then x_k <= bin & kk; else x_k <= x"00"; end if;
+                  if fa(6 downto 0) = fb(6 downto 0) then
+                    st <= E_ARITH;
+                  elsif fa(6 downto 0) < fb(6 downto 0) then
+                    mu_x <= va; mu_y <= pw(fb(6 downto 0) - fa(6 downto 0), bin);
+                    sc_b <= false; mu_ret <= E_SCALED; st <= MU_START;
+                  else
+                    mu_x <= vb; mu_y <= pw(fa(6 downto 0) - fb(6 downto 0), bin);
+                    sc_b <= true; mu_ret <= E_SCALED; st <= MU_START;
+                  end if;
+                when x"12" =>                     -- multiply: the fixed points add
+                  kk := fa(6 downto 0) + fb(6 downto 0);
+                  if (bin = '1' and kk > 62) or (bin = '0' and kk > 18) then
+                    e_abort(E_NAME);              -- (to F64: not yet)
+                  else
+                    if kk /= 0 then x_k <= bin & kk; else x_k <= x"00"; end if;
+                    mu_x <= va; mu_y <= vb; mu_ret <= E_MULF; st <= MU_START;
+                  end if;
+                when others =>                    -- x"13": divide
+                  if vb = 0 then
+                    t_kind <= VK_E; t_v <= x"00000000000000" & E_DIV0;
+                  elsif fa(6 downto 0) /= 0 and fa = fb and bin = '0' then
+                    -- the same decimal fixed point: (a * 10^k) / b, rounded
+                    x_k <= fa;
+                    mu_x <= va; mu_y <= pw(fa(6 downto 0), '0'); mu_ret <= E_DIVM; st <= MU_START;
+                  else
+                    e_abort(E_NAME);              -- (to F64: not yet)
+                  end if;
               end case;
             else
               e_abort(E_NAME);                    -- (F64 arithmetic: not yet)
             end if;
           end if;
-        when E_MUL =>
-          if mu_n = 64 then
-            st <= E_MULF;
+        when E_SCALED =>                        -- the scaled operand, unless it overflowed
+          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM; st <= E_NEXT;
           else
-            if mu_b(0) = '1' then
-              sum := mu_hi + ('0' & mu_a);
-            else
-              sum := mu_hi;
-            end if;
-            mu_hi <= '0' & sum(64 downto 1);
-            mu_lo <= sum(0) & mu_lo(63 downto 1);
-            mu_b <= '0' & mu_b(63 downto 1);
-            mu_n <= mu_n + 1;
+            if mu_neg then e := unsigned(-signed(mu_lo)); else e := mu_lo; end if;
+            if sc_b then xb <= e; else xa <= e; end if;
+            st <= E_ARITH;
           end if;
-        when E_MULF =>                          -- the product mu_hi:mu_lo, signed back
+        when E_ARITH =>                         -- xa op xb, aligned
+          lt := signed(xa) < signed(xb); eq := xa = xb;
+          t_kind <= VK_I; t_k <= x"00";
+          st <= E_NEXT;
+          case cur_op is
+            when x"10" | x"11" =>
+              if cur_op = x"10" then sum := unsigned(resize(signed(xa), 65) + resize(signed(xb), 65));
+              else sum := unsigned(resize(signed(xa), 65) - resize(signed(xb), 65)); end if;
+              if sum(64) /= sum(63) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+              else t_v <= sum(63 downto 0); t_k <= x_k; end if;
+            when x"18" => t_v <= b64(eq);
+            when x"19" => t_v <= b64(not eq);
+            when x"1A" => t_v <= b64(lt);
+            when x"1B" => t_v <= b64(lt or eq);
+            when x"1C" => t_v <= b64(not (lt or eq));
+            when others => t_v <= b64(not lt);
+          end case;
+        when E_MULF =>                          -- the product, signed back
           st <= E_NEXT;
           if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
             t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
-          elsif mu_neg then
-            t_kind <= VK_I; t_v <= unsigned(-signed(mu_lo));
           else
-            t_kind <= VK_I; t_v <= mu_lo;
+            t_kind <= VK_I; t_k <= x_k;
+            if mu_neg then t_v <= unsigned(-signed(mu_lo)); else t_v <= mu_lo; end if;
+          end if;
+        when E_DIVM =>                          -- a * 10^k (128 bits) / |b|
+          dv_n <= mu_hi(63 downto 0) & mu_lo;
+          if xb(63) = '1' then dv_d <= unsigned(-signed(xb)); else dv_d <= xb; end if;
+          dv_neg <= mu_neg xor (xb(63) = '1');
+          dv_ret <= E_DIVF; st <= DV_START;
+        when E_DIVF =>
+          st <= E_NEXT;
+          if dv_q(127 downto 64) /= 0 or (dv_q(63) = '1' and not (dv_neg and dv_q(63 downto 0) = x"8000000000000000")) then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+          else
+            t_kind <= VK_I; t_k <= x_k;
+            if dv_neg then t_v <= unsigned(-signed(dv_q(63 downto 0))); else t_v <= dv_q(63 downto 0); end if;
+          end if;
+        when E_FIX =>                           -- the top, an integer, is fixed point
+          st <= E_NEXT;
+          if esp < 1 then
+            e_abort(E_STACK);
+          elsif t_kind = VK_I then
+            t_k <= bf_byte; t_ref <= '0';
+          elsif t_kind /= VK_E then
+            t_kind <= VK_E; t_v <= x"00000000000000" & E_VALUE; t_ref <= '0';
+          else
+            t_ref <= '0';
           end if;
         when E_NEG =>
           st <= E_NEXT;
@@ -1042,7 +1185,7 @@ begin
           elsif t_kind = VK_Z then
             t_kind <= VK_I; t_v <= (others => '0'); t_ref <= '0';
           elsif t_kind = VK_I then
-            if t_v = x"8000000000000000" then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
+            if t_v = x"8000000000000000" or bad_k(t_k) then t_kind <= VK_E; t_v <= x"00000000000000" & E_NUM;
             else t_v <= unsigned(-signed(t_v)); end if;
             t_ref <= '0';
           elsif t_kind = VK_F then
@@ -1052,14 +1195,35 @@ begin
           end if;
 
         -- --------------------------------------------------------------
-        -- the result (the top) as stored: (new_rk, new_v)
+        -- the result (the top) as stored: (new_rk, new_v); an integer
+        -- rescaled to the cell's own fixed point fk (section 4)
         when E_STORE =>
           n_evals <= n_evals + 1;
+          st <= E_W1;
           case t_kind is
             when VK_Z =>
               new_rk <= x"04"; new_v <= (others => '0');
             when VK_I =>
-              new_rk <= x"04"; new_v <= t_v;      -- (fixed point: not yet)
+              new_rk <= x"04"; new_v <= t_v;
+              if bad_k(t_k) or bad_k(fk) then
+                new_rk <= x"06"; new_v <= x"00000000000000" & E_NUM;
+              elsif t_k(6 downto 0) /= 0 and fk(6 downto 0) /= 0 and t_k(7) = fk(7) then
+                if fk(6 downto 0) >= t_k(6 downto 0) then        -- exactly up
+                  mu_x <= t_v; mu_y <= pw(fk(6 downto 0) - t_k(6 downto 0), fk(7));
+                  mu_ret <= E_ST_SC; st <= MU_START;
+                else                                              -- down, rounded
+                  if t_v(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(t_v));
+                  else dv_n <= x"0000000000000000" & t_v; end if;
+                  dv_d <= pw(t_k(6 downto 0) - fk(6 downto 0), fk(7));
+                  dv_neg <= t_v(63) = '1';
+                  dv_ret <= E_ST_DONE; st <= DV_START;
+                end if;
+              elsif t_k(6 downto 0) = 0 and fk(6 downto 0) /= 0 then
+                mu_x <= t_v; mu_y <= pw(fk(6 downto 0), fk(7));
+                mu_ret <= E_ST_SC; st <= MU_START;
+              elsif t_k(6 downto 0) /= 0 then
+                new_rk <= x"06"; new_v <= x"00000000000000" & E_NAME;   -- (to F64: not yet)
+              end if;
             when VK_F =>
               if t_v(62 downto 52) = "11111111111" then
                 new_rk <= x"06"; new_v <= x"00000000000000" & E_NUM;
@@ -1071,7 +1235,19 @@ begin
             when others =>
               new_rk <= x"06"; new_v <= x"00000000000000" & E_VALUE;
           end case;
+        when E_ST_SC =>                         -- scaled up, unless it overflowed
           st <= E_W1;
+          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+            new_rk <= x"06"; new_v <= x"00000000000000" & E_NUM;
+          elsif mu_neg then
+            new_v <= unsigned(-signed(mu_lo));
+          else
+            new_v <= mu_lo;
+          end if;
+        when E_ST_DONE =>                       -- scaled down
+          st <= E_W1;
+          if dv_neg then new_v <= unsigned(-signed(dv_q(63 downto 0)));
+          else new_v <= dv_q(63 downto 0); end if;
         when E_W1 =>
           if new_rk = x"06" then n_errs <= n_errs + 1; end if;
           if new_rk = old_rk and new_v = old_v then

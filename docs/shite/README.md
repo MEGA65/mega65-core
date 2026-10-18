@@ -190,7 +190,9 @@ fixed point.
 Value types are I64 (I32 cells widen to it), optionally fixed point; F64;
 text; and errors, which propagate as values.  Fixed point is a cell's
 format byte 2 (or a FIX in a formula): v x 10^-k (decimal, k <= 18) or
-v x 2^-k (binary, k <= 62).
+v x 2^-k (binary, k <= 62).  An integer with a fixed point past those
+limits (bad data) is #NUM! wherever it is used, as is a result stored into
+a cell whose format's fixed point is.
 
 - **Integers**: I64 with I64 gives I64, exactly.  Overflow is #NUM! (no
   silent switch to F64).  Add, subtract and compare first align both to
