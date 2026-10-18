@@ -1026,8 +1026,16 @@ begin  -- behavioural
 
   nat_quiet <= '1' when nat_quiet_cnt = 0 and nat_cmd_valid = '0' else '0';
 
+  -- Legacy software (including Hyppo's external-slot probe) interprets both
+  -- $D680 busy bits clear as a usable card, not just an idle SD engine.
+  -- Keep an absent/failed card busy, and cover the queued INIT and mailbox
+  -- latency so that polling cannot see the previous command's idle status.
+  -- An open multi-sector transfer is still ready between granted blocks.
+  sdcard_busy    <= sd_reset or nat_init_req or nat_init_wait
+                   or not nat_quiet or not nat_cmd_ready or not nat_card_ready
+                   or (nat_busy and not nat_waiting);
+
   -- what used to come from the old controller
-  sdcard_busy    <= nat_busy and not nat_waiting;
   sd_data_ready  <= nat_rd_valid;
   sd_rdata       <= nat_err_code;
   last_sd_error  <= x"00" & std_logic_vector(nat_err_code) when nat_error = '1' else x"0000";

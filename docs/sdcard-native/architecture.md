@@ -2,11 +2,14 @@
 
 Issues: SD controller MEGA65/mega65-core#890, cache #953, hardware FAT32 #766.
 
-Status: the low-level controller and the upper-controller fork pass
-simulation, and are plumbed into the mega65r6 target (not yet built in
-Vivado or tried on hardware).  The data cache (steps 1 and 2 of §4) is
-written and simulated, on branch `953-sd-cache`.  Read-ahead, the meta cache
-and the FAT32 engine are plans.
+Status: the low-level controller, upper-controller fork and data cache pass
+simulation and are plumbed into mega65r6.  The first Vivado build missed
+timing; commit `81ca519af` registers the critical controller paths.  Hardware
+testing of that commit has begun (2026-10-18): internal-card reads work in
+SPI fallback, including identical uncached and cached MBR reads, the FAT32
+boot sector and the MEGA65 system-partition header.  Boot exposed a legacy
+busy-status compatibility bug, described below.  Read-ahead, the metadata
+cache and the FAT32 engine are still plans.
 
 ## 1. Where things stand
 
@@ -36,7 +39,8 @@ and the FAT32 engine are plans.
 - Every Vivado project with `iomapper` lists the two new sources, as does the
   Makefile's simulation list.
 - Checked by GHDL elaboration of the whole r6 top level (with the CPU,
-  VIC-IV, sound and the like stubbed out).  Still to do: a Vivado build.
+  VIC-IV, sound and the like stubbed out).  Vivado timing closure and native
+  4-bit operation on hardware still need confirmation.
 - Pins checked against the TE0765 rev 06 schematic (pages 9, 10 and 20):
 
   | Slot | Socket | CLK | CMD | DAT0 | DAT1 | DAT2 | DAT3 | CD | WP |
@@ -98,6 +102,23 @@ The fork keeps the existing `$D680` interface and adds:
   code.
 - Commands may borrow the sector-number registers `$D681-$D684` as
   parameters.  This is the agreed convention for every new command below.
+
+**Legacy ready semantics (hardware finding, 2026-10-18).** Hyppo probes slot
+1 first and treats `$D680 & $03 == 0` as a usable card.  It does not inspect
+the native ready/error flags.  The initial fork exposed the SD engine's idle
+state after a failed init, so an empty slot was accepted: the screen said
+`USING SDCARD BUS 1` and `FOUND AND RESET SDHC CARD`, but reads failed with
+`ERR_NOTREADY` and left an empty buffer.  A successful init and MBR read on
+slot 0 returned valid partition entries, independently of the cache.
+
+The compatibility adapter now keeps `$D680.1` set while reset or init is
+pending, while mailbox status is unsettled, or while the card is unusable.
+An empty slot therefore times out in the existing firmware and falls back
+to the other slot.  `$D686` and `$D687` still expose the native failure.
+Open multi-sector transfers continue to clear busy between granted blocks.
+`tb_sdcardio_native` has a `G_BOOT_TEST` mode covering empty-slot failure,
+fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
+contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
 ## 2. Sector cache
 
@@ -301,7 +322,9 @@ Proposed codes, all taking parameters or returning values via `$D681-$D684`:
   like an ARM core).  It lives inside the upper controller and issues sector
   requests through the cache's request port.
 - **Interface: command bytes plus registers, not magic sector numbers.**
-  - The command byte selects the operation, in a block such as `$30-$3F`.
+  - The command byte selects the operation.  Assign its range after the
+    protocol is defined; the expanded operation list may need subcommands
+    or more than sixteen command bytes.
   - `$D681-$D684` carry the arguments: handle, offset, seek position, and so
     on.  (A magic sector range would cost the last 128 KB of a 2 TB card,
     which would be bearable, but command bytes are cleaner.)
@@ -329,6 +352,74 @@ Proposed codes, all taking parameters or returning values via `$D681-$D684`:
   handles, so images can at last be fragmented and still work.  The freezer
   then has to save and restore those handles' state.  This is not part of the
   first version.
+
+### 3.1 Follow-on requirements (recorded 2026-10-18; implementation deferred)
+
+- Probe both cards and their partition tables, with the external card taking
+  priority over the internal card.  Interpret the requested limit as up to
+  **four FAT32 partitions per card, eight total**, mounted as `1:` through
+  `8:`; `0:` aliases the current drive.  Provide `getpartitionlist()` and
+  `setdrive()`.  The list must identify the backing card, partition start
+  and extent, and access status.  Drive assignment on rescan must not
+  silently redirect existing descriptors to another volume.
+- Eight descriptors total, shared by files and directories.  Reserve FDs
+  **0 and 1 for disk images**; normal allocation uses **2 through 7**.
+  `open()` may request an explicit descriptor, subject to those restrictions.
+  Directory descriptors retain independent iteration state.
+- `opendir(path)` returns an FD.  `readdir(fd)` returns one entry per call,
+  including its long filename.  Support opening a file either by a returned
+  directory entry or by a supplied path, closing descriptors, changing the
+  current directory, and creating files.  Entry-based opens need a stable
+  entry identity and validation against directory changes and media changes.
+- Seek relative to the start, end or current file position.  Read, write,
+  or append **up to 512 bytes** per call; return the actual byte count.
+  Support truncation.  Define growth permission separately from permission
+  to overwrite existing bytes: read-only/read-write and
+  appendable/non-appendable are distinct open capabilities.
+- Read or write **exactly 512 bytes at a specified file-sector offset**.
+  These will serve disk images, including fragmented files.  Define bounds
+  and EOF handling explicitly; proposed behaviour is to leave the normal
+  file position unchanged and reject an exact read that crosses EOF.
+- Include `mkdir()`, `rmdir()`, `delete()`, and `setattr()`.
+- A protected system path is accessible only in hypervisor mode.  The
+  hypervisor controls application read-only/read-write access, and disk-image
+  mounting commands are hypervisor-only.  Effective access combines those
+  policies, descriptor permissions, media write protection and the existing
+  write gate.  Path normalisation, entry-based opens, reserved descriptors
+  and raw-sector access must all respect the policy; restricting pathname
+  commands alone would leave a bypass.
+
+Recommended additions to settle before freezing the protocol: rename/move,
+stat and free-space queries, explicit sync, EOF versus error results,
+partial-transfer and seek/truncation rules, filename encoding and path
+limits, and stale-descriptor handling after removal or reprobe.  Keep
+ordinary close/flush, directory EOF and per-drive current directories
+unambiguous.  Multiple opens of the same file also need a defined write and
+truncate policy.  None of these commands or opcode allocations is
+implemented yet.
+
+### 3.2 FAT32 storage budget
+
+The FAT32 engine may add **exactly one RAMB36** for filesystem state and
+descriptors.  Budget against its 4096 byte-wide data bytes, without relying
+on parity bits.  An initial sizing exercise is:
+
+| State | Provisional bytes |
+|---|---:|
+| Eight partition records, 64 bytes each | 512 |
+| Eight file/directory descriptors, 128 bytes each | 1024 |
+| Eight current-directory records, 16 bytes each | 128 |
+| Shared traversal, LFN and allocation scratch | 1024 |
+| Remaining layout headroom | 1408 |
+
+This is a feasibility budget, not a fixed record format.  Reuse the existing
+sector buffer for requests, directory results and sector I/O; do not reserve
+a sector buffer or full pathname per FD.  Names plus result metadata may
+need separate transfers rather than a single fixed response block.  The
+microcode store must use LUT ROM or another existing resource, rather than
+silently adding another BRAM.  A100T builds must be able to disable both
+optional caches while retaining FAT32 support within this additional-BRAM
+limit.
 
 ## 4. Order of work
 

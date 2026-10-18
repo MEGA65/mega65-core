@@ -10,6 +10,11 @@
 --   ghdl -m --std=93c -fsynopsys -frelaxed tb_sdcardio_native
 --   ghdl -r --std=93c -fsynopsys -frelaxed tb_sdcardio_native --stop-time=200ms
 -- (skipping files that need UNISIM / XPM, other than reconfig.vhdl).
+--
+-- G_BOOT_TEST=true runs the legacy busy/ready regressions, without writes.
+-- Also run it with G_CACHE_LINES=0 and with G_SPI_CARD=true.  These cover
+-- empty-slot fallback and immediate reset polling with and without the cache
+-- and with a card left in SPI mode by a previous core.
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -18,6 +23,11 @@ use ieee.numeric_std.all;
 use work.cputypes.all;
 
 entity tb_sdcardio_native is
+  generic (
+    G_BOOT_TEST   : boolean := false;
+    G_CACHE_LINES : natural := 16;
+    G_SPI_CARD    : boolean := false
+    );
 end entity;
 
 architecture tb of tb_sdcardio_native is
@@ -74,7 +84,8 @@ begin
   cpuclock <= not cpuclock after TCPU / 2 when not done;
 
   dut : entity work.sdcardio_native
-    generic map (target => mega65r6, cpu_frequency => 40500000, sd_xilinx_io => false)
+    generic map (target => mega65r6, cpu_frequency => 40500000,
+                 sd_xilinx_io => false, sd_cache_lines => G_CACHE_LINES)
     port map (
       clock => cpuclock, pixelclk => cpuclock, reset => '1',
       sdcardio_cs => sdcardio_cs, f011_cs => f011_cs,
@@ -118,7 +129,7 @@ begin
   sd_dat_i(3 downto 0) <= transport to_X01(card_dat) after BOARD;
 
   card : entity work.sdcard_native_model
-    generic map (G_CRC_ERR_BLK => 21)
+    generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   stim : process
@@ -221,6 +232,58 @@ begin
 
   begin
     wait for 1 us;
+    if G_BOOT_TEST then
+      -- Hyppo tries slot 1 first and only tests $D680 bits 1..0.  An empty
+      -- slot must never look ready merely because initialisation has ended.
+      poke(16#D3680#, 16#C1#);
+      poke(16#D3680#, 16#00#);
+      poke(16#D3680#, 16#01#);
+      t0 := now;
+      loop
+        peek(16#D3686#, v);
+        exit when v(7) = '1' and v(0) = '0';
+        assert now - t0 < 40 ms report "empty slot did not finish initialising" severity failure;
+        wait for 100 us;
+      end loop;
+      peek(16#D3687#, v);
+      check(v = 1, "empty external slot reports ERR_NOCARD");
+      peek(16#D3680#, v);
+      check(v(1 downto 0) /= "00", "empty slot stays unavailable to Hyppo's busy-bit test");
+
+      -- Fall back to the populated internal slot, polling immediately as
+      -- firmware does.  A queued INIT must hide the previous idle status.
+      poke(16#D3680#, 16#C0#);
+      poke(16#D3680#, 16#00#);
+      poke(16#D3680#, 16#01#);
+      wait_ready(40 ms);
+      peek(16#D3686#, v);
+      check(v(0) = '1' and v(7) = '0', "Hyppo fallback waits for the internal card to be ready");
+      set_sector(5);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      check_buffer(5, false, "read after empty-slot fallback");
+
+      -- Also reset an already working card: its old ready/idle status must
+      -- not leak through the mailbox before INIT reaches the SD engine.
+      poke(16#D3680#, 16#00#);
+      poke(16#D3680#, 16#01#);
+      peek(16#D3680#, v);
+      check(v(1 downto 0) /= "00", "reset is busy immediately, before the mailbox completes");
+      wait_ready(40 ms);
+      peek(16#D3686#, v);
+      check(v(0) = '1' and v(7) = '0', "reset completes with a usable card");
+      set_sector(6);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      check_buffer(6, false, "read after immediate reset polling");
+      if fails = 0 then
+        report "ALL BOOT TESTS PASSED";
+      else
+        report integer'image(fails) & " BOOT TESTS FAILED" severity error;
+      end if;
+      done <= true;
+      wait;
+    end if;
     -- reset and initialise
     poke(16#D3680#, 16#00#);
     poke(16#D3680#, 16#01#);
