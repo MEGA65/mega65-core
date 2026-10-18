@@ -97,6 +97,11 @@ architecture rtl of shite is
     E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- the shared multiplier and divider
     MU_START, MU_STEP, DV_START, DV_STEP, DV_ROUND,
+    -- F64: operands converted, the operation, conversions, rounding
+    E_F64, E_FB1, E_FB2, E_FB3, E_FBR, E_STF,
+    CV_START, CV_I2F, CV_SCALE, CV_DIV,
+    FP_START, FA_ALIGN, FA_SHIFT, FA_SUM, FM_PROD, FD_QUOT,
+    FN_NORM, FN_DEN, FN_RND, FN_PACK,
     -- REBALANCE_ROW
     B_ROW, B_ROW2, B_HDR0, B_HDR1, B_HCHK, B_WALK, B_WALK2,
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
@@ -105,6 +110,7 @@ architecture rtl of shite is
     L_WAIT
     );
   signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
+  signal fp_ret, fn_ret, cv_ret : state_t := S_IDLE;
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -239,6 +245,37 @@ architecture rtl of shite is
   signal xa, xb : unsigned(63 downto 0) := (others => '0');
   signal x_k : unsigned(7 downto 0) := (others => '0');      -- the result's fixed point
   signal sc_b : boolean := false;                             -- scaling b (else a)
+  signal dv_raw : boolean := false;                           -- the divider: no rounding
+
+  -- F64 (IEEE 754 double, round to nearest even, subnormals flushed to
+  -- zero after rounding).  fp_op on fp_a, fp_b gives fp_r.
+  constant FP_ADD : unsigned(1 downto 0) := "00";
+  constant FP_SUB : unsigned(1 downto 0) := "01";
+  constant FP_MUL : unsigned(1 downto 0) := "10";
+  constant FP_DIV : unsigned(1 downto 0) := "11";
+  constant F64_NAN : unsigned(63 downto 0) := x"FFF8000000000000";
+  signal fp_op : unsigned(1 downto 0) := FP_ADD;
+  signal fp_a, fp_b, fp_r : unsigned(63 downto 0) := (others => '0');
+  -- add: the larger operand's significand, the smaller's, the shift
+  signal fa_s, fb_s : std_logic := '0';
+  signal fa_sig, fb_sig : unsigned(63 downto 0) := (others => '0');
+  signal fa_e, fb_e : signed(13 downto 0) := (others => '0');
+  signal fa_d : signed(13 downto 0) := (others => '0');
+  -- the normaliser / rounder: value = fn_sig / 2^63 * 2^(fn_e - 1023)
+  signal fn_s : std_logic := '0';
+  signal fn_e : signed(13 downto 0) := (others => '0');
+  signal fn_sig : unsigned(63 downto 0) := (others => '0');
+  signal fn_st : std_logic := '0';
+  signal fn_sub : boolean := false;
+  -- conversions: cv_v (an integer, fixed point cv_k) to F64
+  signal cv_v : unsigned(63 downto 0) := (others => '0');
+  signal cv_k : unsigned(7 downto 0) := (others => '0');
+  signal cv_t : unsigned(63 downto 0) := (others => '0');
+  signal cv_step : natural range 0 to 3 := 0;
+  -- a binary operator's F64 operands
+  signal fx_a, fx_b : unsigned(63 downto 0) := (others => '0');
+  signal fx_ka, fx_kb : unsigned(2 downto 0) := (others => '0');
+  signal fx_fa, fx_fb : unsigned(7 downto 0) := (others => '0');
   -- the result to store
   signal new_rk : unsigned(7 downto 0) := (others => '0');
   signal new_v : unsigned(63 downto 0) := (others => '0');
@@ -271,6 +308,43 @@ architecture rtl of shite is
   function bad_k(k : unsigned(7 downto 0)) return boolean is
   begin
     if k(7) = '1' then return k(6 downto 0) > 62; else return k(6 downto 0) > 18; end if;
+  end function;
+  -- F64 helpers (inputs are never subnormal: they are flushed on the way in)
+  function f_zero(b : unsigned(63 downto 0)) return boolean is
+  begin
+    return b(62 downto 52) = 0;
+  end function;
+  function f_inf(b : unsigned(63 downto 0)) return boolean is
+  begin
+    return b(62 downto 52) = "11111111111" and b(51 downto 0) = 0;
+  end function;
+  function f_nan(b : unsigned(63 downto 0)) return boolean is
+  begin
+    return b(62 downto 52) = "11111111111" and b(51 downto 0) /= 0;
+  end function;
+  function ftz(b : unsigned(63 downto 0)) return unsigned is
+  begin
+    if b(62 downto 52) = 0 then return b(63) & "000" & x"000000000000000"; else return b; end if;
+  end function;
+  -- a < b, a = b on F64 bits (NaN unordered: both false), +0 = -0
+  function f_lt(a, b : unsigned(63 downto 0)) return boolean is
+  begin
+    if f_nan(a) or f_nan(b) or (f_zero(a) and f_zero(b)) then return false;
+    elsif a(63) /= b(63) then return a(63) = '1';
+    elsif a(63) = '0' then return a(62 downto 0) < b(62 downto 0);
+    else return a(62 downto 0) > b(62 downto 0);
+    end if;
+  end function;
+  function f_eq(a, b : unsigned(63 downto 0)) return boolean is
+  begin
+    if f_nan(a) or f_nan(b) then return false;
+    elsif f_zero(a) and f_zero(b) then return true;
+    else return a = b;
+    end if;
+  end function;
+  function b2s(c : boolean) return std_logic is
+  begin
+    if c then return '1'; else return '0'; end if;
   end function;
   function b64(c : boolean) return unsigned is
   begin
@@ -901,7 +975,10 @@ begin
               -- (not in hardware yet: the rest of section 5.4)
               when x"13" =>
                 st <= E_BIN;
-              when x"04" | x"05" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
+              when x"04" =>                       -- F64
+                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"8"; fb_be <= false;
+                imm_ret <= E_STF; st <= E_IMM;
+              when x"05" | x"08" | x"09" | x"0A" | x"0B" | x"0C" | x"0D"
                  | x"14" | x"16" | x"17" =>
                 e_abort(E_NAME);
               when others =>
@@ -1047,7 +1124,7 @@ begin
             dv_i <= dv_i + 1;
           end if;
         when DV_ROUND =>                        -- 2r >= d: away from zero
-          if (dv_r(63 downto 0) & '0') >= ('0' & dv_d) then dv_q <= dv_q + 1; end if;
+          if not dv_raw and (dv_r(63 downto 0) & '0') >= ('0' & dv_d) then dv_q <= dv_q + 1; end if;
           st <= dv_ret;
 
         -- --------------------------------------------------------------
@@ -1101,7 +1178,7 @@ begin
                 when x"12" =>                     -- multiply: the fixed points add
                   kk := fa(6 downto 0) + fb(6 downto 0);
                   if (bin = '1' and kk > 62) or (bin = '0' and kk > 18) then
-                    e_abort(E_NAME);              -- (to F64: not yet)
+                    st <= E_F64;                  -- (past the limits: F64)
                   else
                     if kk /= 0 then x_k <= bin & kk; else x_k <= x"00"; end if;
                     mu_x <= va; mu_y <= vb; mu_ret <= E_MULF; st <= MU_START;
@@ -1114,12 +1191,13 @@ begin
                     x_k <= fa;
                     mu_x <= va; mu_y <= pw(fa(6 downto 0), '0'); mu_ret <= E_DIVM; st <= MU_START;
                   else
-                    e_abort(E_NAME);              -- (to F64: not yet)
+                    st <= E_F64;
                   end if;
               end case;
             else
-              e_abort(E_NAME);                    -- (F64 arithmetic: not yet)
+              st <= E_F64;                        -- F64 (or mixed): both to F64
             end if;
+            fx_a <= va; fx_b <= vb; fx_ka <= ka; fx_kb <= kb; fx_fa <= fa; fx_fb <= fb;
           end if;
         when E_SCALED =>                        -- the scaled operand, unless it overflowed
           if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
@@ -1158,7 +1236,7 @@ begin
           dv_n <= mu_hi(63 downto 0) & mu_lo;
           if xb(63) = '1' then dv_d <= unsigned(-signed(xb)); else dv_d <= xb; end if;
           dv_neg <= mu_neg xor (xb(63) = '1');
-          dv_ret <= E_DIVF; st <= DV_START;
+          dv_raw <= false; dv_ret <= E_DIVF; st <= DV_START;
         when E_DIVF =>
           st <= E_NEXT;
           if dv_q(127 downto 64) /= 0 or (dv_q(63) = '1' and not (dv_neg and dv_q(63 downto 0) = x"8000000000000000")) then
@@ -1195,6 +1273,249 @@ begin
           end if;
 
         -- --------------------------------------------------------------
+        -- --------------------------------------------------------------
+        -- F64 arithmetic: a and b (fx_*) to F64, then fp_op (or a compare)
+        when E_STF =>                           -- the F64 constant
+          push(VK_F, ftz(imm), x"00", '0', E_NEXT);
+        when E_F64 =>
+          if fx_ka = VK_I then
+            cv_v <= fx_a; cv_k <= fx_fa; cv_ret <= E_FB1; cv_step <= 0; st <= CV_START;
+          else
+            fp_r <= fx_a; st <= E_FB1;
+          end if;
+        when E_FB1 =>
+          fx_a <= fp_r;
+          if fx_kb = VK_I then
+            cv_v <= fx_b; cv_k <= fx_fb; cv_ret <= E_FB2; cv_step <= 0; st <= CV_START;
+          else
+            fp_r <= fx_b; st <= E_FB2;
+          end if;
+        when E_FB2 =>
+          fx_b <= fp_r;
+          st <= E_FB3;
+        when E_FB3 =>
+          t_kind <= VK_I; t_k <= x"00"; t_ref <= '0';
+          st <= E_NEXT;
+          case cur_op is
+            when x"18" => t_v <= b64(f_eq(fx_a, fx_b));
+            when x"19" => t_v <= b64(not f_eq(fx_a, fx_b));
+            when x"1A" => t_v <= b64(f_lt(fx_a, fx_b));
+            when x"1B" => t_v <= b64(f_lt(fx_a, fx_b) or f_eq(fx_a, fx_b));
+            when x"1C" => t_v <= b64(f_lt(fx_b, fx_a));
+            when x"1D" => t_v <= b64(f_lt(fx_b, fx_a) or f_eq(fx_a, fx_b));
+            when x"13" =>
+              if f_zero(fx_b) then
+                t_kind <= VK_E; t_v <= x"00000000000000" & E_DIV0;
+              else
+                fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_DIV; fp_ret <= E_FBR; st <= FP_START;
+              end if;
+            when x"10" => fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_ADD; fp_ret <= E_FBR; st <= FP_START;
+            when x"11" => fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_SUB; fp_ret <= E_FBR; st <= FP_START;
+            when others => fp_a <= fx_a; fp_b <= fx_b; fp_op <= FP_MUL; fp_ret <= E_FBR; st <= FP_START;
+          end case;
+        when E_FBR =>
+          t_kind <= VK_F; t_v <= fp_r;
+          st <= E_NEXT;
+
+        -- conversions: cv_v (fixed point cv_k) to F64 in fp_r, then cv_ret:
+        -- F64(v), then / F64(10^k) (decimal) or scaled by 2^-k (binary)
+        when CV_START =>
+          if cv_v = 0 then
+            fp_r <= (others => '0');
+            st <= cv_ret;
+          else
+            fn_s <= cv_v(63);
+            if cv_v(63) = '1' then fn_sig <= unsigned(-signed(cv_v)); else fn_sig <= cv_v; end if;
+            fn_e <= to_signed(1023 + 63, 14); fn_st <= '0';
+            fn_ret <= CV_I2F; st <= FN_NORM;
+          end if;
+        when CV_I2F =>
+          if cv_k(6 downto 0) = 0 then
+            st <= cv_ret;
+          elsif cv_k(7) = '1' then                -- binary: the exponent, rounded again
+            fn_s <= fp_r(63);
+            fn_sig <= '1' & fp_r(51 downto 0) & "00000000000";
+            fn_e <= signed(resize(fp_r(62 downto 52), 14)) - signed(resize(cv_k(6 downto 0), 14));
+            fn_st <= '0';
+            fn_ret <= CV_SCALE; st <= FN_NORM;
+          else                                    -- decimal: / F64(10^k)
+            cv_t <= fp_r;
+            fn_s <= '0'; fn_sig <= P10(to_integer(cv_k(6 downto 0)));
+            fn_e <= to_signed(1023 + 63, 14); fn_st <= '0';
+            fn_ret <= CV_DIV; st <= FN_NORM;
+          end if;
+        when CV_SCALE =>
+          st <= cv_ret;
+        when CV_DIV =>
+          fp_a <= cv_t; fp_b <= fp_r; fp_op <= FP_DIV; fp_ret <= cv_ret; st <= FP_START;
+
+        -- the operation fp_op on fp_a, fp_b (no zero divisor), then fp_ret
+        when FP_START =>
+          case fp_op is
+            when FP_ADD | FP_SUB =>
+              fa_s <= fp_a(63);
+              if fp_op = FP_SUB then fb_s <= not fp_b(63); else fb_s <= fp_b(63); end if;
+              st <= FA_ALIGN;
+              if f_nan(fp_a) or f_nan(fp_b) then
+                fp_r <= F64_NAN; st <= fp_ret;
+              elsif f_inf(fp_a) and f_inf(fp_b) then
+                if (fp_a(63) = fp_b(63)) = (fp_op = FP_ADD) then fp_r <= fp_a; else fp_r <= F64_NAN; end if;
+                st <= fp_ret;
+              elsif f_inf(fp_a) then
+                fp_r <= fp_a; st <= fp_ret;
+              elsif f_inf(fp_b) then
+                if fp_op = FP_SUB then fp_r <= (not fp_b(63)) & fp_b(62 downto 0); else fp_r <= fp_b; end if;
+                st <= fp_ret;
+              end if;
+            when FP_MUL =>
+              if f_nan(fp_a) or f_nan(fp_b) or (f_inf(fp_a) and f_zero(fp_b)) or (f_zero(fp_a) and f_inf(fp_b)) then
+                fp_r <= F64_NAN; st <= fp_ret;
+              elsif f_inf(fp_a) or f_inf(fp_b) then
+                fp_r <= (fp_a(63) xor fp_b(63)) & "11111111111" & x"0000000000000"; st <= fp_ret;
+              elsif f_zero(fp_a) or f_zero(fp_b) then
+                fp_r <= (fp_a(63) xor fp_b(63)) & "000" & x"000000000000000"; st <= fp_ret;
+              else
+                mu_x <= x"00" & "000" & '1' & fp_a(51 downto 0);
+                mu_y <= x"00" & "000" & '1' & fp_b(51 downto 0);
+                mu_ret <= FM_PROD; st <= MU_START;
+              end if;
+            when others =>                        -- FP_DIV
+              if f_nan(fp_a) or f_nan(fp_b) or (f_inf(fp_a) and f_inf(fp_b)) then
+                fp_r <= F64_NAN; st <= fp_ret;
+              elsif f_inf(fp_a) then
+                fp_r <= (fp_a(63) xor fp_b(63)) & "11111111111" & x"0000000000000"; st <= fp_ret;
+              elsif f_inf(fp_b) or f_zero(fp_a) then
+                fp_r <= (fp_a(63) xor fp_b(63)) & "000" & x"000000000000000"; st <= fp_ret;
+              else
+                dv_n <= x"000" & '1' & fp_a(51 downto 0) & "000" & x"000000000000000";   -- ma * 2^63
+                dv_d <= x"00" & "000" & '1' & fp_b(51 downto 0);
+                dv_raw <= true; dv_ret <= FD_QUOT; st <= DV_START;
+              end if;
+          end case;
+
+        -- add: zeros, then the larger first, the smaller aligned to it
+        when FA_ALIGN =>
+          if f_zero(fp_a) and f_zero(fp_b) then
+            fp_r <= (fa_s and fb_s) & "000" & x"000000000000000"; st <= fp_ret;
+          elsif f_zero(fp_b) then
+            fp_r <= fp_a; st <= fp_ret;
+          elsif f_zero(fp_a) then
+            fp_r <= fb_s & fp_b(62 downto 0); st <= fp_ret;
+          else
+            if fp_a(62 downto 0) >= fp_b(62 downto 0) then
+              fa_sig <= '1' & fp_a(51 downto 0) & "00000000000"; fa_e <= signed(resize(fp_a(62 downto 52), 14));
+              fb_sig <= '1' & fp_b(51 downto 0) & "00000000000"; fb_e <= signed(resize(fp_b(62 downto 52), 14));
+              fa_d <= signed(resize(fp_a(62 downto 52), 14)) - signed(resize(fp_b(62 downto 52), 14));
+            else
+              fa_sig <= '1' & fp_b(51 downto 0) & "00000000000"; fa_e <= signed(resize(fp_b(62 downto 52), 14));
+              fb_sig <= '1' & fp_a(51 downto 0) & "00000000000"; fb_e <= signed(resize(fp_a(62 downto 52), 14));
+              fa_d <= signed(resize(fp_b(62 downto 52), 14)) - signed(resize(fp_a(62 downto 52), 14));
+              fa_s <= fb_s; fb_s <= fa_s;
+            end if;
+            fn_st <= '0';
+            st <= FA_SHIFT;
+          end if;
+        when FA_SHIFT =>                        -- one bit a cycle, the lost bits sticky
+          if fa_d = 0 then
+            st <= FA_SUM;
+          elsif fa_d > 64 then
+            fn_st <= '1'; fb_sig <= (others => '0'); fa_d <= (others => '0');
+          else
+            fn_st <= fn_st or fb_sig(0);
+            fb_sig <= '0' & fb_sig(63 downto 1);
+            fa_d <= fa_d - 1;
+          end if;
+        when FA_SUM =>
+          fn_s <= fa_s; fn_e <= fa_e; fn_ret <= fp_ret;
+          if fa_s = fb_s then
+            sum := ('0' & fa_sig) + ('0' & fb_sig);
+            if sum(64) = '1' then
+              fn_sig <= sum(64 downto 1); fn_st <= fn_st or sum(0); fn_e <= fa_e + 1;
+            else
+              fn_sig <= sum(63 downto 0);
+            end if;
+            st <= FN_NORM;
+          else
+            -- with one bit more: the lost bits (sticky) make the difference
+            -- odd there, so it is never mistaken for a tie
+            sum := (fa_sig & '0') - (fb_sig & fn_st);
+            fn_sig <= sum(64 downto 1); fn_st <= sum(0);
+            if sum = 0 then
+              fp_r <= (others => '0'); st <= fp_ret;    -- x - x = +0
+            else
+              st <= FN_NORM;
+            end if;
+          end if;
+        -- multiply: the 106-bit product of the significands
+        when FM_PROD =>
+          fn_s <= fp_a(63) xor fp_b(63); fn_ret <= fp_ret;
+          if mu_hi(41) = '1' then                 -- (product bit 105)
+            fn_sig <= mu_hi(41 downto 0) & mu_lo(63 downto 42);
+            if mu_lo(41 downto 0) /= 0 then fn_st <= '1'; else fn_st <= '0'; end if;
+            fn_e <= signed(resize(fp_a(62 downto 52), 14)) + signed(resize(fp_b(62 downto 52), 14)) - 1022;
+          else
+            fn_sig <= mu_hi(40 downto 0) & mu_lo(63 downto 41);
+            if mu_lo(40 downto 0) /= 0 then fn_st <= '1'; else fn_st <= '0'; end if;
+            fn_e <= signed(resize(fp_a(62 downto 52), 14)) + signed(resize(fp_b(62 downto 52), 14)) - 1023;
+          end if;
+          st <= FN_NORM;
+        -- divide: the quotient of the significands (times 2^63), its remainder sticky
+        when FD_QUOT =>
+          fn_s <= fp_a(63) xor fp_b(63); fn_ret <= fp_ret;
+          if dv_r /= 0 then fn_st <= '1'; else fn_st <= '0'; end if;
+          if dv_q(63) = '1' then
+            fn_sig <= dv_q(63 downto 0);
+            fn_e <= signed(resize(fp_a(62 downto 52), 14)) - signed(resize(fp_b(62 downto 52), 14)) + 1023;
+          else
+            fn_sig <= dv_q(62 downto 0) & '0';
+            fn_e <= signed(resize(fp_a(62 downto 52), 14)) - signed(resize(fp_b(62 downto 52), 14)) + 1022;
+          end if;
+          st <= FN_NORM;
+
+        -- normalise (the leading 1 to bit 63), round to nearest even,
+        -- subnormal results rounded as IEEE then flushed: fp_r, then fn_ret
+        when FN_NORM =>
+          if fn_sig = 0 then                      -- (a zero: never, but safe)
+            fp_r <= fn_s & "000" & x"000000000000000"; st <= fn_ret;
+          elsif fn_sig(63) = '0' then
+            fn_sig <= fn_sig(62 downto 0) & '0';
+            fn_e <= fn_e - 1;
+          else
+            fn_sub <= fn_e < 1;
+            st <= FN_DEN;
+          end if;
+        when FN_DEN =>                          -- below the normal range: to exponent 1
+          if fn_e < 1 then
+            if fn_e < -64 then
+              fn_st <= fn_st or b2s(fn_sig /= 0); fn_sig <= (others => '0'); fn_e <= to_signed(1, 14);
+            else
+              fn_st <= fn_st or fn_sig(0);
+              fn_sig <= '0' & fn_sig(63 downto 1);
+              fn_e <= fn_e + 1;
+            end if;
+          else
+            st <= FN_RND;
+          end if;
+        when FN_RND =>                          -- 53 bits: lsb 11, guard 10, sticky below
+          if fn_sig(10) = '1' and (fn_sig(11) = '1' or fn_sig(9 downto 0) /= 0 or fn_st = '1') then
+            sum := ('0' & fn_sig) + to_unsigned(2048, 65);
+            if sum(64) = '1' then
+              fn_sig <= x"8000000000000000"; fn_e <= fn_e + 1;
+            else
+              fn_sig <= sum(63 downto 0);
+            end if;
+          end if;
+          st <= FN_PACK;
+        when FN_PACK =>
+          st <= fn_ret;
+          if fn_sub and fn_sig(63) = '0' then     -- a subnormal: flushed
+            fp_r <= fn_s & "000" & x"000000000000000";
+          elsif fn_e >= 2047 then
+            fp_r <= fn_s & "11111111111" & x"0000000000000";
+          else
+            fp_r <= fn_s & unsigned(fn_e(10 downto 0)) & fn_sig(62 downto 11);
+          end if;
+
         -- the result (the top) as stored: (new_rk, new_v); an integer
         -- rescaled to the cell's own fixed point fk (section 4)
         when E_STORE =>
@@ -1216,13 +1537,14 @@ begin
                   else dv_n <= x"0000000000000000" & t_v; end if;
                   dv_d <= pw(t_k(6 downto 0) - fk(6 downto 0), fk(7));
                   dv_neg <= t_v(63) = '1';
-                  dv_ret <= E_ST_DONE; st <= DV_START;
+                  dv_raw <= false; dv_ret <= E_ST_DONE; st <= DV_START;
                 end if;
               elsif t_k(6 downto 0) = 0 and fk(6 downto 0) /= 0 then
                 mu_x <= t_v; mu_y <= pw(fk(6 downto 0), fk(7));
                 mu_ret <= E_ST_SC; st <= MU_START;
               elsif t_k(6 downto 0) /= 0 then
-                new_rk <= x"06"; new_v <= x"00000000000000" & E_NAME;   -- (to F64: not yet)
+                -- no matching fixed point in the cell: as F64
+                cv_v <= t_v; cv_k <= t_k; cv_ret <= E_ST_SC; cv_step <= 3; st <= CV_START;
               end if;
             when VK_F =>
               if t_v(62 downto 52) = "11111111111" then
@@ -1237,7 +1559,10 @@ begin
           end case;
         when E_ST_SC =>                         -- scaled up, unless it overflowed
           st <= E_W1;
-          if mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
+          if cv_step = 3 then                   -- (or converted to F64)
+            cv_step <= 0;
+            new_rk <= x"03"; new_v <= fp_r;
+          elsif mu_hi /= 0 or (mu_lo(63) = '1' and not (mu_neg and mu_lo = x"8000000000000000")) then
             new_rk <= x"06"; new_v <= x"00000000000000" & E_NUM;
           elsif mu_neg then
             new_v <= unsigned(-signed(mu_lo));
