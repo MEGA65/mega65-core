@@ -1,6 +1,6 @@
 """SHITE step 7 test: RECALC with SQRT (correctly rounded), POW / POWER
 (exact integers and fixed point, F64 square and multiply) and ROUND (fixed
-point exactly, F64 through F64(10^n)) against the reference model
+point and F64 exactly) against the reference model
 (SSNAIL/shite.py, through the emulator)."""
 import os
 import struct
@@ -96,6 +96,10 @@ for v, k, n in ((12345, 3, 1), (12345, 3, 2), (-12345, 3, 2), (125, 2, 1), (-125
     cases.append(F().i(v).fix(k).i(n).call(ROUND, 2).end())
 for x, n in ((2.675, 2), (2.5, 0), (-2.5, 0), (0.5, 0), (0.49999999999999994, 0), (1234.5678, -2), (-1234.5678, 1),
              (1e300, 2), (1e-300, 5), (inf, 1), (nan, 1), (-0.25, 0), (123456789012345.67, 1), (0.1, 15), (5.5e15, 0)):
+    cases.append(F().f(x).i(n).call(ROUND, 2).end())
+for x, n in ((1.005, 2), (0.125, 2), (-0.125, 2), (1e-20, 3), (-1e-20, 3), (4503599627370495.5, 0),
+             (2.0 ** 52 + 0.5, 0), (1e15 + 0.3, 1), (9.2e18, -2), (-9.2e18, -1), (1e19, -1), (0.0049, 2),
+             (-0.0051, 2), (123.456, -1), (55.0, -2), (-45.0, -1), (2.0 ** -1074 * 2 ** 52, 3)):
     cases.append(F().f(x).i(n).call(ROUND, 2).end())
 cases.append(F().f(1.5).i(19).call(ROUND, 2).end())        # #NUM!
 cases.append(F().f(1.5).f(1.0).call(ROUND, 2).end())       # n not an integer: #NUM!

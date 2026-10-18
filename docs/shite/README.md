@@ -420,7 +420,7 @@ aggregate is #VALUE!; a wrong argument count for a fixed one, too):
 | MOD | 2 | a - b x floor(a / b) (the divisor's sign): integers aligned as for ADD, exactly; else F64, as q = floor(F64(a / b)), then F64(a - F64(b x q)); b zero: #DIV/0! |
 | `%` (PCT) | 1 | / 100: an integer gets two more decimals of fixed point (decimal, up to k = 18); else F64(x / 100) |
 | `^` (POW), POWER | 2 | b must be an integer (I64, no fixed point; else #NAME? until the transcendentals); 0^0 #NUM!, 0^(b < 0) #DIV/0!.  An integer a with b >= 0: exactly, the fixed point times b (past its limit: F64), overflow #NUM!.  Else F64, square and multiply from b's lowest bit (r = 1; for each bit: r = r x x if set; x = x x x if bits remain), then 1 / r for b < 0 (1 / +-0: +-infinity) |
-| ROUND | 2 | x to n decimals, half away from zero; n an integer -18..18 (else #NUM!).  An integer or decimal fixed point: exactly (n >= k: unchanged; n >= 0: k = n; n < 0: k = 0); else F64: n >= 0 as F64(round(F64(x x F64(10^n))) / F64(10^n)), n < 0 as F64(round(F64(x / F64(10^-n))) x F64(10^-n)), round being exact, half away |
+| ROUND | 2 | x to n decimals, half away from zero, from x's exact value; n an integer -18..18 (else #NUM!).  An integer or decimal fixed point: exactly (n >= k: unchanged; n >= 0: k = n; n < 0: k = 0).  F64: n >= 0: N = \|x\| x 10^n rounded to an integer, then F64(N) / F64(10^n) (correctly rounded), with x's sign; x itself if it is integral or \|x\| x 10^n >= 2^53 (then within an ulp anyway).  n < 0: \|x\|'s integer part rounded at 10^-n (the fraction cannot change that), times 10^-n, to F64, with x's sign; x itself if \|x\| >= 2^63 |
 | SQRT | 1 | F64, correctly rounded; negative #NUM! (-0: -0) |
 
 JZ's test (5.5) is NOT's: zero (I64, F64 of either sign, blank) is false.
@@ -508,7 +508,9 @@ Renders a rectangle of cells as screen text.  Parameter block (48 bytes,
 | 32 | 4 | colour destination (0: none): one byte per character, the colour |
 | 36 | 2 | colour stride |
 | 38 | 1 | default colour (cells without a format, and blank fields) |
-| 39 | 9 | reserved, 0 |
+| 39 | 1 | reserved, 0 |
+| 40 | 4 | scratch: 512 bytes of attic RAM for the rendering (RENDER's) |
+| 44 | 4 | reserved, 0 |
 
 Row r is screen line r - first row; within a line the columns follow one
 another, each its width.  Every field is exactly its width: the rendered
@@ -550,30 +552,25 @@ after the sign; bit 5 the suffix character (byte 5) at the end.  The
 decimal point is the descriptor's decimal separator (`.` if 0); the
 thousands separator is `,`, or `.` when the decimal separator is `,`.
 
-**Digits, exactly.**  A value rounded to d decimals is an integer N, and
-the text is N's digits with the point d from the right (`0.05`, not `.05`):
+**Digits, exactly.**  Every number is rounded from its exact value (an
+F64 is exactly m x 2^E), half away from zero; never through a rounded F64
+step.  A value rounded to d decimals is an integer N, and the text is N's
+digits with the point d from the right (`0.05`, not `.05`).  Percent
+multiplies by 100 first, exactly.  Scientific: E with 10^E <= |x| < 10^(E+1),
+the mantissa rounded to d decimals (a carry to 10 makes it 1 and E + 1).
+So a stored F64 2.675 (really 2.67499999...) shows `2.67` with two
+decimals, as ROUND gives; a typed 2.675 is fixed point and shows `2.68`.
 
-- I64, decimal fixed point k: N = v x 10^(d-k) when d >= k, else v / 10^(k-d)
-  rounded half away from zero.
-- I64, binary fixed point k: N = v x 10^d / 2^k, rounded half away.
-- F64 x: N = F64(x x F64(10^d)) (one F64 multiply), then rounded half away
-  to an integer.  |N| >= 2^63 shows `#`s.
-- Percent multiplies by 100 first (I64: exactly; F64: one F64 multiply).
-- Scientific: E is the exponent with F64(10^E) <= |x| < F64(10^(E+1))
-  (correctly rounded powers of ten); the mantissa is F64(x / F64(10^E)),
-  rounded to d decimals as above; if it rounds to 10, E + 1 and the
-  mantissa 1.  Integers and fixed point convert to F64 first.
+**General.**  Zero is `0`.  Integers and decimal fixed point show all
+their digits (fixed point: its k decimals) if they fit.  Otherwise, and
+for F64 and binary fixed point: the most significant digits that fit the
+width (at most 15 for F64), each try rounded from the exact value: an
+ordinary decimal if one fits, else scientific (`E`, sign, at least two
+exponent digits), redundant fractional zeros dropped; `#`s if nothing
+fits.  Style 5 (text) is general, aligned left by default.
 
-**General, for F64** (and binary fixed point): zero is `0`.  Otherwise,
-with E as above and s the sign's width (0 or 1):
-
-1. If -5 < E < 15: d = min(14 - E, width - s - max(E + 1, 1) - 1), at
-   least 0; render with d decimals, drop trailing zeros and then a trailing
-   point.  If that fits, it is the text.
-2. Else, or if it did not fit: scientific, with d = min(14, width - s - 2 -
-   len(`E+NN`)) (`E+NNN` for three-digit exponents), at least 0, trailing
-   zeros dropped from the mantissa.
-3. If that does not fit either: `#`s.
+Format byte 3 bit 3 (leading zeros) is reserved in this version: no
+effect.  The prefix and suffix characters (bytes 4, 5) are screen codes.
 
 **Characters.**  Text is ASCII and written as screen codes: `@` 0, `A`-`Z`
 65-90 and `a`-`z` 1-26 (with flag bit 2, the upper-case set: both 1-26),
@@ -633,8 +630,13 @@ interrupt are SSNAIL's.
   hyperbolic mode), which is small and precise enough for F64.  SSNAIL's
   FPU is F32 and pipelined for streaming; SHITE has its own small F64 unit
   rather than sharing SSNAIL's (simpler, and the same in a SHITE-only build).
-- **Formatter**: the integer divider (by 10) or double-dabble for digits,
-  then a small character emitter.
+- **Formatter / codec**: `shite_number_text` (one shared number
+  converter, exact, with a byte-serial big-integer engine),
+  `shite_cell_text` (RENDER), `shite_formula_codec` (COMPILE, DECOMPILE).
+  Planned speed-up: displayed values with |x| x 10^d < 2^128 (all ordinary
+  values) need only m x 10^d and a shift, exactly, in 128 bits: a fast path
+  on the shared multiplier, leaving the serial engine for extreme magnitudes
+  and shortest round-trip printing.
 - **Memory**: a segment cache of 8 lines of 256 bytes (2 KB of block RAM,
   address-tagged: cells are variable length, so it caches row block
   segments), a 64-entry (row, column) -> address cache in LUT RAM for
@@ -722,7 +724,7 @@ aligned):
 | 8 | 8 | the value (I64, F64, or the error code); for text: its address (4) and length (2) |
 | 16 | 8 | the format (3.5; all zero: the default) |
 | 24 | 4 | destination |
-| 28 | 4 | reserved, 0 |
+| 28 | 4 | scratch: 512 bytes of attic RAM |
 
 R[a] bit 0: the value is negative (the negative colour applies); bit 1:
 it did not fit (`#`s, or clipped).

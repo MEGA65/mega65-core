@@ -100,7 +100,8 @@ architecture rtl of shite is
     E_JUMP, E_JZ, E_PCT, E_PCT2,
     SF_START, SF_ARG2, SF_INTDIV, SF_MODI, SF_MODI2, SF_MODI3, SF_MODF, SF_MODF2, SF_MODF3, SF_MODF4,
     SF_FLOOR, SF_DONE, SF_B2, SF_POWI, SF_POWI2, SF_POWF, SF_POWF2, SF_POWF3, SF_POWF4, SF_POWF5,
-    SF_RNDI, SF_RNDI2, SF_RNDI3, SF_RNDF, SF_RNDF2, SF_RNDF3, SF_RNDF4, SF_POWSQ, SF_SQRT, SQ_STEP,
+    SF_RNDI, SF_RNDI2, SF_RNDI3, SF_RNDF, SF_RF_MUL, SF_RF_SH, SF_RF_N, SF_RF_C2, SF_RF_DIV,
+    SF_RN_SH, SF_RN_DIV, SF_RN_MUL, SF_RNDF4, SF_POWSQ, SF_SQRT, SQ_STEP,
     E_BIN, E_BINW, BO_START, E_SCALED, E_ARITH, E_MULF, E_DIVM, E_DIVF, E_NEG, E_FIX,
     E_STORE, E_ST_SC, E_ST_DONE, E_W1, E_W2, E_W3, E_W4, E_NEXTCELL,
     -- the shared multiplier and divider
@@ -286,6 +287,12 @@ architecture rtl of shite is
   -- ROUND: n; F64(10^|n|)
   signal rn_n : signed(7 downto 0) := (others => '0');
   signal rn_p : unsigned(63 downto 0) := (others => '0');
+  signal rf_p : unsigned(127 downto 0) := (others => '0');      -- |x| x 10^n, or |x|'s integer part
+  signal rf_sh : signed(12 downto 0) := (others => '0');        -- right shifts to go
+  signal rf_rb : std_logic := '0';                              -- the last bit shifted out
+  signal rf_neg : std_logic := '0';
+  signal rf_x : unsigned(63 downto 0) := (others => '0');
+  signal rf_fp, rf_mag : boolean := false;     -- the result in fp_r; a magnitude (x's sign to add)
   -- the square root: radicand, remainder, root
   signal sq_r : unsigned(127 downto 0) := (others => '0');
   signal sq_rem : unsigned(65 downto 0) := (others => '0');
@@ -1649,21 +1656,101 @@ begin
           else
             acc_v <= mu_lo;
           end if;
-        -- ROUND, F64: x x F64(10^n), rounded, / F64(10^n)  (n < 0: / then x)
+        -- ROUND, F64, exactly (5.7).  |x| = m x 2^E.  n >= 0: p = m x 10^n,
+        -- N = p / 2^-E rounded half away (unless no digits are below 10^-n,
+        -- or |x| x 10^n >= 2^53: x itself), then F64(N) / F64(10^n).  n < 0:
+        -- |x|'s integer part, rounded at 10^-n, times 10^-n (|x| >= 2^63: x)
         when SF_RNDF =>
-          sb_v <= fp_r;                           -- (x)
-          if rn_n >= 0 then cv_v <= P10(to_integer(rn_n)); else cv_v <= P10(-to_integer(rn_n)); end if;
-          cv_k <= x"00"; cv_ret <= SF_RNDF2; cv_step <= 0; st <= CV_START;
-        when SF_RNDF2 =>
-          rn_p <= fp_r;
-          fp_a <= sb_v; fp_b <= fp_r; fp_ret <= SF_RNDF3; st <= FP_START;
-          if rn_n >= 0 then fp_op <= FP_MUL; else fp_op <= FP_DIV; end if;
-        when SF_RNDF3 =>
-          fp_a <= f_rnd(fp_r); fp_b <= rn_p; fp_ret <= SF_RNDF4; st <= FP_START;
-          if rn_n >= 0 then fp_op <= FP_DIV; else fp_op <= FP_MUL; end if;
-        when SF_RNDF4 =>
-          acc_kind <= VK_F; acc_v <= fp_r; acc_k <= x"00";
+          rf_x <= fp_r; rf_neg <= fp_r(63);
+          rf_fp <= false; rf_mag <= false;
+          st <= SF_RNDF4;
+          acc_kind <= VK_F; acc_k <= x"00";
+          if f_zero(fp_r) or fp_r(62 downto 52) = "11111111111" then
+            acc_v <= fp_r;
+          elsif rn_n >= 0 then
+            if fp_r(62 downto 52) >= 1075 then      -- E >= 0: integral, nothing below 10^-n
+              acc_v <= fp_r;
+            else
+              rf_sh <= to_signed(1075, 13) - signed(resize(fp_r(62 downto 52), 13));
+              mu_x <= x"00" & "000" & '1' & fp_r(51 downto 0); mu_y <= P10(to_integer(rn_n));
+              mu_ret <= SF_RF_MUL; st <= MU_START;
+            end if;
+          elsif fp_r(62 downto 52) >= 1023 + 63 then  -- |x| >= 2^63
+            acc_v <= fp_r;
+          else
+            -- the integer part: m shifted (E in -1075..10)
+            rf_p <= x"0000000000000000" & x"00" & "000" & '1' & fp_r(51 downto 0);
+            rf_sh <= to_signed(1075, 13) - signed(resize(fp_r(62 downto 52), 13));
+            st <= SF_RN_SH;
+          end if;
+        when SF_RF_MUL =>                       -- p (128 bits), then the shift
+          rf_p <= mu_hi(63 downto 0) & mu_lo; rf_rb <= '0';
+          if rf_sh >= 115 then                    -- (p < 2^113: rounds to 0)
+            rf_p <= (others => '0'); rf_sh <= (others => '0');
+          end if;
+          st <= SF_RF_SH;
+        when SF_RF_SH =>                        -- one bit a cycle, the last one kept
+          if rf_sh = 0 then
+            st <= SF_RF_N;
+          else
+            rf_rb <= rf_p(0);
+            rf_p <= '0' & rf_p(127 downto 1);
+            rf_sh <= rf_sh - 1;
+          end if;
+        when SF_RF_N =>                         -- N = floor + the rounding bit
+          if rf_p(127 downto 53) /= 0 then        -- |x| x 10^n >= 2^53: x
+            acc_v <= rf_x; st <= SF_RNDF4;
+          else
+            fn_s <= '0'; fn_sig <= rf_p(63 downto 0) + resize(unsigned'("" & rf_rb), 64);
+            fn_e <= to_signed(1023 + 63, 14); fn_st <= '0';
+            if rf_p(63 downto 0) = 0 and rf_rb = '0' then
+              acc_v <= (others => '0'); rf_mag <= true; st <= SF_RNDF4;    -- (rounds to 0)
+            else
+              fn_ret <= SF_RF_C2; st <= FN_NORM;
+            end if;
+          end if;
+        when SF_RF_C2 =>                        -- F64(N); then F64(10^n)
+          cv_t <= fp_r;
+          fn_s <= '0'; fn_sig <= P10(to_integer(rn_n)); fn_e <= to_signed(1023 + 63, 14); fn_st <= '0';
+          fn_ret <= SF_RF_DIV; st <= FN_NORM;
+        when SF_RF_DIV =>
+          fp_a <= cv_t; fp_b <= fp_r; fp_op <= FP_DIV; fp_ret <= SF_RNDF4; st <= FP_START;
+          rf_fp <= true; rf_mag <= true;
+        when SF_RN_SH =>                        -- the integer part of |x|
+          if rf_sh <= 0 then
+            if rf_sh < 0 then                     -- E > 0: shift left
+              rf_p <= rf_p(126 downto 0) & '0'; rf_sh <= rf_sh + 1;
+            else
+              dv_n <= rf_p; dv_d <= P10(-to_integer(rn_n));
+              dv_raw <= true; dv_ret <= SF_RN_DIV; st <= DV_START;
+            end if;
+          elsif rf_p = 0 then
+            rf_sh <= (others => '0');
+          else
+            rf_p <= '0' & rf_p(127 downto 1); rf_sh <= rf_sh - 1;
+          end if;
+        when SF_RN_DIV =>                       -- q, r: N = q + (r >= 5 x 10^(k-1))
+          if dv_r(63 downto 0) >= resize(P10(-to_integer(rn_n) - 1) * to_unsigned(5, 4), 64) then
+            mu_x <= dv_q(63 downto 0) + 1;
+          else
+            mu_x <= dv_q(63 downto 0);
+          end if;
+          mu_y <= P10(-to_integer(rn_n)); mu_ret <= SF_RN_MUL; st <= MU_START;
+        when SF_RN_MUL =>                       -- N x 10^k (< 2^64), to F64
+          rf_mag <= true;
+          if mu_lo = 0 then
+            acc_v <= (others => '0'); st <= SF_RNDF4;
+          else
+            fn_s <= '0'; fn_sig <= mu_lo; fn_e <= to_signed(1023 + 63, 14); fn_st <= '0';
+            fn_ret <= SF_RNDF4; st <= FN_NORM;
+            rf_fp <= true;
+          end if;
+        when SF_RNDF4 =>                        -- the result, with x's sign on a magnitude
+          acc_kind <= VK_F; acc_k <= x"00";
           st <= SF_DONE;
+          if rf_fp then e := fp_r; else e := acc_v; end if;
+          if rf_mag then e(63) := rf_neg; end if;
+          acc_v <= e;
         -- SQRT, F64: negatives #NUM!; NaN, infinity, zeros as they are
         when SF_SQRT =>
           st <= SF_DONE;
