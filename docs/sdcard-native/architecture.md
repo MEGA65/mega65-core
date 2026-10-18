@@ -6,8 +6,9 @@ Status: the low-level controller, upper-controller fork and data cache pass
 simulation and are plumbed into mega65r6.  The first Vivado build missed
 timing; commit `81ca519af` registers the critical controller paths.  Hardware
 testing of that commit has begun (2026-10-18): internal-card reads work in
-SPI fallback, including identical uncached and cached MBR reads, the FAT32
-boot sector and the MEGA65 system-partition header.  Boot exposed a legacy
+SPI fallback and, after a power cycle, native 4-bit high-speed mode. Checks
+include identical uncached and cached MBR reads, the FAT32 boot sector and
+the MEGA65 system-partition header. Boot exposed a legacy
 busy-status compatibility bug, described below.  Read-ahead, the metadata
 cache and the FAT32 engine are still plans.
 
@@ -39,8 +40,10 @@ cache and the FAT32 engine are still plans.
 - Every Vivado project with `iomapper` lists the two new sources, as does the
   Makefile's simulation list.
 - Checked by GHDL elaboration of the whole r6 top level (with the CPU,
-  VIC-IV, sound and the like stubbed out).  Vivado timing closure and native
-  4-bit operation on hardware still need confirmation.
+  VIC-IV, sound and the like stubbed out). Vivado timing closure still needs
+  confirmation. Native 4-bit high-speed reads were checked on hardware after
+  a power cycle: `$D686=$0F`, `$D687=$00`, with correct MBR and FAT32 boot
+  sector data on slot 0.
 - Pins checked against the TE0765 rev 06 schematic (pages 9, 10 and 20):
 
   | Slot | Socket | CLK | CMD | DAT0 | DAT1 | DAT2 | DAT3 | CD | WP |
@@ -119,6 +122,10 @@ Open multi-sector transfers continue to clear busy between granted blocks.
 `tb_sdcardio_native` has a `G_BOOT_TEST` mode covering empty-slot failure,
 fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
+
+A [read-only benchmark](benchmark.md) builds as
+`src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native
+cache, metadata and multi-sector commands, with and without a RAM copy.
 
 ## 2. Sector cache
 

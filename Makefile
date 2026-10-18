@@ -1072,6 +1072,10 @@ $(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
+$(UTILDIR)/sd_read_bench.prg: $(UTILDIR)/sd_read_bench.c $(UTILDIR)/sd_read_bench_asm.s $(UTILDIR)/util-std.cfg $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) -t c64 -Oirs --config $(UTILDIR)/util-std.cfg $(SD_BENCH_CFLAGS) -o $@ --mapfile $*.map $(UTILDIR)/sd_read_bench.c $(UTILDIR)/sd_read_bench_asm.s
+
 $(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
