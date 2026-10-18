@@ -582,6 +582,12 @@ begin
                 case idx is
                   when 0 =>
                     rd_on := false; wr_on := false;
+                    -- Reset aborts a partly sent read too. Its remaining
+                    -- queued data must not precede CMD0's response during
+                    -- reinitialisation after an interrupted cache fill.
+                    qh := qt;
+                    acmd41 := 0;
+                    crc_on := false;
                     r1(x"01");
                   when 8 =>
                     r1(x"01"); push(x"00"); push(x"00"); push(x"01"); push(arg(7 downto 0));
