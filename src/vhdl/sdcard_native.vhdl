@@ -1181,13 +1181,17 @@ begin
       rxd_tag <= rx_tag;
       rf_cend   <= boolean_to_sl(later(rx_tag, c_end));
       rf_c80    <= boolean_to_sl(rx_tag - c_end > 80);
-      rf_dafter <= boolean_to_sl(later(rx_tag, d_after));
+      -- A card may take much longer than half the 16-bit tag range to
+      -- produce data (32768 clocks is only 0.81 ms at normal high speed).
+      -- Once the samples have crossed this boundary, keep accepting them
+      -- until the next d_after assignment explicitly rearms the guard.
+      rf_dafter <= rf_dafter or boolean_to_sl(rx_v = '1' and later(rx_tag, d_after));
       rf_bafter <= boolean_to_sl(later(rx_tag, b_after));
       rf_tend   <= boolean_to_sl(later(rx_tag, t_end));
       rf_t16    <= boolean_to_sl(rx_tag - t_end > 16);
       -- and the start of a command / of a write block: far enough after the
       -- last one (one SD clock more than needed: it is a cycle late)
-      cmd_gap_ok <= boolean_to_sl(not later(c_earliest, ttag + 1));
+      cmd_gap_ok <= cmd_gap_ok or boolean_to_sl(not later(c_earliest, ttag + 1));
       wr_gap_ok  <= boolean_to_sl(later(ttag + 1, c_end + 1));
 
       -- (A comparison flag above was worked out with the threshold of this

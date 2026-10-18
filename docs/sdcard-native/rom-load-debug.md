@@ -86,6 +86,15 @@ Transfer/ready status. A strict-stop single-read CRC regression fails before
 this change and passes after it, as does clear/recover on an idle card.
 Physical confirmation of that correction is pending.
 
+A further RTL defect revoked read-start eligibility when more than half the
+16-bit tag range elapsed after a command or preceding block. At 40.625 MHz
+that is only 0.807 ms, far shorter than the permitted read timeout. Eligibility
+and command-gap completion now latch until explicitly rearmed. A model with
+a 40000-clock first-block delay produces a correct single read with this
+change; delayed multi-block and full-suite checks accompany the regression.
+Whether this explains all physical wrong-sector reads remains to be checked
+on hardware.
+
 Capture the loaded ROM with:
 
 ```sh

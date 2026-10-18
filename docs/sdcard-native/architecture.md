@@ -170,6 +170,14 @@ case failed before the checked-close change. See the
 `G_SINGLE_CRC_TEST=true` makes the model ignore CMD12 in Transfer and verifies
 both a failed single-read CRC retry and an explicit clear on an idle card.
 
+Read-start eligibility and command-gap completion stay latched once their
+tag boundaries have passed. Recomputing a wrapping 16-bit ordering test
+would revoke eligibility after 32768 SD clocks (about 0.807 ms at 40.625 MHz),
+even though the read timeout permits much longer card access times. Each
+new boundary assignment explicitly clears its latch. The native testbench's
+`G_LONG_READ_NAC=40000` and `G_LONG_MULTI_NAC=40000` options exercise delayed
+first blocks and inter-block gaps without lowering the SD clock.
+
 A [read-only benchmark](benchmark.md) builds as
 `src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native
 cache, metadata and multi-sector commands, with and without a RAM copy.

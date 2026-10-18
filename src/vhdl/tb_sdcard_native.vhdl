@@ -19,6 +19,8 @@ entity tb_sdcard_native is
     G_TRACE    : boolean := false;
     G_STOP_TEST : boolean := false;
     G_SINGLE_CRC_TEST : boolean := false;
+    G_LONG_READ_NAC : natural := 0;
+    G_LONG_MULTI_NAC : natural := 2;
     G_STOP_FAILS : natural := 0;
     G_STOP_ACK_FAILS : natural := 0
     );
@@ -140,7 +142,9 @@ begin
   card : entity work.sdcard_native_model
     generic map (G_START_SPI => G_SPI_CARD, G_CRC_ERR_BLK => 101,
                  G_STOP_FAILS => G_STOP_FAILS, G_STOP_ACK_FAILS => G_STOP_ACK_FAILS,
-                 G_STRICT_STOP => G_SINGLE_CRC_TEST)
+                 G_STRICT_STOP => G_SINGLE_CRC_TEST,
+                 G_LONG_READ_NAC => G_LONG_READ_NAC,
+                 G_LONG_MULTI_NAC => G_LONG_MULTI_NAC)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -293,6 +297,24 @@ begin
         check_blocks(300, 1, false, "read after close is requested sector");
       end if;
       report "ALL STOP TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
+
+    if G_LONG_READ_NAC /= 0 then
+      clear_rx;
+      command(2, 300, 1, 0);
+      wait_idle(15 ms);
+      check(error = '0' and n_good = 1 and n_bad = 0,
+            "single read after long card access delay");
+      check_blocks(300, 1, false, "long-latency single read data");
+      clear_rx;
+      command(2, 300, 4, 0);
+      wait_idle(20 ms);
+      check(error = '0' and n_good = 4 and n_bad = 0,
+            "multi read with long first/inter-block card delays");
+      check_blocks(300, 4, false, "long-latency multi read data");
+      report "ALL LONG READ TESTS PASSED";
       done <= true;
       wait;
     end if;

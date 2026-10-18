@@ -29,7 +29,9 @@ entity sdcard_native_model is
     G_CRC_ERR_BLK : integer := -1;      -- first read of this block has a bad CRC
     G_STOP_FAILS : natural := 0;       -- first CMD12s have no response/effect
     G_STOP_ACK_FAILS : natural := 0;   -- first CMD12s reply but keep streaming
-    G_STRICT_STOP : boolean := false  -- ignore CMD12 when already in Transfer
+    G_STRICT_STOP : boolean := false; -- ignore CMD12 when already in Transfer
+    G_LONG_READ_NAC : natural := 0;   -- override first-block wait at block 300
+    G_LONG_MULTI_NAC : natural := 2   -- inter-block wait for that read
     );
   port (
     clk : in    std_logic;
@@ -283,6 +285,7 @@ begin
     variable byte     : std_logic_vector(7 downto 0);
     variable blk      : natural;
     variable nbytes   : natural;
+    variable read_nac, multi_nac : natural;
     variable stop_ref : boolean;
     variable stopped  : boolean;
     variable err_done : boolean := false;
@@ -326,7 +329,13 @@ begin
         stopped  := false;
         blk      := rd_blk;
         if rd_small then nbytes := 64; else nbytes := 512; end if;
-        for i in 1 to G_NAC loop out_edge; end loop;
+        read_nac := G_NAC;
+        multi_nac := G_NAC_MULTI;
+        if not rd_small and blk = 300 and G_LONG_READ_NAC /= 0 then
+          read_nac := G_LONG_READ_NAC;
+          multi_nac := G_LONG_MULTI_NAC;
+        end if;
+        for i in 1 to read_nac loop out_edge; end loop;
         loop
           -- one block
           out_edge; drive("0000");
@@ -363,7 +372,7 @@ begin
           end loop;
           exit when stopped;
           out_edge; drive("1111");
-          if not rd_multi or G_NAC_MULTI /= 0 then
+          if not rd_multi or multi_nac /= 0 then
             out_edge; dat_drv <= transport "ZZZZ" after G_TOH;
           end if;
           if rd_small then
@@ -372,7 +381,7 @@ begin
           end if;
           exit when not rd_multi;
           blk := blk + 1;
-          for i in 2 to G_NAC_MULTI loop
+          for i in 2 to multi_nac loop
             out_edge;
             if stop_go /= stop_ref then stopped := true; exit; end if;
           end loop;
