@@ -160,6 +160,28 @@ deliberately stuck. A failed sector buffer is never accepted as a successful
 read. `src/hyppo/sd_read_errors.test` covers idle success, idle error, and
 error with BUSY still asserted.
 
+**Boot polling and session reuse.** With retry diagnostics v1 present,
+Hyppo polls each slot's BUSY/error status immediately after reset instead of
+always sleeping before checking it. An empty external slot can therefore
+fall back to the internal slot as soon as initialisation reports failure;
+external cards retain priority. Slow cards still get three complete polling
+timeout windows, and the controller's protocol timeouts are unchanged.
+Legacy controllers, older native builds and unknown diagnostic versions keep
+the original settling waits. The initial general boot settling delay remains.
+
+On an internal-only boot the former slot search incurred three fixed waits
+for the absent external card and at least one for the internal card. Each
+fixed wait runs a 24-bit counter from `$F30000` to zero (851968 increments),
+irrespective of when the card becomes ready or reports an error. Hyppo also
+avoids resetting the selected card again in `readmbr` if the new controller
+reports no busy/reset/error condition, native READY and a zero error code;
+otherwise it takes the existing reset path. The normal SDHC/MBR reads remain.
+
+`src/hyppo/sd_boot_wait.test` and `sd_boot_slots.test` cover readiness, errors,
+timeout windows, legacy fallback, slot priority and healthy-session reuse.
+These are assembled-code tests with mocked register state, not physical
+boot-time measurements. Hardware timing of the reduced waits is pending.
+
 **Checked native close.** A read's final CMD12 waits for its response and
 busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.
 CMD13 is also sent after an unanswered CMD12: a completed single-block read

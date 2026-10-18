@@ -26,6 +26,27 @@ tu1:    rts
 ;;     Read master boot record. Does not sanity check anything.
 ;;     ---------------------------------------------------------------- */
 readmbr:
+        ;; Reuse a healthy slot that the new native controller has already
+        ;; initialised and verified during boot probing.
+        lda $d6cc
+        cmp #$53
+        bne readmbr_reset
+        lda $d6cd
+        cmp #$01
+        bne readmbr_reset
+        lda $d680
+        and #$67
+        bne readmbr_reset
+        lda $d686
+        and #$81
+        cmp #$01
+        bne readmbr_reset
+        lda $d687
+        bne readmbr_reset
+        jsr sd_map_sectorbuffer
+        jmp l7
+
+readmbr_reset:
         ;; begin by resetting SD card
         ;;
 
@@ -154,6 +175,46 @@ redone:
         rts
 
 ;;         ========================
+
+;; New native builds cover init/mailbox latency in BUSY. Poll readiness or
+;; terminal error immediately, with three full timeout windows for slow cards.
+;; Legacy and older native builds retain their three fixed settling waits.
+sd_wait_for_boot_card:
+        lda $d6cc
+        cmp #$53
+        bne sd_boot_legacy_wait
+        lda $d6cd
+        cmp #$01
+        bne sd_boot_legacy_wait
+        ldx #$03
+sd_boot_poll_window:
+        jsr sdtimeoutreset
+sd_boot_poll:
+        bit $d680
+        bvs sd_boot_failed
+        jsr sdreadytest
+        bcs sd_boot_ready
+        bne sd_boot_poll
+        dex
+        bne sd_boot_poll_window
+sd_boot_failed:
+        clc
+        rts
+
+sd_boot_legacy_wait:
+        ldx #$03
+sd_boot_legacy_loop:
+        jsr sdwaitawhile
+        lda $d680
+        and #$03
+        beq sd_boot_ready
+        dex
+        bne sd_boot_legacy_loop
+        clc
+        rts
+sd_boot_ready:
+        sec
+        rts
 
         ;; Watch for ethernet packets while waiting for the SD card.
         ;; this allows loading of code into the hypervisor for testing and

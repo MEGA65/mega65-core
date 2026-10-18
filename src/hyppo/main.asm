@@ -770,6 +770,7 @@ normalboot:
 
         ;; Work out if we are using primary or secondard SD card
 
+sd_boot_probe_cards:
         ;; First try resetting card 1 (external)
         ;; so that if you have an external card, it will be used in preference
         lda #$c1
@@ -779,13 +780,8 @@ normalboot:
         lda #$01
         sta $d680
 
-        ldx #$03
-morewaiting:
-        jsr sdwaitawhile
-
-        lda $d680
-        and #$03
-        bne trybus0
+        jsr sd_wait_for_boot_card
+        bcc trybus0
 
         phx
 
@@ -797,9 +793,6 @@ morewaiting:
 
         jmp check_sd_bus_mode
 trybus0:
-        dex
-        bne morewaiting
-
         lda #$c0
         sta $d680
 
@@ -813,16 +806,8 @@ trybus0:
         lda #$01
         sta $d680
 
-        ldx #$03
-@morewaiting2:
-        jsr sdwaitawhile
-
-        lda $d680
-        and #$03
-        beq check_sd_bus_mode
-
-        dex
-        bne @morewaiting2
+        jsr sd_wait_for_boot_card
+        bcs check_sd_bus_mode
 
         ;; No working SD card -- we can just try booting to BASIC, since we
         ;; now include our open-source ROM
