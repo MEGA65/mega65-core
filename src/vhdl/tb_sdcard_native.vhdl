@@ -70,6 +70,7 @@ architecture tb of tb_sdcard_native is
   signal rd_block    : unsigned(15 downto 0);
   signal rd_good     : std_logic;
   signal rd_bad      : std_logic;
+  signal diag_stats : unsigned(127 downto 0);
   signal wr_fetch    : std_logic;
   signal wr_offset   : unsigned(8 downto 0);
   signal wr_block    : unsigned(15 downto 0);
@@ -117,7 +118,7 @@ begin
       card_ready => card_ready, busy => busy, waiting => waiting, error => error,
       err_code => err_code, native_mode => native_mode, high_speed => high_speed,
       sdhc => sdhc, clk_setting => clk_setting, probe_pass => probe_pass,
-      probe_fail => probe_fail, blocks_done => blocks_done,
+      probe_fail => probe_fail, blocks_done => blocks_done, diag_stats => diag_stats,
       rd_valid => rd_valid, rd_data => rd_data, rd_offset => rd_offset,
       rd_block => rd_block, rd_good => rd_good, rd_bad => rd_bad,
       wr_fetch => wr_fetch, wr_offset => wr_offset, wr_block => wr_block,
@@ -269,6 +270,8 @@ begin
       wait_idle(10 ms);
       if G_STOP_FAILS >= 3 or G_STOP_ACK_FAILS >= 3 then
         check(error = '1' and card_ready = '0', "failed close invalidates card");
+        check(diag_stats(31 downto 16) = 2 and diag_stats(111 downto 96) = 1,
+              "two stop retries and one terminal stop failure counted");
         clear_rx;
         command(2, 300, 1, 0);
         wait_idle(5 ms);
@@ -290,6 +293,10 @@ begin
         end if;
       else
         check(error = '0' and card_ready = '1', "close recovered and card ready");
+        if G_STOP_FAILS = 1 or G_STOP_ACK_FAILS = 1 then
+          check(diag_stats(31 downto 16) = 1 and diag_stats(111 downto 96) = 0,
+                "recovered stop counted without a terminal stop failure");
+        end if;
         clear_rx;
         command(2, 300, 1, 0);
         wait_idle(5 ms);
@@ -328,6 +335,8 @@ begin
       check(error = '0' and card_ready = '1' and n_good = 1 and n_bad = 1,
             "single CRC retry accepts confirmed Transfer without CMD12 reply");
       check_blocks(101, 1, false, "single CRC retry data");
+      check(diag_stats(15 downto 0) = 1 and diag_stats(47 downto 32) = 1,
+            "recovered single CRC counted as one retry and one CRC event");
       t0 := now;
       command(9, 0, 0, 0);
       wait_idle(5 ms);
@@ -354,6 +363,9 @@ begin
       & integer'image(max_gap) & " cycles";
     check(error = '0' and n_good = 4 and n_bad = 1, "multi read with one CRC retry");
     check_blocks(99, 4, false, "multi read data");
+    check(diag_stats(15 downto 0) = 1 and diag_stats(47 downto 32) = 1,
+          "recovered multi CRC counted without a terminal failure");
+    check(diag_stats(95 downto 80) = 0, "CRC recovery is not a terminal read failure");
 
     -- open-ended read: first / next / last
     clear_rx;
@@ -470,6 +482,8 @@ begin
     command(1, 0, 0, 0);
     wait until card_ready = '1' and busy = '0' for 40 ms;
     check(card_ready = '1' and error = '0', "re-init");
+    check(diag_stats(15 downto 0) = 1 and diag_stats(47 downto 32) = 1,
+          "diagnostic counters survive re-init and exclude probe errors");
     clear_rx;
     command(2, 42, 1, 0);
     wait_idle(5 ms);

@@ -153,7 +153,7 @@ begin
       card_ready => d_card_ready, busy => d_busy, waiting => d_waiting, error => d_error,
       err_code => d_err_code, native_mode => d_native, high_speed => d_hs,
       sdhc => d_sdhc, clk_setting => d_setting, probe_pass => d_pp,
-      probe_fail => d_pf, blocks_done => d_bdone,
+      probe_fail => d_pf, blocks_done => d_bdone, diag_stats => open,
       rd_valid => d_rd_valid, rd_data => d_rd_data, rd_offset => d_rd_offset,
       rd_block => d_rd_block, rd_good => d_rd_good, rd_bad => d_rd_bad,
       wr_fetch => d_wr_fetch, wr_offset => d_wr_offset, wr_block => d_wr_block,

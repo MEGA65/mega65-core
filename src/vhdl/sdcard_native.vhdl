@@ -168,6 +168,10 @@ entity sdcard_native is
     probe_pass  : out unsigned(7 downto 0);
     probe_fail  : out unsigned(7 downto 0);
     blocks_done : out unsigned(15 downto 0);
+    -- CPU-domain diagnostic snapshot: seven wrapping 16-bit event counters
+    -- (read retries, stop retries, read CRC/timeouts/commands, terminal read
+    -- failures, terminal stop failures), then the current clock setting.
+    diag_stats  : out unsigned(127 downto 0);
 
     rd_valid    : out std_logic;
     rd_data     : out unsigned(7 downto 0);
@@ -431,7 +435,7 @@ architecture rtl of sdcard_native is
   -- status bundle (engine -> host)
   ------------------------------------------------------------------------------
 
-  constant ST_W : natural := 88;
+  constant ST_W : natural := 216;
   signal st_live   : std_logic_vector(ST_W-1 downto 0);
   signal st_pub    : std_logic_vector(ST_W-1 downto 0) := (others => '0');
   signal st_host   : std_logic_vector(ST_W-1 downto 0) := (2 => '1', others => '0');
@@ -587,6 +591,9 @@ architecture rtl of sdcard_native is
   signal op_done     : unsigned(15 downto 0) := (others => '0');  -- blocks finished
   signal op_multi    : std_logic := '0';     -- CMD18/CMD25 in progress
   signal op_try      : natural range 0 to 3 := 0;
+  signal stat_read_retries, stat_stop_retries : unsigned(15 downto 0) := (others => '0');
+  signal stat_read_crc, stat_read_timeout, stat_read_cmd : unsigned(15 downto 0) := (others => '0');
+  signal stat_read_fail, stat_stop_fail : unsigned(15 downto 0) := (others => '0');
   signal op_verify   : std_logic := '0';     -- the test read at the end of init
   signal op_reps     : unsigned(7 downto 0) := (others => '0');   -- probe reads left
   signal op_stop12   : std_logic := '0';     -- CMD12 after the last write block
@@ -685,6 +692,7 @@ begin
   probe_pass  <= unsigned(st_host(39 downto 32));
   probe_fail  <= unsigned(st_host(47 downto 40));
   blocks_done <= unsigned(st_host(63 downto 48));
+  diag_stats  <= unsigned(st_host(215 downto 88));
   hs_wait     <= st_host(64);
   hs_wseq     <= st_host(65);
   hs_wblk     <= unsigned(st_host(81 downto 66));
@@ -804,7 +812,9 @@ begin
   st_live(64)           <= e_wait;
   st_live(65)           <= w_seq;
   st_live(81 downto 66) <= std_logic_vector(w_blk);
-  st_live(ST_W-1 downto 82) <= (others => '0');
+  st_live(87 downto 82) <= (others => '0');
+  st_live(215 downto 88) <= std_logic_vector(cur_set & stat_stop_fail & stat_read_fail
+    & stat_read_cmd & stat_read_timeout & stat_read_crc & stat_stop_retries & stat_read_retries);
 
   publish : process (clock162)
   begin
@@ -1087,10 +1097,23 @@ begin
       st         <= S_RESYNC;
     end procedure;
 
+    procedure count_read_error(code : unsigned(7 downto 0)) is
+    begin
+      if op = OP_READ and op_verify = '0' then
+        case code is
+          when ERR_RD_CRC => stat_read_crc <= stat_read_crc + 1;
+          when ERR_RD_TMO => stat_read_timeout <= stat_read_timeout + 1;
+          when ERR_CMD => stat_read_cmd <= stat_read_cmd + 1;
+          when others => null;
+        end case;
+      end if;
+    end procedure;
+
     -- a transfer went wrong: end a multi-block one with CMD12 first
     procedure failed(code : unsigned(7 downto 0)) is
     begin
       e_err <= code;
+      count_read_error(code);
       d_arm <= '0';
       if mode_native = '1' and (op_multi = '1' or
           (op = OP_READ and op_verify = '0')) then
@@ -1106,6 +1129,7 @@ begin
     procedure close_failed is
     begin
       if close_tries < 2 then
+        stat_stop_retries <= stat_stop_retries + 1;
         close_tries <= close_tries + 1;
         if close_tries = 1 and cur_set /= SET_DS and cur_set /= SET_HS then
           if hs = '1' then
@@ -1118,6 +1142,8 @@ begin
           st <= S_CLOSE;
         end if;
       else
+        stat_stop_fail <= stat_stop_fail + 1;
+        if op = OP_READ then stat_read_fail <= stat_read_fail + 1; end if;
         ready   <= '0';
         e_error <= '1';
         e_err   <= ERR_CMD;
@@ -1799,6 +1825,7 @@ begin
             cnt       <= (others => '0');
             st        <= S_DRAIN;
           elsif op_try < 2 then
+            if op = OP_READ then stat_read_retries <= stat_read_retries + 1; end if;
             op_try <= op_try + 1;
             if op_try = 1 and cur_set /= SET_DS and cur_set /= SET_HS then
               -- an accepted fast setting failed twice: back to normal
@@ -1814,6 +1841,7 @@ begin
             w_reqd <= '0';
             resync(S_DISPATCH);
           else
+            if op = OP_READ then stat_read_fail <= stat_read_fail + 1; end if;
             e_error <= '1';
             if e_err = ERR_NONE then
               e_err <= ERR_CMD;
@@ -2662,6 +2690,7 @@ begin
 
         -- CMD12 for a multi-block read, then deselect
         when P_RD_END =>
+          if sp_ok = '0' then count_read_error(e_err); end if;
           run     <= '1';
           stop_en <= '0';
           e_wait  <= '0';
@@ -2678,6 +2707,7 @@ begin
 
         when P_RD_END2 =>
           if c_ok = '0' then
+            count_read_error(ERR_CMD);
             sp_ok <= '0';
           end if;
           st <= P_FIN;

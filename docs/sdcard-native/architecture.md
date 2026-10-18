@@ -120,6 +120,18 @@ pending, while mailbox status is unsettled, or while the card is unusable.
 An empty slot therefore times out in the existing firmware and falls back
 to the other slot.  `$D686` and `$D687` still expose the native failure.
 Open multi-sector transfers continue to clear busy between granted blocks.
+
+**Retry diagnostics v1.** Native-only registers `$D6CC=$53` and `$D6CD=1`
+identify support; these previously unused addresses read zero on older
+builds. Write `$D6CE=$80` to latch all 16 diagnostic bytes, then write a byte
+index (0..15) to `$D6CE` and read `$D6CF`. The snapshot does not issue a card
+command or change the sector address/buffer/cache. Its little-endian words
+are read retries, stop retries, read CRC errors, read timeouts, read command
+errors, terminal read failures, terminal stop failures, and current clock
+setting. Event counts wrap at 65536, include both slots/native/SPI, survive
+card reinitialisation and clear with FPGA configuration. Init/probe read
+errors are excluded. Counters cross to the CPU with the existing coherent
+status mailbox and use registers, with no extra BRAM.
 `tb_sdcardio_native` has a `G_BOOT_TEST` mode covering empty-slot failure,
 fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.

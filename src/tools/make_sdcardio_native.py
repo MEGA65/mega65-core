@@ -66,6 +66,12 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
 --       $D680 <- $2A  clear errors/recover the current card without reset;
 --                     native SD verifies CMD12/CMD13, and empties the cache
+--   * retry diagnostics: $D6CC=$53, $D6CD=1 identify version 1.
+--     Write $D6CE bit 7 to latch 16 bytes; low nibble selects the byte
+--     read at $D6CF. Seven little-endian 16-bit event counts (read retries,
+--     stop retries, read CRC/timeouts/commands, terminal read/stop failures),
+--     followed by the current clock setting. Counts wrap, survive CMD0,
+--     include both slots and SPI, and exclude init/probe read errors.
 --   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,
 --     3 SDHC/SDXC, 4 transfer open and waiting, 5 multi-sector read open,
 --     6 multi-sector write open, 7 low-level error
@@ -181,6 +187,9 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal cache_on       : std_logic;
   signal cache_hits     : unsigned(15 downto 0);
   signal cache_misses   : unsigned(15 downto 0);
+  signal ds_diag_stats : unsigned(127 downto 0);
+  signal diag_snapshot : unsigned(127 downto 0) := (others => '0');
+  signal diag_index : unsigned(3 downto 0) := (others => '0');
 """)
 
 # --- the controller instance ------------------------------------------------
@@ -281,6 +290,7 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       probe_pass  => ds_probe_pass,
       probe_fail  => ds_probe_fail,
       blocks_done => ds_blocks_done,
+      diag_stats => ds_diag_stats,
       rd_valid    => ds_rd_valid,
       rd_data     => ds_rd_data,
       rd_offset   => ds_rd_offset,
@@ -820,6 +830,23 @@ rep("""      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
 """, """      G_XILINX => sd_xilinx_io,
       G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
 """)
+
+# Read-only native diagnostic window. Latch/index access leaves the sector
+# address, buffer, cache and card command state untouched.
+rep('          when x"C0" =>\n', '''          when x"CC" => fastio_rdata <= x"53"; -- SD retry diagnostics signature
+          when x"CD" => fastio_rdata <= x"01"; -- format version
+          when x"CE" => fastio_rdata <= "0000" & diag_index;
+          when x"CF" =>
+            fastio_rdata <= diag_snapshot(to_integer(diag_index)*8+7 downto to_integer(diag_index)*8);
+          when x"C0" =>
+''')
+rep('''            when x"81" =>
+              -- @IO:GS $D681''', '''            when x"CE" =>
+              diag_index <= fastio_wdata(3 downto 0);
+              if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;
+
+            when x"81" =>
+              -- @IO:GS $D681''')
 
 open(dst, 'w').write(s)
 print("ok")

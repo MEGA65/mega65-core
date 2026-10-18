@@ -302,6 +302,24 @@ begin
     peek(16#D3680#, v);
     check(v(6) = '0', "init: no error");
 
+    peek(16#D36CC#, v);
+    check(v = 16#53#, "retry diagnostics signature");
+    peek(16#D36CD#, v);
+    check(v = 1, "retry diagnostics version");
+    poke(16#D36CE#, 16#80#);
+    for i in 0 to 13 loop
+      poke(16#D36CE#, i);
+      peek(16#D36CF#, v);
+      check(v = 0, "initial diagnostic events exclude initialisation");
+    end loop;
+    poke(16#D36CE#, 14);
+    peek(16#D36CF#, v);
+    if G_SPI_CARD then
+      check(v = 13, "diagnostic SPI clock divisor");
+    else
+      check(v = 8, "diagnostic high-speed clock divisor");
+    end if;
+
     if G_ERROR_TEST then
       set_sector(5);
       poke(16#D3680#, 16#02#);
