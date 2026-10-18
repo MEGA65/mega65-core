@@ -123,6 +123,14 @@ Open multi-sector transfers continue to clear busy between granted blocks.
 fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
+Hyppo also checks the selected card's native status after initialisation.
+If it is ready in SPI mode, it displays
+`SD STUCK IN SPI MODE. POWER-CYCLE TO FIX` and waits for a fresh keypress
+before continuing at SPI speed. Native 4-bit mode, unavailable/error states,
+and the legacy controller's `$FE` data token bypass this warning.
+`src/hyppo/sd_spi_mode.test` exercises mode detection and key acknowledgement
+using `src/tools/hyppotest` after assembling Hyppo.
+
 A [read-only benchmark](benchmark.md) builds as
 `src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native
 cache, metadata and multi-sector commands, with and without a RAM copy.

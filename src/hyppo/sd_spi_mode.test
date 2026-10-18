@@ -1,0 +1,180 @@
+# Run after building bin/HICKUP.M65 and src/hyppo/HICKUP.sym:
+# src/tools/hyppotest src/hyppo/sd_spi_mode.test
+
+test "SD mode warning: native 4-bit high speed"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $0F $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: native 4-bit default speed"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $0B $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: native SPI"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $09 $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = printmessage
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: legacy token"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $FE $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: legacy idle"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $FF $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: native error"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $89 $21
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: native not ready"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $08 $00
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: native error code"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+poke $FFD3686 $09 $21
+breakpoint printmessage
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg sp
+ignore reg f
+check registers
+test end
+
+test "SD mode warning: wait for a fresh keypress"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke screenrow $08
+poke $FFD3686 $09 $00
+# Model a pending-key count at $C000; the mock consumes one key per call.
+poke $C000 $01
+poke scankeyboard $AD $00 $C0 $F0 $05 $CE $00 $C0 $18 $60 $38 $60
+breakpoint sd_spi_wait_key
+breakpoint tryreadmbr
+jmp check_sd_bus_mode
+expect pc = sd_spi_wait_key
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg b
+ignore reg z
+ignore reg sp
+ignore reg f
+check registers
+# The boot-time key was drained. Another empty poll must keep waiting.
+clear breakpoint sd_spi_wait_key
+step 12
+breakpoint sd_spi_wait_key
+run until brk
+expect pc = sd_spi_wait_key
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg b
+ignore reg z
+ignore reg sp
+ignore reg f
+check registers
+# A new key acknowledges the warning and proceeds to MBR reading.
+clear breakpoint sd_spi_wait_key
+poke $C000 $01
+run until brk
+expect pc = tryreadmbr
+ignore reg a
+ignore reg x
+ignore reg y
+ignore reg b
+ignore reg z
+ignore reg sp
+ignore reg f
+check registers
+test end

@@ -795,7 +795,7 @@ morewaiting:
 
         plx
 
-        jmp tryreadmbr
+        jmp check_sd_bus_mode
 trybus0:
         dex
         bne morewaiting
@@ -819,7 +819,7 @@ trybus0:
 
         lda $d680
         and #$03
-        beq tryreadmbr
+        beq check_sd_bus_mode
 
         dex
         bne @morewaiting2
@@ -830,6 +830,32 @@ trybus0:
         ldy #>msg_nosdcard
         jsr printmessage
         jmp go64
+
+check_sd_bus_mode:
+        ;; The native controller reports ready/native/error in $D686 and an
+        ;; error code in $D687. Legacy controllers return the last read byte
+        ;; ($FE data token), so they must not be mistaken for native SPI mode.
+        lda $d686
+        and #$83
+        cmp #$01
+        bne tryreadmbr
+        lda $d687
+        bne tryreadmbr
+
+        ldx #<msg_sd_spi_mode
+        ldy #>msg_sd_spi_mode
+        jsr printmessage
+        ldx #<msg_sd_spi_continue
+        ldy #>msg_sd_spi_continue
+        jsr printmessage
+
+        ;; Discard boot-time keypresses before waiting for acknowledgement.
+sd_spi_drain_keys:
+        jsr scankeyboard
+        bcc sd_spi_drain_keys
+sd_spi_wait_key:
+        jsr scankeyboard
+        bcs sd_spi_wait_key
 
 tryreadmbr:
         jsr readmbr
@@ -3122,6 +3148,10 @@ msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
 msg_foundsdcard:        !text "SD CARD IS NOT SDHC. MUST BE SDHC."
                         !8 0
 msg_foundsdhccard:      !text "FOUND AND RESET SDHC CARD"
+                        !8 0
+msg_sd_spi_mode:        !text "SD STUCK IN SPI MODE. POWER-CYCLE TO FIX"
+                        !8 0
+msg_sd_spi_continue:    !text "PRESS ANY KEY TO CONTINUE AT SPI SPEED"
                         !8 0
 msg_sdcarderror:        !text "ERROR READING FROM SD CARD"
                         !8 0
