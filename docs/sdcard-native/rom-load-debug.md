@@ -68,8 +68,25 @@ Three software/RTL defects were found and tested independently:
   path before copying the buffer. The controller also retains legacy
   stuck-BUSY semantics, with explicit `$2A` recovery for new callers.
 
-The corrected bitstream still needs physical validation. Capture its loaded
-ROM with:
+Physical testing of `8a199dc7` confirmed that cleanup can fail even on an
+idle, initialised card: `$2A` changed `$D686=$0F, $D687=$00` to
+`$D686=$8E, $D687=$10`. With cache disabled, 16 single-sector reads with a
+fresh internal-card session before each read produced 14 correct reads and
+two reported errors, with no successful wrong reads. A subsequent sweep of
+sampling delays 3 through 15 at the normal 40.625 MHz passed all eight MBR
+probe reads at every setting. These are MBR probes, not a ROM-file timing
+margin measurement.
+
+CMD12 is illegal once a completed CMD17 has already returned the card to
+Transfer state (SD Physical Layer specification, section 4.8). The initial
+checked-close implementation required a CMD12 reply before issuing CMD13;
+the model accepted CMD12 in Transfer, masking this case. Cleanup now issues
+CMD13 even after an unanswered stop, and accepts recovery only on confirmed
+Transfer/ready status. A strict-stop single-read CRC regression fails before
+this change and passes after it, as does clear/recover on an idle card.
+Physical confirmation of that correction is pending.
+
+Capture the loaded ROM with:
 
 ```sh
 python3 src/tools/monitor_memfetch.py 20000 40000 /tmp/mega65-rom-new.bin \

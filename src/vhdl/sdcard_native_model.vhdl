@@ -28,7 +28,8 @@ entity sdcard_native_model is
     G_WBUSY       : natural := 40;      -- programming busy, clocks
     G_CRC_ERR_BLK : integer := -1;      -- first read of this block has a bad CRC
     G_STOP_FAILS : natural := 0;       -- first CMD12s have no response/effect
-    G_STOP_ACK_FAILS : natural := 0    -- first CMD12s reply but keep streaming
+    G_STOP_ACK_FAILS : natural := 0;   -- first CMD12s reply but keep streaming
+    G_STRICT_STOP : boolean := false  -- ignore CMD12 when already in Transfer
     );
   port (
     clk : in    std_logic;
@@ -83,6 +84,7 @@ architecture sim of sdcard_native_model is
   -- card state shared between the processes (signals: one writer each)
   signal spi_mode  : boolean := G_START_SPI;
   signal hs_mode   : boolean := false;
+  signal native_reading : boolean := false;
 
   -- requests cmd process -> data process (toggles)
   signal rd_go     : boolean := false;
@@ -203,7 +205,7 @@ begin
                 sel := arg(31 downto 16) = rca;
                 resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
               when 13 =>
-                if multi_active then status := x"00000A00"; end if;
+                if multi_active or native_reading then status := x"00000A00"; end if;
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
               when 16 =>
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
@@ -235,7 +237,8 @@ begin
                 wr_go    <= not wr_go;
               when 12 =>
                 stop_attempts := stop_attempts + 1;
-                if stop_attempts > G_STOP_FAILS then
+                if stop_attempts > G_STOP_FAILS and
+                  (not G_STRICT_STOP or multi_active or native_reading) then
                   if stop_attempts > G_STOP_ACK_FAILS then
                     stop_go <= not stop_go;
                     multi_active := false;
@@ -318,6 +321,7 @@ begin
       if reset_go'event then
         hs_mode <= false;
       elsif rd_go'event then
+        native_reading <= true;
         stop_ref := stop_go;
         stopped  := false;
         blk      := rd_blk;
@@ -375,6 +379,7 @@ begin
           exit when stopped;
         end loop;
         dat_drv <= transport "ZZZZ" after G_TOH;
+        native_reading <= false;
 
       elsif wr_go'event then
         stop_ref := stop_go;

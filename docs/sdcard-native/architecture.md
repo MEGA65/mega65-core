@@ -148,8 +148,12 @@ deliberately stuck. A failed sector buffer is never accepted as a successful
 read. `src/hyppo/sd_read_errors.test` covers idle success, idle error, and
 error with BUSY still asserted.
 
-**Checked native close.** A read's final CMD12 now checks its response and
+**Checked native close.** A read's final CMD12 waits for its response and
 busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.
+CMD13 is also sent after an unanswered CMD12: a completed single-block read
+has already returned the card to Transfer, where CMD12 is illegal and may
+receive no reply. A positively confirmed Transfer/ready status is sufficient
+for recovery in that case.
 An accepted-looking stop is insufficient if the card still reports Data
 state. Three failed attempts invalidate the card session and block further
 reads; `$2A` can recover that session once a checked close succeeds. Failed
@@ -163,6 +167,8 @@ data is discarded during cleanup. Clock defaults and BRAM use are unchanged.
 after three failed stops (`G_STOP_FAILS=3`). The permanent acknowledged-stop
 case failed before the checked-close change. See the
 [ROM-load investigation](rom-load-debug.md) for the physical captures.
+`G_SINGLE_CRC_TEST=true` makes the model ignore CMD12 in Transfer and verifies
+both a failed single-read CRC retry and an explicit clear on an idle card.
 
 A [read-only benchmark](benchmark.md) builds as
 `src/utilities/sd_read_bench.prg`. It compares legacy `$02` reads with native

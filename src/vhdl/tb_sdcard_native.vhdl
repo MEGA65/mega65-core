@@ -18,6 +18,7 @@ entity tb_sdcard_native is
     G_SPI_CARD : boolean := false;
     G_TRACE    : boolean := false;
     G_STOP_TEST : boolean := false;
+    G_SINGLE_CRC_TEST : boolean := false;
     G_STOP_FAILS : natural := 0;
     G_STOP_ACK_FAILS : natural := 0
     );
@@ -138,7 +139,8 @@ begin
 
   card : entity work.sdcard_native_model
     generic map (G_START_SPI => G_SPI_CARD, G_CRC_ERR_BLK => 101,
-                 G_STOP_FAILS => G_STOP_FAILS, G_STOP_ACK_FAILS => G_STOP_ACK_FAILS)
+                 G_STOP_FAILS => G_STOP_FAILS, G_STOP_ACK_FAILS => G_STOP_ACK_FAILS,
+                 G_STRICT_STOP => G_SINGLE_CRC_TEST)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -295,6 +297,25 @@ begin
       wait;
     end if;
 
+    if G_SINGLE_CRC_TEST then
+      -- The card has completed CMD17 and returned to Transfer when the host
+      -- detects the injected CRC error. CMD12 is then illegal/no-response.
+      clear_rx;
+      command(2, 101, 1, 0);
+      wait_idle(10 ms);
+      check(error = '0' and card_ready = '1' and n_good = 1 and n_bad = 1,
+            "single CRC retry accepts confirmed Transfer without CMD12 reply");
+      check_blocks(101, 1, false, "single CRC retry data");
+      t0 := now;
+      command(9, 0, 0, 0);
+      wait_idle(5 ms);
+      check(error = '0' and card_ready = '1', "clear on idle Transfer card");
+      check(now - t0 < 100 us, "idle clear does not reinitialise card");
+      report "ALL SINGLE CRC TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
+
     -- single block read
     clear_rx;
     command(2, 5, 1, 0);
@@ -419,7 +440,7 @@ begin
       check(clk_setting = x"0808", "back to 40.5 MHz");
     end if;
 
-    command(9, 0, 0, 0);
+    command(15, 0, 0, 0);
     wait_idle(1 ms);
     check(error = '1' and err_code = x"43", "unknown command refused");
 

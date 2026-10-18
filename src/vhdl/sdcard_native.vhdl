@@ -1735,13 +1735,11 @@ begin
           do_cmd(12, x"00000000", R_R1B, S_CLOSE_RESP);
 
         when S_CLOSE_RESP =>
-          if c_ok = '1' and not r1_bad(r_sr) then
-            -- CMD12 can appear accepted while the card remains in Data
-            -- state. Confirm Transfer state and READY_FOR_DATA positively.
-            do_cmd(13, rca & x"0000", R_R1, S_CLOSE_STATUS);
-          else
-            close_failed;
-          end if;
+          -- CMD12 is illegal in Transfer state: a failed CMD17 may already
+          -- have completed at the card, so no stop response is then normal.
+          -- Conversely, an acknowledged stop may leave the card streaming.
+          -- In both cases CMD13 must positively prove Transfer/ready.
+          do_cmd(13, rca & x"0000", R_R1, S_CLOSE_STATUS);
 
         when S_CLOSE_STATUS =>
           if c_ok = '1' and not r1_bad(r_sr)
