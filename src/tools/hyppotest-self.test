@@ -1,6 +1,48 @@
 # These are tests for the hyppotest program itself.
 # Hyppo's tests are in src/hyppo.
 
+test "scripted I/O and ordered writes"
+  mock read $FFD3680 $02 $02 $02 $00
+  expect write $FFD3680 $00
+  expect write $FFD3681 $44
+  expect write $FFD3680 $01
+  # Setup does not consume write expectations or mock reads.
+  poke $FFD3680 $A5
+  assert memory $FFD3680 = $05 mask $0F
+  assert reads $FFD3680 = $00
+  assemble with acme
+    lda #$00
+    sta $d680
+    lda #$44
+    sta $d681
+    lda #$01
+    sta $d680
+  poll:
+    lda $d680
+    and #$02
+    bne poll
+    rts
+  end assemble
+  jsr $2000
+  assert pc = $0001
+  assert a = $00
+  assert flag z is set
+  assert reads $FFD3680 = $04
+  assert memory $FFD3680 = $01
+  assert memory $FFD3681 = $44
+  check writes
+end test
+
+test "immediate masked register and memory assertions"
+  let a = $A5
+  assert a = $05 mask $0F
+  set flag c
+  assert flag c is set
+  assert f = $01 mask $01
+  poke $3000 $F3
+  assert memory $3000 = $03 mask $0F
+end test
+
 test "assemble with acme"
   log on failure
   assemble with acme

@@ -145,6 +145,144 @@ test end
 ''', expected=1, options=("--acme", "/no/such/acme"))
         self.assertIn("acme failed", (output / "FAIL.assembler_failure").read_text())
 
+    def test_scripted_reads_hold_last_value_and_ignore_inspection(self):
+        self.run_script('''test "read sequence"
+define status as $FFD3680
+define busy as $02
+mock read status busy busy $00
+expect write status $01
+poke status $A5
+assert memory status = $A5
+assert memory status = $05 mask $0F
+assert reads status = $00
+poke $2000 $A9 $01 $8D $80 $D6 $AD $80 $D6 $8D $00 $30 $AD $80 $D6 $8D $01 $30 $AD $80 $D6 $8D $02 $30 $AD $80 $D6 $8D $03 $30 $60
+jsr $2000
+assert pc = $0001
+assert a = $00
+assert f = $02 mask $02
+assert flag z is set
+assert flag n is clear
+assert memory $3000 = $02
+assert memory $3001 = $02
+assert memory $3002 = $00
+assert memory $3003 = $00
+assert memory status = $01
+assert reads status = $04
+check writes
+test end
+''')
+
+    def test_write_expectations_check_global_order_and_ignore_setup(self):
+        self.run_script('''test "write order"
+expect write $FFD3680 $00
+expect write $FFD3681 $05
+expect write $FFD3680 $01
+poke $FFD3680 $CC
+poke $2000 $A9 $00 $8D $80 $D6 $A9 $05 $8D $81 $D6 $A9 $01 $8D $80 $D6 $8D $20 $D0 $60
+jsr $2000
+check writes
+test end
+''')
+
+    def test_missing_wrong_extra_and_out_of_order_writes_fail(self):
+        cases = [
+            ("expect write $FFD3680 $01\n", "Missing write #1"),
+            ("expect write $FFD3680 $00\npoke $2000 $A9 $01 $8D $80 $D6 $60\njsr $2000\n", "Write #1"),
+            ("expect write $FFD3680 $00\npoke $2000 $A9 $00 $8D $80 $D6 $8D $80 $D6 $60\njsr $2000\n", "Unexpected extra write"),
+            ("expect write $FFD3680 $00\nexpect write $FFD3681 $00\npoke $2000 $A9 $00 $8D $81 $D6 $60\njsr $2000\n", "expected $00 to $FFD3680"),
+        ]
+        for body, message in cases:
+            with self.subTest(message=message):
+                _, output = self.run_script('test "writes fail"\n' + body + 'test end\n', expected=1)
+                self.assertIn(message, (output / "FAIL.writes_fail").read_text())
+
+    def test_mocks_reset_between_tests_and_can_be_replaced(self):
+        self.run_script('''test "first mock"
+mock read $FFD3680 $11
+poke $2000 $AD $80 $D6 $60
+jsr $2000
+assert a = $11
+assert reads $FFD3680 = $01
+mock read $FFD3680 $22
+jsr $2000
+assert a = $22
+assert reads $FFD3680 = $01
+expect write $FFD3680 $33
+poke $2010 $A9 $33 $8D $80 $D6 $60
+jsr $2010
+test end
+test "fresh mocks"
+poke $2000 $AD $80 $D6 $60
+jsr $2000
+assert a = $00
+# Previous write expectations must not watch this test.
+poke $2010 $A9 $44 $8D $80 $D6 $60
+jsr $2010
+test end
+''')
+
+    def test_assertions_fail_immediately_and_do_not_change_expectations(self):
+        for assertion in ("assert a = $02", "assert flag c is set",
+                          "assert memory $3000 = $80 mask $80"):
+            with self.subTest(assertion=assertion):
+                result, output = self.run_script('test "assertion"\n' + assertion + '\ntest end\n', expected=1)
+                self.assertIn("Assertion", (output / "FAIL.assertion").read_text())
+        self.run_script('''test "expectation unchanged"
+let a = $11
+ignore all regs
+let a = $22
+assert a = $22
+check registers
+test end
+''', expected=1)
+
+    def test_bad_new_directives_are_rejected(self):
+        for directive in ("mock read $FFD3680", "mock read $FFD3680 $100",
+                          "mock read $10000000 $01", "mock read $FFD3680 $01oops",
+                          "expect write $FFD3680", "assert reads $FFD3680 = $00",
+                          "assert memory $2000 = $00 maks $01", "assert flag q is clear",
+                          "assert flag c is maybe", "assert missing = $00",
+                          "assert a = $00 mask $100", "check writes extra"):
+            with self.subTest(directive=directive):
+                self.run_script('test "bad directive"\n' + directive + '\ntest end\n', expected=1)
+
+    def test_mock_limits_fail_without_overrunning_arrays(self):
+        cases = [
+            ("\n".join(f"mock read ${0x3000 + i:X} $00" for i in range(65)), "Too many read mocks"),
+            ("mock read $3000 " + " ".join(["$0"] * 257), "Malformed test directive"),
+            (("expect write $3000 " + " ".join(["$0"] * 256) + "\n") * 17, "Too many expected writes"),
+        ]
+        for body, message in cases:
+            with self.subTest(message=message):
+                _, output = self.run_script('test "limits"\n' + body + '\ntest end\n', expected=1)
+                self.assertIn(message, (output / "FAIL.limits").read_text())
+
+    def test_synchronous_dma_uses_mocks_and_write_expectations(self):
+        self.run_script('''test "DMA mock"
+mock read $3000 $AA
+mock read $3001 $BB
+expect write $3100 $AA
+expect write $3101 $BB
+poke $4000 $00 $02 $00 $00 $30 $00 $00 $31 $00 $00 $00
+poke $2000 $A9 $40 $8D $01 $D7 $A9 $00 $8D $02 $D7 $8D $00 $D7 $60
+jsr $2000
+assert memory $3100 = $AA
+assert memory $3101 = $BB
+assert reads $3000 = $01
+assert reads $3001 = $01
+test end
+''')
+
+    def test_implicit_test_end_preserves_failure_and_logs(self):
+        result, output = self.run_script('''test "first"
+assert a = $FF
+test "second"
+assert a = $00
+''', expected=1)
+        self.assertIn("SUMMARY: 1 passed, 1 failed", result.stdout)
+        self.assertTrue((output / "FAIL.first").exists())
+        self.assertTrue((output / "PASS.second").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

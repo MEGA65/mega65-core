@@ -1,100 +1,50 @@
 # External-card priority and fallback; assemble Hyppo before running.
+# Run real probing/readiness code with scripted controller status.
 
 test "Boot slots: external ready has priority"
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
-poke $C000 $00
-poke $C100 $AD $00 $C0 $60
-poke sd_wait_for_boot_card $EE $00 $C0 $38 $60
+poke $FFD36CC $53 $01
+mock read $FFD3680 $18
+expect write $FFD3680 $C1 $00 $01
 poke printmessage $60
 breakpoint check_sd_bus_mode
 breakpoint go64
 jmp sd_boot_probe_cards
-expect pc = check_sd_bus_mode
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect a = $01
-check registers
+assert pc = check_sd_bus_mode
+assert reads $FFD3680 = $02
+check writes
 test end
 
 test "Boot slots: external failure falls back to internal"
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
-poke $C000 $00
-poke $C100 $AD $00 $C0 $60
-poke sd_wait_for_boot_card $EE $00 $C0 $AD $00 $C0 $C9 $02 $60
+poke $FFD36CC $53 $01
+mock read $FFD3680 $5A $18 $18
+expect write $FFD3680 $C1 $00 $01 $C0 $00 $01
 poke printmessage $60
 breakpoint check_sd_bus_mode
 breakpoint go64
 jmp sd_boot_probe_cards
-expect pc = check_sd_bus_mode
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect a = $02
-check registers
+assert pc = check_sd_bus_mode
+assert reads $FFD3680 = $03
+check writes
 test end
 
 test "Boot slots: both failed slots continue without SD"
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
-poke $C000 $00
-poke $C100 $AD $00 $C0 $60
-poke sd_wait_for_boot_card $EE $00 $C0 $18 $60
+poke $FFD36CC $53 $01
+mock read $FFD3680 $5A
+expect write $FFD3680 $C1 $00 $01 $C0 $00 $01
 poke printmessage $60
 breakpoint check_sd_bus_mode
 breakpoint go64
 jmp sd_boot_probe_cards
-expect pc = go64
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect a = $02
-check registers
+assert pc = go64
+assert reads $FFD3680 = $02
+check writes
 test end

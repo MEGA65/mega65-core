@@ -8,13 +8,7 @@ poke $FFD3686 $0F $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: native 4-bit default speed"
@@ -24,13 +18,7 @@ poke $FFD3686 $0B $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: native SPI"
@@ -40,13 +28,7 @@ poke $FFD3686 $09 $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = printmessage
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = printmessage
 test end
 
 test "SD mode warning: legacy token"
@@ -56,13 +38,7 @@ poke $FFD3686 $FE $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: legacy idle"
@@ -72,13 +48,7 @@ poke $FFD3686 $FF $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: native error"
@@ -88,13 +58,7 @@ poke $FFD3686 $89 $21
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: native not ready"
@@ -104,13 +68,7 @@ poke $FFD3686 $08 $00
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: native error code"
@@ -120,13 +78,7 @@ poke $FFD3686 $09 $21
 breakpoint printmessage
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end
 
 test "SD mode warning: wait for a fresh keypress"
@@ -141,40 +93,16 @@ poke scankeyboard $AD $00 $C0 $F0 $05 $CE $00 $C0 $18 $60 $38 $60
 breakpoint sd_spi_wait_key
 breakpoint tryreadmbr
 jmp check_sd_bus_mode
-expect pc = sd_spi_wait_key
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg z
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_spi_wait_key
 # The boot-time key was drained. Another empty poll must keep waiting.
 clear breakpoint sd_spi_wait_key
 step 12
 breakpoint sd_spi_wait_key
 run until brk
-expect pc = sd_spi_wait_key
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg z
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_spi_wait_key
 # A new key acknowledges the warning and proceeds to MBR reading.
 clear breakpoint sd_spi_wait_key
 poke $C000 $01
 run until brk
-expect pc = tryreadmbr
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg z
-ignore reg sp
-ignore reg f
-check registers
+assert pc = tryreadmbr
 test end

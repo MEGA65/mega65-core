@@ -10,6 +10,8 @@
 
 This document describes a number of tests that can be performed to verify that the design works as it should.
 
+For host tests of assembled Hyppo routines, see [hyppotest](hyppotest.md).
+
 Within each test procedure, the tests are denoted as bullet-points, followed by some text describing what to do.
 Results are denoted as "-> something", where something is the expected result.
 

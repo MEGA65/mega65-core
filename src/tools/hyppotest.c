@@ -171,6 +171,23 @@ int cpulog_len = 0;
 
 instruction_log *lastataddr[65536] = { NULL };
 
+// Mocks observe only emulated execution, never setup pokes or diagnostic reads.
+#define MAX_READ_MOCKS 64
+#define MAX_MOCK_VALUES 256
+#define MAX_WRITE_EXPECTATIONS 4096
+struct read_mock {
+  unsigned int addr, length, index, reads;
+  unsigned char values[MAX_MOCK_VALUES];
+};
+struct write_expectation {
+  unsigned int addr;
+  unsigned char value;
+};
+struct read_mock read_mocks[MAX_READ_MOCKS];
+struct write_expectation expected_writes[MAX_WRITE_EXPECTATIONS];
+unsigned read_mock_count = 0, expected_write_count = 0, next_expected_write = 0;
+bool executing_instruction = false;
+
 char *describe_address(unsigned int addr);
 char *describe_address_label(struct cpu *cpu, unsigned int addr);
 char *describe_address_label28(struct cpu *cpu, unsigned int addr);
@@ -1481,6 +1498,18 @@ unsigned int addr_to_28bit(struct cpu *cpu, unsigned int addr, int writeP)
 
 unsigned char read_memory28(struct cpu *cpu, unsigned int addr)
 {
+  if (cpu && executing_instruction) {
+    for (unsigned i = 0; i < read_mock_count; i++) {
+      struct read_mock *mock = &read_mocks[i];
+      if (mock->addr == addr) {
+        unsigned char value = mock->values[mock->index];
+        mock->reads++;
+        if (mock->index + 1 < mock->length)
+          mock->index++;
+        return value;
+      }
+    }
+  }
   if (addr >= 0xfff8000 && addr < 0xfffc000) {
     // Hypervisor sits at $FFF8000-$FFFBFFF
     return hypporam[addr - 0xfff8000];
@@ -2200,6 +2229,34 @@ int do_dma(struct cpu *cpu, int eDMA, unsigned int addr)
 int write_mem28(struct cpu *cpu, unsigned int addr, unsigned char value)
 {
   unsigned int dma_addr;
+
+  if (cpu && executing_instruction) {
+    // Only addresses named in expectations are watched. Their writes must
+    // match the single declared sequence, including order across addresses.
+    bool watched = false;
+    for (unsigned i = 0; i < expected_write_count; i++) {
+      if (expected_writes[i].addr == addr) {
+        watched = true;
+        break;
+      }
+    }
+    if (watched) {
+      if (next_expected_write == expected_write_count) {
+        fprintf(logfile, "ERROR: Unexpected extra write $%02X to $%07X at PC $%04X\n", value, addr, cpu->regs.pc);
+        cpu->term.error = cpu->term.done = true;
+      }
+      else {
+        struct write_expectation *expected = &expected_writes[next_expected_write];
+        if (expected->addr != addr || expected->value != value) {
+          fprintf(logfile, "ERROR: Write #%u at PC $%04X: got $%02X to $%07X, expected $%02X to $%07X\n",
+              next_expected_write + 1, cpu->regs.pc, value, addr, expected->value, expected->addr);
+          cpu->term.error = cpu->term.done = true;
+        }
+        else
+          next_expected_write++;
+      }
+    }
+  }
 
   if (addr >= 0xfff8000 && addr < 0xfffc000) {
     // Hypervisor sits at $FFF8000-$FFFBFFF
@@ -4038,7 +4095,10 @@ bool cpu_step(FILE *f)
   cpu.instruction_count = cpulog_len;
   cpulog[cpulog_len++] = log;
 
-  if (!execute_instruction(&cpu, log)) {
+  executing_instruction = true;
+  bool executed = execute_instruction(&cpu, log);
+  executing_instruction = false;
+  if (!executed) {
     cpu.term.error = true;
     fprintf(f, "ERROR: Exception occurred executing instruction at %s\n       Aborted.\n", describe_address(cpu.regs.pc));
     show_recent_instructions(f, "Instructions leading up to the exception", &cpu, cpulog_len - 16, 16, cpu.regs.pc);
@@ -4321,6 +4381,8 @@ unsigned char viciv_regs[0x80] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 
 void machine_init(struct cpu *cpu)
 {
+  read_mock_count = expected_write_count = next_expected_write = 0;
+  executing_instruction = false;
   // Initialise CPU staet
   bzero(cpu, sizeof(struct cpu));
   cpu->regs.flags = FLAG_E | FLAG_I;
@@ -4427,10 +4489,21 @@ void test_init(struct cpu *cpu)
   printf("[    ] %s", test_name);
 }
 
+void check_expected_writes(void)
+{
+  if (next_expected_write < expected_write_count) {
+    struct write_expectation *expected = &expected_writes[next_expected_write];
+    fprintf(logfile, "ERROR: Missing write #%u: $%02X to $%07X (%u writes still expected)\n",
+        next_expected_write + 1, expected->value, expected->addr, expected_write_count - next_expected_write);
+    cpu.term.error = true;
+  }
+}
+
 void test_conclude(struct cpu *cpu)
 {
   char cmd[8192];
 
+  check_expected_writes();
   if (cpu->term.error) {
     test_fails++;
     if (log_on_failure) {
@@ -4659,6 +4732,165 @@ unsigned short resolve_value16(char *in)
   return (unsigned short)(resolve_value32(in) & 0xffff);
 }
 
+// New directives validate their complete token list rather than accepting a
+// valid prefix and silently ignoring a misspelt mask or trailing argument.
+bool directive_value(char *token, unsigned maximum, unsigned *value)
+{
+  if (token[0] == '$') {
+    char *end;
+    errno = 0;
+    unsigned long parsed = strtoul(token + 1, &end, 16);
+    if (end == token + 1 || *end || errno || parsed > maximum) {
+      fprintf(logfile, "ERROR: Invalid value '%s' (maximum $%X)\n", token, maximum);
+      cpu.term.error = true;
+      return false;
+    }
+    *value = parsed;
+  }
+  else {
+    *value = resolve_value32(token);
+    if (*value > maximum) {
+      fprintf(logfile, "ERROR: Value '%s' exceeds $%X\n", token, maximum);
+      cpu.term.error = true;
+      return false;
+    }
+  }
+  return true;
+}
+
+bool register_value(const char *name, unsigned *value, unsigned *mask)
+{
+  *mask = 0xff;
+  if (!strcasecmp(name, "a")) *value = cpu.regs.a;
+  else if (!strcasecmp(name, "x")) *value = cpu.regs.x;
+  else if (!strcasecmp(name, "y")) *value = cpu.regs.y;
+  else if (!strcasecmp(name, "z")) *value = cpu.regs.z;
+  else if (!strcasecmp(name, "b")) *value = cpu.regs.b;
+  else if (!strcasecmp(name, "f")) *value = cpu.regs.flags;
+  else if (!strcasecmp(name, "spl")) *value = cpu.regs.spl;
+  else if (!strcasecmp(name, "sph")) *value = cpu.regs.sph;
+  else if (!strcasecmp(name, "pc")) { *value = cpu.regs.pc; *mask = 0xffff; }
+  else if (!strcasecmp(name, "sp")) { *value = cpu.regs.sp; *mask = 0xffff; }
+  else return false;
+  return true;
+}
+
+void assert_value(const char *description, unsigned actual, unsigned expected, unsigned mask)
+{
+  if ((actual & mask) != (expected & mask)) {
+    fprintf(logfile, "ERROR: Assertion '%.*s': got $%X, expected $%X (mask $%X), PC $%04X\n",
+        (int)strcspn(description, "\r\n"), description, actual, expected, mask, cpu.regs.pc);
+    cpu.term.error = true;
+  }
+}
+
+bool handle_test_directive(char *line)
+{
+  char buffer[1024];
+  snprintf(buffer, sizeof(buffer), "%s", line);
+  char *tokens[MAX_MOCK_VALUES + 4], *save;
+  unsigned count = 0;
+  for (char *token = strtok_r(buffer, " \t\r\n,", &save); token; token = strtok_r(NULL, " \t\r\n,", &save)) {
+    if (token[0] == '#')
+      break;
+    if (count == sizeof(tokens) / sizeof(tokens[0]))
+      break;
+    tokens[count++] = token;
+  }
+  if (!count)
+    return false;
+  bool mock = !strcasecmp(tokens[0], "mock");
+  bool assertion = !strcasecmp(tokens[0], "assert");
+  bool writes = count >= 2 && !strcasecmp(tokens[0], "expect") && !strcasecmp(tokens[1], "write");
+  bool check_writes = count >= 2 && !strcasecmp(tokens[0], "check") && !strcasecmp(tokens[1], "writes");
+  if (!mock && !assertion && !writes && !check_writes)
+    return false;
+
+  unsigned addr, value, actual, mask;
+  if ((mock && count >= 4 && !strcasecmp(tokens[1], "read")) || writes) {
+    if (count < 4 || count - 3 > MAX_MOCK_VALUES)
+      goto malformed;
+    if (!directive_value(tokens[2], 0xfffffff, &addr))
+      return true;
+    unsigned char values[MAX_MOCK_VALUES];
+    for (unsigned i = 3; i < count; i++) {
+      if (!directive_value(tokens[i], 0xff, &value))
+        return true;
+      values[i - 3] = value;
+    }
+    if (mock) {
+      unsigned i;
+      for (i = 0; i < read_mock_count && read_mocks[i].addr != addr; i++)
+        ;
+      if (i == MAX_READ_MOCKS) {
+        fprintf(logfile, "ERROR: Too many read mocks (maximum %d).\n", MAX_READ_MOCKS);
+        cpu.term.error = true;
+        return true;
+      }
+      if (i == read_mock_count)
+        read_mock_count++;
+      read_mocks[i] = (struct read_mock){ .addr = addr, .length = count - 3 };
+      memcpy(read_mocks[i].values, values, count - 3);
+    }
+    else {
+      if (expected_write_count + count - 3 > MAX_WRITE_EXPECTATIONS) {
+        fprintf(logfile, "ERROR: Too many expected writes (maximum %d).\n", MAX_WRITE_EXPECTATIONS);
+        cpu.term.error = true;
+        return true;
+      }
+      for (unsigned i = 3; i < count; i++)
+        expected_writes[expected_write_count++] = (struct write_expectation){ .addr = addr, .value = values[i - 3] };
+    }
+  }
+  else if (check_writes && count == 2)
+    check_expected_writes();
+  else if (assertion && count == 5 && !strcasecmp(tokens[1], "flag") && !strcasecmp(tokens[3], "is")) {
+    const char *flags = "czidbevn";
+    const char *flag = strlen(tokens[2]) == 1 ? strchr(flags, tolower((unsigned char)tokens[2][0])) : NULL;
+    if (!flag || (strcasecmp(tokens[4], "set") && strcasecmp(tokens[4], "clear")))
+      goto malformed;
+    mask = 1u << (flag - flags);
+    assert_value(line, cpu.regs.flags, !strcasecmp(tokens[4], "set") ? mask : 0, mask);
+  }
+  else if (assertion && (count == 5 || count == 7) && !strcasecmp(tokens[1], "memory") && !strcmp(tokens[3], "=")) {
+    mask = 0xff;
+    if (count == 7 && strcasecmp(tokens[5], "mask"))
+      goto malformed;
+    if (!directive_value(tokens[2], 0xfffffff, &addr) || !directive_value(tokens[4], 0xff, &value)
+        || (count == 7 && !directive_value(tokens[6], 0xff, &mask)))
+      return true;
+    // Inspect backing memory without consuming a scripted read.
+    assert_value(line, read_memory28(NULL, addr), value, mask);
+  }
+  else if (assertion && count == 5 && !strcasecmp(tokens[1], "reads") && !strcmp(tokens[3], "=")) {
+    if (!directive_value(tokens[2], 0xfffffff, &addr) || !directive_value(tokens[4], 0xffffffffu, &value))
+      return true;
+    unsigned i;
+    for (i = 0; i < read_mock_count && read_mocks[i].addr != addr; i++)
+      ;
+    if (i == read_mock_count) {
+      fprintf(logfile, "ERROR: No read mock for $%07X\n", addr);
+      cpu.term.error = true;
+    }
+    else
+      assert_value(line, read_mocks[i].reads, value, 0xffffffffu);
+  }
+  else if (assertion && (count == 4 || count == 6) && !strcmp(tokens[2], "=") && register_value(tokens[1], &actual, &mask)) {
+    if (count == 6 && strcasecmp(tokens[4], "mask"))
+      goto malformed;
+    if (!directive_value(tokens[3], mask == 0xffff ? 0xfffffff : 0xff, &value)
+        || (count == 6 && !directive_value(tokens[5], mask, &mask)))
+      return true;
+    assert_value(line, actual, value, mask);
+  }
+  else {
+malformed:
+    fprintf(logfile, "ERROR: Malformed test directive: %s", line);
+    cpu.term.error = true;
+  }
+  return true;
+}
+
 void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
 {
   FILE *src_file = NULL;
@@ -4837,7 +5069,10 @@ int main(int argc, char **argv)
       continue;
     }
     directives++;
-    if (sscanf(line_ptr, "jsr %s", routine) == 1) {
+    if (handle_test_directive(line_ptr)) {
+      // Scripted I/O and immediate assertions do not mutate expected RAM/regs.
+    }
+    else if (sscanf(line_ptr, "jsr %s", routine) == 1) {
       int addr32 = resolve_value32(routine);
       if (addr32 > 0) {
         int addr16 = addr32;
@@ -4937,7 +5172,12 @@ int main(int argc, char **argv)
              || strncasecmp(line_ptr, "end test", strlen("end test")) == 0) {
       test_conclude(&cpu);
     }
-    else if (sscanf(line_ptr, "test \"%[^\"]\"", test_name) == 1) {
+    else if (sscanf(line_ptr, "test \"%1023[^\"]\"", routine) == 1) {
+      // Implicitly finish an open test before changing its name/state.
+      // Otherwise a missing 'test end' could discard an earlier failure.
+      if (logfile != stderr)
+        test_conclude(&cpu);
+      snprintf(test_name, sizeof(test_name), "%s", routine);
       if (!test_target || strcmp(test_target, test_name) == 0) {
         // Set test name
         test_init(&cpu);

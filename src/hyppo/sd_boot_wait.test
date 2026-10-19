@@ -9,16 +9,8 @@ poke $FFD3680 $18
 poke $FFD3686 $0F $00
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-check registers
+assert pc = $0001
+assert flag c is set
 test end
 
 test "Boot wait: ready SPI fallback returns without settling delay"
@@ -30,16 +22,8 @@ poke $FFD3680 $18
 poke $FFD3686 $09 $00
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-check registers
+assert pc = $0001
+assert flag c is set
 test end
 
 test "Boot wait: terminal native error fails immediately"
@@ -51,16 +35,8 @@ poke $FFD3680 $5A
 breakpoint sdwaitawhile
 breakpoint sdreadytest
 jsr sd_wait_for_boot_card
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is clear
-check registers
+assert pc = $0001
+assert flag c is clear
 test end
 
 test "Boot wait: pending native init polls until ready"
@@ -69,23 +45,13 @@ loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
 poke $FFD36CC $53 $01
 poke $FFD3680 $1A
-poke $C000 $00
-poke sdreadytest $EE $00 $C0 $AD $00 $C0 $C9 $03 $B0 $02 $18 $60 $A9 $00 $8D $80 $D6 $38 $60
-poke $C100 $AD $00 $C0 $60
+# BIT and sdreadytest both read status; become ready on the fourth read.
+mock read $FFD3680 $1A $1A $1A $18
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-expect a = $03
-check registers
+assert pc = $0001
+assert flag c is set
+assert reads $FFD3680 = $04
 test end
 
 test "Boot wait: native timeout retains all three windows"
@@ -94,23 +60,16 @@ loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
 poke $FFD36CC $53 $01
 poke $FFD3680 $1A
-poke $C000 $00
-poke sdreadytest $EE $00 $C0 $A9 $00 $18 $60
-poke $C100 $AD $00 $C0 $60
+# Force each counter window to wrap on its first increment, preserving
+# the real sdreadytest and timeout/reset branches.
+mock read sdcounter $FF
+mock read sdcounter+1 $FF
+mock read sdcounter+2 $FF
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is clear
-expect a = $03
-check registers
+assert pc = $0001
+assert flag c is clear
+assert reads sdcounter = $03
 test end
 
 test "Boot wait: legacy retains settling wait"
@@ -122,15 +81,7 @@ poke $FFD3680 $18
 poke $FFD3686 $0F $00
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-expect pc = sdwaitawhile
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sdwaitawhile
 test end
 
 test "Boot wait: older native retains settling wait"
@@ -142,15 +93,7 @@ poke $FFD3680 $18
 poke $FFD3686 $0F $00
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-expect pc = sdwaitawhile
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sdwaitawhile
 test end
 
 test "Boot wait: unknown diagnostic version retains settling wait"
@@ -162,15 +105,7 @@ poke $FFD3680 $18
 poke $FFD3686 $0F $00
 breakpoint sdwaitawhile
 jsr sd_wait_for_boot_card
-expect pc = sdwaitawhile
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sdwaitawhile
 test end
 
 test "Boot wait: legacy absent card waits three times"
@@ -179,22 +114,13 @@ loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
 poke $FFD36CC $00 $00
 poke $FFD3680 $1A
-poke $C000 $00
-poke sdwaitawhile $EE $00 $C0 $60
-poke $C100 $AD $00 $C0 $60
+mock read sdcounter $FF
+mock read sdcounter+1 $FF
+mock read sdcounter+2 $FF
 jsr sd_wait_for_boot_card
-jsr $C100
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is clear
-expect a = $03
-check registers
+assert pc = $0001
+assert flag c is clear
+assert reads sdcounter = $03
 test end
 
 test "MBR: reuse healthy 4-bit session"
@@ -207,16 +133,8 @@ poke $FFD3686 $0F $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = l7
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-check registers
+assert pc = l7
+assert flag c is set
 test end
 
 test "MBR: reuse healthy SPI fallback session"
@@ -229,16 +147,8 @@ poke $FFD3686 $09 $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = l7
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-check registers
+assert pc = l7
+assert flag c is set
 test end
 
 test "MBR: reset legacy"
@@ -251,15 +161,7 @@ poke $FFD3686 $FE $FF
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset older native"
@@ -272,15 +174,7 @@ poke $FFD3686 $0F $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset upper error"
@@ -293,15 +187,7 @@ poke $FFD3686 $0F $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset busy"
@@ -314,15 +200,7 @@ poke $FFD3686 $0F $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset reset asserted"
@@ -335,15 +213,7 @@ poke $FFD3686 $0F $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset not ready"
@@ -356,15 +226,7 @@ poke $FFD3686 $0E $00
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset native error"
@@ -377,15 +239,7 @@ poke $FFD3686 $8F $21
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "MBR: reset native error code"
@@ -398,13 +252,5 @@ poke $FFD3686 $0F $21
 breakpoint sd_resetsequence
 breakpoint l7
 jmp readmbr
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg z
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end

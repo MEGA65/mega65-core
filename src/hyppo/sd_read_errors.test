@@ -5,15 +5,8 @@ loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
 poke $FFD3680 $18
 jsr sd_rws_checksuccess
-expect pc = $0001
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg sp
-ignore reg f
-expect flag c is set
-check registers
+assert pc = $0001
+assert flag c is set
 test end
 
 test "SD error with legacy BUSY stuck resets immediately"
@@ -23,14 +16,7 @@ let b = $BF
 poke $FFD3680 $5A
 breakpoint sd_resetsequence
 jsr sd_rws_checksuccess
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
 
 test "SD completion with an error resets before retry"
@@ -40,12 +26,5 @@ let b = $BF
 poke $FFD3680 $58
 breakpoint sd_resetsequence
 jsr sd_rws_checksuccess
-expect pc = sd_resetsequence
-ignore reg a
-ignore reg x
-ignore reg y
-ignore reg b
-ignore reg sp
-ignore reg f
-check registers
+assert pc = sd_resetsequence
 test end
