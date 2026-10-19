@@ -22,7 +22,11 @@ entity tb_sdcard_native is
     G_LONG_READ_NAC : natural := 0;
     G_LONG_MULTI_NAC : natural := 2;
     G_STOP_FAILS : natural := 0;
-    G_STOP_ACK_FAILS : natural := 0
+    G_STOP_ACK_FAILS : natural := 0;
+    G_INFO_TEST : boolean := false;
+    G_INFO_BAD_CRC : boolean := false;
+    G_INFO_TIMEOUT : boolean := false;
+    G_INFO_BAD_HEADER : boolean := false
     );
 end entity;
 
@@ -145,7 +149,9 @@ begin
                  G_STOP_FAILS => G_STOP_FAILS, G_STOP_ACK_FAILS => G_STOP_ACK_FAILS,
                  G_STRICT_STOP => G_SINGLE_CRC_TEST,
                  G_LONG_READ_NAC => G_LONG_READ_NAC,
-                 G_LONG_MULTI_NAC => G_LONG_MULTI_NAC)
+                 G_LONG_MULTI_NAC => G_LONG_MULTI_NAC,
+                 G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_INFO_TIMEOUT => G_INFO_TIMEOUT,
+                 G_INFO_BAD_HEADER => G_INFO_BAD_HEADER)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -246,6 +252,10 @@ begin
 
     variable t0 : time;
     variable g  : natural;
+    variable want : unsigned(7 downto 0);
+    constant csd : std_logic_vector(127 downto 0) := x"400E00325B590003B9AB7F800A400067";
+    constant cid : std_logic_vector(127 downto 0) := x"03534453453136308012345678017AEB";
+    constant scr : std_logic_vector(63 downto 0) := x"0235800100000000";
 
   begin
     -- power-up init
@@ -259,6 +269,45 @@ begin
     else
       check(native_mode = '1' and high_speed = '1', "native, high speed");
       check(clk_setting = x"0808", "40.5 MHz setting");
+    end if;
+
+    if G_INFO_TEST then
+      for kind in 0 to 3 loop
+        clear_rx;
+        command(11, 0, 1, kind); wait_idle(5 ms);
+        if G_INFO_BAD_CRC or G_INFO_TIMEOUT or (G_INFO_BAD_HEADER and kind < 2) then
+          check(error = '1' and n_good = 0 and n_bad = 1,
+                "bad info never publishes a successful buffer");
+          if G_INFO_BAD_CRC then check(err_code = x"21", "info CRC error is reported"); end if;
+          if G_INFO_BAD_HEADER and kind < 2 then check(err_code = x"10", "malformed R2 header is rejected"); end if;
+          command(9, 0, 0, 0); wait_idle(5 ms);
+          check(error = '0' and card_ready = '1', "recover info failure without reset");
+        else
+          check(error = '0' and n_good = 1 and n_bad = 0 and n_bytes = 512,
+                "info completes one 512-byte buffer");
+          for i in 0 to 511 loop
+            want := x"00";
+            if kind = 0 and i < 16 then want := unsigned(csd(127-i*8 downto 120-i*8));
+            elsif kind = 1 and i < 16 then want := unsigned(cid(127-i*8 downto 120-i*8));
+            elsif kind = 2 and i < 8 then want := unsigned(scr(63-i*8 downto 56-i*8));
+            elsif kind = 3 and i < 64 then
+              if i = 0 then want := x"80"; elsif i = 8 then want := x"04";
+              else want := to_unsigned((i*13+7) mod 256, 8); end if;
+            end if;
+            assert rx(0,i) = want report "info payload/padding mismatch kind "
+              & integer'image(kind) & " offset " & integer'image(i)
+              & " got " & to_hstring(rx(0,i)) & " want " & to_hstring(want) severity failure;
+          end loop;
+        end if;
+        clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
+        check(error = '0', "sector read works after info command");
+        check_blocks(5, 1, false, "info preserves card selection and data mode");
+      end loop;
+      clear_rx; command(11, 0, 1, 4); wait_idle(5 ms);
+      check(error = '1' and err_code = x"43" and n_bytes = 0, "reject invalid info selector");
+      check(diag_stats(79 downto 32) = 0, "info failures are not sector-read errors");
+      report "ALL INFO TESTS PASSED";
+      done <= true; wait;
     end if;
 
     if G_STOP_TEST then

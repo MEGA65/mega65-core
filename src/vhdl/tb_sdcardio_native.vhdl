@@ -31,7 +31,9 @@ entity tb_sdcardio_native is
     G_DUAL_TEST : boolean := false;
     G_CARD0_PRESENT : boolean := true;
     G_CARD1_PRESENT : boolean := false;
-    G_CARD1_SPI : boolean := false
+    G_CARD1_SPI : boolean := false;
+    G_INFO_TEST : boolean := false;
+    G_INFO_BAD_CRC : boolean := false
     );
 end entity;
 
@@ -98,7 +100,7 @@ begin
     -- the real CPU/SD clocks, line timing and all command/data framing.
     generic map (target => mega65r6, cpu_frequency => 40500000,
                  sd_xilinx_io => false, sd_cache_lines => G_CACHE_LINES, sd_ms_cycles => 1620,
-                 sd_auto_init => not G_DUAL_TEST)
+                 sd_auto_init => not (G_DUAL_TEST or G_INFO_TEST))
     port map (
       clock => cpuclock, pixelclk => cpuclock, reset => '1',
       sdcardio_cs => sdcardio_cs, f011_cs => f011_cs,
@@ -143,7 +145,8 @@ begin
 
   present0 : if G_CARD0_PRESENT generate
     card : entity work.sdcard_native_model
-      generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD, G_LONG_READ_NAC => 40000)
+      generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD, G_LONG_READ_NAC => 40000,
+                   G_INFO_BAD_CRC => G_INFO_BAD_CRC)
       port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
   end generate;
   card1_clk <= transport sd_clk(1) after BOARD;
@@ -159,7 +162,7 @@ begin
   sd_dat_i(7 downto 4) <= transport to_X01(card1_dat) after BOARD;
   present1 : if G_CARD1_PRESENT generate
     card : entity work.sdcard_native_model
-      generic map (G_START_SPI => G_CARD1_SPI, G_PATTERN_SEED => 89)
+      generic map (G_START_SPI => G_CARD1_SPI, G_PATTERN_SEED => 89, G_INFO_BAD_CRC => G_INFO_BAD_CRC)
       port map (clk => card1_clk, cmd => card1_cmd, dat => card1_dat);
   end generate;
   clock_start : for s in 0 to 1 generate
@@ -269,9 +272,71 @@ begin
     variable h0, h1 : natural;
     variable s0, s1 : unsigned(7 downto 0);
     variable ready0, ready1 : boolean;
+    variable want : unsigned(7 downto 0);
+    variable bad : natural;
+    type t_regs is array (0 to 1) of std_logic_vector(127 downto 0);
+    constant csd : t_regs := (x"400E00325B590003B9AB7F800A400067", x"400E00325B590003BA047F800A400059");
+    constant cid : t_regs := (x"03534453453136308012345678017AEB", x"035344534531363080123456D1017A8D");
+    constant scr : std_logic_vector(63 downto 0) := x"0235800100000000";
 
   begin
     wait for 1 us;
+    if G_INFO_TEST then
+      peek(16#D36D8#, v); check(v = x"49", "card info capability signature");
+      poke(16#D3680#, 16#2B#);
+      for s in 0 to 1 loop
+        if (s = 0 and G_CARD0_PRESENT) or (s = 1 and G_CARD1_PRESENT) then
+          poke(16#D3680#, 16#C0# + s); wait_ready(40 ms);
+          set_sector(7); poke(16#D3680#, 2); wait_ready(5 ms);
+          check_buffer(7, false, "warm normal sector before info", s);
+          poke(16#D3680#, 16#28#); peek(16#D3683#, v); h0 := to_integer(v);
+          for kind in 0 to 3 loop
+            set_sector(7); fill_buffer(700+kind);
+            poke(16#D3680#, 16#2C# + kind);
+            t0 := now;
+            loop
+              peek(16#D3680#, v);
+              exit when v(0) = '0' and (v(1) = '0' or v(6) = '1');
+              assert now-t0 < 5 ms report "info command timeout" severity failure;
+              wait for 1 us;
+            end loop;
+            if G_INFO_BAD_CRC then
+              check(v(6) = '1' and v(1) = '1', "bad info CRC retains legacy error/BUSY");
+              peek(16#D3687#, v); check(v = x"21", "info CRC error code visible");
+              poke(16#D3680#, 16#2A#); wait_ready(5 ms);
+            else
+              check(v(6) = '0', "info request succeeds");
+              bad := 0;
+              for i in 0 to 511 loop
+                peek(16#FFE00#+i, v); want := x"00";
+                if kind = 0 and i < 16 then want := unsigned(csd(s)(127-i*8 downto 120-i*8));
+                elsif kind = 1 and i < 16 then want := unsigned(cid(s)(127-i*8 downto 120-i*8));
+                elsif kind = 2 and i < 8 then want := unsigned(scr(63-i*8 downto 56-i*8));
+                elsif kind = 3 and i < 64 then
+                  if i = 0 then want := x"80"; elsif i = 8 then want := x"04";
+                  else want := to_unsigned((i*13+7+s*89) mod 256, 8); end if;
+                end if;
+                if v /= want then
+                  if bad < 3 then report "info mismatch slot " & integer'image(s) & " kind "
+                    & integer'image(kind) & " offset " & integer'image(i); end if;
+                  bad := bad + 1;
+                end if;
+              end loop;
+              check(bad = 0, "selected card info bytes and zero padding");
+            end if;
+            peek(16#D3681#, v); check(v = 7, "info preserves sector address");
+            poke(16#D3680#, 2); wait_ready(5 ms);
+            check_buffer(7, false, "normal read after info", s);
+          end loop;
+          if not G_INFO_BAD_CRC and G_CACHE_LINES /= 0 then
+            poke(16#D3680#, 16#28#); peek(16#D3683#, v);
+            check(to_integer(v) = h0, "info bypasses cache and preserves sector cache lines");
+          end if;
+        end if;
+      end loop;
+      assert fails = 0 report "INFO TESTS FAILED" severity failure;
+      report "ALL INFO TESTS PASSED"; done <= true; wait;
+    end if;
     if G_DUAL_TEST then
       -- Disable automatic power-up init in this mode so only the explicit
       -- extension can start either card. This catches an ignored $2B.

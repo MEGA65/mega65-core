@@ -72,6 +72,10 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --     Selection preserves both card sessions and slot-tagged cache lines.
 --     Legacy reset/recovery affects only the selected card. A transfer keeps
 --     its card even when software selects the other card to inspect status.
+--   * card information ($D6D8=$49): $D680 <- $2C CSD (16 bytes), $2D CID
+--     (16), $2E SCR (8), $2F SD Status (64). Raw bytes, most significant byte
+--     first, zero padded to 512 bytes in the normal SD sector buffer. These
+--     read-only commands preserve the sector address and bypass the cache.
 --   * retry diagnostics: $D6CC=$53, $D6CD=1 identify version 1.
 --     Write $D6CE bit 7 to latch 16 bytes; low nibble selects the byte
 --     read at $D6CF. Seven little-endian 16-bit event counts (read retries,
@@ -122,8 +126,9 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
 
   -- the native SD controller
   type nat_kind_t is (K_SINGLE, K_FIRST, K_NEXT, K_LAST, K_PROBE, K_ACCEPT, K_NORMAL, K_STOP,
-                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY, K_CLEAR);
+                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY, K_CLEAR, K_INFO);
   signal nat_kind        : nat_kind_t := K_SINGLE;
+  signal nat_info_kind   : unsigned(1 downto 0) := (others => '0');
   signal nat_cmd_valid   : std_logic := '0';
   signal nat_cmd_ready   : std_logic;
   signal nat_cmd_code    : unsigned(3 downto 0) := (others => '0');
@@ -511,7 +516,7 @@ cut("""                when x"00" =>
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
 
-                when x"02" | x"07" | x"08" | x"09" | x"0B" =>
+                when x"02" | x"07" | x"08" | x"09" | x"0B" | x"2C" | x"2D" | x"2E" | x"2F" =>
                   -- Read sector ($02), multi-sector read first / next / last,
                   -- read file system metadata ($0B: as $02, for the cache)
                   sd_write_multi <= '0';
@@ -525,6 +530,8 @@ cut("""                when x"00" =>
                       when x"07" => nat_kind <= K_FIRST;
                       when x"08" => nat_kind <= K_NEXT;
                       when x"09" => nat_kind <= K_LAST;
+                      when x"2C" | x"2D" | x"2E" | x"2F" =>
+                        nat_kind <= K_INFO; nat_info_kind <= fastio_wdata(1 downto 0);
                       when others => nat_kind <= K_SINGLE;
                     end case;
                     if fastio_wdata = x"0B" then
@@ -681,6 +688,10 @@ cut("""        when ReadSector =>
               nat_cmd_code <= x"2";                   -- C_READ
               nat_cmd_addr <= sd_sector;
               nat_cmd_arg  <= nat_meta & "000000000000000";
+              if nat_kind = K_INFO then
+                nat_cmd_code <= x"B";
+                nat_cmd_arg <= "00000000000000" & nat_info_kind;
+              end if;
               if nat_kind = K_FIRST then
                 nat_cmd_count <= x"0000";             -- open-ended
                 nat_open_rd   <= '1';
@@ -931,6 +942,7 @@ for old, new in [
     rep(old, new)
 rep('''          when x"D0" =>
             -- @IO:GS $D6D0''', '''          when x"D7" => fastio_rdata <= x"D2"; -- persistent slots + parallel init signature
+          when x"D8" => fastio_rdata <= x"49"; -- read-only card information commands
           when x"D0" =>
             -- @IO:GS $D6D0''')
 rep("if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;", """if fastio_wdata(7) = '1' then

@@ -32,7 +32,10 @@ entity sdcard_native_model is
     G_STRICT_STOP : boolean := false; -- ignore CMD12 when already in Transfer
     G_LONG_READ_NAC : natural := 0;   -- override first-block wait at block 300
     G_LONG_MULTI_NAC : natural := 2;   -- inter-block wait for that read
-    G_PATTERN_SEED : natural := 0      -- distinguish the same LBA on two cards
+    G_PATTERN_SEED : natural := 0;     -- distinguish the same LBA on two cards
+    G_INFO_BAD_CRC : boolean := false;
+    G_INFO_TIMEOUT : boolean := false;
+    G_INFO_BAD_HEADER : boolean := false
     );
   port (
     clk : in    std_logic;
@@ -84,6 +87,34 @@ architecture sim of sdcard_native_model is
     return f;
   end function;
 
+  function info_reg(kind : natural) return std_logic_vector is
+    variable v : std_logic_vector(127 downto 0);
+    variable c : std_logic_vector(6 downto 0) := (others => '0');
+  begin
+    if kind = 0 then
+      v := x"400E00325B590003FFFF7F800A400001";
+      v(69 downto 48) := std_logic_vector(to_unsigned(244139 + G_PATTERN_SEED, 22));
+    else
+      v := x"03534453453136308012345678017A01";
+      v(55 downto 24) := std_logic_vector(unsigned(v(55 downto 24)) + G_PATTERN_SEED);
+    end if;
+    for i in 127 downto 8 loop c := crc7_bit(c, v(i)); end loop;
+    v(7 downto 1) := c; v(0) := '1';
+    return v;
+  end function;
+
+  function info_byte(kind, i : natural) return std_logic_vector is
+    variable v : std_logic_vector(127 downto 0);
+    constant scr : std_logic_vector(63 downto 0) := x"0235800100000000";
+  begin
+    if kind < 2 then
+      v := info_reg(kind); return v(127-i*8 downto 120-i*8);
+    elsif kind = 2 then return scr(63-i*8 downto 56-i*8);
+    elsif i = 0 then return x"80";
+    elsif i = 8 then return x"04";
+    else return std_logic_vector(to_unsigned((i*13+7+G_PATTERN_SEED) mod 256, 8)); end if;
+  end function;
+
   -- card state shared between the processes (signals: one writer each)
   signal spi_mode  : boolean := G_START_SPI;
   signal hs_mode   : boolean := false;
@@ -94,6 +125,7 @@ architecture sim of sdcard_native_model is
   signal rd_blk    : natural := 0;
   signal rd_multi  : boolean := false;
   signal rd_small  : boolean := false;   -- CMD6 status
+  signal rd_kind   : natural range 0 to 4 := 4; -- 4 CMD6, otherwise info selector
   signal sw_hs     : boolean := false;   -- the CMD6 asked for high speed
   signal stop_go   : boolean := false;
   signal wr_go     : boolean := false;
@@ -182,6 +214,12 @@ begin
             rlen := 48;
           elsif app and idx = 6 then
             resp(47 downto 0) := frame48(6, status, true); rlen := 48;
+          elsif app and (idx = 51 or idx = 13) then
+            assert sel report "info DAT command requires Transfer state" severity failure;
+            resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
+            rd_small <= true; rd_multi <= false;
+            if idx = 51 then rd_kind <= 2; else rd_kind <= 3; end if;
+            if not G_INFO_TIMEOUT then rd_go <= not rd_go; end if;
           else
             case idx is
               when 0 =>
@@ -206,19 +244,33 @@ begin
                 resp(47 downto 0) := frame48(3, rca & x"0500", true); rlen := 48;
               when 7 =>
                 sel := arg(31 downto 16) = rca;
-                resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
+                if sel then
+                  resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
+                end if;
+              when 9 | 10 =>
+                assert not sel and arg(31 downto 16) = rca
+                  report "CID/CSD requires addressed Stand-by card" severity failure;
+                resp(135 downto 128) := "00111111";
+                if G_INFO_BAD_HEADER then resp(133) := '0'; end if;
+                if idx = 9 then resp(127 downto 0) := info_reg(0);
+                else resp(127 downto 0) := info_reg(1); end if;
+                if G_INFO_BAD_CRC then resp(1) := not resp(1); end if;
+                if not G_INFO_TIMEOUT then rlen := 136; end if;
               when 13 =>
                 if multi_active or native_reading then status := x"00000A00"; end if;
+                if not sel then status := x"00000700"; end if;
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
               when 16 =>
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
               when 6 =>
                 resp(47 downto 0) := frame48(6, status, true); rlen := 48;
                 rd_small <= true;
+                rd_kind <= 4;
                 rd_multi <= false;
                 sw_hs    <= arg(31) = '1' and arg(3 downto 0) = x"1";
                 rd_go    <= not rd_go;
               when 17 | 18 =>
+                assert sel report "sector read requires selected card" severity failure;
                 multi_active := idx = 18;
                 resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
                 if G_SDHC then
@@ -329,7 +381,8 @@ begin
         stop_ref := stop_go;
         stopped  := false;
         blk      := rd_blk;
-        if rd_small then nbytes := 64; else nbytes := 512; end if;
+        if rd_small and rd_kind = 2 then nbytes := 8;
+        elsif rd_small then nbytes := 64; else nbytes := 512; end if;
         read_nac := G_NAC;
         multi_nac := G_NAC_MULTI;
         if not rd_small and blk = 300 and G_LONG_READ_NAC /= 0 then
@@ -343,8 +396,9 @@ begin
           crc := (others => '0');
           for i in 0 to nbytes - 1 loop
             if rd_small then
-              byte := x"00";
-              if i = 16 then
+              if rd_kind /= 4 then byte := info_byte(rd_kind, i);
+              else byte := x"00"; end if;
+              if rd_kind = 4 and i = 16 then
                 if G_HS_OK and sw_hs then byte := x"01"; else byte := x"0F"; end if;
               end if;
             else
@@ -366,6 +420,7 @@ begin
             crc(0) := not crc(0);
             err_done := true;
           end if;
+          if rd_small and rd_kind /= 4 and G_INFO_BAD_CRC then crc(0) := not crc(0); end if;
           for k in 15 downto 0 loop
             out_edge;
             if stop_go /= stop_ref then stopped := true; exit; end if;
@@ -376,7 +431,7 @@ begin
           if not rd_multi or multi_nac /= 0 then
             out_edge; dat_drv <= transport "ZZZZ" after G_TOH;
           end if;
-          if rd_small then
+          if rd_small and rd_kind = 4 then
             -- the switch takes effect after the status
             hs_mode <= G_HS_OK and sw_hs;
           end if;
@@ -527,6 +582,21 @@ begin
       push(v);
     end procedure;
 
+    procedure push_info(kind : natural) is
+      variable cr : std_logic_vector(15 downto 0) := (others => '0');
+      variable n : natural := 16;
+      variable v : std_logic_vector(7 downto 0);
+    begin
+      if G_INFO_TIMEOUT then return; end if;
+      if kind = 2 then n := 8; elsif kind = 3 then n := 64; end if;
+      push(x"FF"); push(x"FE");
+      for i in 0 to n-1 loop
+        v := info_byte(kind, i); push(v); cr := crc16_byte(cr, v);
+      end loop;
+      if G_INFO_BAD_CRC then cr(0) := not cr(0); end if;
+      push(cr(15 downto 8)); push(cr(7 downto 0));
+    end procedure;
+
   begin
     spi_drv <= 'Z';
     loop
@@ -610,6 +680,9 @@ begin
               elsif app and idx = 41 then
                 acmd41 := acmd41 + 1;
                 if acmd41 >= 2 then r1(x"00"); else r1(x"01"); end if;
+              elsif app and (idx = 51 or idx = 13) then
+                r1(x"00");
+                if idx = 13 then push(x"00"); push_info(3); else push_info(2); end if;
               else
                 case idx is
                   when 0 =>
@@ -634,6 +707,9 @@ begin
                     r1(x"00");
                   when 16 =>
                     r1(x"00");
+                  when 9 | 10 =>
+                    r1(x"00");
+                    if idx = 9 then push_info(0); else push_info(1); end if;
                   when 17 | 18 =>
                     if G_SDHC then rblk := to_integer(unsigned(arg));
                     else rblk := to_integer(unsigned(arg(31 downto 9))); end if;

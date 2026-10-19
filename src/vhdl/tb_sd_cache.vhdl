@@ -367,6 +367,16 @@ begin
       readslot(0, 96);
       readslot(1, 96);
       readslot(0, 300);
+      -- An info request on the other card retires this active read-ahead
+      -- stream, uses the other card's response, and bypasses cache storage.
+      u_slot <= '1'; clear_rx;
+      command(11, 0, 1, 0); wait_idle(10 ms);
+      check(u_error = '0' and n_good = 1
+        and rx(0,0) = x"40" and rx(0,8) = x"BA" and rx(0,9) = x"04"
+        and rx(0,15) = x"59" and rx(0,16) = 0 and rx(0,511) = 0,
+        "cross-card CSD read retires fill and zero-pads the response");
+      readslot(0, 96);
+      readslot(1, 96);
       -- Write-through snooping and the shared write-fetch stream must be
       -- card-qualified too. Give identical LBAs different written contents.
       u_slot <= '1'; wr_base <= 96;

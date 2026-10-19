@@ -98,6 +98,10 @@ The fork keeps the existing `$D680` interface and adds:
 | `$24` | Re-initialise, staying at default speed |
 | `$2A` | Clear errors/recover without card reset; invalidate cached data |
 | `$2B` | Initialise both slots concurrently; each slot reports its own result |
+| `$2C` | Read CSD (capacity/card parameters), 16 bytes |
+| `$2D` | Read CID (manufacturer/product/serial/date), 16 bytes |
+| `$2E` | Read SCR (SD version/bus capabilities), 8 bytes |
+| `$2F` | Read SD Status (speed classes/allocation/erase information), 64 bytes |
 
 - `$D686` (read) returns status flags and `$D687` (read) the low-level error
   code.
@@ -233,6 +237,37 @@ also check reads on the ready socket while the other is still initialising.
 Their same-LBA writes check that write fetches and cache snoops affect only
 the owning card, with native/SPI roles tested in both directions.
 These are simulation checks, not measured hardware boot times.
+
+**Read-only card information.** `$D6CC=$53`, `$D6CD=1`, `$D6D8=$49`
+identifies the `$2C`--`$2F` commands. Select the card with `$C0/$C1`, issue
+the command and poll the usual `$D680` busy/error bits before reading the
+normal 512-byte SD sector buffer. Each result starts at offset zero, with
+the most significant register byte first; the rest of the buffer is zero.
+CID/CSD include their register CRC7/end byte. Data tokens, response headers
+and the transfer CRC16 of SCR/SD Status are not included. All four fit in
+one sector buffer; no extra BRAM or information cache is needed.
+
+These commands leave `$D681`--`$D684` unchanged, bypass the sector cache and
+retain its data. They close any open multi-sector transfer first, and latch
+the selected slot like ordinary reads. Native CID/CSD temporarily deselect
+the card with CMD7, read CMD9/CMD10 in Stand-by, then reselect it without
+resetting or changing its speed/bus width. SCR/SD Status use ACMD51/ACMD13
+short data transfers; an SCR may finish before its command response, so
+the data verdict is retained separately. SPI reads use short data blocks
+for all four, including the second response byte of ACMD13's SPI R2.
+
+Native R2 header/CRC7 and short-data CRC16 are verified; SPI transfer CRC16 is
+verified. Only a successful, padded 512-byte result publishes completion.
+Failure retains the legacy error/stuck-BUSY indication; the buffer must
+then be treated as invalid. Native failures use the checked CMD12/CMD13
+close; SPI deselects with trailing clocks. `$2A` can recover without a card
+reset. Information failures do not increment sector-read error counters.
+
+`G_INFO_TEST` in the core testbench checks all payloads/padding, CRC errors,
+malformed R2 headers, timeouts, recovery and subsequent ordinary reads in
+native and SPI modes.
+The upper testbench checks both slots, cache bypass/preservation, unchanged
+sector addresses, mixed native/SPI cards, CRC error/BUSY and no-cache mode.
 
 **Checked native close.** A read's final CMD12 waits for its response and
 busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.

@@ -96,6 +96,9 @@
 --     C_CLEAR  (9) clear errors without CMD0/reinitialisation. Native SD
 --                  confirms CMD12 + CMD13 Transfer/ready before reuse; SPI
 --                  clears the retired transfer's error with CS inactive.
+--     C_INFO   (B) read card information: arg = 0 CSD, 1 CID, 2 SCR,
+--                  3 SD Status. Raw wire-order bytes (16/16/8/64), padded
+--                  with zeros to 512 bytes through the normal read FIFO.
 --
 --   Clock setting (arg of C_PROBE / C_ACCEPT, and clk_setting): bits 6..0 = P
 --   (4..127), bits 12..8 = D (0..31).  P < 13 needs a card that switched to
@@ -227,6 +230,7 @@ architecture rtl of sdcard_native is
   constant C_PROBE  : unsigned(3 downto 0) := x"6";
   constant C_ACCEPT : unsigned(3 downto 0) := x"7";
   constant C_CLEAR  : unsigned(3 downto 0) := x"9";
+  constant C_INFO   : unsigned(3 downto 0) := x"B";
 
   constant ERR_NONE     : unsigned(7 downto 0) := x"00";
   constant ERR_NOCARD   : unsigned(7 downto 0) := x"01";  -- no card answered
@@ -534,6 +538,9 @@ architecture rtl of sdcard_native is
     S_POWERUP, S_INIT, S_IDLE, S_DISPATCH, S_FINISH, S_FAIL, S_TAIL, S_DRAIN,
     S_RESYNC, S_RESYNC2, S_CMD_WAIT, S_CMD, S_BUSY0, S_BUSY1, S_ABORT,
     S_CLOSE, S_CLOSE_RESP, S_CLOSE_STATUS, S_RECOVER,
+    I_START, I_APP, I_APP_RESP, I_DATA_CMD, I_DATA_RESP, I_DATA,
+    I_EMIT, I_GOOD, I_ABORT, I_ERROR,
+    N_I_REG, N_I_REG_RESP, N_I_SELECT,
     -- native
     N_PRE, N_INIT,
     N_RD_CMD, N_RD_RESP, N_RD_BLOCK, N_RD_STOP,
@@ -589,8 +596,13 @@ architecture rtl of sdcard_native is
   signal e_wait      : std_logic := '0';
 
   -- the operation
-  type t_op is (OP_NONE, OP_READ, OP_WRITE, OP_PROBE);
+  type t_op is (OP_NONE, OP_READ, OP_WRITE, OP_PROBE, OP_INFO);
   signal op          : t_op := OP_NONE;
+  signal info_kind   : unsigned(1 downto 0) := (others => '0');
+  signal info_len    : unsigned(6 downto 0) := to_unsigned(16, 7);
+  signal info_pos    : unsigned(9 downto 0) := (others => '0');
+  signal info_ok     : std_logic := '0';
+  signal info_data_done, info_data_ok : std_logic := '0';
   signal op_addr     : unsigned(31 downto 0) := (others => '0');
   signal op_granted  : unsigned(15 downto 0) := (others => '0');  -- blocks allowed
   signal op_closed   : std_logic := '1';     -- no more grants will come
@@ -618,6 +630,8 @@ architecture rtl of sdcard_native is
   signal c_end       : unsigned(15 downto 0) := (others => '0');   -- tag of the end bit
   signal c_earliest  : unsigned(15 downto 0) := (others => '0');   -- first tag for a command
   signal r_sr        : std_logic_vector(47 downto 0) := (others => '0');
+  signal r_long      : std_logic_vector(127 downto 0) := (others => '0');
+  signal r2_header_ok : std_logic := '0';
   signal r_crc       : std_logic_vector(6 downto 0) := (others => '0');
 
   -- data receiver (native)
@@ -730,7 +744,7 @@ begin
         h_count <= cmd_count;
         h_arg   <= cmd_arg;
         h_req   <= not h_req;
-        if cmd_code = C_READ then
+        if cmd_code = C_READ or cmd_code = C_INFO then
           h_rblk <= (others => '0');
         end if;
       end if;
@@ -1251,6 +1265,11 @@ begin
       sp_ld   <= '0';
       sp_new  <= '0';
       cg_clr  <= '0';
+      -- An eight-byte SCR can finish before its R1 response. Retain the
+      -- data verdict independently of the command machine's progress.
+      if d_done = '1' and op = OP_INFO then
+        info_data_done <= '1'; info_data_ok <= d_ok;
+      end if;
 
       e_req_s <= e_req_s(0) & h_req;
 
@@ -1335,7 +1354,9 @@ begin
                   if rxd_cmd = '0' then
                     c_n   <= to_unsigned(1, 8);
                     r_sr  <= (others => '0');
-                    r_crc <= crc7_bit("0000000", '0');
+                    r2_header_ok <= '1';
+                    if c_resp = R_R2 then r_crc <= (others => '0');
+                    else r_crc <= crc7_bit("0000000", '0'); end if;
                   elsif rf_c80 = '1' then
                     -- no response (Ncr is at most 64)
                     c_ok    <= '0';
@@ -1344,13 +1365,25 @@ begin
                   end if;
                 else
                   r_sr <= r_sr(46 downto 0) & rxd_cmd;
-                  if c_n < 40 then
+                  if c_resp = R_R2 then
+                    r_long <= r_long(126 downto 0) & rxd_cmd;
+                    if (c_n = 1 and rxd_cmd /= '0') or
+                      (c_n >= 2 and c_n < 8 and rxd_cmd /= '1') then r2_header_ok <= '0'; end if;
+                    -- R2 CRC covers the register, excluding its CRC/end and
+                    -- the response header. Keep the legacy init CID path.
+                    if c_n >= 8 and c_n < 128 then
+                      r_crc <= crc7_bit(r_crc, rxd_cmd);
+                    end if;
+                  elsif c_n < 40 then
                     r_crc <= crc7_bit(r_crc, rxd_cmd);
                   end if;
                   if (c_resp = R_R2 and c_n = 135) or (c_resp /= R_R2 and c_n = 47) then
                     -- the end bit (r_sr still holds frame bits 46..1)
                     c_ok <= '1';
-                    if c_resp = R_R1 or c_resp = R_R1B or c_resp = R_R7 then
+                    if c_resp = R_R2 and op = OP_INFO then
+                      if r2_header_ok = '0' or r_long(6 downto 0) /= r_crc
+                        or rxd_cmd /= '1' then c_ok <= '0'; end if;
+                    elsif c_resp = R_R1 or c_resp = R_R1B or c_resp = R_R7 then
                       if r_sr(6 downto 0) /= r_crc or
                         r_sr(44 downto 39) /= std_logic_vector(to_unsigned(c_idx, 6)) then
                         c_ok <= '0';
@@ -1380,12 +1413,13 @@ begin
       end if;
 
       --------------------------------------------------------------------------
-      -- data receiver (native, 4 bits).  Blocks of 512 bytes, or the 64-byte
-      -- CMD6 status.  Data goes to the read FIFO as it comes; the verdict
+      -- data receiver (native, 4 bits). Sector blocks, 64-byte status or
+      -- 8-byte SCR. Data goes to the read FIFO as it comes; the verdict
       -- follows the block.
       --------------------------------------------------------------------------
       if d_small = '1' then
-        last_nib := to_unsigned(127, 10);
+        if op = OP_INFO and info_kind = 2 then last_nib := to_unsigned(15, 10);
+        else last_nib := to_unsigned(127, 10); end if;
       else
         last_nib := to_unsigned(1023, 10);
       end if;
@@ -1423,7 +1457,9 @@ begin
               else
                 b := d_hi & nib;
                 if d_small = '1' then
-                  if d_idx(9 downto 1) = 16 then
+                  if op = OP_INFO then
+                    rpush("00", b);
+                  elsif d_idx(9 downto 1) = 16 then
                     hs_byte <= b;
                   end if;
                 elsif d_discard = '0' then
@@ -1680,6 +1716,23 @@ begin
                   new_set <= e_arg;
                   resync(S_DISPATCH);
                 end if;
+              end if;
+            elsif e_code = C_INFO then
+              if ready = '0' then
+                e_error <= '1'; e_err <= ERR_NOTREADY;
+              elsif e_arg > 3 then
+                e_error <= '1'; e_err <= ERR_BADCMD;
+              else
+                op <= OP_INFO;
+                op_multi <= '0';
+                e_busy <= '1';
+                info_kind <= e_arg(1 downto 0);
+                if e_arg = 2 then info_len <= to_unsigned(8, 7);
+                elsif e_arg = 3 then info_len <= to_unsigned(64, 7);
+                else info_len <= to_unsigned(16, 7); end if;
+                info_pos <= (others => '0');
+                d_small <= '0'; d_discard <= '0';
+                st <= I_START;
               end if;
             elsif e_code = C_CLEAR then
               op <= OP_NONE;
@@ -1966,7 +2019,7 @@ begin
               c_ok   <= '1';
               sp_cnt <= 0;
               sp_ext <= (others => '0');
-              if c_resp = R_R3 or c_resp = R_R7 then
+              if c_resp = R_R3 or c_resp = R_R7 or c_resp = R_R2 then
                 sp_n <= 7;
               elsif c_resp = R_R1B then
                 tmo  <= to_unsigned(TMO_BUSY, 28);
@@ -1982,7 +2035,7 @@ begin
             end if;
           elsif sp_n = 7 and sp_new = '1' then
             sp_ext <= sp_ext(23 downto 0) & sp_byte;
-            if sp_cnt = 3 then
+            if sp_cnt = 3 or c_resp = R_R2 then
               st <= ret_st;
             else
               sp_cnt <= sp_cnt + 1;
@@ -1995,6 +2048,138 @@ begin
               st   <= ret_st;
             end if;
           end if;
+
+        ------------------------------------------------------------------------
+        -- Read-only card information. Native CID/CSD are long CMD responses
+        -- in Stand-by; SCR/SD Status use short DAT blocks in Transfer. SPI
+        -- uses a data token and CRC16 for all four, plus R2 for ACMD13.
+        ------------------------------------------------------------------------
+        when I_START =>
+          run <= '1'; stop_en <= '0';
+          if info_kind < 2 then
+            if mode_native = '1' then
+              do_cmd(7, x"00000000", R_NONE, N_I_REG);
+            else
+              sp_cs_next <= '0';
+              if info_kind = 0 then do_cmd(9, x"00000000", R_R1, I_DATA_RESP);
+              else do_cmd(10, x"00000000", R_R1, I_DATA_RESP); end if;
+              tmo <= to_unsigned(TMO_READ, 28); tmo_z <= '0';
+            end if;
+          else
+            st <= I_APP;
+          end if;
+
+        when N_I_REG =>
+          if info_kind = 0 then do_cmd(9, rca & x"0000", R_R2, N_I_REG_RESP);
+          else do_cmd(10, rca & x"0000", R_R2, N_I_REG_RESP); end if;
+
+        when N_I_REG_RESP =>
+          info_ok <= c_ok;
+          if c_ok = '0' then
+            if c_n = 135 and r2_header_ok = '1' then e_err <= ERR_RD_CRC; else e_err <= ERR_CMD; end if;
+          end if;
+          -- Reselect even after a corrupt/missing register response.
+          do_cmd(7, rca & x"0000", R_R1B, N_I_SELECT);
+
+        when N_I_SELECT =>
+          if c_ok = '0' or r1_bad(r_sr) then
+            e_err <= ERR_CMD; st <= I_ABORT;
+          elsif info_ok = '0' then st <= I_ABORT;
+          else st <= I_EMIT; end if;
+
+        when I_APP =>
+          sp_cs_next <= '0';
+          if mode_native = '1' then do_cmd(55, rca & x"0000", R_R1, I_APP_RESP);
+          else do_cmd(55, x"00000000", R_R1, I_APP_RESP); end if;
+
+        when I_APP_RESP =>
+          if c_ok = '0' or (mode_native = '1' and r1_bad(r_sr))
+            or (mode_native = '0' and sp_r1 /= x"00") then
+            e_err <= ERR_CMD; st <= I_ABORT;
+          else st <= I_DATA_CMD; end if;
+
+        when I_DATA_CMD =>
+          tmo <= to_unsigned(TMO_READ, 28); tmo_z <= '0';
+          info_data_done <= '0'; info_data_ok <= '0';
+          if mode_native = '1' then
+            d_small <= '1'; d_arm <= '1'; d_after <= ttag; rf_dafter <= '0';
+          end if;
+          if info_kind = 2 then do_cmd(51, x"00000000", R_R1, I_DATA_RESP);
+          elsif mode_native = '1' then do_cmd(13, x"00000000", R_R1, I_DATA_RESP);
+          else do_cmd(13, x"00000000", R_R2, I_DATA_RESP); end if;
+
+        when I_DATA_RESP =>
+          if c_ok = '0' or (mode_native = '1' and r1_bad(r_sr))
+            or (mode_native = '0' and (sp_r1 /= x"00"
+              or (info_kind = 3 and sp_ext(7 downto 0) /= x"00"))) then
+            e_err <= ERR_CMD; st <= I_ABORT;
+          else
+            if mode_native = '0' then d_act <= '0'; end if;
+            st <= I_DATA;
+          end if;
+
+        when I_DATA =>
+          run <= '1';
+          if mode_native = '1' then
+            if info_data_done = '1' then
+              d_small <= '0';
+              if info_data_ok = '1' then
+                info_pos <= resize(info_len, 10); st <= I_EMIT;
+              else e_err <= ERR_RD_CRC; st <= I_ABORT; end if;
+            elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
+          elsif sp_new = '1' then
+            if d_act = '0' then
+              if sp_byte = x"FE" then
+                d_act <= '1'; d_idx <= (others => '0'); d_crc <= (others => '0');
+              elsif sp_byte(7 downto 4) = "0000" then
+                e_err <= ERR_RD_CRC; st <= I_ABORT;
+              elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
+            else
+              if d_idx < resize(info_len, 10) then
+                rpush("00", sp_byte);
+                d_crc(15 downto 0) <= crc16_byte(d_crc(15 downto 0), sp_byte);
+              else d_crcrx(15 downto 0) <= d_crcrx(7 downto 0) & sp_byte; end if;
+              d_idx <= d_idx + 1;
+              if d_idx = resize(info_len, 10) + 1 then
+                d_act <= '0';
+                if (d_crcrx(7 downto 0) & sp_byte) /= d_crc(15 downto 0) then
+                  e_err <= ERR_RD_CRC; st <= I_ABORT;
+                else
+                  info_pos <= resize(info_len, 10);
+                  cnt <= (others => '0'); ret_st <= I_EMIT; st <= P_DESEL;
+                end if;
+              end if;
+            end if;
+          elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
+
+        when I_EMIT =>
+          run <= '0';
+          -- Serialise native R2 and pad short payloads. Bound the FIFO's
+          -- occupancy; the engine clock is faster than the consumer.
+          if rf_we = '0' and rf_wp - gray2bin(rf_rpg_s1) < 24 then
+            if mode_native = '1' and info_kind < 2 and info_pos < 16 then
+              rpush("00", r_long(127 downto 120));
+              r_long <= r_long(119 downto 0) & x"00";
+            else rpush("00", x"00"); end if;
+            info_pos <= info_pos + 1;
+            if info_pos = 511 then st <= I_GOOD; end if;
+          end if;
+
+        when I_GOOD =>
+          if rf_we = '0' and rf_wp - gray2bin(rf_rpg_s1) < 24 then
+            rpush("10", x"00"); op_done <= to_unsigned(1, 16); st <= S_FINISH;
+          end if;
+
+        when I_ABORT =>
+          d_arm <= '0'; d_act <= '0'; d_small <= '0';
+          rpush("11", x"00");
+          if mode_native = '1' then
+            close_ret <= I_ERROR; close_tries <= 0; st <= S_CLOSE;
+          else cnt <= (others => '0'); ret_st <= I_ERROR; st <= P_DESEL; end if;
+
+        when I_ERROR =>
+          e_error <= '1'; op <= OP_NONE; e_wait <= '0';
+          cnt <= (others => '0'); st <= S_TAIL;
 
         ------------------------------------------------------------------------
         -- native init
@@ -3150,7 +3335,7 @@ begin
             st <= Q_DISPATCH;
           end if;
         when Q_DISPATCH =>
-          if (p_code = x"2" or p_code = x"3") and data_active = '1'
+          if (p_code = x"2" or p_code = x"3" or p_code = x"B") and data_active = '1'
             and p_slot /= data_owner and c_busy(data_owner) = '1' then
             -- Retire an old card's granted blocks/checked close before
             -- assigning its shared stream to a request for the other card.
@@ -3170,7 +3355,7 @@ begin
             c_arg <= p_arg;
             c_valid <= p_mask;
             ack_low <= "00";
-            if p_code = x"2" or p_code = x"3" then
+            if p_code = x"2" or p_code = x"3" or p_code = x"B" then
               data_owner <= p_slot;
               data_active <= '1';
             elsif (p_code = x"1" and p_slot = data_owner) or p_code = x"A" then
