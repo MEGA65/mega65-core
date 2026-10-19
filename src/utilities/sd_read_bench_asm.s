@@ -2,7 +2,7 @@
 ; Copyright (C) 2026 Paul Gardner-Stephen and the MEGA65 project. LGPL v3.
         .export _sd_bench_command, _sd_bench_sector, _sd_bench_copy
         .export _sd_bench_irq_save, _sd_bench_irq_restore
-        .export _sd_bench_clear, _sd_bench_key
+        .export _sd_bench_clear, _sd_bench_key, _sd_bench_getkey
         .export _sd_bench_irq_mask
         .importzp sreg
 
@@ -38,10 +38,17 @@ _sd_bench_clear:
 ; Scan the keyboard explicitly: KERNAL IRQs are disabled for benchmarking.
 ; This pause is outside all timed regions and allows serial screenshots.
 _sd_bench_key:
-        jsr $ff9f                     ; SCNKEY
-        jsr $ffe4                     ; GETIN
+        jsr _sd_bench_getkey
         cmp #32
         bne _sd_bench_key
+        rts
+
+; Return any key, including when KERNAL IRQs are disabled.
+_sd_bench_getkey:
+        jsr $ff9f                     ; SCNKEY
+        jsr $ffe4                     ; GETIN
+        beq _sd_bench_getkey
+        ldx #0
         rts
 
 ; fastcall uint32_t: low word A/X, high word sreg/sreg+1.
@@ -60,9 +67,15 @@ _sd_bench_command:
         stx command_frame
         sta $d680
 poll:   lda $d680
+        and #$01                      ; foreground command still active?
+        bne waiting
+        lda $d680
+        and #$60                      ; native errors deliberately hold BUSY
+        bne failed
+        lda $d680
         and #$03
-        beq finished
-        lda $d7fa
+        beq success
+waiting: lda $d7fa
         sec
         sbc command_frame
         cmp #120
@@ -70,12 +83,12 @@ poll:   lda $d680
         lda #2
         ldx #0
         rts
-finished:
-        lda $d680
-        and #$60
-        beq success
+failed:
         lda #1
+        ldx #0
+        rts
 success:
+        lda #0
         ldx #0
         rts
 
