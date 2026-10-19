@@ -63,6 +63,9 @@ entity sd_cache is
     u_cmd_count   : in  unsigned(15 downto 0);
     u_cmd_arg     : in  unsigned(15 downto 0);
     u_cmd_slot    : in  std_logic := '0';
+    u_limit_enable : in std_logic := '0';
+    u_capacity_valid : in std_logic := '0';
+    u_last_sector : in unsigned(31 downto 0) := (others => '0');
     u_card_ready  : out std_logic;
     u_busy        : out std_logic;
     u_waiting     : out std_logic;
@@ -238,6 +241,8 @@ begin
     signal c_count : unsigned(15 downto 0) := (others => '0');
     signal c_arg   : unsigned(15 downto 0) := (others => '0');
     signal c_slot  : std_logic := '0';
+    signal c_limited, c_capacity : std_logic := '0';
+    signal c_last : unsigned(31 downto 0) := (others => '0');
 
     -- pass-through: upstream sees the controller's status and streams
     signal pt      : std_logic := '1';
@@ -423,6 +428,7 @@ begin
       variable rnd  : integer range 0 to G_LINES-1;
       variable fill_writes : boolean;
       variable target_busy : std_logic;
+      variable fill_count : unsigned(3 downto 0);
 
     begin
       if rising_edge(clock) then
@@ -507,6 +513,7 @@ begin
               c_count <= u_cmd_count;
               c_arg   <= u_cmd_arg;
               c_slot  <= u_cmd_slot;
+              c_limited <= u_limit_enable; c_capacity <= u_capacity_valid; c_last <= u_last_sector;
               if u_cmd_code = C_INIT_BOTH then
                 -- the controller drops everything at once: no need to stop
                 -- the fill first
@@ -557,7 +564,15 @@ begin
           when T_DISPATCH =>
             sec := c_addr;
             lookup(tag, tag_slot, used, sec, c_slot, hit, idx);
-            if c_code = C_CACHE then
+            if (c_code = C_READ or c_code = C_WRITE) and c_limited = '1'
+              and (c_capacity = '0' or resize(c_addr, 33) > resize(c_last, 33)
+                or (c_count /= 0 and resize(c_addr, 33) + resize(c_count-1, 33) > resize(c_last, 33))) then
+              -- Check before lookup too: an override may have cached data
+              -- beyond the card's size before protection was re-enabled.
+              pt <= '0'; o_busy <= '0'; o_error <= '1'; o_done <= (others => '0');
+              if c_capacity = '0' then o_err <= x"45"; else o_err <= x"44"; end if;
+              u_ready <= '1'; st <= T_IDLE;
+            elsif c_code = C_CACHE then
               -- A completed fill may still be closing CMD12 / tail clocks.
               -- Do not hide that busy period when changing to own status.
               if dfree = '1' and target_busy = '0' then
@@ -680,12 +695,17 @@ begin
               f_line  <= r_line;
               f_slot  <= c_slot;
               f_first <= c_addr(2 downto 0);
-              f_total <= resize(8 - resize(c_addr(2 downto 0), 4), 4);
+              fill_count := 8 - resize(c_addr(2 downto 0), 4);
+              if c_limited = '1' and c_capacity = '1'
+                and c_last-c_addr < resize(fill_count-1, 32) then
+                fill_count := resize(c_last-c_addr, 4) + 1;
+              end if;
+              f_total <= fill_count;
               f_recv  <= (others => '0');
               f_grant <= to_unsigned(1, 4);
               fill    <= '1';
               fwd0    <= '1';
-              if c_addr(2 downto 0) = "111" then
+              if fill_count = 1 then
                 dcmd(C_READ, c_addr, to_unsigned(1, 16), (others => '0'), c_slot);
               else
                 dcmd(C_READ, c_addr, to_unsigned(0, 16), (others => '0'), c_slot);

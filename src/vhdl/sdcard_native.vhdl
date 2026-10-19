@@ -99,6 +99,10 @@
 --     C_INFO   (B) read card information: arg = 0 CSD, 1 CID, 2 SCR,
 --                  3 SD Status. Raw wire-order bytes (16/16/8/64), padded
 --                  with zeros to 512 bytes through the normal read FIFO.
+--   Init reads CSD and publishes capacity_valid/last_sector in the CPU
+--   domain. limit_enable (default 1) bounds sector reads/writes/probes and
+--   open-transfer grants; out-of-range requests return ERR_RANGE ($44),
+--   unknown capacity ERR_CAPACITY ($45). No extra block RAM is used.
 --
 --   Clock setting (arg of C_PROBE / C_ACCEPT, and clk_setting): bits 6..0 = P
 --   (4..127), bits 12..8 = D (0..31).  P < 13 needs a card that switched to
@@ -197,7 +201,10 @@ entity sdcard_native is
     sd_cmd_i    : in  std_logic_vector(1 downto 0);
     sd_dat_o    : out std_logic_vector(7 downto 0);   -- slot*4 + line
     sd_dat_oe   : out std_logic_vector(7 downto 0);
-    sd_dat_i    : in  std_logic_vector(7 downto 0)
+    sd_dat_i    : in  std_logic_vector(7 downto 0);
+    limit_enable : in std_logic := '1'; -- CPU-domain policy, default bounded
+    capacity_valid : out std_logic;
+    last_sector : out unsigned(31 downto 0) -- inclusive, CPU-domain
     );
 end entity sdcard_native;
 
@@ -245,6 +252,8 @@ architecture rtl of sdcard_native is
   constant ERR_NOTREADY : unsigned(7 downto 0) := x"41";  -- transfer without a card
   constant ERR_NOHS     : unsigned(7 downto 0) := x"42";  -- setting needs high speed
   constant ERR_BADCMD   : unsigned(7 downto 0) := x"43";  -- unknown command / bad setting
+  constant ERR_RANGE    : unsigned(7 downto 0) := x"44";  -- outside reported card capacity
+  constant ERR_CAPACITY : unsigned(7 downto 0) := x"45";  -- unavailable/unsupported CSD capacity
 
   -- R1 card status bits that fail a command.  COM_CRC_ERROR and
   -- ILLEGAL_COMMAND are left out: they are about the PREVIOUS command.
@@ -441,7 +450,7 @@ architecture rtl of sdcard_native is
   -- status bundle (engine -> host)
   ------------------------------------------------------------------------------
 
-  constant ST_W : natural := 216;
+  constant ST_W : natural := 249;
   signal st_live   : std_logic_vector(ST_W-1 downto 0);
   signal st_pub    : std_logic_vector(ST_W-1 downto 0) := (others => '0');
   signal st_host   : std_logic_vector(ST_W-1 downto 0) := (2 => '1', others => '0');
@@ -541,6 +550,7 @@ architecture rtl of sdcard_native is
     I_START, I_APP, I_APP_RESP, I_DATA_CMD, I_DATA_RESP, I_DATA,
     I_EMIT, I_GOOD, I_ABORT, I_ERROR,
     N_I_REG, N_I_REG_RESP, N_I_SELECT,
+    S_CAP_DECODE, S_CAP_SHIFT, S_RANGE_ADD, S_RANGE_CHECK,
     -- native
     N_PRE, N_INIT,
     N_RD_CMD, N_RD_RESP, N_RD_BLOCK, N_RD_STOP,
@@ -603,6 +613,16 @@ architecture rtl of sdcard_native is
   signal info_pos    : unsigned(9 downto 0) := (others => '0');
   signal info_ok     : std_logic := '0';
   signal info_data_done, info_data_ok : std_logic := '0';
+  signal info_init : std_logic := '0';
+  signal cap_known : std_logic := '0';
+  signal cap_last : unsigned(31 downto 0) := (others => '0');
+  signal cap_work : unsigned(32 downto 0) := (others => '0');
+  signal cap_shift : integer range -7 to 15 := 0;
+  signal cap_ret : t_state := N_INIT;
+  signal limit_s : std_logic_vector(1 downto 0) := "11";
+  signal range_failed : std_logic := '0';
+  signal range_end, grant_next : unsigned(32 downto 0) := (others => '0');
+  attribute ASYNC_REG of limit_s : signal is "TRUE";
   signal op_addr     : unsigned(31 downto 0) := (others => '0');
   signal op_granted  : unsigned(15 downto 0) := (others => '0');  -- blocks allowed
   signal op_closed   : std_logic := '1';     -- no more grants will come
@@ -713,6 +733,8 @@ begin
   probe_fail  <= unsigned(st_host(47 downto 40));
   blocks_done <= unsigned(st_host(63 downto 48));
   diag_stats  <= unsigned(st_host(215 downto 88));
+  last_sector <= unsigned(st_host(247 downto 216));
+  capacity_valid <= st_host(248);
   hs_wait     <= st_host(64);
   hs_wseq     <= st_host(65);
   hs_wblk     <= unsigned(st_host(81 downto 66));
@@ -835,10 +857,13 @@ begin
   st_live(87 downto 82) <= (others => '0');
   st_live(215 downto 88) <= std_logic_vector(cur_set & stat_stop_fail & stat_read_fail
     & stat_read_cmd & stat_read_timeout & stat_read_crc & stat_stop_retries & stat_read_retries);
+  st_live(247 downto 216) <= std_logic_vector(cap_last);
+  st_live(248) <= cap_known;
 
   publish : process (clock162)
   begin
     if rising_edge(clock162) then
+      limit_s <= limit_s(0) & limit_enable;
       pub_ack_s <= pub_ack_s(0) & pub_ack;
       if pub_ack_s(1) = pub_req then
         st_pub  <= st_live;
@@ -1380,7 +1405,7 @@ begin
                   if (c_resp = R_R2 and c_n = 135) or (c_resp /= R_R2 and c_n = 47) then
                     -- the end bit (r_sr still holds frame bits 46..1)
                     c_ok <= '1';
-                    if c_resp = R_R2 and op = OP_INFO then
+                    if c_resp = R_R2 and (op = OP_INFO or c_idx = 9) then
                       if r2_header_ok = '0' or r_long(6 downto 0) /= r_crc
                         or rxd_cmd /= '1' then c_ok <= '0'; end if;
                     elsif c_resp = R_R1 or c_resp = R_R1B or c_resp = R_R7 then
@@ -1540,9 +1565,15 @@ begin
       if cmd_pend = '1' then
         if e_code = C_MORE then
           if op /= OP_NONE and op_closed = '0' then
-            op_granted <= op_granted + 1;
-            op_closed  <= e_arg(0);
-            granting   := true;
+            if limit_s(1) = '1' and (cap_known = '0' or
+              grant_next > resize(cap_last, 33)) then
+              op_closed <= '1'; range_failed <= '1';
+            else
+              op_granted <= op_granted + 1;
+              op_closed  <= e_arg(0);
+              grant_next <= grant_next + 1;
+              granting   := true;
+            end if;
           end if;
           e_ack <= e_seen;
           cmd_pend <= '0';
@@ -1596,6 +1627,7 @@ begin
             hs      <= '0';
             hc      <= '0';
             op      <= OP_NONE;
+            cap_known <= '0'; info_init <= '0'; range_failed <= '0';
             cur_set <= SET_DS;
             cg_p    <= to_unsigned(G_INIT_P, 10);
             cg_low  <= to_unsigned((G_INIT_P + 1) / 2, 10);
@@ -1677,6 +1709,7 @@ begin
             op_done   <= (others => '0');
             op_try    <= 0;
             op_verify <= '0';
+            range_failed <= '0';
             op_addr   <= e_addr;
             w_reqd    <= '0';
             if e_cnt0 = '1' then
@@ -1700,10 +1733,10 @@ begin
                 e_busy <= '1';
                 if e_code = C_READ then
                   op <= OP_READ;
-                  st <= S_DISPATCH;
+                  st <= S_RANGE_ADD;
                 elsif e_code = C_WRITE then
                   op <= OP_WRITE;
-                  st <= S_DISPATCH;
+                  st <= S_RANGE_ADD;
                 else
                   op         <= OP_PROBE;
                   op_granted <= to_unsigned(1, 16);
@@ -1714,7 +1747,7 @@ begin
                     op_reps <= e_count(7 downto 0);
                   end if;
                   new_set <= e_arg;
-                  resync(S_DISPATCH);
+                  st <= S_RANGE_ADD;
                 end if;
               end if;
             elsif e_code = C_INFO then
@@ -1731,6 +1764,7 @@ begin
                 elsif e_arg = 3 then info_len <= to_unsigned(64, 7);
                 else info_len <= to_unsigned(16, 7); end if;
                 info_pos <= (others => '0');
+                info_init <= '0';
                 d_small <= '0'; d_discard <= '0';
                 st <= I_START;
               end if;
@@ -1777,6 +1811,21 @@ begin
           end if;
 
         -- issue (or re-issue after an error) the rest of the transfer
+        when S_RANGE_ADD =>
+          -- Separate the wide add and compare at 162 MHz. C_MORE compares
+          -- the registered next grant address instead of adding it inline.
+          range_end <= resize(op_addr, 33) + resize(op_granted - 1, 33);
+          st <= S_RANGE_CHECK;
+
+        when S_RANGE_CHECK =>
+          grant_next <= range_end + 1;
+          if limit_s(1) = '1' and (cap_known = '0' or range_end > resize(cap_last, 33)) then
+            e_error <= '1';
+            if cap_known = '0' then e_err <= ERR_CAPACITY; else e_err <= ERR_RANGE; end if;
+            op <= OP_NONE; cnt <= (others => '0'); st <= S_TAIL;
+          elsif op = OP_PROBE then resync(S_DISPATCH);
+          else st <= S_DISPATCH; end if;
+
         when S_DISPATCH =>
           run     <= '0';
           stop_en <= '0';
@@ -1814,6 +1863,11 @@ begin
           end if;
 
         when S_FINISH =>
+          if range_failed = '1' then
+            e_error <= '1';
+            if cap_known = '0' then e_err <= ERR_CAPACITY; else e_err <= ERR_RANGE; end if;
+          end if;
+          range_failed <= '0';
           op     <= OP_NONE;
           e_wait <= '0';
           cnt    <= (others => '0');
@@ -2136,7 +2190,8 @@ begin
               elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
             else
               if d_idx < resize(info_len, 10) then
-                rpush("00", sp_byte);
+                if info_init = '1' then r_long <= r_long(119 downto 0) & sp_byte;
+                else rpush("00", sp_byte); end if;
                 d_crc(15 downto 0) <= crc16_byte(d_crc(15 downto 0), sp_byte);
               else d_crcrx(15 downto 0) <= d_crcrx(7 downto 0) & sp_byte; end if;
               d_idx <= d_idx + 1;
@@ -2146,7 +2201,10 @@ begin
                   e_err <= ERR_RD_CRC; st <= I_ABORT;
                 else
                   info_pos <= resize(info_len, 10);
-                  cnt <= (others => '0'); ret_st <= I_EMIT; st <= P_DESEL;
+                  cnt <= (others => '0');
+                  if info_init = '1' then ret_st <= S_CAP_DECODE;
+                  else ret_st <= I_EMIT; end if;
+                  st <= P_DESEL;
                 end if;
               end if;
             end if;
@@ -2172,14 +2230,51 @@ begin
 
         when I_ABORT =>
           d_arm <= '0'; d_act <= '0'; d_small <= '0';
-          rpush("11", x"00");
-          if mode_native = '1' then
+          if info_init = '1' then
+            info_init <= '0'; op <= OP_NONE;
+            if limit_s(1) = '1' then istep <= 30; else istep <= 15; end if;
+            cnt <= (others => '0'); ret_st <= P_INIT; st <= P_DESEL;
+          elsif mode_native = '1' then
+            rpush("11", x"00");
             close_ret <= I_ERROR; close_tries <= 0; st <= S_CLOSE;
-          else cnt <= (others => '0'); ret_st <= I_ERROR; st <= P_DESEL; end if;
+          else
+            rpush("11", x"00");
+            cnt <= (others => '0'); ret_st <= I_ERROR; st <= P_DESEL;
+          end if;
 
         when I_ERROR =>
           e_error <= '1'; op <= OP_NONE; e_wait <= '0';
           cnt <= (others => '0'); st <= S_TAIL;
+
+        -- Decode the inclusive last LBA. SDHC/SDXC has 1024 sectors per
+        -- C_SIZE unit; SDSC shifts a registered count to avoid a large
+        -- variable barrel shifter on the 162 MHz control path.
+        when S_CAP_DECODE =>
+          info_init <= '0'; op <= OP_NONE;
+          if r_long(127 downto 126) = "01" then
+            cap_last <= unsigned(r_long(69 downto 48)) & "1111111111";
+            cap_known <= '1'; st <= cap_ret;
+          elsif r_long(127 downto 126) = "00" then
+            cap_work <= resize(unsigned(r_long(73 downto 62)), 33) + 1;
+            cap_shift <= to_integer(unsigned(r_long(83 downto 80)))
+              + to_integer(unsigned(r_long(49 downto 47))) - 7;
+            st <= S_CAP_SHIFT;
+          elsif limit_s(1) = '0' then st <= cap_ret;
+          else
+            e_error <= '1'; e_err <= ERR_CAPACITY; ready <= '0';
+            cnt <= (others => '0'); st <= S_TAIL;
+          end if;
+
+        when S_CAP_SHIFT =>
+          if cap_shift > 0 then cap_work <= shift_left(cap_work, 1); cap_shift <= cap_shift-1;
+          elsif cap_shift < 0 then cap_work <= shift_right(cap_work, 1); cap_shift <= cap_shift+1;
+          elsif cap_work /= 0 then
+            cap_last <= resize(cap_work-1, 32); cap_known <= '1'; st <= cap_ret;
+          elsif limit_s(1) = '0' then st <= cap_ret;
+          else
+            e_error <= '1'; e_err <= ERR_CAPACITY; ready <= '0';
+            cnt <= (others => '0'); st <= S_TAIL;
+          end if;
 
         ------------------------------------------------------------------------
         -- native init
@@ -2257,9 +2352,16 @@ begin
                 rca     <= r_sr(39 downto 24);
                 new_set <= SET_DS;      -- data transfer mode: default speed
                 cur_set <= SET_DS;
-                istep   <= 9;
+                istep   <= 20;
                 resync(N_INIT);
               end if;
+            when 20 =>
+              istep <= 21; do_cmd(9, rca & x"0000", R_R2, N_INIT);
+            when 21 =>
+              if c_ok = '1' then
+                cap_ret <= N_INIT; istep <= 9; st <= S_CAP_DECODE;
+              elsif limit_s(1) = '0' then istep <= 9;
+              else istep <= 30; end if;
             when 9 =>
               istep <= 10;
               do_cmd(7, rca & x"0000", R_R1B, N_INIT);
@@ -2722,6 +2824,12 @@ begin
               istep   <= 13;
               resync(P_INIT);
             when 13 =>
+              -- Read capacity internally, without publishing data to the
+              -- shared sector buffer while both sockets initialise.
+              info_init <= '1'; info_kind <= "00"; info_len <= to_unsigned(16, 7);
+              info_pos <= (others => '0'); op <= OP_INFO;
+              cap_ret <= P_INIT; istep <= 15; st <= I_START;
+            when 15 =>
               -- test read of block 0
               ready      <= '1';
               op_verify  <= '1';
@@ -3093,6 +3201,7 @@ begin
         e_busy    <= '1';
         e_wait    <= '0';
         op        <= OP_NONE;
+        cap_known <= '0'; info_init <= '0'; range_failed <= '0';
         op_closed <= '1';
         ready     <= '0';
         c_act     <= '0';
@@ -3185,7 +3294,10 @@ entity sdcard_native_dual is
     sd_clk, sd_cmd_o, sd_cmd_oe : out std_logic_vector(1 downto 0);
     sd_cmd_i : in std_logic_vector(1 downto 0);
     sd_dat_o, sd_dat_oe : out std_logic_vector(7 downto 0);
-    sd_dat_i : in std_logic_vector(7 downto 0)
+    sd_dat_i : in std_logic_vector(7 downto 0);
+    limit_enable : in std_logic_vector(1 downto 0) := "11";
+    cards_last_sector : out unsigned(63 downto 0);
+    cards_capacity_valid : out std_logic_vector(1 downto 0)
   );
 end entity;
 
@@ -3193,6 +3305,7 @@ architecture rtl of sdcard_native_dual is
   type t_u8 is array (0 to 1) of unsigned(7 downto 0);
   type t_u9 is array (0 to 1) of unsigned(8 downto 0);
   type t_u16 is array (0 to 1) of unsigned(15 downto 0);
+  type t_u32 is array (0 to 1) of unsigned(31 downto 0);
   type t_u128 is array (0 to 1) of unsigned(127 downto 0);
   type t_p2 is array (0 to 1) of std_logic_vector(1 downto 0);
   type t_p8 is array (0 to 1) of std_logic_vector(7 downto 0);
@@ -3215,6 +3328,8 @@ architecture rtl of sdcard_native_dual is
   signal c_setting, c_done, c_rblock, c_wblock : t_u16;
   signal c_roff, c_woff : t_u9;
   signal c_diag : t_u128;
+  signal c_last : t_u32;
+  signal c_capacity : std_logic_vector(1 downto 0);
   signal c_clk, c_cmd_o, c_cmd_oe : t_p2;
   signal c_dat_o, c_dat_oe : t_p8;
   signal info : unsigned(63 downto 0);
@@ -3243,7 +3358,10 @@ begin
         rd_offset => c_roff(s), rd_block => c_rblock(s), rd_good => c_good(s), rd_bad => c_bad(s),
         wr_fetch => c_wfetch(s), wr_offset => c_woff(s), wr_block => c_wblock(s), wr_data => wr_data,
         sd_clk => c_clk(s), sd_cmd_o => c_cmd_o(s), sd_cmd_oe => c_cmd_oe(s), sd_cmd_i => sd_cmd_i,
-        sd_dat_o => c_dat_o(s), sd_dat_oe => c_dat_oe(s), sd_dat_i => sd_dat_i);
+        sd_dat_o => c_dat_o(s), sd_dat_oe => c_dat_oe(s), sd_dat_i => sd_dat_i,
+        limit_enable => limit_enable(s), last_sector => c_last(s), capacity_valid => c_capacity(s));
+    cards_last_sector(s*32+31 downto s*32) <= c_last(s);
+    cards_capacity_valid(s) <= c_capacity(s);
     sd_clk(s) <= c_clk(s)(s);
     sd_cmd_o(s) <= c_cmd_o(s)(s);
     sd_cmd_oe(s) <= c_cmd_oe(s)(s);

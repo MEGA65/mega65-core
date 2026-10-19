@@ -76,6 +76,12 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --     (16), $2E SCR (8), $2F SD Status (64). Raw bytes, most significant byte
 --     first, zero padded to 512 bytes in the normal SD sector buffer. These
 --     read-only commands preserve the sector address and bypass the cache.
+--   * capacity bounds default on, independently per card:
+--       $D680 <- $30 / $31  enable / disable (survives software resets)
+--       $D6D9 = $A0 | capacity-known bit 1 | limit-enabled bit 0
+--       $D6DC byte index 0..3, $D6DD inclusive last LBA (little endian)
+--     Reads/writes beyond reported CSD capacity return $D687=$44; unknown
+--     capacity returns $45. Cached reads obey the same restriction.
 --   * retry diagnostics: $D6CC=$53, $D6CD=1 identify version 1.
 --     Write $D6CE bit 7 to latch 16 bytes; low nibble selects the byte
 --     read at $D6CF. Seven little-endian 16-bit event counts (read retries,
@@ -178,6 +184,13 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal ds_cmd_arg     : unsigned(15 downto 0);
   signal ds_slot        : std_logic;
   signal ds_cards       : unsigned(63 downto 0);
+  signal ds_last        : unsigned(63 downto 0);
+  signal ds_capacity    : std_logic_vector(1 downto 0);
+  signal card_limits    : std_logic_vector(1 downto 0) := "11";
+  signal capacity_index : unsigned(1 downto 0) := "00";
+  signal ui_last        : unsigned(31 downto 0);
+  signal nat_last       : unsigned(31 downto 0);
+  signal nat_limited, nat_capacity : std_logic;
   signal ui_info        : unsigned(31 downto 0);
   signal ui_reset       : std_logic_vector(1 downto 0) := "11";
   signal ui_error       : std_logic_vector(1 downto 0) := "00";
@@ -187,6 +200,8 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal ui_busy, ui_sdio_busy, ui_pending_init : std_logic;
   signal ui_token, ui_errcode : unsigned(7 downto 0);
   signal ui_owner, ui_error_flag, ui_fsm_flag : std_logic;
+  type card_codes_t is array (0 to 1) of unsigned(7 downto 0);
+  signal ui_saved_code : card_codes_t := (others => (others => '0'));
 
   function card_index(slot : std_logic) return natural is
   begin
@@ -246,6 +261,9 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       u_cmd_count   => nat_cmd_count,
       u_cmd_arg     => nat_cmd_arg,
       u_cmd_slot    => nat_slot,
+      u_limit_enable => nat_limited,
+      u_capacity_valid => nat_capacity,
+      u_last_sector => nat_last,
       u_card_ready  => nat_card_ready,
       u_busy        => nat_busy,
       u_waiting     => nat_waiting,
@@ -321,6 +339,9 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       cmd_slot    => ds_slot,
       status_slot => ds_slot,
       cards_status => ds_cards,
+      limit_enable => card_limits,
+      cards_last_sector => ds_last,
+      cards_capacity_valid => ds_capacity,
       card_ready  => ds_card_ready,
       busy        => ds_busy,
       waiting     => ds_waiting,
@@ -376,6 +397,10 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
 
   -- The register view follows selection, not the shared FSM's stream owner.
   ui_info <= ds_cards(63 downto 32) when sd_interface_select_internal = '1' else ds_cards(31 downto 0);
+  ui_last <= ds_last(63 downto 32) when sd_interface_select_internal = '1' else ds_last(31 downto 0);
+  nat_last <= ds_last(63 downto 32) when nat_slot = '1' else ds_last(31 downto 0);
+  nat_limited <= card_limits(card_index(nat_slot));
+  nat_capacity <= ds_capacity(card_index(nat_slot));
   ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';
   ui_pending_init <= nat_init_req or (nat_init_wait and (not nat_cmd_ready or not nat_quiet))
     when nat_init_both = '1' or sd_interface_select_internal = nat_init_slot else '0';
@@ -390,7 +415,10 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
     ui_info(3) & (ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1))
     & (ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1)) & ui_info(2)
     & ui_info(14) & ui_info(13) & ui_info(12) & ui_info(0);
-  ui_errcode <= (others => '0') when ui_pending_init = '1' else ui_info(11 downto 4);
+  ui_errcode <= (others => '0') when ui_pending_init = '1' else
+    nat_err_code when ui_owner = '1' else
+    ui_saved_code(card_index(sd_interface_select_internal)) when ui_error(card_index(sd_interface_select_internal)) = '1' else
+    ui_info(11 downto 4);
 
 """)
 
@@ -423,6 +451,7 @@ rep("""    if rising_edge(clock) then
       -- for cmd_ready (the status then reflects the command)
       nat_cmd_valid <= '0';
       ui_error(card_index(nat_slot)) <= sdio_error;
+      ui_saved_code(card_index(nat_slot)) <= nat_err_code;
       ui_fsm_error(card_index(nat_slot)) <= sdio_fsm_error;
       ui_open_rd(card_index(nat_slot)) <= nat_open_rd;
       ui_open_wr(card_index(nat_slot)) <= nat_open_wr;
@@ -923,11 +952,13 @@ rep('''            when x"81" =>
               diag_index <= fastio_wdata(3 downto 0);
               if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;
 
+            when x"DC" => capacity_index <= fastio_wdata(1 downto 0);
             when x"81" =>
               -- @IO:GS $D681''')
 
 # --- persistent slots and selected-card legacy register semantics ------------
-rep('''           sd_reset,fastio_read,sd_sector,fastio_write,''', '''           ui_reset,ui_error_flag,ui_fsm_flag,ui_sdhc,ui_busy,ui_sdio_busy,ui_token,ui_errcode,
+rep('''           sd_reset,fastio_read,sd_sector,fastio_write,''', '''           card_limits,ds_capacity,capacity_index,ui_last,
+           ui_reset,ui_error_flag,ui_fsm_flag,ui_sdhc,ui_busy,ui_sdio_busy,ui_token,ui_errcode,
            sd_reset,fastio_read,sd_sector,fastio_write,''')
 for old, new in [
     ("fastio_rdata(6) <= sdio_error;", "fastio_rdata(6) <= ui_error_flag;"),
@@ -943,6 +974,10 @@ for old, new in [
 rep('''          when x"D0" =>
             -- @IO:GS $D6D0''', '''          when x"D7" => fastio_rdata <= x"D2"; -- persistent slots + parallel init signature
           when x"D8" => fastio_rdata <= x"49"; -- read-only card information commands
+          when x"D9" => fastio_rdata <= "101000" & ds_capacity(card_index(sd_interface_select_internal))
+            & card_limits(card_index(sd_interface_select_internal));
+          when x"DC" => fastio_rdata <= "000000" & capacity_index;
+          when x"DD" => fastio_rdata <= ui_last(to_integer(capacity_index)*8+7 downto to_integer(capacity_index)*8);
           when x"D0" =>
             -- @IO:GS $D6D0''')
 rep("if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;", """if fastio_wdata(7) = '1' then
@@ -998,7 +1033,14 @@ blockrep('''                  -- Initialise again: $23 SPI only, $24 no high spe
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sd_state <= Idle;
                   end if;''')
-blockrep('''                when x"0c" =>''', '''                when x"2B" =>
+blockrep('''                when x"0c" =>''', '''                when x"30" | x"31" =>
+                  -- Capacity policy is independent per card and can be set
+                  -- even when init failed. Retain it across software resets.
+                  if sdio_busy = '0' then
+                    card_limits(card_index(sd_interface_select_internal)) <= not fastio_wdata(0);
+                  end if;
+
+                when x"2B" =>
                   -- New extension: initialise both cards concurrently.
                   if sdio_busy = '0' and nat_init_req = '0' then
                     sd_reset <= '0';

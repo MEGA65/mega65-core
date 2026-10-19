@@ -35,7 +35,11 @@ entity sdcard_native_model is
     G_PATTERN_SEED : natural := 0;     -- distinguish the same LBA on two cards
     G_INFO_BAD_CRC : boolean := false;
     G_INFO_TIMEOUT : boolean := false;
-    G_INFO_BAD_HEADER : boolean := false
+    G_INFO_BAD_HEADER : boolean := false;
+    G_SIZE_UNITS : positive := 244140; -- SDHC capacity in 1024-sector units
+    G_UNSUPPORTED_CSD : boolean := false;
+    G_SDSC_CSIZE : natural range 0 to 4095 := 4095;
+    G_SDSC_MULT : natural range 0 to 7 := 7
     );
   port (
     clk : in    std_logic;
@@ -93,7 +97,14 @@ architecture sim of sdcard_native_model is
   begin
     if kind = 0 then
       v := x"400E00325B590003FFFF7F800A400001";
-      v(69 downto 48) := std_logic_vector(to_unsigned(244139 + G_PATTERN_SEED, 22));
+      v(69 downto 48) := std_logic_vector(to_unsigned(G_SIZE_UNITS-1 + G_PATTERN_SEED, 22));
+      if not G_SDHC then
+        v(127 downto 126) := "00";
+        v(83 downto 80) := "1001";
+        v(73 downto 62) := std_logic_vector(to_unsigned(G_SDSC_CSIZE, 12));
+        v(49 downto 47) := std_logic_vector(to_unsigned(G_SDSC_MULT, 3));
+      end if;
+      if G_UNSUPPORTED_CSD then v(127 downto 126) := "10"; end if;
     else
       v := x"03534453453136308012345678017A01";
       v(55 downto 24) := std_logic_vector(unsigned(v(55 downto 24)) + G_PATTERN_SEED);
@@ -164,6 +175,7 @@ begin
     variable rca    : std_logic_vector(15 downto 0) := x"0000";
     variable acmd41 : natural := 0;
     variable sel    : boolean := false;
+    variable was_selected : boolean := false;
     variable cs_low : boolean;
     variable resp   : std_logic_vector(135 downto 0);
     variable rlen   : natural;
@@ -219,7 +231,7 @@ begin
             resp(47 downto 0) := frame48(idx, status, true); rlen := 48;
             rd_small <= true; rd_multi <= false;
             if idx = 51 then rd_kind <= 2; else rd_kind <= 3; end if;
-            if not G_INFO_TIMEOUT then rd_go <= not rd_go; end if;
+            if not G_INFO_TIMEOUT or not was_selected then rd_go <= not rd_go; end if;
           else
             case idx is
               when 0 =>
@@ -228,7 +240,7 @@ begin
                 end if;
                 reset_go <= not reset_go;
                 multi_active := false;
-                sel := false; rca := x"0000"; acmd41 := 0;
+                sel := false; was_selected := false; rca := x"0000"; acmd41 := 0;
               when 8 =>
                 resp(47 downto 0) := frame48(8, x"000001" & arg(7 downto 0), true); rlen := 48;
               when 55 =>
@@ -245,17 +257,18 @@ begin
               when 7 =>
                 sel := arg(31 downto 16) = rca;
                 if sel then
+                  was_selected := true;
                   resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
                 end if;
               when 9 | 10 =>
                 assert not sel and arg(31 downto 16) = rca
                   report "CID/CSD requires addressed Stand-by card" severity failure;
                 resp(135 downto 128) := "00111111";
-                if G_INFO_BAD_HEADER then resp(133) := '0'; end if;
+                if G_INFO_BAD_HEADER and was_selected then resp(133) := '0'; end if;
                 if idx = 9 then resp(127 downto 0) := info_reg(0);
                 else resp(127 downto 0) := info_reg(1); end if;
-                if G_INFO_BAD_CRC then resp(1) := not resp(1); end if;
-                if not G_INFO_TIMEOUT then rlen := 136; end if;
+                if G_INFO_BAD_CRC and was_selected then resp(1) := not resp(1); end if;
+                if not G_INFO_TIMEOUT or not was_selected then rlen := 136; end if;
               when 13 =>
                 if multi_active or native_reading then status := x"00000A00"; end if;
                 if not sel then status := x"00000700"; end if;
@@ -552,6 +565,7 @@ begin
     variable wcrcrx   : std_logic_vector(15 downto 0);
     variable err_done : boolean := false;
     variable cs_on    : boolean := false;
+    variable data_reads_started : boolean := false;
 
     procedure push(v : std_logic_vector(7 downto 0)) is
     begin
@@ -587,13 +601,13 @@ begin
       variable n : natural := 16;
       variable v : std_logic_vector(7 downto 0);
     begin
-      if G_INFO_TIMEOUT then return; end if;
+      if G_INFO_TIMEOUT and data_reads_started then return; end if;
       if kind = 2 then n := 8; elsif kind = 3 then n := 64; end if;
       push(x"FF"); push(x"FE");
       for i in 0 to n-1 loop
         v := info_byte(kind, i); push(v); cr := crc16_byte(cr, v);
       end loop;
-      if G_INFO_BAD_CRC then cr(0) := not cr(0); end if;
+      if G_INFO_BAD_CRC and data_reads_started then cr(0) := not cr(0); end if;
       push(cr(15 downto 8)); push(cr(7 downto 0));
     end procedure;
 
@@ -692,6 +706,7 @@ begin
                     -- reinitialisation after an interrupted cache fill.
                     qh := qt;
                     acmd41 := 0;
+                    data_reads_started := false;
                     crc_on := false;
                     r1(x"01");
                   when 8 =>
@@ -711,6 +726,7 @@ begin
                     r1(x"00");
                     if idx = 9 then push_info(0); else push_info(1); end if;
                   when 17 | 18 =>
+                    data_reads_started := true;
                     if G_SDHC then rblk := to_integer(unsigned(arg));
                     else rblk := to_integer(unsigned(arg(31 downto 9))); end if;
                     r1(x"00");

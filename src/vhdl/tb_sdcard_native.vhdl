@@ -26,7 +26,11 @@ entity tb_sdcard_native is
     G_INFO_TEST : boolean := false;
     G_INFO_BAD_CRC : boolean := false;
     G_INFO_TIMEOUT : boolean := false;
-    G_INFO_BAD_HEADER : boolean := false
+    G_INFO_BAD_HEADER : boolean := false;
+    G_BOUND_TEST : boolean := false;
+    G_SDHC_CARD : boolean := true;
+    G_MAXCARD_TEST : boolean := false;
+    G_CAPFAIL_TEST : boolean := false
     );
 end entity;
 
@@ -35,6 +39,14 @@ architecture tb of tb_sdcard_native is
   constant T162 : time := 6172 ps;
   constant TCPU : time := 4 * T162;
   constant BOARD : time := 1500 ps;     -- each way
+  function size_units return positive is
+  begin
+    if G_MAXCARD_TEST then return 4194304;
+    elsif G_BOUND_TEST then return 1; else return 244140; end if;
+  end function;
+  signal limit_enable : std_logic := '1';
+  signal capacity_valid : std_logic;
+  signal last_sector : unsigned(31 downto 0);
 
   function pattern(b : natural; i : natural) return unsigned is
   begin
@@ -129,7 +141,8 @@ begin
       wr_data => wr_data,
       sd_clk => sd_clk, sd_cmd_o => sd_cmd_o, sd_cmd_oe => sd_cmd_oe,
       sd_cmd_i => sd_cmd_i, sd_dat_o => sd_dat_o, sd_dat_oe => sd_dat_oe,
-      sd_dat_i => sd_dat_i);
+      sd_dat_i => sd_dat_i, limit_enable => limit_enable,
+      capacity_valid => capacity_valid, last_sector => last_sector);
 
   -- the board: pull-ups, and a delay each way
   card_clk <= transport sd_clk(0) after BOARD;
@@ -151,7 +164,9 @@ begin
                  G_LONG_READ_NAC => G_LONG_READ_NAC,
                  G_LONG_MULTI_NAC => G_LONG_MULTI_NAC,
                  G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_INFO_TIMEOUT => G_INFO_TIMEOUT,
-                 G_INFO_BAD_HEADER => G_INFO_BAD_HEADER)
+                 G_INFO_BAD_HEADER => G_INFO_BAD_HEADER,
+                 G_SIZE_UNITS => size_units, G_SDHC => G_SDHC_CARD,
+                 G_UNSUPPORTED_CSD => G_CAPFAIL_TEST)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -252,6 +267,7 @@ begin
 
     variable t0 : time;
     variable g  : natural;
+    variable last : natural;
     variable want : unsigned(7 downto 0);
     constant csd : std_logic_vector(127 downto 0) := x"400E00325B590003B9AB7F800A400067";
     constant cid : std_logic_vector(127 downto 0) := x"03534453453136308012345678017AEB";
@@ -260,6 +276,21 @@ begin
   begin
     -- power-up init
     wait for 100 ns;
+    if G_CAPFAIL_TEST then
+      wait_idle(40 ms);
+      check(error = '1' and err_code = x"45" and card_ready = '0' and capacity_valid = '0',
+            "unknown capacity cannot initialise with protection enabled");
+      limit_enable <= '0'; wait for 4*TCPU;
+      command(1, 0, 0, 0); wait_idle(10 ms);
+      check(error = '0' and card_ready = '1' and capacity_valid = '0',
+            "explicit override permits init with unknown capacity");
+      clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
+      check_blocks(5, 1, false, "unknown-capacity override permits ordinary reads");
+      limit_enable <= '1'; wait for 4*TCPU;
+      clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"45" and n_bytes = 0, "re-enabling unknown capacity blocks reads");
+      report "ALL CAPFAIL TESTS PASSED"; done <= true; wait;
+    end if;
     wait until card_ready = '1' and busy = '0' for 40 ms;
     check(card_ready = '1' and error = '0', "auto init");
     report "  native=" & std_logic'image(native_mode) & " hs=" & std_logic'image(high_speed)
@@ -271,6 +302,60 @@ begin
       check(clk_setting = x"0808", "40.5 MHz setting");
     end if;
 
+    if G_MAXCARD_TEST then
+      check(capacity_valid = '1' and last_sector = x"FFFFFFFF", "2 TiB capacity keeps inclusive last LBA");
+      clear_rx;
+      wait until rising_edge(cpuclock) and cmd_ready = '1';
+      cmd_code <= x"2"; cmd_addr <= x"FFFFFFFF"; cmd_count <= x"0002"; cmd_arg <= x"0000";
+      cmd_valid <= '1'; wait until rising_edge(cpuclock); cmd_valid <= '0';
+      wait until rising_edge(cpuclock) and cmd_ready = '1'; wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and n_bytes = 0, "range end cannot wrap at 2 TiB");
+      report "ALL MAXCAP TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_BOUND_TEST then
+      if G_SDHC_CARD then last := 1023; else last := 2097151; end if;
+      check(capacity_valid = '1' and last_sector = last, "capacity decoded before ready");
+      clear_rx; command(2, last, 1, 0); wait_idle(5 ms);
+      check_blocks(last, 1, false, "last reported sector is readable");
+      clear_rx; command(2, last+1, 1, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and n_bytes = 0, "reject first out-of-range read");
+      clear_rx; command(3, last+1, 1, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44", "reject out-of-range write");
+      clear_rx; command(2, last, 2, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and n_bytes = 0, "reject whole read crossing capacity");
+      wr_base <= last;
+      command(3, last, 2, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44", "reject whole write crossing capacity");
+      clear_rx; command(2, last, 1, 0); wait_idle(5 ms);
+      check_blocks(last, 1, false, "rejected multi-write changed no valid sector");
+      clear_rx; command(2, last, 0, 0);
+      wait until waiting = '1' for 5 ms;
+      check(waiting = '1' and n_good = 1, "open read pauses at last valid sector");
+      command(4, 0, 0, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and n_good = 1 and n_bytes = 512,
+            "out-of-range grant closes stream without another sector");
+      command(3, last, 0, 0);
+      wait until waiting = '1' for 5 ms;
+      check(waiting = '1' and blocks_done = 1, "open write pauses at last valid sector");
+      command(4, 0, 0, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and blocks_done = 1,
+            "out-of-range write grant closes without another sector");
+      limit_enable <= '0'; wait for 4*TCPU;
+      clear_rx; command(2, last+1, 1, 0); wait_idle(5 ms);
+      check_blocks(last+1, 1, false, "override permits read and rejected write changed nothing");
+      wr_base <= last+1; command(3, last+1, 1, 0); wait_idle(5 ms);
+      check(error = '0', "override permits write");
+      clear_rx; command(2, last+1, 1, 0); wait_idle(5 ms);
+      check_blocks(last+1, 1, true, "override write reached the simulated card");
+      limit_enable <= '1'; wait for 4*TCPU;
+      clear_rx; command(2, last+1, 1, 0); wait_idle(5 ms);
+      check(error = '1' and err_code = x"44" and n_bytes = 0, "re-enabling protection restores range checks");
+      limit_enable <= '0'; wait for 4*TCPU;
+      command(1, 0, 0, 0); wait_idle(10 ms);
+      clear_rx; command(2, last+1, 1, 0); wait_idle(5 ms);
+      check_blocks(last+1, 1, true, "override survives card reset");
+      report "ALL BOUND TESTS PASSED"; done <= true; wait;
+    end if;
     if G_INFO_TEST then
       for kind in 0 to 3 loop
         clear_rx;

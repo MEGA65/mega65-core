@@ -33,7 +33,9 @@ entity tb_sdcardio_native is
     G_CARD1_PRESENT : boolean := false;
     G_CARD1_SPI : boolean := false;
     G_INFO_TEST : boolean := false;
-    G_INFO_BAD_CRC : boolean := false
+    G_INFO_BAD_CRC : boolean := false;
+    G_BOUND_TEST : boolean := false;
+    G_TAIL_TEST : boolean := false
     );
 end entity;
 
@@ -42,6 +44,14 @@ architecture tb of tb_sdcardio_native is
   constant T162  : time := 6172 ps;
   constant TCPU  : time := 4 * T162;
   constant BOARD : time := 1500 ps;
+  function size_units return positive is
+  begin
+    if G_BOUND_TEST then return 1; else return 244140; end if;
+  end function;
+  function sdsc_csize return natural is
+  begin if G_TAIL_TEST then return 2; else return 4095; end if; end function;
+  function sdsc_mult return natural is
+  begin if G_TAIL_TEST then return 0; else return 7; end if; end function;
 
   function pattern(b : natural; i : natural) return unsigned is
   begin
@@ -100,7 +110,7 @@ begin
     -- the real CPU/SD clocks, line timing and all command/data framing.
     generic map (target => mega65r6, cpu_frequency => 40500000,
                  sd_xilinx_io => false, sd_cache_lines => G_CACHE_LINES, sd_ms_cycles => 1620,
-                 sd_auto_init => not (G_DUAL_TEST or G_INFO_TEST))
+                 sd_auto_init => not (G_DUAL_TEST or G_INFO_TEST or G_BOUND_TEST))
     port map (
       clock => cpuclock, pixelclk => cpuclock, reset => '1',
       sdcardio_cs => sdcardio_cs, f011_cs => f011_cs,
@@ -146,7 +156,8 @@ begin
   present0 : if G_CARD0_PRESENT generate
     card : entity work.sdcard_native_model
       generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD, G_LONG_READ_NAC => 40000,
-                   G_INFO_BAD_CRC => G_INFO_BAD_CRC)
+                   G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_SIZE_UNITS => size_units,
+                   G_SDHC => not G_TAIL_TEST, G_SDSC_CSIZE => sdsc_csize, G_SDSC_MULT => sdsc_mult)
       port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
   end generate;
   card1_clk <= transport sd_clk(1) after BOARD;
@@ -162,7 +173,8 @@ begin
   sd_dat_i(7 downto 4) <= transport to_X01(card1_dat) after BOARD;
   present1 : if G_CARD1_PRESENT generate
     card : entity work.sdcard_native_model
-      generic map (G_START_SPI => G_CARD1_SPI, G_PATTERN_SEED => 89, G_INFO_BAD_CRC => G_INFO_BAD_CRC)
+      generic map (G_START_SPI => G_CARD1_SPI, G_PATTERN_SEED => 89,
+                   G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_SIZE_UNITS => size_units)
       port map (clk => card1_clk, cmd => card1_cmd, dat => card1_dat);
   end generate;
   clock_start : for s in 0 to 1 generate
@@ -233,6 +245,20 @@ begin
       end loop;
     end procedure;
 
+    procedure wait_range_error is
+      variable v : unsigned(7 downto 0);
+      variable t : time := now;
+    begin
+      loop
+        peek(16#D3680#, v);
+        exit when v(6) = '1' and v(0) = '0';
+        assert now-t < 5 ms report "range error timeout" severity failure;
+        wait for 1 us;
+      end loop;
+      check(v(1) = '1', "range error retains legacy BUSY");
+      peek(16#D3687#, v); check(v = x"44", "range error code is visible");
+    end procedure;
+
     procedure set_sector(n : natural) is
     begin
       poke(16#D3681#, n mod 256);
@@ -281,6 +307,60 @@ begin
 
   begin
     wait for 1 us;
+    if G_TAIL_TEST then
+      -- A synthetic 12-sector SDSC volume ends halfway through a cache
+      -- line. Read-ahead must stop there without poisoning a valid read.
+      poke(16#D3680#, 0); poke(16#D3680#, 1); wait_ready(40 ms);
+      set_sector(11); poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(11, false, "last sector in a partial cache line");
+      wait for 100 us; peek(16#D3680#, v); check(v(6) = '0', "no out-of-range tail prefetch");
+      set_sector(8); poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(8, false, "partial final cache-line fill");
+      wait for 100 us; peek(16#D3680#, v); check(v(6) = '0', "partial fill closes cleanly at capacity");
+      set_sector(12); poke(16#D3680#, 2); wait_range_error;
+      report "ALL TAIL TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_BOUND_TEST then
+      poke(16#D3680#, 16#2B#); wait_ready(40 ms);
+      peek(16#D36D9#, v); check(v = x"A3", "capacity protection defaults on before ready");
+      for i in 0 to 3 loop
+        poke(16#D36DC#, i); peek(16#D36DD#, v);
+        if i = 0 then check(v = x"FF", "last LBA byte 0");
+        elsif i = 1 then check(v = x"03", "last LBA byte 1");
+        else check(v = 0, "last LBA high bytes"); end if;
+      end loop;
+      set_sector(1023); poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(1023, false, "normal read at reported last sector");
+      set_sector(1024); poke(16#D3680#, 2); wait_range_error;
+      if G_CARD1_PRESENT then
+        poke(16#D3680#, 16#C1#); wait_ready(40 ms);
+        set_sector(1024); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(1024, false, "other card can read while first has a cached range error", 1);
+        poke(16#D3680#, 16#C0#);
+        peek(16#D3687#, v); check(v = x"44", "cached range error code survives other-card operation");
+      end if;
+      fill_buffer(1024); poke(16#D3680#, 16#57#); poke(16#D3680#, 3); wait_range_error;
+      poke(16#D3680#, 16#31#);
+      peek(16#D36D9#, v); check(v = x"A2", "override disables selected card limit");
+      poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(1024, false, "override read also proves rejected write changed nothing");
+      -- This data is now cached beyond capacity. Re-enabling the limit
+      -- must reject it before a cache hit can publish any stale buffer.
+      poke(16#D3680#, 16#30#); poke(16#D3680#, 2); wait_range_error;
+      poke(16#D3680#, 16#31#);
+      poke(16#D3680#, 16#00#); poke(16#D3680#, 16#01#); wait_ready(40 ms);
+      peek(16#D36D9#, v); check(v = x"A2", "selected-card override survives reset");
+      set_sector(1024); poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(1024, false, "ordinary read remains unbounded after reset");
+      if G_CARD1_PRESENT then
+        poke(16#D3680#, 16#C1#); wait_ready(40 ms);
+        peek(16#D36D9#, v); check(v = x"A3", "other card keeps its default limit");
+        set_sector(1024); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(1024, false, "same LBA is valid on the larger other card", 1);
+      end if;
+      assert fails = 0 report "BOUND TESTS FAILED" severity failure;
+      report "ALL BOUND TESTS PASSED"; done <= true; wait;
+    end if;
     if G_INFO_TEST then
       peek(16#D36D8#, v); check(v = x"49", "card info capability signature");
       poke(16#D3680#, 16#2B#);

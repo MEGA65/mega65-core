@@ -102,6 +102,8 @@ The fork keeps the existing `$D680` interface and adds:
 | `$2D` | Read CID (manufacturer/product/serial/date), 16 bytes |
 | `$2E` | Read SCR (SD version/bus capabilities), 8 bytes |
 | `$2F` | Read SD Status (speed classes/allocation/erase information), 64 bytes |
+| `$30` | Enable the selected card's reported-capacity limit (power-up default) |
+| `$31` | Disable that limit for explicit raw-card diagnostics |
 
 - `$D686` (read) returns status flags and `$D687` (read) the low-level error
   code.
@@ -268,6 +270,47 @@ malformed R2 headers, timeouts, recovery and subsequent ordinary reads in
 native and SPI modes.
 The upper testbench checks both slots, cache bypass/preservation, unchanged
 sector addresses, mixed native/SPI cards, CRC error/BUSY and no-cache mode.
+
+**Default capacity bounds.** Each card's initialisation reads CSD before
+publishing READY. Native SD uses CMD9 in Stand-by before CMD7; SPI consumes
+the short CSD block privately, without publishing bytes into the shared
+sector buffer. CSD v1 (SDSC) and v2 (SDHC/SDXC) are decoded to an inclusive
+32-bit last LBA; a 2 TiB card therefore has last LBA `$FFFFFFFF`, not zero.
+This adds registers, not BRAM. The existing retry diagnostics remain v1.
+
+Reads, writes and speed-probe reads are bounded by default. A fixed-length
+request crossing the end is rejected in full, including 32-bit address
+overflow. An open multi-sector read/write accepts only in-range grants;
+an out-of-range next grant closes the existing stream and returns an error
+without transferring that sector. Error `$44` means out of range; `$45`
+means the capacity is unavailable/unsupported. Legacy sticky error/BUSY
+semantics are retained, allowing existing sector-reading tools, including
+the freezer, to encounter an error at the reported end without changing
+their read commands. The limit uses the card's advertised capacity.
+
+`$D680 <- $31` disables protection for the selected card; `$30` enables it.
+Issue these between foreground operations. The settings are independent
+per slot and survive software resets; power-up enables both. They can be
+set even after init failed, so explicit override followed by reset can
+initialise a card whose CSD cannot be decoded. With protection enabled,
+unknown capacity prevents init/access. Re-enabling protection also blocks
+cached sectors fetched beyond capacity while override was enabled. Cache
+read-ahead stops at the reported end, including a partially filled final
+line. The engine registers the range sum and next-grant address so wide
+addition and comparison do not share the 162 MHz control path.
+
+`$D6D9 = $A0 | (capacity_known << 1) | limit_enabled` reports the selected
+slot's policy/result and identifies this extension. To read its inclusive
+last LBA, write byte index 0--3 to `$D6DC`, then read `$D6DD` (little endian).
+This window changes neither the sector address nor the sector buffer;
+ignore its LBA when `capacity_known` is zero. Cached range errors also
+appear in `$D687`, and their code survives operations on the other card.
+
+`G_BOUND_TEST`, `G_MAXCARD_TEST` and `G_CAPFAIL_TEST` cover the boundaries,
+overflow, bulk/open read/write rejection, override/reset behaviour, SDSC,
+SPI, unknown capacity and 2 TiB decoding. The upper tests include cache
+override/re-enable and per-card limits/error codes; `G_TAIL_TEST` exercises
+a synthetic capacity that ends halfway through a cache line in native/SPI.
 
 **Checked native close.** A read's final CMD12 waits for its response and
 busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.
