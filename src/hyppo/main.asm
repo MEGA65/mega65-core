@@ -771,6 +771,33 @@ normalboot:
         ;; Work out if we are using primary or secondard SD card
 
 sd_boot_probe_cards:
+        ;; New controller extension: start both cards together. Continue to
+        ;; prefer the external card, but fallback never starts a second reset.
+        lda $d6cc
+        cmp #$53
+        bne sd_boot_probe_legacy
+        lda $d6cd
+        cmp #$01
+        bne sd_boot_probe_legacy
+        lda $d6d7
+        cmp #$d2
+        bne sd_boot_probe_legacy
+        lda #$c1
+        sta $d680
+        lda #$2b
+        sta $d680
+        jsr sd_wait_for_boot_card
+        bcs sd_boot_external_ready
+        lda #$c0
+        sta $d680
+        ldx #<msg_tryingcard0
+        ldy #>msg_tryingcard0
+        jsr printmessage
+        jsr sd_wait_for_boot_card
+        bcs check_sd_bus_mode
+        jmp sd_boot_no_card
+
+sd_boot_probe_legacy:
         ;; First try resetting card 1 (external)
         ;; so that if you have an external card, it will be used in preference
         lda #$c1
@@ -783,6 +810,7 @@ sd_boot_probe_cards:
         jsr sd_wait_for_boot_card
         bcc trybus0
 
+sd_boot_external_ready:
         phx
 
         ldx #<msg_usingcard1
@@ -809,6 +837,7 @@ trybus0:
         jsr sd_wait_for_boot_card
         bcs check_sd_bus_mode
 
+sd_boot_no_card:
         ;; No working SD card -- we can just try booting to BASIC, since we
         ;; now include our open-source ROM
         ldx #<msg_nosdcard
