@@ -2,15 +2,11 @@
 
 Issues: SD controller MEGA65/mega65-core#890, cache #953, hardware FAT32 #766.
 
-Status: the low-level controller, upper-controller fork and data cache pass
-simulation and are plumbed into mega65r6.  The first Vivado build missed
-timing; commit `81ca519af` registers the critical controller paths.  Hardware
-testing of that commit has begun (2026-10-18): internal-card reads work in
-SPI fallback and, after a power cycle, native 4-bit high-speed mode. Checks
-include identical uncached and cached MBR reads, the FAT32 boot sector and
-the MEGA65 system-partition header. Boot exposed a legacy
-busy-status compatibility bug, described below.  Read-ahead, the metadata
-cache and the FAT32 engine are still plans.
+Status: native 4-bit and SPI reads, the data cache/read-ahead and Hyppo boot
+work on hardware with `30f3f7e15`. The two persistent card sessions and
+parallel initialisation described below are tested in simulation; FPGA
+resource/timing results and hardware confirmation are pending. The separate
+metadata cache and hardware FAT32 engine remain plans.
 
 ## 1. Where things stand
 
@@ -101,6 +97,7 @@ The fork keeps the existing `$D680` interface and adds:
 | `$23` | Re-initialise in SPI mode only |
 | `$24` | Re-initialise, staying at default speed |
 | `$2A` | Clear errors/recover without card reset; invalidate cached data |
+| `$2B` | Initialise both slots concurrently; each slot reports its own result |
 
 - `$D686` (read) returns status flags and `$D687` (read) the low-level error
   code.
@@ -181,6 +178,61 @@ otherwise it takes the existing reset path. The normal SDHC/MBR reads remain.
 timeout windows, legacy fallback, slot priority and healthy-session reuse.
 These are assembled-code tests with mocked register state, not physical
 boot-time measurements. Hardware timing of the reduced waits is pending.
+
+**Two persistent card sessions.** `sdcard_native_dual` (in the same source
+file as `sdcard_native`) instantiates one engine per socket. Each owns its
+RCA, native/SPI mode, high-speed state, clock/sample setting, errors and
+protocol state. The engines instantiate only their own socket's I/O
+primitives. The upper controller, sector buffer and data-cache BRAM remain
+shared. Engine FIFOs use LUTRAM, so the second session requires no extra
+BRAM; its LUT/FF cost and timing still require synthesis confirmation.
+
+`$D6CC=$53`, `$D6CD=1`, **`$D6D7=$D2`** identifies this extension. The retry
+diagnostic layout/version remains unchanged. The exact new signature avoids
+mistaking an older controller's unmapped register for support.
+
+- `$C0/$C1` selects the card for subsequent requests and immediately changes
+  the `$D680`, `$D686` and `$D687` status view. Selection issues no reset and
+  preserves cache lines from both cards. Pending mailbox/reset latency,
+  ready, native/SPI mode, RESET and sticky error/BUSY are scoped to the card.
+- `$00/$01` and `$10/$11` retain selected-card reset semantics. `$23/$24`
+  also reinitialise only the selected card. Reset assertion/host errors for
+  one card do not become the other card's status.
+- New `$2B` starts both card initialisations together, including probing
+  empty sockets. Failures are independent. Software selects either slot to
+  poll its result; an absent card retains legacy error/stuck-BUSY semantics.
+- New Hyppo recognises the extension, selects external and issues `$2B`.
+  If external probing fails, it selects internal and uses the result already
+  in progress/completed, with no second reset. Both probes overlap: the
+  relevant wait is governed by their completion times rather than their sum.
+  Older controllers use the existing sequential reset path.
+- Requests capture their card at acceptance. Selection during a foreground
+  transfer changes the status view without redirecting data or write fetches.
+  The shared buffer still supports one foreground operation at a time;
+  software completes/copies that result before starting another operation.
+- A cross-card data request drains an earlier transfer and uses the existing
+  checked stop/close before reassigning the shared stream. An idle/failed
+  card does not prevent using the other card after its own transfer retires.
+
+Cache identity is `(slot, sector / 8)`, adding one register bit per line.
+Requests, fills and write snoops retain their slot, including when the
+selection changes. A selected-card init/recovery or failed write invalidates
+that card's lines; `$2B` and explicit cache flush invalidate both. Metadata
+cache tags will need the same card identity. Retry counters remain aggregate
+across the two sockets, and the snapshot's clock setting follows selection.
+
+The upper testbench's `G_DUAL_TEST` covers all four populated/empty socket
+combinations, concurrent clock starts, cache separation for identical LBAs,
+selection during a long read, independent legacy reset/error state, mixed
+SPI/native operation and `G_CACHE_LINES=0`. `tb_sd_cache` has a lower-level
+`G_DUAL_TEST` for cross-card fill/stream handover. Simulation shortens only
+protocol millisecond counters; pin/CPU clocks and frame/data timing remain.
+The upper dual tests disable automatic power-up init so the explicit `$2B`
+must start both sockets. Lower dual tests with `G_DUAL_SPI0` / `G_DUAL_SPI1`
+also check reads on the ready socket while the other is still initialising.
+Their same-LBA writes check that write fetches and cache snoops affect only
+the owning card, with native/SPI roles tested in both directions.
+These are simulation checks, not measured hardware boot times.
 
 **Checked native close.** A read's final CMD12 waits for its response and
 busy phase, then sends CMD13 and requires Transfer state plus READY_FOR_DATA.
@@ -394,9 +446,10 @@ reads get the benefit.
   leave it anyway).  Sectors not yet fetched stay invalid.
 - **Multi-sector writes** (`$04` / `$05` / `$06`) follow the same rules, one
   sector at a time.
-- **Invalidate everything** on reset/init (`$00` / `$01`, `$23`, `$24`), on a
-  slot switch (`$C0` / `$C1`), and on a card-detect change.  Alternatively the
-  tags could carry the slot.
+- Tags carry the slot. Reset/init (`$00` / `$01`, `$23`, `$24`) invalidates
+  that card's lines; `$2B` invalidates both. Selection preserves both cards'
+  lines. Future card-detect support must invalidate the removed/replaced
+  card's lines and filesystem mount/descriptor state.
 
 ### 2.6 Control, statistics, safety
 

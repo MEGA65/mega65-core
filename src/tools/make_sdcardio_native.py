@@ -65,7 +65,13 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --       $D680 <- $28  hit and miss counts (16 bits each) into $D681-$D684
 --       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
 --       $D680 <- $2A  clear errors/recover the current card without reset;
---                     native SD verifies CMD12/CMD13, and empties the cache
+--                     native SD verifies CMD12/CMD13, and invalidates its cache
+--   * persistent slots ($D6CC=$53, $D6CD=1, $D6D7=$D2):
+--       $D680 <- $2B  initialise both cards concurrently, including empty slots
+--       $D680 <- $C0 / $C1  select a card's status and subsequent requests
+--     Selection preserves both card sessions and slot-tagged cache lines.
+--     Legacy reset/recovery affects only the selected card. A transfer keeps
+--     its card even when software selects the other card to inspect status.
 --   * retry diagnostics: $D6CC=$53, $D6CD=1 identify version 1.
 --     Write $D6CE bit 7 to latch 16 bytes; low nibble selects the byte
 --     read at $D6CF. Seven little-endian 16-bit event counts (read retries,
@@ -151,6 +157,9 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal nat_init_req    : std_logic := '0';
   signal nat_init_flags  : unsigned(3 downto 0) := (others => '0');
   signal nat_init_wait   : std_logic := '0';
+  signal nat_slot        : std_logic := '0'; -- accepted operation's owner
+  signal nat_init_slot   : std_logic := '0';
+  signal nat_init_both   : std_logic := '0';
   signal nat_open_rd     : std_logic := '0';     -- a multi-sector read is open
   signal nat_open_wr     : std_logic := '0';     -- a multi-sector write is open
   signal nat_meta        : std_logic := '0';     -- the read is file system metadata ($0B)
@@ -162,6 +171,28 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal ds_cmd_addr    : unsigned(31 downto 0);
   signal ds_cmd_count   : unsigned(15 downto 0);
   signal ds_cmd_arg     : unsigned(15 downto 0);
+  signal ds_slot        : std_logic;
+  signal ds_cards       : unsigned(63 downto 0);
+  signal ui_info        : unsigned(31 downto 0);
+  signal ui_reset       : std_logic_vector(1 downto 0) := "11";
+  signal ui_error       : std_logic_vector(1 downto 0) := "00";
+  signal ui_fsm_error   : std_logic_vector(1 downto 0) := "00";
+  signal ui_sdhc        : std_logic_vector(1 downto 0) := "11";
+  signal ui_open_rd, ui_open_wr : std_logic_vector(1 downto 0) := "00";
+  signal ui_busy, ui_sdio_busy, ui_pending_init : std_logic;
+  signal ui_token, ui_errcode : unsigned(7 downto 0);
+  signal ui_owner, ui_error_flag, ui_fsm_flag : std_logic;
+
+  function card_index(slot : std_logic) return natural is
+  begin
+    if slot = '1' then return 1; else return 0; end if;
+  end function;
+
+  function native_ms_cycles return natural is
+  begin
+    if sd_ms_cycles = 0 then return cpu_frequency / 250;
+    else return sd_ms_cycles; end if;
+  end function;
   signal ds_card_ready  : std_logic;
   signal ds_busy        : std_logic;
   signal ds_waiting     : std_logic;
@@ -209,6 +240,7 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       u_cmd_addr    => nat_cmd_addr,
       u_cmd_count   => nat_cmd_count,
       u_cmd_arg     => nat_cmd_arg,
+      u_cmd_slot    => nat_slot,
       u_card_ready  => nat_card_ready,
       u_busy        => nat_busy,
       u_waiting     => nat_waiting,
@@ -237,6 +269,8 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       d_cmd_addr    => ds_cmd_addr,
       d_cmd_count   => ds_cmd_count,
       d_cmd_arg     => ds_cmd_arg,
+      d_cmd_slot    => ds_slot,
+      d_cards_status => ds_cards,
       d_card_ready  => ds_card_ready,
       d_busy        => ds_busy,
       d_waiting     => ds_waiting,
@@ -264,9 +298,10 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       cache_misses  => cache_misses
       );
 
-  sd0: entity work.sdcard_native
+  sd0: entity work.sdcard_native_dual
     generic map (
-      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
+      G_AUTO_INIT => sd_auto_init,
+      G_MS     => native_ms_cycles,      -- clock162 cycles per ms
       G_WR_LAT => 2
       )
     port map (
@@ -278,6 +313,9 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       cmd_addr    => ds_cmd_addr,
       cmd_count   => ds_cmd_count,
       cmd_arg     => ds_cmd_arg,
+      cmd_slot    => ds_slot,
+      status_slot => ds_slot,
+      cards_status => ds_cards,
       card_ready  => ds_card_ready,
       busy        => ds_busy,
       waiting     => ds_waiting,
@@ -317,7 +355,7 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
   -- Keep an absent/failed card and terminal errors busy, and cover queued
   -- INIT/mailbox latency so polling never accepts a failed or stale sector.
   -- An open multi-sector transfer is still ready between granted blocks.
-  sdcard_busy    <= sd_reset or nat_init_req or nat_init_wait
+  sdcard_busy    <= ui_reset(card_index(nat_slot)) or nat_init_wait
                    or not nat_quiet or not nat_cmd_ready or not nat_card_ready
                    or nat_error or sdio_error
                    or (nat_busy and not nat_waiting);
@@ -330,6 +368,24 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
   last_sd_rxbyte <= nat_probe_fail;
   sd_datatoken   <= nat_error & nat_open_wr & nat_open_rd & nat_waiting
                     & nat_sdhc & nat_hs & nat_native & nat_card_ready;
+
+  -- The register view follows selection, not the shared FSM's stream owner.
+  ui_info <= ds_cards(63 downto 32) when sd_interface_select_internal = '1' else ds_cards(31 downto 0);
+  ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';
+  ui_pending_init <= nat_init_req or (nat_init_wait and (not nat_cmd_ready or not nat_quiet))
+    when nat_init_both = '1' or sd_interface_select_internal = nat_init_slot else '0';
+  ui_error_flag <= '0' when ui_pending_init = '1' else
+    ui_info(3) or ui_error(card_index(sd_interface_select_internal)) or (sdio_error and ui_owner);
+  ui_fsm_flag <= ui_fsm_error(card_index(sd_interface_select_internal)) or (sdio_fsm_error and ui_owner);
+  ui_sdio_busy <= (sdio_busy and ui_owner) or qspi_busy;
+  ui_busy <= '1' when ui_reset(card_index(sd_interface_select_internal)) = '1' or ui_pending_init = '1'
+    or ui_error_flag = '1' else
+    sdcard_busy when ui_owner = '1' else (ui_info(1) and not ui_info(2)) or not ui_info(0);
+  ui_token <= (others => '0') when ui_pending_init = '1' else
+    ui_info(3) & (ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1))
+    & (ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1)) & ui_info(2)
+    & ui_info(14) & ui_info(13) & ui_info(12) & ui_info(0);
+  ui_errcode <= (others => '0') when ui_pending_init = '1' else ui_info(11 downto 4);
 
 """)
 
@@ -361,6 +417,10 @@ rep("""    if rising_edge(clock) then
       -- native SD controller: one command at a time; after issuing one, wait
       -- for cmd_ready (the status then reflects the command)
       nat_cmd_valid <= '0';
+      ui_error(card_index(nat_slot)) <= sdio_error;
+      ui_fsm_error(card_index(nat_slot)) <= sdio_fsm_error;
+      ui_open_rd(card_index(nat_slot)) <= nat_open_rd;
+      ui_open_wr(card_index(nat_slot)) <= nat_open_wr;
       if nat_quiet_cnt /= 0 then
         nat_quiet_cnt <= nat_quiet_cnt - 1;
       end if;
@@ -376,10 +436,14 @@ rep("""    if rising_edge(clock) then
         if nat_init_req='1' then
           nat_init_req   <= '0';
           nat_init_wait  <= '1';
+          nat_slot       <= nat_init_slot;
+          sdio_error     <= '0';
+          sdio_fsm_error <= '0';
           nat_open_rd    <= '0';
           nat_open_wr    <= '0';
           nat_cmd_code   <= x"1";
-          nat_cmd_arg    <= x"00" & "000" & sd_interface_select_internal & nat_init_flags;
+          if nat_init_both = '1' then nat_cmd_code <= x"A"; end if;
+          nat_cmd_arg    <= x"00" & "000" & nat_init_slot & nat_init_flags;
           nat_cmd_valid  <= '1';
           nat_quiet_cnt  <= 3;
         elsif nat_init_wait='1' and nat_busy='0' then
@@ -824,11 +888,14 @@ rep("""    target : mega65_target_t;
     -- false only for simulation: behavioural ODDR / IDDR in sdcard_native
     sd_xilinx_io : boolean := true;
     -- sector cache: 4 KB lines (one RAMB36 each), 0 = no cache
-    sd_cache_lines : natural := 16
+    sd_cache_lines : natural := 16;
+    -- 0 derives the real timer from cpu_frequency; simulation may shorten it
+    sd_ms_cycles : natural := 0;
+    sd_auto_init : boolean := true
     );""")
-rep("""      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
+rep("""      G_MS     => native_ms_cycles,      -- clock162 cycles per ms
 """, """      G_XILINX => sd_xilinx_io,
-      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
+      G_MS     => native_ms_cycles,      -- clock162 cycles per ms
 """)
 
 # Read-only native diagnostic window. Latch/index access leaves the sector
@@ -847,6 +914,117 @@ rep('''            when x"81" =>
 
             when x"81" =>
               -- @IO:GS $D681''')
+
+# --- persistent slots and selected-card legacy register semantics ------------
+rep('''           sd_reset,fastio_read,sd_sector,fastio_write,''', '''           ui_reset,ui_error_flag,ui_fsm_flag,ui_sdhc,ui_busy,ui_sdio_busy,ui_token,ui_errcode,
+           sd_reset,fastio_read,sd_sector,fastio_write,''')
+for old, new in [
+    ("fastio_rdata(6) <= sdio_error;", "fastio_rdata(6) <= ui_error_flag;"),
+    ("fastio_rdata(5) <= sdio_fsm_error;", "fastio_rdata(5) <= ui_fsm_flag;"),
+    ("fastio_rdata(4) <= sdhc_mode;", "fastio_rdata(4) <= ui_sdhc(card_index(sd_interface_select_internal));"),
+    ("fastio_rdata(2) <= sd_reset;", "fastio_rdata(2) <= ui_reset(card_index(sd_interface_select_internal));"),
+    ("fastio_rdata(1) <= sdcard_busy;", "fastio_rdata(1) <= ui_busy;"),
+    ("fastio_rdata(0) <= sdio_busy or qspi_busy;", "fastio_rdata(0) <= ui_sdio_busy;"),
+    ('''when x"86" => fastio_rdata <= sd_datatoken;''', '''when x"86" => fastio_rdata <= ui_token;'''),
+    ('''when x"87" => fastio_rdata <= unsigned(sd_rdata);''', '''when x"87" => fastio_rdata <= ui_errcode;'''),
+]:
+    rep(old, new)
+rep('''          when x"D0" =>
+            -- @IO:GS $D6D0''', '''          when x"D7" => fastio_rdata <= x"D2"; -- persistent slots + parallel init signature
+          when x"D0" =>
+            -- @IO:GS $D6D0''')
+rep("if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;", """if fastio_wdata(7) = '1' then
+                diag_snapshot <= ds_diag_stats;
+                diag_snapshot(127 downto 112) <= ui_info(31 downto 16);
+              end if;""")
+
+a = s.index('              case fastio_wdata is', s.index('report "SDCARDIO: Writing'))
+b = s.index('            when x"CE" =>', a)
+block = s[a:b]
+
+def blockrep(old, new, count=1):
+    global block
+    assert block.count(old) == count, (block.count(old), old[:160])
+    block = block.replace(old, new)
+
+error_counts = {("sdio_error", "0"): 9, ("sdio_error", "1"): 6,
+                ("sdio_fsm_error", "0"): 9, ("sdio_fsm_error", "1"): 5}
+for value in ('0', '1'):
+    for name, bank in (("sdio_error", "ui_error"), ("sdio_fsm_error", "ui_fsm_error")):
+        blockrep(f"{name} <= '{value}';", f"""{bank}(card_index(sd_interface_select_internal)) <= '{value}';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    {name} <= '{value}';
+                  end if;""", error_counts[(name, value)])
+blockrep('''                  sd_reset <= '1';''', '''                  ui_reset(card_index(sd_interface_select_internal)) <= '1';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_reset <= '1';''')
+blockrep('''                  sd_reset <= '0';''', '''                  ui_reset(card_index(sd_interface_select_internal)) <= '0';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_reset <= '0';''')
+# The reset-state changes above affect the selected operation only. A reset
+# release for the other card is queued until the shared upper FSM is idle.
+blockrep('''                  read_on_idle <= '0';
+
+                when x"01"''', '''                  read_on_idle <= '0';
+                  end if;
+
+                when x"01"''', 1)
+blockrep('''                  read_on_idle <= '0';
+                  nat_init_req <= '1';''', '''                  read_on_idle <= '0';
+                  end if;
+                  nat_init_req <= '1';''', 1)
+blockrep('''                  nat_init_req <= '1';''', '''                  nat_init_req <= '1';
+                  nat_init_slot <= sd_interface_select_internal;
+                  nat_init_both <= '0';''', 2)
+blockrep('''                  -- Initialise again: $23 SPI only, $24 no high speed
+                  sd_state <= Idle;''', '''                  -- Initialise again: $23 SPI only, $24 no high speed
+                  ui_reset(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_state <= Idle;
+                  end if;''')
+blockrep('''                when x"0c" =>''', '''                when x"2B" =>
+                  -- New extension: initialise both cards concurrently.
+                  if sdio_busy = '0' and nat_init_req = '0' then
+                    sd_reset <= '0';
+                    ui_reset <= "00";
+                    ui_error <= "00";
+                    ui_fsm_error <= "00";
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    nat_init_req <= '1';
+                    nat_init_slot <= sd_interface_select_internal;
+                    nat_init_both <= '1';
+                    nat_init_flags <= x"0";
+                  end if;
+
+                when x"0c" =>''')
+blockrep('''when x"40" => sdhc_mode <= '0';''', '''when x"40" => ui_sdhc(card_index(sd_interface_select_internal)) <= '0';''')
+blockrep('''when x"41" => sdhc_mode <= '1';''', '''when x"41" => ui_sdhc(card_index(sd_interface_select_internal)) <= '1';''')
+# Capture the card with data/control requests, never with a mere bus selection.
+capture = '''              if sdio_busy = '0' and fastio_wdata /= x"C0" and fastio_wdata /= x"C1" then
+                nat_slot <= sd_interface_select_internal;
+                sdio_error <= ui_error(card_index(sd_interface_select_internal));
+                sdio_fsm_error <= ui_fsm_error(card_index(sd_interface_select_internal));
+                nat_open_rd <= ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1);
+                nat_open_wr <= ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1);
+              end if;
+'''
+s = s[:a] + capture + block + s[b:]
+# Bind image requests only in the SD-backed branches, not real-drive commands.
+rep('''                      -- SD card
+                      sd_state <= ReadSector;''', '''                      -- SD card
+                      nat_slot <= sd_interface_select_internal;
+                      sd_state <= ReadSector;''')
+rep('''                      sd_state <= F011WriteSector;''', '''                      nat_slot <= sd_interface_select_internal;
+                      sd_state <= F011WriteSector;''')
+rep('''            nat_kind <= K_SINGLE;
+            sd_state <= ReadSector;''', '''            nat_kind <= K_SINGLE;
+            nat_slot <= sd_interface_select_internal;
+            sd_state <= ReadSector;''')
 
 open(dst, 'w').write(s)
 print("ok")

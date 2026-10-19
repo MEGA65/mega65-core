@@ -31,7 +31,8 @@ entity sdcard_native_model is
     G_STOP_ACK_FAILS : natural := 0;   -- first CMD12s reply but keep streaming
     G_STRICT_STOP : boolean := false; -- ignore CMD12 when already in Transfer
     G_LONG_READ_NAC : natural := 0;   -- override first-block wait at block 300
-    G_LONG_MULTI_NAC : natural := 2   -- inter-block wait for that read
+    G_LONG_MULTI_NAC : natural := 2;   -- inter-block wait for that read
+    G_PATTERN_SEED : natural := 0      -- distinguish the same LBA on two cards
     );
   port (
     clk : in    std_logic;
@@ -44,7 +45,7 @@ architecture sim of sdcard_native_model is
 
   function pattern(b : natural; i : natural) return std_logic_vector is
   begin
-    return std_logic_vector(to_unsigned((b * 37 + i * 7 + (i / 256) * 101 + 13) mod 256, 8));
+    return std_logic_vector(to_unsigned((b * 37 + i * 7 + (i / 256) * 101 + 13 + G_PATTERN_SEED) mod 256, 8));
   end function;
 
   function crc7_bit(c : std_logic_vector(6 downto 0); b : std_logic) return std_logic_vector is

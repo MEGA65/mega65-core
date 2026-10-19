@@ -27,7 +27,11 @@ entity tb_sdcardio_native is
     G_BOOT_TEST   : boolean := false;
     G_ERROR_TEST  : boolean := false;
     G_CACHE_LINES : natural := 16;
-    G_SPI_CARD    : boolean := false
+    G_SPI_CARD    : boolean := false;
+    G_DUAL_TEST : boolean := false;
+    G_CARD0_PRESENT : boolean := true;
+    G_CARD1_PRESENT : boolean := false;
+    G_CARD1_SPI : boolean := false
     );
 end entity;
 
@@ -76,6 +80,11 @@ architecture tb of tb_sdcardio_native is
   signal card_dat : std_logic_vector(3 downto 0);
   signal host_cmd : std_logic;
   signal host_dat : std_logic_vector(3 downto 0);
+  signal card1_clk : std_logic := '1';
+  signal card1_cmd, host1_cmd : std_logic;
+  signal card1_dat, host1_dat : std_logic_vector(3 downto 0);
+  type t_times is array (0 to 1) of time;
+  signal first_clock : t_times := (others => 0 ns);
 
   signal fails : natural := 0;
 
@@ -85,8 +94,11 @@ begin
   cpuclock <= not cpuclock after TCPU / 2 when not done;
 
   dut : entity work.sdcardio_native
+    -- Scale protocol millisecond counters by 100 for simulation; retain
+    -- the real CPU/SD clocks, line timing and all command/data framing.
     generic map (target => mega65r6, cpu_frequency => 40500000,
-                 sd_xilinx_io => false, sd_cache_lines => G_CACHE_LINES)
+                 sd_xilinx_io => false, sd_cache_lines => G_CACHE_LINES, sd_ms_cycles => 1620,
+                 sd_auto_init => not G_DUAL_TEST)
     port map (
       clock => cpuclock, pixelclk => cpuclock, reset => '1',
       sdcardio_cs => sdcardio_cs, f011_cs => f011_cs,
@@ -129,9 +141,33 @@ begin
   sd_cmd_i(0)          <= transport to_X01(card_cmd) after BOARD;
   sd_dat_i(3 downto 0) <= transport to_X01(card_dat) after BOARD;
 
-  card : entity work.sdcard_native_model
-    generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD)
-    port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
+  present0 : if G_CARD0_PRESENT generate
+    card : entity work.sdcard_native_model
+      generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD, G_LONG_READ_NAC => 40000)
+      port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
+  end generate;
+  card1_clk <= transport sd_clk(1) after BOARD;
+  card1_cmd <= 'H';
+  card1_dat <= "HHHH";
+  host1_cmd <= sd_cmd_o(1) when sd_cmd_oe(1) = '1' else 'Z';
+  card1_cmd <= transport host1_cmd after BOARD;
+  drv1 : for l in 0 to 3 generate
+    host1_dat(l) <= sd_dat_o(l+4) when sd_dat_oe(l+4) = '1' else 'Z';
+  end generate;
+  card1_dat <= transport host1_dat after BOARD;
+  sd_cmd_i(1) <= transport to_X01(card1_cmd) after BOARD;
+  sd_dat_i(7 downto 4) <= transport to_X01(card1_dat) after BOARD;
+  present1 : if G_CARD1_PRESENT generate
+    card : entity work.sdcard_native_model
+      generic map (G_START_SPI => G_CARD1_SPI, G_PATTERN_SEED => 89)
+      port map (clk => card1_clk, cmd => card1_cmd, dat => card1_dat);
+  end generate;
+  clock_start : for s in 0 to 1 generate
+    process(sd_clk(s))
+    begin
+      if falling_edge(sd_clk(s)) and first_clock(s) = 0 ns then first_clock(s) <= now; end if;
+    end process;
+  end generate;
 
   stim : process
 
@@ -202,13 +238,14 @@ begin
       poke(16#D3684#, 0);
     end procedure;
 
-    procedure check_buffer(n : natural; written : boolean; msg : string) is
+    procedure check_buffer(n : natural; written : boolean; msg : string; slot : natural := 0) is
       variable v, want : unsigned(7 downto 0);
       variable bad : natural := 0;
     begin
       for i in 0 to 511 loop
         peek(16#FFE00# + i, v);
-        if written then want := wpattern(n, i); else want := pattern(n, i); end if;
+        if written then want := wpattern(n, i);
+        else want := pattern(n, i) + to_unsigned(slot * 89, 8); end if;
         if v /= want then
           if bad < 3 then
             report "  sector " & integer'image(n) & " byte " & integer'image(i) & " = "
@@ -230,9 +267,108 @@ begin
     variable v : unsigned(7 downto 0);
     variable t0 : time;
     variable h0, h1 : natural;
+    variable s0, s1 : unsigned(7 downto 0);
+    variable ready0, ready1 : boolean;
 
   begin
     wait for 1 us;
+    if G_DUAL_TEST then
+      -- Disable automatic power-up init in this mode so only the explicit
+      -- extension can start either card. This catches an ignored $2B.
+      peek(16#D36D7#, v); check(v = x"D2", "parallel extension has an exact capability signature");
+      poke(16#D3680#, 16#C1#);
+      poke(16#D3680#, 16#2B#);
+      t0 := now;
+      ready0 := false; ready1 := false;
+      loop
+        poke(16#D3680#, 16#C0#); peek(16#D3686#, s0);
+        poke(16#D3680#, 16#C1#); peek(16#D3686#, s1);
+        ready0 := s0(0) = '1' or s0(7) = '1';
+        ready1 := s1(0) = '1' or s1(7) = '1';
+        exit when ready0 and ready1;
+        assert now - t0 < 40 ms report "parallel init timeout" severity failure;
+        wait for 25 us;
+      end loop;
+      check(first_clock(0) /= 0 ns and first_clock(1) /= 0 ns
+        and abs(first_clock(0) - first_clock(1)) <= TCPU,
+        "both sockets start reset clocks together, including absent cards");
+      check((s0(0) = '1') = G_CARD0_PRESENT, "internal ready state belongs to internal card");
+      check((s1(0) = '1') = G_CARD1_PRESENT, "external ready state belongs to external card");
+      check((s0(7) = '1') /= G_CARD0_PRESENT, "internal error state is independent");
+      check((s1(7) = '1') /= G_CARD1_PRESENT, "external error state is independent");
+      if G_CARD0_PRESENT then
+        check((s0(1) = '0') = G_SPI_CARD, "internal retains its own native/SPI mode");
+      end if;
+      if G_CARD1_PRESENT then
+        check((s1(1) = '0') = G_CARD1_SPI, "external retains its own native/SPI mode");
+      end if;
+      report "parallel probe elapsed " & time'image(now - t0);
+      for s in 0 to 1 loop
+        if (s = 0 and G_CARD0_PRESENT) or (s = 1 and G_CARD1_PRESENT) then
+          poke(16#D3680#, 16#C0# + s);
+          wait_ready(1 ms);
+          set_sector(96); poke(16#D3680#, 2); wait_ready(5 ms);
+          check_buffer(96, false, "same LBA returns selected card data", s);
+        else
+          poke(16#D3680#, 16#C0# + s);
+          peek(16#D3680#, v);
+          check(v(1) = '1' and v(6) = '1', "absent card retains legacy error/BUSY");
+        end if;
+      end loop;
+      if G_CARD0_PRESENT and G_CARD1_PRESENT then
+        -- Both lines survive selection changes. First visits were misses.
+        poke(16#D3680#, 16#28#); peek(16#D3681#, v); h0 := to_integer(v);
+        for s in 0 to 1 loop
+          poke(16#D3680#, 16#C0# + s);
+          set_sector(96); poke(16#D3680#, 2); wait_ready(5 ms);
+          check_buffer(96, false, "slot-tagged cached hit", s);
+        end loop;
+        poke(16#D3680#, 16#28#); peek(16#D3681#, v);
+        if G_CACHE_LINES /= 0 then check(to_integer(v) = h0 + 2, "both card lines remain cached"); end if;
+
+        -- Card selection changes the status view, never the running read.
+        poke(16#D3680#, 16#C0#);
+        set_sector(300); poke(16#D3680#, 2);
+        peek(16#D3680#, v); check(v(1 downto 0) /= "00", "internal read is busy");
+        poke(16#D3680#, 16#C1#); peek(16#D3680#, v);
+        check(v(1 downto 0) = "00" and v(6) = '0', "selecting idle external card exposes its own status");
+        poke(16#D3680#, 16#C0#); wait_ready(5 ms);
+        check_buffer(300, false, "selection during a read preserves transfer owner");
+
+        -- Legacy selected-card reset does not reset/invalidate the other.
+        poke(16#D3680#, 16#00#);
+        peek(16#D3680#, v); check(v(2) = '1', "selected card asserts legacy RESET");
+        poke(16#D3680#, 16#C1#); peek(16#D3680#, v);
+        check(v(2 downto 0) = "000", "other card remains ready while internal reset is held");
+        poke(16#D3680#, 16#C0#); poke(16#D3680#, 16#01#);
+        peek(16#D3680#, v); check(v(1) = '1', "selected reset queues BUSY immediately");
+        wait_ready(40 ms);
+        poke(16#D3680#, 16#28#); peek(16#D3681#, v); h0 := to_integer(v);
+        poke(16#D3680#, 16#C1#);
+        set_sector(96); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(96, false, "external cache survives internal reset", 1);
+        poke(16#D3680#, 16#28#); peek(16#D3681#, v);
+        if G_CACHE_LINES /= 0 then check(to_integer(v) = h0 + 1, "single-card reset preserves other card's cache hit"); end if;
+
+        -- Upper-controller errors are sticky per card as well as low-level
+        -- errors. Resetting/mapping the other card must not erase them.
+        poke(16#D3680#, 16#FF#); peek(16#D3680#, v);
+        check(v(6) = '1' and v(1) = '1', "external upper error retains legacy BUSY");
+        poke(16#D3680#, 16#C0#); peek(16#D3680#, v);
+        check(v(6) = '0', "external upper error does not leak into internal status");
+        poke(16#D3680#, 16#00#);
+        poke(16#D3680#, 16#C1#); peek(16#D3680#, v);
+        check(v(6) = '1', "resetting internal card preserves external upper error");
+        poke(16#D3680#, 16#81#); peek(16#D3680#, v);
+        check(v(6) = '0' and v(1 downto 0) = "00", "legacy map command clears selected upper error");
+        poke(16#D3680#, 16#C0#); peek(16#D3680#, v);
+        check(v(2) = '1' and v(6) = '0', "selection restores internal RESET without external error");
+      end if;
+      assert fails = 0 report "DUAL TESTS FAILED" severity failure;
+      report "ALL DUAL TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
     if G_BOOT_TEST then
       -- Hyppo tries slot 1 first and only tests $D680 bits 1..0.  An empty
       -- slot must never look ready merely because initialisation has ended.
@@ -447,30 +583,34 @@ begin
     wait_ready(5 ms);
     check_buffer(31, false, "read after $0A");
 
-    -- bus speed: probe and use 81 MHz (P = 4, D = 4)
-    poke(16#D3681#, 4);
-    poke(16#D3682#, 4);
-    poke(16#D3680#, 16#20#);
-    wait_ready(10 ms);
-    peek(16#D309B#, v);
-    report "  probe P=4 D=4: pass " & integer'image(to_integer(v));
-    check(v = 8, "probe 81 MHz: 8 of 8");
-    poke(16#D3681#, 4);
-    poke(16#D3682#, 2);
-    poke(16#D3680#, 16#20#);
-    wait_ready(10 ms);
-    peek(16#D309C#, v);
-    check(v = 8, "probe 81 MHz with D=2: 8 failures");
-    poke(16#D3681#, 4);
-    poke(16#D3682#, 4);
-    poke(16#D3680#, 16#21#);
-    wait_ready(1 ms);
-    set_sector(50);
-    t0 := now;
-    poke(16#D3680#, 16#02#);
-    wait_ready(5 ms);
-    report "  one sector at 81 MHz (command to ready): " & time'image(now - t0);
-    check_buffer(50, false, "read at 81 MHz");
+    -- Native high-speed only: SPI fallback correctly rejects an 81 MHz
+    -- probe with ERR_NOHS, retaining legacy error/BUSY until recovery.
+    if not G_SPI_CARD then
+      -- bus speed: probe and use 81 MHz (P = 4, D = 4)
+      poke(16#D3681#, 4);
+      poke(16#D3682#, 4);
+      poke(16#D3680#, 16#20#);
+      wait_ready(10 ms);
+      peek(16#D309B#, v);
+      report "  probe P=4 D=4: pass " & integer'image(to_integer(v));
+      check(v = 8, "probe 81 MHz: 8 of 8");
+      poke(16#D3681#, 4);
+      poke(16#D3682#, 2);
+      poke(16#D3680#, 16#20#);
+      wait_ready(10 ms);
+      peek(16#D309C#, v);
+      check(v = 8, "probe 81 MHz with D=2: 8 failures");
+      poke(16#D3681#, 4);
+      poke(16#D3682#, 4);
+      poke(16#D3680#, 16#21#);
+      wait_ready(1 ms);
+      set_sector(50);
+      t0 := now;
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      report "  one sector at 81 MHz (command to ready): " & time'image(now - t0);
+      check_buffer(50, false, "read at 81 MHz");
+    end if;
     poke(16#D3680#, 16#22#);
     wait_ready(1 ms);
     set_sector(51);

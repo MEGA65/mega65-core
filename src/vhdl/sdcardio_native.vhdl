@@ -54,7 +54,13 @@
 --       $D680 <- $28  hit and miss counts (16 bits each) into $D681-$D684
 --       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
 --       $D680 <- $2A  clear errors/recover the current card without reset;
---                     native SD verifies CMD12/CMD13, and empties the cache
+--                     native SD verifies CMD12/CMD13, and invalidates its cache
+--   * persistent slots ($D6CC=$53, $D6CD=1, $D6D7=$D2):
+--       $D680 <- $2B  initialise both cards concurrently, including empty slots
+--       $D680 <- $C0 / $C1  select a card's status and subsequent requests
+--     Selection preserves both card sessions and slot-tagged cache lines.
+--     Legacy reset/recovery affects only the selected card. A transfer keeps
+--     its card even when software selects the other card to inspect status.
 --   * retry diagnostics: $D6CC=$53, $D6CD=1 identify version 1.
 --     Write $D6CE bit 7 to latch 16 bytes; low nibble selects the byte
 --     read at $D6CF. Seven little-endian 16-bit event counts (read retries,
@@ -110,7 +116,10 @@ entity sdcardio_native is
     -- false only for simulation: behavioural ODDR / IDDR in sdcard_native
     sd_xilinx_io : boolean := true;
     -- sector cache: 4 KB lines (one RAMB36 each), 0 = no cache
-    sd_cache_lines : natural := 16
+    sd_cache_lines : natural := 16;
+    -- 0 derives the real timer from cpu_frequency; simulation may shorten it
+    sd_ms_cycles : natural := 0;
+    sd_auto_init : boolean := true
     );
   port (
     clock : in std_logic;
@@ -389,6 +398,9 @@ architecture behavioural of sdcardio_native is
   signal nat_init_req    : std_logic := '0';
   signal nat_init_flags  : unsigned(3 downto 0) := (others => '0');
   signal nat_init_wait   : std_logic := '0';
+  signal nat_slot        : std_logic := '0'; -- accepted operation's owner
+  signal nat_init_slot   : std_logic := '0';
+  signal nat_init_both   : std_logic := '0';
   signal nat_open_rd     : std_logic := '0';     -- a multi-sector read is open
   signal nat_open_wr     : std_logic := '0';     -- a multi-sector write is open
   signal nat_meta        : std_logic := '0';     -- the read is file system metadata ($0B)
@@ -400,6 +412,28 @@ architecture behavioural of sdcardio_native is
   signal ds_cmd_addr    : unsigned(31 downto 0);
   signal ds_cmd_count   : unsigned(15 downto 0);
   signal ds_cmd_arg     : unsigned(15 downto 0);
+  signal ds_slot        : std_logic;
+  signal ds_cards       : unsigned(63 downto 0);
+  signal ui_info        : unsigned(31 downto 0);
+  signal ui_reset       : std_logic_vector(1 downto 0) := "11";
+  signal ui_error       : std_logic_vector(1 downto 0) := "00";
+  signal ui_fsm_error   : std_logic_vector(1 downto 0) := "00";
+  signal ui_sdhc        : std_logic_vector(1 downto 0) := "11";
+  signal ui_open_rd, ui_open_wr : std_logic_vector(1 downto 0) := "00";
+  signal ui_busy, ui_sdio_busy, ui_pending_init : std_logic;
+  signal ui_token, ui_errcode : unsigned(7 downto 0);
+  signal ui_owner, ui_error_flag, ui_fsm_flag : std_logic;
+
+  function card_index(slot : std_logic) return natural is
+  begin
+    if slot = '1' then return 1; else return 0; end if;
+  end function;
+
+  function native_ms_cycles return natural is
+  begin
+    if sd_ms_cycles = 0 then return cpu_frequency / 250;
+    else return sd_ms_cycles; end if;
+  end function;
   signal ds_card_ready  : std_logic;
   signal ds_busy        : std_logic;
   signal ds_waiting     : std_logic;
@@ -934,6 +968,7 @@ begin  -- behavioural
       u_cmd_addr    => nat_cmd_addr,
       u_cmd_count   => nat_cmd_count,
       u_cmd_arg     => nat_cmd_arg,
+      u_cmd_slot    => nat_slot,
       u_card_ready  => nat_card_ready,
       u_busy        => nat_busy,
       u_waiting     => nat_waiting,
@@ -962,6 +997,8 @@ begin  -- behavioural
       d_cmd_addr    => ds_cmd_addr,
       d_cmd_count   => ds_cmd_count,
       d_cmd_arg     => ds_cmd_arg,
+      d_cmd_slot    => ds_slot,
+      d_cards_status => ds_cards,
       d_card_ready  => ds_card_ready,
       d_busy        => ds_busy,
       d_waiting     => ds_waiting,
@@ -989,10 +1026,11 @@ begin  -- behavioural
       cache_misses  => cache_misses
       );
 
-  sd0: entity work.sdcard_native
+  sd0: entity work.sdcard_native_dual
     generic map (
+      G_AUTO_INIT => sd_auto_init,
       G_XILINX => sd_xilinx_io,
-      G_MS     => cpu_frequency / 250,      -- clock162 cycles per ms
+      G_MS     => native_ms_cycles,      -- clock162 cycles per ms
       G_WR_LAT => 2
       )
     port map (
@@ -1004,6 +1042,9 @@ begin  -- behavioural
       cmd_addr    => ds_cmd_addr,
       cmd_count   => ds_cmd_count,
       cmd_arg     => ds_cmd_arg,
+      cmd_slot    => ds_slot,
+      status_slot => ds_slot,
+      cards_status => ds_cards,
       card_ready  => ds_card_ready,
       busy        => ds_busy,
       waiting     => ds_waiting,
@@ -1043,7 +1084,7 @@ begin  -- behavioural
   -- Keep an absent/failed card and terminal errors busy, and cover queued
   -- INIT/mailbox latency so polling never accepts a failed or stale sector.
   -- An open multi-sector transfer is still ready between granted blocks.
-  sdcard_busy    <= sd_reset or nat_init_req or nat_init_wait
+  sdcard_busy    <= ui_reset(card_index(nat_slot)) or nat_init_wait
                    or not nat_quiet or not nat_cmd_ready or not nat_card_ready
                    or nat_error or sdio_error
                    or (nat_busy and not nat_waiting);
@@ -1056,6 +1097,24 @@ begin  -- behavioural
   last_sd_rxbyte <= nat_probe_fail;
   sd_datatoken   <= nat_error & nat_open_wr & nat_open_rd & nat_waiting
                     & nat_sdhc & nat_hs & nat_native & nat_card_ready;
+
+  -- The register view follows selection, not the shared FSM's stream owner.
+  ui_info <= ds_cards(63 downto 32) when sd_interface_select_internal = '1' else ds_cards(31 downto 0);
+  ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';
+  ui_pending_init <= nat_init_req or (nat_init_wait and (not nat_cmd_ready or not nat_quiet))
+    when nat_init_both = '1' or sd_interface_select_internal = nat_init_slot else '0';
+  ui_error_flag <= '0' when ui_pending_init = '1' else
+    ui_info(3) or ui_error(card_index(sd_interface_select_internal)) or (sdio_error and ui_owner);
+  ui_fsm_flag <= ui_fsm_error(card_index(sd_interface_select_internal)) or (sdio_fsm_error and ui_owner);
+  ui_sdio_busy <= (sdio_busy and ui_owner) or qspi_busy;
+  ui_busy <= '1' when ui_reset(card_index(sd_interface_select_internal)) = '1' or ui_pending_init = '1'
+    or ui_error_flag = '1' else
+    sdcard_busy when ui_owner = '1' else (ui_info(1) and not ui_info(2)) or not ui_info(0);
+  ui_token <= (others => '0') when ui_pending_init = '1' else
+    ui_info(3) & (ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1))
+    & (ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1)) & ui_info(2)
+    & ui_info(14) & ui_info(13) & ui_info(12) & ui_info(0);
+  ui_errcode <= (others => '0') when ui_pending_init = '1' else ui_info(11 downto 4);
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
   sector_buffer_fastio_address_u <= to_unsigned(sector_buffer_fastio_address, 12);
@@ -1271,6 +1330,7 @@ begin  -- behavioural
 
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
+           ui_reset,ui_error_flag,ui_fsm_flag,ui_sdhc,ui_busy,ui_sdio_busy,ui_token,ui_errcode,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
@@ -1518,13 +1578,13 @@ begin  -- behavioural
             -- error status in bit 6 so that V flag can be used for check
             report "reading $D680 SDCARD status register" severity note;
             fastio_rdata(7) <= sd_interface_select_internal;
-            fastio_rdata(6) <= sdio_error;
-            fastio_rdata(5) <= sdio_fsm_error;
-            fastio_rdata(4) <= sdhc_mode;
+            fastio_rdata(6) <= ui_error_flag;
+            fastio_rdata(5) <= ui_fsm_flag;
+            fastio_rdata(4) <= ui_sdhc(card_index(sd_interface_select_internal));
             fastio_rdata(3) <= sector_buffer_mapped;
-            fastio_rdata(2) <= sd_reset;
-            fastio_rdata(1) <= sdcard_busy;  -- Whether the SD card thinks it is busy
-            fastio_rdata(0) <= sdio_busy or qspi_busy;  -- Whether we think we are busy
+            fastio_rdata(2) <= ui_reset(card_index(sd_interface_select_internal));
+            fastio_rdata(1) <= ui_busy;  -- Whether the SD card thinks it is busy
+            fastio_rdata(0) <= ui_sdio_busy;  -- Whether we think we are busy
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
           when x"82" => fastio_rdata <= sd_sector(15 downto 8); -- SD-control
@@ -1534,9 +1594,9 @@ begin  -- behavioural
           -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           -- @IO:GS $D686 - DEBUG SD card data token
-          when x"86" => fastio_rdata <= sd_datatoken;
+          when x"86" => fastio_rdata <= ui_token;
           -- @IO:GS $D687 - DEBUG SD card most recent byte read
-          when x"87" => fastio_rdata <= unsigned(sd_rdata);
+          when x"87" => fastio_rdata <= ui_errcode;
           -- @IO:GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
@@ -1821,6 +1881,7 @@ begin  -- behavioural
             fastio_rdata <= reconfigure_address_int(23 downto 16);
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
+          when x"D7" => fastio_rdata <= x"D2"; -- persistent slots + parallel init signature
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1986,6 +2047,10 @@ begin  -- behavioural
       -- native SD controller: one command at a time; after issuing one, wait
       -- for cmd_ready (the status then reflects the command)
       nat_cmd_valid <= '0';
+      ui_error(card_index(nat_slot)) <= sdio_error;
+      ui_fsm_error(card_index(nat_slot)) <= sdio_fsm_error;
+      ui_open_rd(card_index(nat_slot)) <= nat_open_rd;
+      ui_open_wr(card_index(nat_slot)) <= nat_open_wr;
       if nat_quiet_cnt /= 0 then
         nat_quiet_cnt <= nat_quiet_cnt - 1;
       end if;
@@ -2001,10 +2066,14 @@ begin  -- behavioural
         if nat_init_req='1' then
           nat_init_req   <= '0';
           nat_init_wait  <= '1';
+          nat_slot       <= nat_init_slot;
+          sdio_error     <= '0';
+          sdio_fsm_error <= '0';
           nat_open_rd    <= '0';
           nat_open_wr    <= '0';
           nat_cmd_code   <= x"1";
-          nat_cmd_arg    <= x"00" & "000" & sd_interface_select_internal & nat_init_flags;
+          if nat_init_both = '1' then nat_cmd_code <= x"A"; end if;
+          nat_cmd_arg    <= x"00" & "000" & nat_init_slot & nat_init_flags;
           nat_cmd_valid  <= '1';
           nat_quiet_cnt  <= 3;
         elsif nat_init_wait='1' and nat_busy='0' then
@@ -2876,6 +2945,7 @@ begin  -- behavioural
                       sd_sector(31 downto 17) <= (others => '0');
                     else
                       -- SD card
+                      nat_slot <= sd_interface_select_internal;
                       sd_state <= ReadSector;
                     end if;
                     sdio_error <= '0';
@@ -2961,6 +3031,7 @@ begin  -- behavioural
                       f011_busy <= '1';
                       f011_crc <= '0';
                       f011_rnf <= '0';
+                      nat_slot <= sd_interface_select_internal;
                       sd_state <= F011WriteSector;
                     elsif (use_real_floppy0='0' or f011_ds/="000") and (use_real_floppy2='0' or f011_ds/="001") then
                       sd_state <= HyperTrapWrite;
@@ -3136,44 +3207,101 @@ begin  -- behavioural
             -- @IO:GS $D680 SD:CMDANDSTAT SD controller status/command
             when x"80" =>
               -- status / command register
+              if sdio_busy = '0' and fastio_wdata /= x"C0" and fastio_wdata /= x"C1" then
+                nat_slot <= sd_interface_select_internal;
+                sdio_error <= ui_error(card_index(sd_interface_select_internal));
+                sdio_fsm_error <= ui_fsm_error(card_index(sd_interface_select_internal));
+                nat_open_rd <= ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1);
+                nat_open_wr <= ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1);
+              end if;
               case fastio_wdata is
                 when x"00" | x"10" =>
                   -- Reset SD card: the card is initialised again when the
                   -- reset ends ($01 / $11)
-                  sd_reset <= '1';
+                  ui_reset(card_index(sd_interface_select_internal)) <= '1';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_reset <= '1';
                   sd_state <= Idle;
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
                   sd_write_multi <= '0';
                   sd_write_multi_first <= '0';
                   sd_write_multi_last <= '0';
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
                   sdio_busy <= '0';
                   read_on_idle <= '0';
+                  end if;
 
                 when x"01" | x"11" =>
                   -- End reset: initialise the card in the selected slot
-                  sd_reset <= '0';
+                  ui_reset(card_index(sd_interface_select_internal)) <= '0';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_reset <= '0';
                   sd_state <= Idle;
                   sd_handshake <= '0';
                   sd_handshake_internal <= '0';
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
                   read_on_idle <= '0';
+                  end if;
                   nat_init_req <= '1';
+                  nat_init_slot <= sd_interface_select_internal;
+                  nat_init_both <= '0';
                   nat_init_flags <= x"0";
 
                 when x"23" | x"24" =>
                   -- Initialise again: $23 SPI only, $24 no high speed
-                  sd_state <= Idle;
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
+                  ui_reset(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sd_state <= Idle;
+                  end if;
+                  ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                  ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
                   nat_init_req <= '1';
+                  nat_init_slot <= sd_interface_select_internal;
+                  nat_init_both <= '0';
                   if fastio_wdata = x"23" then
                     nat_init_flags <= x"1";
                   else
                     nat_init_flags <= x"2";
+                  end if;
+
+                when x"2B" =>
+                  -- New extension: initialise both cards concurrently.
+                  if sdio_busy = '0' and nat_init_req = '0' then
+                    sd_reset <= '0';
+                    ui_reset <= "00";
+                    ui_error <= "00";
+                    ui_fsm_error <= "00";
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    nat_init_req <= '1';
+                    nat_init_slot <= sd_interface_select_internal;
+                    nat_init_both <= '1';
+                    nat_init_flags <= x"0";
                   end if;
 
                 when x"0c" =>
@@ -3196,8 +3324,14 @@ begin  -- behavioural
                   sd_write_multi_first <= '0';
                   sd_write_multi_last <= '0';
                   if sdio_busy='1' then
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '1';
+                  end if;
                   else
                     case fastio_wdata is
                       when x"07" => nat_kind <= K_FIRST;
@@ -3212,8 +3346,14 @@ begin  -- behavioural
                     end if;
                     sd_state <= ReadSector;
                     sdio_busy <= '1';
+                    ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '0';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '0';
+                  end if;
                     -- Put into SD card buffer, not F011 buffer
                     f011_sector_fetch <= '0';
                     sd_buffer_offset <= (others => '0');
@@ -3241,8 +3381,14 @@ begin  -- behavioural
                     sd_write_multi_last <= '0';
                     if sdio_busy='1' then
                       report "SDWRITE: sdio_busy is set, not writing";
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
+                      ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '1';
+                  end if;
+                      ui_fsm_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '1';
+                  end if;
                     else
                       report "SDWRITE: Commencing write";
                       case fastio_wdata is
@@ -3253,8 +3399,14 @@ begin  -- behavioural
                       end case;
                       sd_state <= WriteSector;
                       sdio_busy <= '1';
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
+                      ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                      ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
                       f011_sector_fetch <= '0';
 
                       sd_wrote_byte <= '0';
@@ -3262,8 +3414,14 @@ begin  -- behavioural
                     end if;
                   elsif fastio_wdata = x"03" then
                     report "SDWRITE: Attempt to write a sector without opening the gate";
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '1';
+                  end if;
                   end if;
 
                 when x"25" | x"26" | x"27" | x"29" | x"2A" =>
@@ -3271,8 +3429,14 @@ begin  -- behavioural
                   -- replacement policy ($29: $D681 bit 0 = 0 random, 1 LRU)
                   -- or clear errors/recover the card without reset ($2A).
                   if sdio_busy='1' then
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '1';
+                  end if;
                   else
                     case fastio_wdata is
                       when x"25" => nat_kind <= K_CACHE_ON;
@@ -3283,8 +3447,14 @@ begin  -- behavioural
                     end case;
                     sd_state <= NativeCommand;
                     sdio_busy <= '1';
+                    ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '0';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '0';
+                  end if;
                   end if;
 
                 when x"28" =>
@@ -3296,8 +3466,14 @@ begin  -- behavioural
                   -- Bus speed: probe ($20) or use ($21) the setting in
                   -- $D681/$D682, or go back to normal ($22)
                   if sdio_busy='1' then
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '1';
+                  end if;
                   else
                     case fastio_wdata is
                       when x"20" => nat_kind <= K_PROBE;
@@ -3306,12 +3482,18 @@ begin  -- behavioural
                     end case;
                     sd_state <= NativeCommand;
                     sdio_busy <= '1';
+                    ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '0';
+                  end if;
+                    ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_fsm_error <= '0';
                   end if;
+                  end if;
 
-                when x"40" => sdhc_mode <= '0';
-                when x"41" => sdhc_mode <= '1';
+                when x"40" => ui_sdhc(card_index(sd_interface_select_internal)) <= '0';
+                when x"41" => ui_sdhc(card_index(sd_interface_select_internal)) <= '1';
 
                 when x"45" => sd_clear_error <= '1';
                 when x"44" => sd_clear_error <= '0';
@@ -3333,12 +3515,24 @@ begin  -- behavioural
                   end if;
 
                 when x"81" => sector_buffer_mapped<='1';
-                              sdio_error <= '0';
-                              sdio_fsm_error <= '0';
+                              ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                              ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
 
                 when x"82" => sector_buffer_mapped<='0';
-                              sdio_error <= '0';
-                              sdio_fsm_error <= '0';
+                              ui_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '0';
+                  end if;
+                              ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_fsm_error <= '0';
+                  end if;
                 -- sd_fill_mode allows us to fill sector writes
                 -- with a common value instead of using data from
                 -- the sector buffer.
@@ -3353,12 +3547,18 @@ begin  -- behavioural
                               sd_interface_select_internal <= '1';
 
                 when others =>
-                  sdio_error <= '1';
+                  ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_error <= '1';
+                  end if;
               end case;
 
             when x"CE" =>
               diag_index <= fastio_wdata(3 downto 0);
-              if fastio_wdata(7) = '1' then diag_snapshot <= ds_diag_stats; end if;
+              if fastio_wdata(7) = '1' then
+                diag_snapshot <= ds_diag_stats;
+                diag_snapshot(127 downto 112) <= ui_info(31 downto 16);
+              end if;
 
             when x"81" =>
               -- @IO:GS $D681-$D684 - SD controller SD sector address
@@ -3807,6 +4007,7 @@ begin  -- behavioural
             read_on_idle <= '0';
 
             nat_kind <= K_SINGLE;
+            nat_slot <= sd_interface_select_internal;
             sd_state <= ReadSector;
             sdio_error <= '0';
             sdio_fsm_error <= '0';

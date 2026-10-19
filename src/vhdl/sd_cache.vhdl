@@ -62,6 +62,7 @@ entity sd_cache is
     u_cmd_addr    : in  unsigned(31 downto 0);
     u_cmd_count   : in  unsigned(15 downto 0);
     u_cmd_arg     : in  unsigned(15 downto 0);
+    u_cmd_slot    : in  std_logic := '0';
     u_card_ready  : out std_logic;
     u_busy        : out std_logic;
     u_waiting     : out std_logic;
@@ -92,6 +93,8 @@ entity sd_cache is
     d_cmd_addr    : out unsigned(31 downto 0);
     d_cmd_count   : out unsigned(15 downto 0);
     d_cmd_arg     : out unsigned(15 downto 0);
+    d_cmd_slot    : out std_logic;
+    d_cards_status : in unsigned(63 downto 0) := (others => '0');
     d_card_ready  : in  std_logic;
     d_busy        : in  std_logic;
     d_waiting     : in  std_logic;
@@ -131,6 +134,12 @@ architecture rtl of sd_cache is
   constant C_STOP   : unsigned(3 downto 0) := x"5";
   constant C_CACHE  : unsigned(3 downto 0) := x"8";
   constant C_CLEAR  : unsigned(3 downto 0) := x"9";
+  constant C_INIT_BOTH : unsigned(3 downto 0) := x"A";
+
+  function slot_index(s : std_logic) return natural is
+  begin
+    if s = '1' then return 1; else return 0; end if;
+  end function;
 
   function boolean_to_sl(b : boolean) return std_logic is
   begin
@@ -158,6 +167,7 @@ begin
     d_cmd_addr    <= u_cmd_addr;
     d_cmd_count   <= u_cmd_count;
     d_cmd_arg     <= u_cmd_arg;
+    d_cmd_slot    <= u_cmd_slot;
     u_card_ready  <= d_card_ready;
     u_busy        <= d_busy;
     u_waiting     <= d_waiting;
@@ -209,6 +219,7 @@ begin
     type t_vld   is array (0 to G_LINES-1) of std_logic_vector(7 downto 0);
     type t_stamp is array (0 to G_LINES-1) of unsigned(15 downto 0);
     signal tag    : t_tags := (others => (others => '0'));
+    signal tag_slot : std_logic_vector(G_LINES-1 downto 0) := (others => '0');
     signal used   : std_logic_vector(G_LINES-1 downto 0) := (others => '0');
     signal vld    : t_vld := (others => (others => '0'));
     signal stamp  : t_stamp := (others => (others => '0'));
@@ -226,11 +237,13 @@ begin
     signal c_addr  : unsigned(31 downto 0) := (others => '0');
     signal c_count : unsigned(15 downto 0) := (others => '0');
     signal c_arg   : unsigned(15 downto 0) := (others => '0');
+    signal c_slot  : std_logic := '0';
 
     -- pass-through: upstream sees the controller's status and streams
     signal pt      : std_logic := '1';
     signal pt_wr   : std_logic := '0';     -- (a write: snoop it)
     signal pt_addr : unsigned(31 downto 0) := (others => '0');
+    signal pt_slot : std_logic := '0';
 
     -- own status (when not pass-through)
     signal o_busy  : std_logic := '0';
@@ -248,11 +261,13 @@ begin
     signal daddr   : unsigned(31 downto 0) := (others => '0');
     signal dcount  : unsigned(15 downto 0) := (others => '0');
     signal darg    : unsigned(15 downto 0) := (others => '0');
+    signal dslot   : std_logic := '0';
     signal dquiet_cnt : integer range 0 to 3 := 0;
     signal dfree   : std_logic;            -- may issue now
 
     -- the line being filled
     signal fill     : std_logic := '0';
+    signal f_slot   : std_logic := '0';
     signal f_line   : integer range 0 to G_LINES-1 := 0;
     signal f_first  : unsigned(2 downto 0) := (others => '0');   -- first sector
     signal f_total  : unsigned(3 downto 0) := (others => '0');   -- blocks wanted
@@ -279,14 +294,14 @@ begin
     signal s2_addr  : unsigned(AW-1 downto 0) := (others => '0');
 
     -- look a sector up: hit (a line holds it, valid or not) and the line
-    procedure lookup(signal tg : in t_tags; signal us : in std_logic_vector;
-                     sector : in unsigned(31 downto 0);
+    procedure lookup(signal tg : in t_tags; signal ts, us : in std_logic_vector;
+                     sector : in unsigned(31 downto 0); slot : in std_logic;
                      variable hit : out boolean; variable idx : out integer) is
     begin
       hit := false;
       idx := 0;
       for i in 0 to G_LINES-1 loop
-        if us(i) = '1' and tg(i) = sector(31 downto 3) then
+        if us(i) = '1' and ts(i) = slot and tg(i) = sector(31 downto 3) then
           hit := true;
           idx := i;
         end if;
@@ -310,19 +325,25 @@ begin
     cache_misses <= misses;
 
     -- the card side status always passes through
-    u_card_ready  <= d_card_ready;
-    u_native_mode <= d_native_mode;
-    u_high_speed  <= d_high_speed;
-    u_sdhc        <= d_sdhc;
-    u_clk_setting <= d_clk_setting;
+    u_card_ready  <= d_card_ready when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32);
+    u_native_mode <= d_native_mode when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+12);
+    u_high_speed  <= d_high_speed when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+13);
+    u_sdhc        <= d_sdhc when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+14);
+    u_clk_setting <= d_clk_setting when u_cmd_slot = dslot else
+      d_cards_status(slot_index(u_cmd_slot)*32+31 downto slot_index(u_cmd_slot)*32+16);
     u_probe_pass  <= d_probe_pass;
     u_probe_fail  <= d_probe_fail;
 
     u_cmd_ready   <= u_ready;
-    u_busy        <= d_busy        when pt = '1' else o_busy;
-    u_waiting     <= d_waiting     when pt = '1' else '0';
-    u_error       <= d_error       when pt = '1' else o_error;
-    u_err_code    <= d_err_code    when pt = '1' else o_err;
+    u_busy <= o_busy when pt = '0' and u_cmd_slot = c_slot else
+              d_busy when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+1);
+    u_waiting <= '0' when pt = '0' and u_cmd_slot = c_slot else
+              d_waiting when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+2);
+    u_error <= o_error when pt = '0' and u_cmd_slot = c_slot else
+              d_error when u_cmd_slot = dslot else d_cards_status(slot_index(u_cmd_slot)*32+3);
+    u_err_code <= o_err when pt = '0' and u_cmd_slot = c_slot else
+              d_err_code when u_cmd_slot = dslot else
+              d_cards_status(slot_index(u_cmd_slot)*32+11 downto slot_index(u_cmd_slot)*32+4);
     u_blocks_done <= d_blocks_done when pt = '1' else o_done;
 
     -- read stream: the controller's (pass-through, or block 0 of a miss), or
@@ -348,6 +369,7 @@ begin
     d_cmd_addr  <= daddr;
     d_cmd_count <= dcount;
     d_cmd_arg   <= darg;
+    d_cmd_slot  <= dslot;
     dfree       <= '1' when dquiet_cnt = 0 and dv = '0' and d_cmd_ready = '1' else '0';
 
     -- the data RAM: port A writes (fill, write snoop), port B reads (hits)
@@ -364,14 +386,25 @@ begin
     ctrl : process (clock)
 
       procedure dcmd(code : unsigned(3 downto 0); addr : unsigned(31 downto 0);
-                     count : unsigned(15 downto 0); arg : unsigned(15 downto 0)) is
+                     count : unsigned(15 downto 0); arg : unsigned(15 downto 0); slot : std_logic) is
       begin
         dv         <= '1';
         dcode      <= code;
         daddr      <= addr;
         dcount     <= count;
         darg       <= arg;
+        dslot      <= slot;
         dquiet_cnt <= 3;
+      end procedure;
+
+      procedure flush_slot(slot : std_logic) is
+      begin
+        for i in 0 to G_LINES-1 loop
+          if tag_slot(i) = slot then
+            used(i) <= '0';
+            vld(i) <= (others => '0');
+          end if;
+        end loop;
       end procedure;
 
       procedure flush_all is
@@ -389,9 +422,12 @@ begin
       variable age  : unsigned(15 downto 0);
       variable rnd  : integer range 0 to G_LINES-1;
       variable fill_writes : boolean;
+      variable target_busy : std_logic;
 
     begin
       if rising_edge(clock) then
+        target_busy := d_busy;
+        if c_slot /= dslot then target_busy := d_cards_status(slot_index(c_slot)*32+1); end if;
         dv      <= '0';
         wa_en   <= '0';
         o_rv    <= '0';
@@ -431,9 +467,9 @@ begin
           and (st = T_IDLE or st = T_WAITSEC or st = T_HIT or st = T_HIT_END
                or st = T_MISS_WAIT) then
           if f_grant + 1 = f_total then
-            dcmd(C_MORE, (others => '0'), (others => '0'), x"0001");
+            dcmd(C_MORE, (others => '0'), (others => '0'), x"0001", f_slot);
           else
-            dcmd(C_MORE, (others => '0'), (others => '0'), x"0000");
+            dcmd(C_MORE, (others => '0'), (others => '0'), x"0000", f_slot);
           end if;
           f_grant <= f_grant + 1;
         end if;
@@ -445,7 +481,7 @@ begin
         s1_v   <= d_wr_fetch and pt_wr;
         s1_sec <= pt_addr + resize(d_wr_block, 32);
         s1_off <= d_wr_offset;
-        lookup(tag, used, s1_sec, hit, idx);
+        lookup(tag, tag_slot, used, s1_sec, pt_slot, hit, idx);
         if s1_v = '1' and hit and vld(idx)(to_integer(s1_sec(2 downto 0))) = '1' then
           s2_v <= '1';
         else
@@ -470,15 +506,25 @@ begin
               c_addr  <= u_cmd_addr;
               c_count <= u_cmd_count;
               c_arg   <= u_cmd_arg;
-              if u_cmd_code = C_INIT then
+              c_slot  <= u_cmd_slot;
+              if u_cmd_code = C_INIT_BOTH then
                 -- the controller drops everything at once: no need to stop
                 -- the fill first
                 flush_all;
                 fill    <= '0';
                 fwd0    <= '0';
                 st      <= T_DISPATCH;
+              elsif u_cmd_code = C_INIT then
+                flush_slot(u_cmd_slot);
+                if fill = '1' and u_cmd_slot /= f_slot then
+                  st <= T_STOPFILL;
+                else
+                  fill <= '0';
+                  fwd0 <= '0';
+                  st <= T_DISPATCH;
+                end if;
               elsif fill = '1' and not (u_cmd_code = C_READ and u_cmd_count = 1
-                                        and enabled = '1') then
+                                        and enabled = '1' and u_cmd_slot = f_slot) then
                 st <= T_STOPFILL;
               else
                 st <= T_DISPATCH;
@@ -495,7 +541,7 @@ begin
               end if;
             elsif dfree = '1' then
               if f_grant /= f_total then
-                dcmd(C_STOP, (others => '0'), (others => '0'), (others => '0'));
+                dcmd(C_STOP, (others => '0'), (others => '0'), (others => '0'), f_slot);
                 f_total <= f_grant;
               end if;
               st <= T_STOPFILL_WAIT;
@@ -510,11 +556,11 @@ begin
           -- what to do with the request
           when T_DISPATCH =>
             sec := c_addr;
-            lookup(tag, used, sec, hit, idx);
+            lookup(tag, tag_slot, used, sec, c_slot, hit, idx);
             if c_code = C_CACHE then
               -- A completed fill may still be closing CMD12 / tail clocks.
               -- Do not hide that busy period when changing to own status.
-              if dfree = '1' and d_busy = '0' then
+              if dfree = '1' and target_busy = '0' then
                 case c_arg(1 downto 0) is
                   when "00" => enabled <= '0';
                                flush_all;
@@ -567,19 +613,20 @@ begin
               end if;
             else
               -- straight through
-              if dfree = '1' and (d_busy = '0' or c_code = C_INIT
+              if dfree = '1' and (target_busy = '0' or c_code = C_INIT or c_code = C_INIT_BOTH
                                    or c_code = C_MORE or c_code = C_STOP) then
                 if c_code = C_CLEAR then
-                  flush_all;
+                  flush_slot(c_slot);
                 end if;
                 pt <= '1';
                 if c_code = C_WRITE then
                   pt_wr   <= '1';
                   pt_addr <= c_addr;
+                  pt_slot <= c_slot;
                 elsif c_code /= C_MORE and c_code /= C_STOP then
                   pt_wr <= '0';
                 end if;
-                dcmd(c_code, c_addr, c_count, c_arg);
+                dcmd(c_code, c_addr, c_count, c_arg, c_slot);
                 st <= T_PT_WAIT;
               end if;
             end if;
@@ -619,16 +666,19 @@ begin
           when T_MISS_CMD =>
             -- cmd_ready only means the mailbox is free. A first-sector
             -- completion is published upstream before the card finishes its
-            -- stop/tail sequence; wait for that sequence before a new read.
-            if dfree = '1' and d_busy = '0' then
-              if used(r_line) = '0' or tag(r_line) /= c_addr(31 downto 3) then
+            -- stop/tail sequence. Wait for this card; the dual wrapper also
+            -- retires another card's data stream, without waiting on init.
+            if dfree = '1' and target_busy = '0' then
+              if used(r_line) = '0' or tag_slot(r_line) /= c_slot or tag(r_line) /= c_addr(31 downto 3) then
                 tag(r_line)  <= c_addr(31 downto 3);
+                tag_slot(r_line) <= c_slot;
                 used(r_line) <= '1';
                 vld(r_line)  <= (others => '0');
               end if;
               stamp(r_line) <= now_ts;
               now_ts  <= now_ts + 1;
               f_line  <= r_line;
+              f_slot  <= c_slot;
               f_first <= c_addr(2 downto 0);
               f_total <= resize(8 - resize(c_addr(2 downto 0), 4), 4);
               f_recv  <= (others => '0');
@@ -636,9 +686,9 @@ begin
               fill    <= '1';
               fwd0    <= '1';
               if c_addr(2 downto 0) = "111" then
-                dcmd(C_READ, c_addr, to_unsigned(1, 16), (others => '0'));
+                dcmd(C_READ, c_addr, to_unsigned(1, 16), (others => '0'), c_slot);
               else
-                dcmd(C_READ, c_addr, to_unsigned(0, 16), (others => '0'));
+                dcmd(C_READ, c_addr, to_unsigned(0, 16), (others => '0'), c_slot);
               end if;
               st <= T_MISS_WAIT;
             end if;
@@ -703,7 +753,7 @@ begin
         -- a pass-through write that failed: the cache may be stale
         if pt = '1' and pt_wr = '1' and st = T_IDLE and dfree = '1'
           and d_busy = '0' and d_error = '1' then
-          flush_all;
+          flush_slot(pt_slot);
           pt_wr <= '0';
         end if;
 

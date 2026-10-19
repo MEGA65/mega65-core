@@ -142,7 +142,9 @@ entity sdcard_native is
     G_DS_P      : natural := 13;        -- default speed: 24.9 MHz
     G_DS_D      : natural := 3;
     G_HS_P      : natural := 8;         -- high speed: 40.5 MHz
-    G_HS_D      : natural := 8
+    G_HS_D      : natural := 8;
+    -- -1: original multiplexed engine; 0/1: own just that socket's I/O.
+    G_FIXED_SLOT : integer range -1 to 1 := -1
     );
   port (
     clock162    : in  std_logic;
@@ -483,7 +485,11 @@ architecture rtl of sdcard_native is
   signal cmd_t_q   : std_logic_vector(1 downto 0) := "11";    -- '1' = released
   signal dat_q     : std_logic_vector(7 downto 0) := (others => '1');
   signal dat_t_q   : std_logic_vector(7 downto 0) := (others => '1');
-  signal slot      : std_logic := '0';
+  function initial_slot return std_logic is
+  begin
+    if G_FIXED_SLOT = 1 then return '1'; else return '0'; end if;
+  end function;
+  signal slot      : std_logic := initial_slot;
   signal clk_d1    : std_logic_vector(1 downto 0);
   signal clk_d2    : std_logic_vector(1 downto 0);
 
@@ -984,17 +990,28 @@ begin
 
   xilinx_io : if G_XILINX generate
     clkout : for s in 0 to 1 generate
+      owned : if G_FIXED_SLOT = -1 or G_FIXED_SLOT = s generate
       oddr_clk : ODDR
         generic map (DDR_CLK_EDGE => "SAME_EDGE", INIT => '1', SRTYPE => "SYNC")
         port map (Q => sd_clk(s), C => clock162, CE => '1',
                   D1 => clk_d1(s), D2 => clk_d2(s), R => '0', S => '0');
+      end generate;
+      unused_slot : if G_FIXED_SLOT /= -1 and G_FIXED_SLOT /= s generate
+        sd_clk(s) <= '1';
+      end generate;
     end generate;
     inputs : for i in 0 to 9 generate
+      owned : if G_FIXED_SLOT = -1 or G_FIXED_SLOT = i / 5 generate
       iddr_in : IDDR
         generic map (DDR_CLK_EDGE => "SAME_EDGE_PIPELINED", INIT_Q1 => '1',
                      INIT_Q2 => '1', SRTYPE => "SYNC")
         port map (Q1 => in_q1(i), Q2 => in_q2(i), C => clock162, CE => '1',
                   D => in_pins(i), R => '0', S => '0');
+      end generate;
+      unused_slot : if G_FIXED_SLOT /= -1 and G_FIXED_SLOT /= i / 5 generate
+        in_q1(i) <= '1';
+        in_q2(i) <= '1';
+      end generate;
     end generate;
   end generate;
 
@@ -2881,7 +2898,11 @@ begin
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
         no_hs     <= e_arg(1);
-        slot      <= e_arg(4);
+        if G_FIXED_SLOT = -1 then
+          slot <= e_arg(4);
+        else
+          slot <= initial_slot;
+        end if;
         e_error   <= '0';
         e_err     <= ERR_NONE;
         e_busy    <= '1';
@@ -2922,3 +2943,249 @@ begin
   -- pragma translate_on
 
 end architecture rtl;
+
+-------------------------------------------------------------------------------
+-- Two persistent card sessions. Only the socket engines are duplicated; the
+-- upper controller, sector buffer and cache remain shared. No block RAM.
+-- C_INIT (1) still resets only arg(4)'s card. C_INIT_BOTH (A) starts both
+-- engines on the same cpuclock edge. cmd_slot targets other commands;
+-- status_slot independently selects the visible status.
+-- cards_status contains two 32-bit CPU-domain words:
+-- 0 ready, 1 busy, 2 waiting, 3 error, 11:4 error code, 12 native,
+-- 13 high speed, 14 SDHC, 15 mailbox free, 31:16 clock setting.
+-------------------------------------------------------------------------------
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity sdcard_native_dual is
+  generic (
+    G_XILINX : boolean := true;
+    G_MS : natural := 162_000;
+    G_AUTO_INIT : boolean := true;
+    G_WR_LAT : natural := 2;
+    G_TRACE : boolean := false;
+    G_INIT_P : natural := 810;
+    G_INIT_D : natural := 3;
+    G_DS_P : natural := 13;
+    G_DS_D : natural := 3;
+    G_HS_P : natural := 8;
+    G_HS_D : natural := 8
+  );
+  port (
+    clock162, cpuclock : in std_logic;
+    cmd_valid : in std_logic;
+    cmd_ready : out std_logic;
+    cmd_code : in unsigned(3 downto 0);
+    cmd_addr : in unsigned(31 downto 0);
+    cmd_count, cmd_arg : in unsigned(15 downto 0);
+    cmd_slot, status_slot : in std_logic;
+    cards_status : out unsigned(63 downto 0);
+    card_ready, busy, waiting, error : out std_logic;
+    err_code : out unsigned(7 downto 0);
+    native_mode, high_speed, sdhc : out std_logic;
+    clk_setting : out unsigned(15 downto 0);
+    probe_pass, probe_fail : out unsigned(7 downto 0);
+    blocks_done : out unsigned(15 downto 0);
+    diag_stats : out unsigned(127 downto 0);
+    rd_valid : out std_logic;
+    rd_data : out unsigned(7 downto 0);
+    rd_offset : out unsigned(8 downto 0);
+    rd_block : out unsigned(15 downto 0);
+    rd_good, rd_bad : out std_logic;
+    wr_fetch : out std_logic;
+    wr_offset : out unsigned(8 downto 0);
+    wr_block : out unsigned(15 downto 0);
+    wr_data : in unsigned(7 downto 0);
+    sd_clk, sd_cmd_o, sd_cmd_oe : out std_logic_vector(1 downto 0);
+    sd_cmd_i : in std_logic_vector(1 downto 0);
+    sd_dat_o, sd_dat_oe : out std_logic_vector(7 downto 0);
+    sd_dat_i : in std_logic_vector(7 downto 0)
+  );
+end entity;
+
+architecture rtl of sdcard_native_dual is
+  type t_u8 is array (0 to 1) of unsigned(7 downto 0);
+  type t_u9 is array (0 to 1) of unsigned(8 downto 0);
+  type t_u16 is array (0 to 1) of unsigned(15 downto 0);
+  type t_u128 is array (0 to 1) of unsigned(127 downto 0);
+  type t_p2 is array (0 to 1) of std_logic_vector(1 downto 0);
+  type t_p8 is array (0 to 1) of std_logic_vector(7 downto 0);
+  type t_state is (Q_IDLE, Q_DISPATCH, Q_STOP_ACK, Q_ACK);
+  signal st : t_state := Q_IDLE;
+  signal p_code : unsigned(3 downto 0) := (others => '0');
+  signal p_addr : unsigned(31 downto 0) := (others => '0');
+  signal p_count, p_arg : unsigned(15 downto 0) := (others => '0');
+  signal p_slot : natural range 0 to 1 := 0;
+  signal p_mask, ack_low : std_logic_vector(1 downto 0) := "00";
+  signal data_owner, stop_slot : natural range 0 to 1 := 0;
+  signal data_active, stop_low : std_logic := '0';
+  signal c_valid : std_logic_vector(1 downto 0) := "00";
+  signal c_code : unsigned(3 downto 0) := x"1";
+  signal c_addr : unsigned(31 downto 0) := (others => '0');
+  signal c_count, c_arg : unsigned(15 downto 0) := (others => '0');
+  signal c_ready, c_card, c_busy, c_wait, c_error : std_logic_vector(1 downto 0);
+  signal c_native, c_hs, c_hc, c_rv, c_good, c_bad, c_wfetch : std_logic_vector(1 downto 0);
+  signal c_err, c_pass, c_fail, c_data : t_u8;
+  signal c_setting, c_done, c_rblock, c_wblock : t_u16;
+  signal c_roff, c_woff : t_u9;
+  signal c_diag : t_u128;
+  signal c_clk, c_cmd_o, c_cmd_oe : t_p2;
+  signal c_dat_o, c_dat_oe : t_p8;
+  signal info : unsigned(63 downto 0);
+
+  function slot_index(s : std_logic) return natural is
+  begin
+    if s = '1' then return 1; else return 0; end if;
+  end function;
+begin
+  sockets : for s in 0 to 1 generate
+    core : entity work.sdcard_native
+      generic map (
+        G_XILINX => G_XILINX, G_FIXED_SLOT => s, G_MS => G_MS,
+        G_AUTO_INIT => G_AUTO_INIT, G_WR_LAT => G_WR_LAT, G_TRACE => G_TRACE,
+        G_INIT_P => G_INIT_P, G_INIT_D => G_INIT_D,
+        G_DS_P => G_DS_P, G_DS_D => G_DS_D, G_HS_P => G_HS_P, G_HS_D => G_HS_D)
+      port map (
+        clock162 => clock162, cpuclock => cpuclock,
+        cmd_valid => c_valid(s), cmd_ready => c_ready(s), cmd_code => c_code,
+        cmd_addr => c_addr, cmd_count => c_count, cmd_arg => c_arg,
+        card_ready => c_card(s), busy => c_busy(s), waiting => c_wait(s),
+        error => c_error(s), err_code => c_err(s), native_mode => c_native(s),
+        high_speed => c_hs(s), sdhc => c_hc(s), clk_setting => c_setting(s),
+        probe_pass => c_pass(s), probe_fail => c_fail(s), blocks_done => c_done(s),
+        diag_stats => c_diag(s), rd_valid => c_rv(s), rd_data => c_data(s),
+        rd_offset => c_roff(s), rd_block => c_rblock(s), rd_good => c_good(s), rd_bad => c_bad(s),
+        wr_fetch => c_wfetch(s), wr_offset => c_woff(s), wr_block => c_wblock(s), wr_data => wr_data,
+        sd_clk => c_clk(s), sd_cmd_o => c_cmd_o(s), sd_cmd_oe => c_cmd_oe(s), sd_cmd_i => sd_cmd_i,
+        sd_dat_o => c_dat_o(s), sd_dat_oe => c_dat_oe(s), sd_dat_i => sd_dat_i);
+    sd_clk(s) <= c_clk(s)(s);
+    sd_cmd_o(s) <= c_cmd_o(s)(s);
+    sd_cmd_oe(s) <= c_cmd_oe(s)(s);
+    sd_dat_o(s*4+3 downto s*4) <= c_dat_o(s)(s*4+3 downto s*4);
+    sd_dat_oe(s*4+3 downto s*4) <= c_dat_oe(s)(s*4+3 downto s*4);
+  end generate;
+
+  status : process(c_card, c_busy, c_wait, c_error, c_err, c_native, c_hs, c_hc,
+                   c_ready, c_setting, st, p_mask, p_code)
+    variable v : unsigned(63 downto 0);
+  begin
+    v := (others => '0');
+    for s in 0 to 1 loop
+      v(s*32) := c_card(s);
+      v(s*32+1) := c_busy(s);
+      v(s*32+2) := c_wait(s);
+      v(s*32+3) := c_error(s);
+      v(s*32+11 downto s*32+4) := c_err(s);
+      v(s*32+12) := c_native(s);
+      v(s*32+13) := c_hs(s);
+      v(s*32+14) := c_hc(s);
+      v(s*32+15) := c_ready(s);
+      v(s*32+31 downto s*32+16) := c_setting(s);
+      -- Cover queued dispatch and CDC latency without hiding the other card.
+      if st /= Q_IDLE and p_mask(s) = '1' then
+        v(s*32+1) := '1';
+        if p_code = x"1" or p_code = x"A" then
+          v(s*32) := '0';
+          v(s*32+3) := '0';
+          v(s*32+11 downto s*32+4) := (others => '0');
+        end if;
+      end if;
+    end loop;
+    info <= v;
+  end process;
+  cards_status <= info;
+  card_ready <= info(slot_index(status_slot)*32);
+  busy <= info(slot_index(status_slot)*32+1);
+  waiting <= info(slot_index(status_slot)*32+2);
+  error <= info(slot_index(status_slot)*32+3);
+  err_code <= info(slot_index(status_slot)*32+11 downto slot_index(status_slot)*32+4);
+  native_mode <= info(slot_index(status_slot)*32+12);
+  high_speed <= info(slot_index(status_slot)*32+13);
+  sdhc <= info(slot_index(status_slot)*32+14);
+  clk_setting <= c_setting(slot_index(status_slot));
+  probe_pass <= c_pass(slot_index(status_slot));
+  probe_fail <= c_fail(slot_index(status_slot));
+  blocks_done <= c_done(slot_index(status_slot));
+  counters : process(c_diag, c_setting, status_slot)
+    variable v : unsigned(127 downto 0);
+  begin
+    for w in 0 to 6 loop
+      v(w*16+15 downto w*16) := c_diag(0)(w*16+15 downto w*16) + c_diag(1)(w*16+15 downto w*16);
+    end loop;
+    v(127 downto 112) := c_setting(slot_index(status_slot));
+    diag_stats <= v;
+  end process;
+  -- Selection never redirects the shared data stream or write fetches.
+  rd_valid <= c_rv(data_owner);
+  rd_data <= c_data(data_owner);
+  rd_offset <= c_roff(data_owner);
+  rd_block <= c_rblock(data_owner);
+  rd_good <= c_good(data_owner);
+  rd_bad <= c_bad(data_owner);
+  wr_fetch <= c_wfetch(data_owner);
+  wr_offset <= c_woff(data_owner);
+  wr_block <= c_wblock(data_owner);
+  cmd_ready <= '1' when st = Q_IDLE else '0';
+
+  commands : process(cpuclock)
+    variable target : natural range 0 to 1;
+    variable lows : std_logic_vector(1 downto 0);
+  begin
+    if rising_edge(cpuclock) then
+      c_valid <= "00";
+      case st is
+        when Q_IDLE =>
+          if cmd_valid = '1' then
+            target := slot_index(cmd_slot);
+            if cmd_code = x"1" then target := slot_index(cmd_arg(4)); end if;
+            p_slot <= target;
+            p_code <= cmd_code;
+            p_addr <= cmd_addr;
+            p_count <= cmd_count;
+            p_arg <= cmd_arg;
+            if cmd_code = x"A" then p_mask <= "11";
+            elsif target = 0 then p_mask <= "01";
+            else p_mask <= "10"; end if;
+            st <= Q_DISPATCH;
+          end if;
+        when Q_DISPATCH =>
+          if (p_code = x"2" or p_code = x"3") and data_active = '1'
+            and p_slot /= data_owner and c_busy(data_owner) = '1' then
+            -- Retire an old card's granted blocks/checked close before
+            -- assigning its shared stream to a request for the other card.
+            if c_wait(data_owner) = '1' and c_ready(data_owner) = '1' then
+              c_code <= x"5";
+              c_arg <= (others => '0');
+              c_valid(data_owner) <= '1';
+              stop_slot <= data_owner;
+              stop_low <= '0';
+              st <= Q_STOP_ACK;
+            end if;
+          elsif (c_ready and p_mask) = p_mask then
+            c_code <= p_code;
+            if p_code = x"A" then c_code <= x"1"; end if;
+            c_addr <= p_addr;
+            c_count <= p_count;
+            c_arg <= p_arg;
+            c_valid <= p_mask;
+            ack_low <= "00";
+            if p_code = x"2" or p_code = x"3" then
+              data_owner <= p_slot;
+              data_active <= '1';
+            elsif (p_code = x"1" and p_slot = data_owner) or p_code = x"A" then
+              data_active <= '0';
+            end if;
+            st <= Q_ACK;
+          end if;
+        when Q_STOP_ACK =>
+          if c_ready(stop_slot) = '0' then stop_low <= '1'; end if;
+          if stop_low = '1' and c_ready(stop_slot) = '1' then st <= Q_DISPATCH; end if;
+        when Q_ACK =>
+          lows := ack_low or (not c_ready and p_mask);
+          ack_low <= lows;
+          if lows = p_mask and (c_ready and p_mask) = p_mask then st <= Q_IDLE; end if;
+      end case;
+    end if;
+  end process;
+end architecture;

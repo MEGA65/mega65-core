@@ -13,6 +13,9 @@ use ieee.numeric_std.all;
 entity tb_sd_cache is
   generic (
     G_LINES : positive := 4;
+    G_DUAL_TEST : boolean := false;
+    G_DUAL_SPI0 : boolean := false;
+    G_DUAL_SPI1 : boolean := false;
     G_ROM_TEST : boolean := false;
     G_ROM_COUNT : positive := 256;
     G_CLOSE_TEST : boolean := false;
@@ -44,6 +47,9 @@ architecture tb of tb_sd_cache is
   signal done     : boolean := false;
 
   -- upstream (the test) <-> cache
+  signal u_slot : std_logic := '0';
+  signal d_slot : std_logic;
+  signal cards_status : unsigned(63 downto 0);
   signal u_cmd_valid : std_logic := '0';
   signal u_cmd_ready : std_logic;
   signal u_cmd_code  : unsigned(3 downto 0) := (others => '0');
@@ -97,6 +103,9 @@ architecture tb of tb_sd_cache is
   signal sd_dat_o  : std_logic_vector(7 downto 0);
   signal sd_dat_oe : std_logic_vector(7 downto 0);
   signal sd_dat_i  : std_logic_vector(7 downto 0) := (others => '1');
+  signal card1_clk : std_logic;
+  signal card1_cmd, host1_cmd : std_logic;
+  signal card1_dat, host1_dat : std_logic_vector(3 downto 0);
   signal card_clk  : std_logic := '1';
   signal card_cmd  : std_logic;
   signal card_dat  : std_logic_vector(3 downto 0);
@@ -123,6 +132,7 @@ begin
     port map (
       clock => cpuclock,
       u_cmd_valid => u_cmd_valid, u_cmd_ready => u_cmd_ready, u_cmd_code => u_cmd_code,
+      u_cmd_slot => u_slot,
       u_cmd_addr => u_cmd_addr, u_cmd_count => u_cmd_count, u_cmd_arg => u_cmd_arg,
       u_card_ready => u_card_ready, u_busy => u_busy, u_waiting => u_waiting,
       u_error => u_error, u_err_code => u_err_code, u_native_mode => u_native,
@@ -133,6 +143,7 @@ begin
       u_wr_fetch => u_wr_fetch, u_wr_offset => u_wr_offset, u_wr_block => u_wr_block,
       u_wr_data => u_wr_data,
       d_cmd_valid => d_cmd_valid, d_cmd_ready => d_cmd_ready, d_cmd_code => d_cmd_code,
+      d_cmd_slot => d_slot, d_cards_status => cards_status,
       d_cmd_addr => d_cmd_addr, d_cmd_count => d_cmd_count, d_cmd_arg => d_cmd_arg,
       d_card_ready => d_card_ready, d_busy => d_busy, d_waiting => d_waiting,
       d_error => d_error, d_err_code => d_err_code, d_native_mode => d_native,
@@ -144,6 +155,7 @@ begin
       d_wr_data => d_wr_data,
       cache_on => cache_on, cache_hits => hits, cache_misses => misses);
 
+  single : if not G_DUAL_TEST generate
   sdn : entity work.sdcard_native
     generic map (G_XILINX => false, G_MS => 1620)
     port map (
@@ -162,6 +174,30 @@ begin
       sd_cmd_i => sd_cmd_i, sd_dat_o => sd_dat_o, sd_dat_oe => sd_dat_oe,
       sd_dat_i => sd_dat_i);
 
+    cards_status <= (others => '0');
+  end generate;
+  dual : if G_DUAL_TEST generate
+  sdn : entity work.sdcard_native_dual
+    generic map (G_XILINX => false, G_MS => 1620, G_TRACE => true)
+    port map (
+      clock162 => clock162, cpuclock => cpuclock,
+      cmd_valid => d_cmd_valid, cmd_ready => d_cmd_ready, cmd_code => d_cmd_code,
+      cmd_slot => d_slot, status_slot => d_slot, cards_status => cards_status,
+      cmd_addr => d_cmd_addr, cmd_count => d_cmd_count, cmd_arg => d_cmd_arg,
+      card_ready => d_card_ready, busy => d_busy, waiting => d_waiting, error => d_error,
+      err_code => d_err_code, native_mode => d_native, high_speed => d_hs,
+      sdhc => d_sdhc, clk_setting => d_setting, probe_pass => d_pp,
+      probe_fail => d_pf, blocks_done => d_bdone, diag_stats => open,
+      rd_valid => d_rd_valid, rd_data => d_rd_data, rd_offset => d_rd_offset,
+      rd_block => d_rd_block, rd_good => d_rd_good, rd_bad => d_rd_bad,
+      wr_fetch => d_wr_fetch, wr_offset => d_wr_offset, wr_block => d_wr_block,
+      wr_data => d_wr_data,
+      sd_clk => sd_clk, sd_cmd_o => sd_cmd_o, sd_cmd_oe => sd_cmd_oe,
+      sd_cmd_i => sd_cmd_i, sd_dat_o => sd_dat_o, sd_dat_oe => sd_dat_oe,
+      sd_dat_i => sd_dat_i);
+
+  end generate;
+
   card_clk <= transport sd_clk(0) after BOARD;
   card_cmd <= 'H';
   card_dat <= "HHHH";
@@ -177,9 +213,26 @@ begin
   -- a slow card (access latency ~50 us at 40.5 MHz), with one CRC error in
   -- the background fill of the first line
   card : entity work.sdcard_native_model
-    generic map (G_NAC => G_NAC, G_NAC_MULTI => G_NAC_MULTI,
-                 G_HS_OK => G_HS_OK, G_CRC_ERR_BLK => 99)
+    generic map (G_NAC => G_NAC, G_NAC_MULTI => G_NAC_MULTI, G_START_SPI => G_DUAL_SPI0,
+                 G_HS_OK => G_HS_OK, G_CRC_ERR_BLK => 99,
+                 G_LONG_READ_NAC => 40000 * boolean'pos(G_DUAL_TEST))
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
+
+  other_card : if G_DUAL_TEST generate
+    card1_clk <= transport sd_clk(1) after BOARD;
+    card1_cmd <= 'H'; card1_dat <= "HHHH";
+    host1_cmd <= sd_cmd_o(1) when sd_cmd_oe(1) = '1' else 'Z';
+    card1_cmd <= transport host1_cmd after BOARD;
+    drv1 : for l in 0 to 3 generate
+      host1_dat(l) <= sd_dat_o(l+4) when sd_dat_oe(l+4) = '1' else 'Z';
+    end generate;
+    card1_dat <= transport host1_dat after BOARD;
+    sd_cmd_i(1) <= transport to_X01(card1_cmd) after BOARD;
+    sd_dat_i(7 downto 4) <= transport to_X01(card1_dat) after BOARD;
+    card1 : entity work.sdcard_native_model
+      generic map (G_PATTERN_SEED => 89, G_NAC => G_NAC, G_START_SPI => G_DUAL_SPI1)
+      port map (clk => card1_clk, cmd => card1_cmd, dat => card1_dat);
+  end generate;
 
   host : process (cpuclock)
   begin
@@ -275,11 +328,67 @@ begin
       check(u_error = '0' and n_good = 1 and same(n, written, 0, rx), msg);
     end procedure;
 
+    procedure readslot(slot, n : natural; written_base : integer := -1) is
+      variable want : unsigned(7 downto 0);
+    begin
+      if slot = 0 then u_slot <= '0'; else u_slot <= '1'; end if;
+      clear_rx;
+      command(2, n, 1, 0);
+      wait_idle(10 ms);
+      check(u_error = '0' and n_good = 1, "dual read completes");
+      for i in 0 to 511 loop
+        if written_base < 0 then want := pattern(n, i) + to_unsigned(slot*89, 8);
+        else want := wpattern(written_base, i); end if;
+        assert rx(0, i) = want report "wrong card/sector in dual read" severity failure;
+      end loop;
+      report "dual slot " & integer'image(slot) & " sector " & integer'image(n) & " correct";
+    end procedure;
+
     variable t, t_miss, t_hit : time;
     variable h0, m0 : natural;
 
   begin
     wait for 100 ns;
+    if G_DUAL_TEST then
+      if G_DUAL_SPI0 /= G_DUAL_SPI1 then
+        wait until cards_status(0) = '1' or cards_status(32) = '1' for 40 ms;
+        if G_DUAL_SPI0 then
+          readslot(1, 7);
+          check(cards_status(0) = '0' and cards_status(1) = '1', "external read completes while internal still initialises");
+        else
+          readslot(0, 7);
+          check(cards_status(32) = '0' and cards_status(33) = '1', "internal read completes while external still initialises");
+        end if;
+      end if;
+      wait until cards_status(0) = '1' and cards_status(32) = '1' for 40 ms;
+      assert cards_status(0) = '1' and cards_status(32) = '1' report "dual init failed" severity failure;
+      readslot(0, 96);
+      readslot(1, 96);
+      readslot(0, 96);
+      readslot(1, 96);
+      readslot(0, 300);
+      -- Write-through snooping and the shared write-fetch stream must be
+      -- card-qualified too. Give identical LBAs different written contents.
+      u_slot <= '1'; wr_base <= 96;
+      command(3, 96, 1, 0); wait_idle(10 ms);
+      check(u_error = '0', "external write completes");
+      readslot(1, 96, 96);
+      readslot(0, 96);
+      u_slot <= '0'; wr_base <= 97;
+      command(3, 96, 1, 0); wait_idle(10 ms);
+      check(u_error = '0', "internal write completes");
+      readslot(0, 96, 97);
+      readslot(1, 96, 96);
+      -- Drop both cached copies and verify the two simulated cards really
+      -- received different bytes, independently of write-through snooping.
+      command(8, 0, 0, 2); wait_idle(10 ms);
+      readslot(0, 96, 97);
+      readslot(1, 96, 96);
+      assert fails = 0 severity failure;
+      report "ALL DUAL CACHE TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
     wait until u_card_ready = '1' and u_busy = '0' for 40 ms;
     check(u_card_ready = '1' and cache_on = '1', "init, cache on");
 
