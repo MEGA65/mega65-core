@@ -7,6 +7,7 @@
 #include <strings.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 
 int do_screen_shot_ascii(FILE *f);
 int do_screen_shot(char *filename);
@@ -93,7 +94,8 @@ struct cpu {
 // By default we log to stderr
 FILE *logfile = NULL;
 char logfilename[8192] = "";
-#define TESTLOGFILE "/tmp/hyppotest.tmp"
+const char *output_directory = ".";
+const char *acme_executable = "acme";
 
 bool fail_on_stack_overflow = true;
 bool fail_on_stack_underflow = true;
@@ -1376,6 +1378,7 @@ void cpu_log_reset(void)
     free(cpulog[i]);
   cpulog_len = 1;
   cpulog[0] = NULL;
+  bzero(lastataddr, sizeof(lastataddr));
 }
 
 void cpu_stash_ram(void)
@@ -2438,6 +2441,12 @@ unsigned char stack_pop_ext(struct cpu *cpu, unsigned short amount, struct instr
     if (new_sp < cpu->regs.sp)
       cpu->stack_underflow = true;
     cpu->regs.sp = new_sp;
+  }
+  if (log->pops >= MAX_POPS) {
+    fprintf(logfile, "ERROR: Too many stack pops in one instruction at $%04X\n", log->pc);
+    cpu->term.error = true;
+    cpu->term.done = true;
+    return 0;
   }
   log->pop_blame[log->pops++] = memory_blame(cpu, cpu->regs.sp);
   return read_memory(cpu, cpu->regs.sp);
@@ -4013,7 +4022,12 @@ bool cpu_step(FILE *f)
     return false;
   }
 
-  struct instruction_log *log = malloc(sizeof(instruction_log));
+  struct instruction_log *log = calloc(1, sizeof(*log));
+  if (!log) {
+    fprintf(f, "ERROR: Cannot allocate instruction log: %s\n", strerror(errno));
+    cpu.term.error = true;
+    return false;
+  }
   log->regs = cpu.regs;
   log->pc = cpu.regs.pc;
   log->len = 0; // byte count of instruction
@@ -4323,9 +4337,12 @@ void machine_init(struct cpu *cpu)
   bzero(&cpu_expected, sizeof(struct cpu));
   cpu_expected.regs.flags = FLAG_E | FLAG_I;
 
-  // Clear chip RAM
+  // Each test starts with a fresh machine, including current and expected RAM.
+  bzero(chipram, CHIPRAM_SIZE);
+  bzero(hypporam, HYPPORAM_SIZE);
+  bzero(colourram, COLOURRAM_SIZE);
+  bzero(ffdram, sizeof(ffdram));
   bzero(chipram_expected, CHIPRAM_SIZE);
-  // Clear Hypervisor RAM
   bzero(hypporam_expected, HYPPORAM_SIZE);
   bzero(colourram_expected, COLOURRAM_SIZE);
   bzero(ffdram_expected, 65536);
@@ -4345,6 +4362,8 @@ void machine_init(struct cpu *cpu)
   // Reset blame for contents of memory
   bzero(chipram_blame, sizeof(chipram_blame));
   bzero(hypporam_blame, sizeof(hypporam_blame));
+  bzero(colourram_blame, sizeof(colourram_blame));
+  bzero(ffdram_blame, sizeof(ffdram_blame));
 
   // Reset loaded symbols
   for (int i = 0; i < hyppo_symbol_count; i++) {
@@ -4381,13 +4400,16 @@ void test_init(struct cpu *cpu)
 
   bzero(breakpoints, sizeof(breakpoints));
 
-  // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
-  // after.
-  unlink(TESTLOGFILE);
-  logfile = fopen(TESTLOGFILE, "w");
-  if (!logfile) {
-    fprintf(stderr, "ERROR: Could not write to '%s'\n", TESTLOGFILE);
-    exit(-2);
+  // Create the temporary log beside its destination for an atomic rename.
+  int length = snprintf(logfilename, sizeof(logfilename), "%s/.hyppotest-XXXXXX", output_directory);
+  int logfd = length >= 0 && (size_t)length < sizeof(logfilename) ? mkstemp(logfilename) : -1;
+  if (logfd < 0 || !(logfile = fdopen(logfd, "w"))) {
+    fprintf(stderr, "ERROR: Could not create a test log in '%s': %s\n", output_directory, strerror(errno));
+    if (logfd >= 0) {
+      close(logfd);
+      unlink(logfilename);
+    }
+    exit(2);
   }
 
   {
@@ -4409,14 +4431,7 @@ void test_conclude(struct cpu *cpu)
 {
   char cmd[8192];
 
-  // Report test status
-  snprintf(cmd, 8192, "FAIL.%s", safe_name);
-  unlink(cmd);
-  snprintf(cmd, 8192, "PASS.%s", safe_name);
-  unlink(cmd);
-
   if (cpu->term.error) {
-    snprintf(cmd, 8192, "mv %s FAIL.%s", TESTLOGFILE, safe_name);
     test_fails++;
     if (log_on_failure) {
       if (cpulog_len < 500000)
@@ -4431,7 +4446,6 @@ void test_conclude(struct cpu *cpu)
     printf("\r[FAIL] %s\n", test_name);
   }
   else {
-    snprintf(cmd, 8192, "mv %s PASS.%s", TESTLOGFILE, safe_name);
     test_passes++;
 
     //    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
@@ -4440,8 +4454,21 @@ void test_conclude(struct cpu *cpu)
   }
 
   if (logfile != stderr) {
-    fclose(logfile);
-    system(cmd);
+    bool failed = cpu->term.error;
+    int close_error = fclose(logfile);
+    snprintf(cmd, sizeof(cmd), "%s/%s.%s", output_directory, failed ? "FAIL" : "PASS", safe_name);
+    if (close_error || rename(logfilename, cmd)) {
+      fprintf(stderr, "ERROR: Could not save test log '%s': %s\n", cmd, strerror(errno));
+      if (!failed) {
+        test_passes--;
+        test_fails++;
+      }
+      cpu->term.error = true;
+    }
+    else {
+      snprintf(cmd, sizeof(cmd), "%s/%s.%s", output_directory, failed ? "PASS" : "FAIL", safe_name);
+      unlink(cmd);
+    }
   }
 
   logfile = stderr;
@@ -4635,12 +4662,18 @@ unsigned short resolve_value16(char *in)
 void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
 {
   FILE *src_file = NULL;
-  char *bin_file_name = mktemp(strdup(P_tmpdir "/acme.bin.XXXXXX"));
-  assert(bin_file_name != NULL);
-  char *src_file_name = mktemp(strdup(P_tmpdir "/acme.src.XXXXXX"));
-  assert(src_file_name != NULL);
-  char *sym_file_name = mktemp(strdup(P_tmpdir "/acme.sym.XXXXXX"));
-  assert(sym_file_name != NULL);
+  char work_directory[4096];
+  const char *tmpdir = getenv("TMPDIR");
+  int length = snprintf(work_directory, sizeof(work_directory), "%s/hyppotest-acme-XXXXXX", tmpdir ? tmpdir : P_tmpdir);
+  if (length < 0 || (size_t)length >= sizeof(work_directory) || !mkdtemp(work_directory)) {
+    fprintf(logfile, "ERROR: Cannot create assembler temporary directory: %s\n", strerror(errno));
+    cpu->term.error = true;
+    return;
+  }
+  char bin_file_name[8192], src_file_name[8192], sym_file_name[8192];
+  snprintf(bin_file_name, sizeof(bin_file_name), "%s/code.bin", work_directory);
+  snprintf(src_file_name, sizeof(src_file_name), "%s/code.asm", work_directory);
+  snprintf(sym_file_name, sizeof(sym_file_name), "%s/code.sym", work_directory);
   //
   // Read the lines between the assemble and end assemble directives into a memory buffer file
   //
@@ -4649,16 +4682,17 @@ void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
   assert(buffer_file != NULL);
   char line[1024];
   unsigned min_c = 9999;
-  while (!feof(f)) {
-    *line = 0;
-    fgets(line, sizeof(line) / sizeof(char), f);
+  bool ended = false;
+  while (fgets(line, sizeof(line), f)) {
     char *line_ptr = line;
     while (isspace(*line_ptr))
       ++line_ptr;
     if (!line_ptr[0])
       continue;
-    if (!strncasecmp(line_ptr, "end assemble", strlen("end assemble")))
+    if (!strncasecmp(line_ptr, "end assemble", strlen("end assemble"))) {
+      ended = true;
       break;
+    }
     if (line_ptr - line < min_c)
       min_c = line_ptr - line;
     if (fputs(line, buffer_file) == EOF) {
@@ -4669,6 +4703,11 @@ void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
       goto cleanup;
     }
   }
+  if (!ended) {
+    fprintf(logfile, "ERROR: Missing 'end assemble'.\n");
+    cpu->term.error = true;
+    goto cleanup;
+  }
   rewind(buffer_file);
   //
   // Save the assembly source into a temporary file.
@@ -4676,11 +4715,9 @@ void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
   //
   src_file = fopen(src_file_name, "wx");
   if (src_file == NULL) {
-    snprintf(line, sizeof(line) / sizeof(char), "ERROR: Failed to open file %s for writing the assembly source: %s\n",
-        src_file_name, strerror(errno));
-    fprintf(stderr, line);
+    fprintf(stderr, "ERROR: Cannot open assembler source '%s': %s\n", src_file_name, strerror(errno));
     if (logfile != stderr)
-      fprintf(logfile, line);
+      fprintf(logfile, "ERROR: Cannot open assembler source '%s': %s\n", src_file_name, strerror(errno));
     cpu->term.error = true;
     goto cleanup;
   }
@@ -4695,10 +4732,21 @@ void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
   //
   // Execute ACME on the temporary source file
   //
-  snprintf(line, sizeof(line) / sizeof(char),
-      "acme --setpc '$%x' --cpu m65 --format plain --outfile '%s' --symbollist '%s' '%s'", pc, bin_file_name, sym_file_name,
-      src_file_name);
-  if (system(line) != 0) {
+  char start_pc[16];
+  snprintf(start_pc, sizeof(start_pc), "$%x", pc);
+  pid_t child = fork();
+  if (child == 0) {
+    execlp(acme_executable, acme_executable, "--setpc", start_pc, "--cpu", "m65", "--format", "plain", "--outfile",
+        bin_file_name, "--symbollist", sym_file_name, src_file_name, (char *)NULL);
+    perror(acme_executable);
+    _exit(127);
+  }
+  int status = -1;
+  pid_t waited;
+  do {
+    waited = child < 0 ? -1 : waitpid(child, &status, 0);
+  } while (waited < 0 && errno == EINTR);
+  if (waited < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
     fprintf(stderr, "ERROR: acme failed to assemble the source\n");
     if (logfile != stderr)
       fprintf(logfile, "ERROR: acme failed to assemble the source\n");
@@ -4715,18 +4763,38 @@ cleanup:
   if (src_file != NULL)
     fclose(src_file);
   remove(bin_file_name);
-  free(bin_file_name);
   remove(src_file_name);
-  free(src_file_name);
   remove(sym_file_name);
-  free(sym_file_name);
+  rmdir(work_directory);
 }
 
 int main(int argc, char **argv)
 {
-  if (argc < 2 || argc > 3) {
-    fprintf(stderr, "usage: hyppotest <test script> [<test>]\n");
-    exit(-2);
+  const char *script = NULL, *test_target = NULL;
+  for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "--help")) {
+      printf("usage: hyppotest [--output-dir DIR] [--acme PATH] <test script> [<test>]\n");
+      return 0;
+    }
+    else if ((!strcmp(argv[i], "--output-dir") || !strcmp(argv[i], "--acme")) && i + 1 < argc) {
+      bool output = !strcmp(argv[i], "--output-dir");
+      if (output)
+        output_directory = argv[++i];
+      else
+        acme_executable = argv[++i];
+    }
+    else if (argv[i][0] == '-' || (script && test_target)) {
+      fprintf(stderr, "ERROR: Unexpected argument '%s'\n", argv[i]);
+      return 2;
+    }
+    else if (!script)
+      script = argv[i];
+    else
+      test_target = argv[i];
+  }
+  if (!script) {
+    fprintf(stderr, "usage: hyppotest [--output-dir DIR] [--acme PATH] <test script> [<test>]\n");
+    return 2;
   }
 
   // Setup for anonymous tests, if user doesn't supply any test directives
@@ -4734,20 +4802,19 @@ int main(int argc, char **argv)
   logfile = stderr;
 
   // Open test script, and start interpreting it
-  FILE *f = fopen(argv[1], "r");
+  FILE *f = fopen(script, "r");
   if (!f) {
-    fprintf(stderr, "ERROR: Could not read test procedure from '%s'\n", argv[1]);
-    exit(-2);
+    fprintf(stderr, "ERROR: Could not read test procedure from '%s'\n", script);
+    return 2;
   }
-  const char *test_target = (argc == 3 ? argv[2] : NULL);
   if (test_target) {
     printf("INFO: Only running test \"%s\"\n", test_target);
   }
   char line[1024];
   bool skipping_test = false;
-  while (!feof(f)) {
-    line[0] = 0;
-    fgets(line, 1024, f);
+  bool script_error = false;
+  unsigned selected_tests = 0, directives = 0;
+  while (fgets(line, sizeof(line), f)) {
     char routine[1024];
     char value[1024];
     char location[1024];
@@ -4769,6 +4836,7 @@ int main(int argc, char **argv)
       }
       continue;
     }
+    directives++;
     if (sscanf(line_ptr, "jsr %s", routine) == 1) {
       int addr32 = resolve_value32(routine);
       if (addr32 > 0) {
@@ -4873,6 +4941,7 @@ int main(int argc, char **argv)
       if (!test_target || strcmp(test_target, test_name) == 0) {
         // Set test name
         test_init(&cpu);
+        selected_tests++;
         fflush(stdout);
       }
       else
@@ -5147,10 +5216,24 @@ int main(int argc, char **argv)
       fprintf(logfile, "ERROR: Unrecognised test directive:\n       %s\n", line_ptr);
       cpu.term.error = true;
     }
+    if (logfile == stderr && cpu.term.error)
+      script_error = true;
   }
   if (logfile != stderr)
     test_conclude(&cpu);
+  else if (!selected_tests && !test_target && directives)
+    test_conclude(&cpu);
+  if (ferror(f)) {
+    fprintf(stderr, "ERROR: Could not finish reading '%s'\n", script);
+    script_error = true;
+  }
   fclose(f);
+  if ((!selected_tests && test_target) || (!test_passes && !test_fails)) {
+    fprintf(stderr, "ERROR: No tests selected.\n");
+    return 2;
+  }
+  printf("SUMMARY: %d passed, %d failed\n", test_passes, test_fails);
+  return test_fails || script_error ? 1 : 0;
 }
 
 /* ----------------------------------------------------------------------------------------------------------

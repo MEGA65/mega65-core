@@ -1279,7 +1279,7 @@ $(TOOLDIR)/hyppotest:	$(TOOLDIR)/hyppotest.c  Makefile
 	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/hyppotest $(TOOLDIR)/hyppotest.c -lpng
 
 hyppotest:	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
-	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
+	$(TOOLDIR)/hyppotest src/hyppo/hyppo.test
 
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOOLDIR)/fpgajtag/*.h Makefile
 	$(CC) $(COPT) -g -Wall -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz -lpthread
