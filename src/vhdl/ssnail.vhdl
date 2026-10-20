@@ -2979,7 +2979,10 @@ begin
           else cop_rc <= rf_r(to_integer(instr(27 downto 24))); end if;
           if instr(31 downto 28) = x"F" then cop_rd <= (others => '0');
           else cop_rd <= rf_r(to_integer(instr(31 downto 28))); end if;
-          if out_z and hr_valid_i = '0' and sd_valid_i = '0' then
+          -- (has_cop: without it cop_own stays a constant 0, so ssnail_top's
+          -- port multiplexers fold away; synthesis cannot see that C_COP is
+          -- never reached)
+          if has_cop and out_z and hr_valid_i = '0' and sd_valid_i = '0' then
             cop_start <= '1';
             cop_own <= '1';
             go(C_COP_WAIT);

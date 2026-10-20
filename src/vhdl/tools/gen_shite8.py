@@ -6,7 +6,7 @@ leave working bytes in their buffers and scratch)."""
 import os
 import struct
 import sys
-_here = os.path.dirname(os.path.abspath(__file__))
+_here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # src/vhdl
 _tools = os.environ.get("SSNAIL_TOOLS")
 if not _tools:
     for _c in (os.path.join(_here, "SSNAIL"), os.path.join(_here, "SSNAIL", "ssnail_tools")):

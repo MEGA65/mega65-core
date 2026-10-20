@@ -49,7 +49,8 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOLS = os.environ.get("SSNAIL_TOOLS") or os.path.join(HERE, "SSNAIL")
+VHDL = os.path.dirname(HERE)                # src/vhdl
+TOOLS = os.environ.get("SSNAIL_TOOLS") or os.path.join(VHDL, "SSNAIL")
 sys.path.insert(0, TOOLS)
 import ssnail_isa as I                     # noqa: E402
 from ssnail_convert import Asm             # noqa: E402

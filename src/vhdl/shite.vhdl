@@ -9,6 +9,10 @@
 -- shite_number_text) FORMAT_CELLS ($43), COMPILE ($44), DECOMPILE ($45),
 -- RENDER ($46), PARSE ($47).
 -- Memory is reached one 8-byte group at a time (no cache yet).
+--
+-- Runs on clock81: shite_bridge (clock162) takes SSNAIL's coprocessor
+-- port and issues the LUMP commands, the events crossing as toggles
+-- (start_t, done_t, g_t, g_ack_t) with their data held meanwhile.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -22,10 +26,10 @@ entity shite is
     max_row_cells : natural := 1024
     );
   port (
-    clock162 : in std_logic;
-
-    -- from SSNAIL (cop_ ports)
-    start  : in  std_logic;
+    clock : in std_logic;                 -- clock81
+    -- from SSNAIL's coprocessor port, through shite_bridge: held from
+    -- start_t's change until done_t's
+    start_t : in  std_logic;
     op     : in  unsigned(7 downto 0);
     ra     : in  unsigned(31 downto 0);
     rb     : in  unsigned(31 downto 0);
@@ -34,37 +38,22 @@ entity shite is
     z      : in  unsigned(31 downto 0);   -- the instruction's Z
     x      : in  unsigned(27 downto 0);
     abort  : in  std_logic;
-    done   : out std_logic := '0';
+    done_t : out std_logic := '0';
     err    : out unsigned(7 downto 0) := (others => '0');
     wr     : out std_logic := '0';
     result : out unsigned(31 downto 0) := (others => '0');
     map_hr_base, map_hr_size, map_sd_base, map_sd_size : in unsigned(7 downto 0);
-
-    -- LUMP masters (valid only while SSNAIL has handed them over)
-    hr_cmd_valid   : out std_logic := '0';
-    hr_cmd_ready   : in  std_logic;
-    hr_cmd_op      : out unsigned(1 downto 0) := "00";
-    hr_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
-    hr_cmd_len     : out unsigned(8 downto 0) := (others => '0');
-    hr_rdata       : in  unsigned(15 downto 0);
-    hr_rdata_valid : in  std_logic;
-    hr_wdata_req   : in  std_logic;
-    hr_wdata       : out unsigned(15 downto 0) := x"0000";
-    hr_wdata_be    : out std_logic_vector(1 downto 0) := "11";
-    hr_cmd_done    : in  std_logic;
-    hr_error       : in  std_logic;
-    sd_cmd_valid   : out std_logic := '0';
-    sd_cmd_ready   : in  std_logic;
-    sd_cmd_op      : out unsigned(1 downto 0) := "00";
-    sd_cmd_addr    : out unsigned(26 downto 0) := (others => '0');
-    sd_cmd_len     : out unsigned(8 downto 0) := (others => '0');
-    sd_rdata       : in  unsigned(15 downto 0);
-    sd_rdata_valid : in  std_logic;
-    sd_wdata_req   : in  std_logic;
-    sd_wdata       : out unsigned(15 downto 0) := x"0000";
-    sd_wdata_be    : out std_logic_vector(1 downto 0) := "11";
-    sd_cmd_done    : in  std_logic;
-    sd_error       : in  std_logic
+    -- memory, one 8-byte group (shite_bridge issues it): the fields held
+    -- from g_t's change until g_ack_t's, with the bytes read or the error
+    g_t     : out std_logic := '0';
+    g_write : out std_logic;
+    g_sd    : out std_logic := '0';
+    g_addr  : out unsigned(26 downto 0) := (others => '0');
+    g_wd    : out unsigned(63 downto 0);
+    g_be    : out std_logic_vector(7 downto 0);
+    g_ack_t : in  std_logic;
+    g_rd    : in  unsigned(63 downto 0);
+    g_err   : in  std_logic
     );
 end shite;
 
@@ -149,10 +138,10 @@ architecture rtl of shite is
   signal m_be : std_logic_vector(7 downto 0) := (others => '1');
   signal m_is_sd, m_ok : std_logic := '0';
   signal m_local : unsigned(26 downto 0) := (others => '0');
-  signal m_words : unsigned(2 downto 0) := (others => '0');   -- words received
-  signal m_wk : unsigned(2 downto 0) := (others => '0');      -- words sent
-  signal m_done_seen : std_logic := '0';
-  signal hr_v, sd_v : std_logic := '0';
+  -- the crossings' toggles, registered, and the last seen
+  signal s_r, s_seen, a_r, a_seen, g_tr, done_tr : std_logic := '0';
+  signal abt : std_logic := '0';
+  signal mp_hr_base, mp_hr_size, mp_sd_base, mp_sd_size : unsigned(7 downto 0) := (others => '0');
 
   -- row walk
   signal row : unsigned(31 downto 0) := (others => '0');
@@ -593,7 +582,7 @@ begin
   -- The codec units (their RAM through the adapter below, SJ_)
   codec : entity work.shite_formula_codec
     port map (
-      clock => clock162, reset => '0', start => co_start, decompile => co_decompile,
+      clock => clock, reset => '0', start => co_start, decompile => co_decompile,
       abort => x_unit_abort,
       source => co_source, destination => co_dest, names => co_names,
       source_length => co_len, output_capacity => co_cap,
@@ -615,7 +604,7 @@ begin
 
   renderer : entity work.shite_cell_text
     port map (
-      clock => clock162, reset => '0', start => ce_start, abort => x_unit_abort,
+      clock => clock, reset => '0', start => ce_start, abort => x_unit_abort,
       kind => ce_kind, value => ce_value, cell_format => ce_format,
       text_source => ce_text, scratch => ce_scratch, destination => ce_dest,
       text_length => ce_tlen, capacity => ce_cap,
@@ -655,7 +644,7 @@ begin
 
   converter : entity work.shite_number_text
     port map (
-      clock => clock162, reset => '0', start => nu_start, format => nu_format, negative => nu_negative,
+      clock => clock, reset => '0', start => nu_start, format => nu_format, negative => nu_negative,
       source => nu_source, destination => nu_dest, input_length => nu_len, capacity => nu_cap,
       value => nu_value, kind => nu_kind, scale => nu_scale, decimal_separator => nu_dsep,
       display => nu_display, display_style => nu_style, display_decimals => nu_decimals,
@@ -666,10 +655,11 @@ begin
       ram_valid => nu_rv, ram_write => nu_rw, ram_address => nu_ra, ram_wdata => nu_wd,
       ram_byte_enable => nu_be, ram_ready => nu_rdy, ram_error => sj_rerr, ram_rdata => sj_rdata);
 
-  hr_cmd_valid <= hr_v;
-  sd_cmd_valid <= sd_v;
+  g_t <= g_tr;
+  done_t <= done_tr;
+  g_write <= m_write; g_wd <= m_wd; g_be <= m_be;
 
-  process (clock162)
+  process (clock)
     variable mb : unsigned(7 downto 0);
     variable w : unsigned(15 downto 0);
     variable e : unsigned(63 downto 0);
@@ -735,31 +725,22 @@ begin
       fb_ret <= nxt; st <= BF;
     end procedure;
   begin
-    if rising_edge(clock162) then
-      done <= '0';
-      if hr_cmd_ready = '1' then hr_v <= '0'; end if;
-      if sd_cmd_ready = '1' then sd_v <= '0'; end if;
+    if rising_edge(clock) then
+      -- (from clock162: registered before any use)
+      s_r <= start_t; a_r <= g_ack_t; abt <= abort;
+      mp_hr_base <= map_hr_base; mp_hr_size <= map_hr_size;
+      mp_sd_base <= map_sd_base; mp_sd_size <= map_sd_size;
 
       -- the memory map (SSNAIL's), a cycle after m_addr
       mb := m_addr(27 downto 20);
-      if mb >= map_hr_base and resize(mb, 9) < resize(map_hr_base, 9) + resize(map_hr_size, 9) then
+      if mb >= mp_hr_base and resize(mb, 9) < resize(mp_hr_base, 9) + resize(mp_hr_size, 9) then
         m_ok <= '1'; m_is_sd <= '0';
-        m_local <= resize(mb - map_hr_base, 7) & m_addr(19 downto 0);
-      elsif mb >= map_sd_base and resize(mb, 9) < resize(map_sd_base, 9) + resize(map_sd_size, 9) then
+        m_local <= resize(mb - mp_hr_base, 7) & m_addr(19 downto 0);
+      elsif mb >= mp_sd_base and resize(mb, 9) < resize(mp_sd_base, 9) + resize(mp_sd_size, 9) then
         m_ok <= '1'; m_is_sd <= '1';
-        m_local <= resize(mb - map_sd_base, 7) & m_addr(19 downto 0);
+        m_local <= resize(mb - mp_sd_base, 7) & m_addr(19 downto 0);
       else
         m_ok <= '0';
-      end if;
-
-      -- write data: each request is answered the next cycle
-      if st = M_WAIT and m_write = '1' and m_wk /= 4
-        and ((hr_wdata_req = '1' and m_is_sd = '0') or (sd_wdata_req = '1' and m_is_sd = '1')) then
-        w := m_wd(to_integer(m_wk) * 16 + 15 downto to_integer(m_wk) * 16);
-        hr_wdata <= w; sd_wdata <= w;
-        hr_wdata_be <= m_be(to_integer(m_wk) * 2 + 1) & m_be(to_integer(m_wk) * 2);
-        sd_wdata_be <= m_be(to_integer(m_wk) * 2 + 1) & m_be(to_integer(m_wk) * 2);
-        m_wk <= m_wk + 1;
       end if;
 
       l_rd <= list(l_ra);                 -- (the list RAM's read port)
@@ -771,11 +752,12 @@ begin
         or (x_job = "10" and nu_done = '1') then
         sj_seen_done <= true;
       end if;
-      x_unit_abort <= abort;
+      x_unit_abort <= abt;
 
       case st is
         when S_IDLE =>
-          if start = '1' then
+          if s_r /= s_seen then
+            s_seen <= s_r;
             err <= ERR_NONE; wr <= '0'; cnt_loaded <= false;
             r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
             if op = x"43" or op = x"44" or op = x"45" or op = x"46" or op = x"47" then
@@ -786,7 +768,7 @@ begin
           end if;
 
         when S_FINISH =>
-          done <= '1';
+          done_tr <= not done_tr;
           st <= S_IDLE;
 
         -- ERR_FORMAT: the row into the descriptor (bytes 48-51)
@@ -809,39 +791,18 @@ begin
           elsif m_ok = '0' then
             fault(ERR_ADDRESS);
           else
-            m_words <= (others => '0'); m_wk <= (others => '0'); m_done_seen <= '0';
-            if m_write = '1' then
-              hr_cmd_op <= LUMP_OP_WRITE; sd_cmd_op <= LUMP_OP_WRITE;
-            else
-              hr_cmd_op <= LUMP_OP_READ; sd_cmd_op <= LUMP_OP_READ;
-            end if;
-            hr_cmd_addr <= m_local; sd_cmd_addr <= m_local;
-            hr_cmd_len <= to_unsigned(8, 9); sd_cmd_len <= to_unsigned(8, 9);
-            if m_is_sd = '1' then sd_v <= '1'; else hr_v <= '1'; end if;
+            g_sd <= m_is_sd; g_addr <= m_local; g_tr <= not g_tr;
             st <= M_WAIT;
           end if;
         when M_WAIT =>
-          if m_is_sd = '1' then
-            if sd_rdata_valid = '1' and m_write = '0' then
-              m_rd <= sd_rdata & m_rd(63 downto 16);
-              m_words <= m_words + 1;
-            end if;
-            if sd_cmd_done = '1' then m_done_seen <= '1'; end if;
-            if sd_error = '1' then
+          if a_r /= a_seen then
+            a_seen <= a_r;
+            if g_err = '1' then
               if sj_mode then sj_fault <= true; st <= mem_ret; else fault(ERR_READ); end if;
+            else
+              m_rd <= g_rd;
+              st <= mem_ret;
             end if;
-          else
-            if hr_rdata_valid = '1' and m_write = '0' then
-              m_rd <= hr_rdata & m_rd(63 downto 16);
-              m_words <= m_words + 1;
-            end if;
-            if hr_cmd_done = '1' then m_done_seen <= '1'; end if;
-            if hr_error = '1' then
-              if sj_mode then sj_fault <= true; st <= mem_ret; else fault(ERR_READ); end if;
-            end if;
-          end if;
-          if m_done_seen = '1' and (m_write = '1' or m_words = 4) then
-            st <= mem_ret;
           end if;
 
         -- --------------------------------------------------------------
@@ -858,7 +819,7 @@ begin
           ncols <= m_rd(63 downto 32);
           st <= D_CHK;
         when D_CHK =>
-          if abort = '1' then
+          if abt = '1' then
             fault(ERR_ABORTED);
           elsif r_op = x"42" then                   -- FIND_CELL
             q_row <= r_a; q_col <= r_b; lk_ret <= F_DONE; st <= LK_START;
@@ -907,7 +868,7 @@ begin
             lk_g <= x"0" & m_rd(63 downto 52); st <= LK_CELL2;     -- right
           end if;
         when LK_CELL2 =>
-          if abort = '1' then fault(ERR_ABORTED);
+          if abt = '1' then fault(ERR_ABORTED);
           else st <= LK_HDR2; end if;
 
         -- FIND_CELL
@@ -919,7 +880,7 @@ begin
         when B_ROW =>
           if row > rlast or row >= nrows then
             st <= S_FINISH;
-          elsif abort = '1' then
+          elsif abt = '1' then
             fault(ERR_ABORTED);
           else
             mem_read(rowtab + (row(25 downto 0) & "00"), B_ROW2);
@@ -1024,7 +985,7 @@ begin
         when B_TREE2 =>
           if sp = 0 then
             st <= B_RHDR;
-          elsif abort = '1' then
+          elsif abt = '1' then
             fault(ERR_ABORTED);
           else
             lo := to_integer(stk(sp - 1)(21 downto 11));
@@ -1140,7 +1101,7 @@ begin
           end if;
         -- the row's cells in memory order
         when RC_WALK =>
-          if abort = '1' then
+          if abt = '1' then
             fault(ERR_ABORTED);
           elsif g >= gfree then
             -- the row's changed count (bytes 12-13)
@@ -2837,7 +2798,7 @@ begin
         when FC_ROWS =>
           if fc_row > xp8(31 downto 0) or fc_row >= nrows then
             st <= S_FINISH;
-          elsif abort = '1' then
+          elsif abt = '1' then
             fault(ERR_ABORTED);
           else
             fc_col <= xp8(63 downto 32); fc_x <= (others => '0'); fc_cx <= (others => '0');

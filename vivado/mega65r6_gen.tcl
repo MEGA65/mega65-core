@@ -188,6 +188,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/pixel_fifo.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/shite_bridge.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shite_codec_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shite_number_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shite_number_integer.vhdl"]"\
@@ -665,6 +666,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/iomapper.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/shite_bridge.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

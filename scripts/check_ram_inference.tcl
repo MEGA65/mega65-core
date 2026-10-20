@@ -47,8 +47,10 @@ foreach {inst arrays} $ram_checks {
 # to a block RAM's ports: xf as 4096 x 32 LUT RAM congested all of SSNAIL)
 # (coeff_word: the table ROM, read into it; a second read port could leave
 # it in LUTs)
+# (SHITE's list: REBALANCE_ROW's 1024 x 64 sort list, read registered)
 set bram_checks {
   *ssnail0/core {xf coeff_word sarr}
+  *ssnail0/shite_gen.sh {list}
 }
 foreach {inst arrays} $bram_checks {
   foreach a $arrays {

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run every SSNAIL and LUMP testbench (and optionally the PC-tool tests).
 
-    ./run_ssnail_tests.py                       # all VHDL testbenches
-    ./run_ssnail_tests.py --tools ../ssnail_tools   # ... plus the Python tool tests
-    ./run_ssnail_tests.py tb_ssnail_step1        # just the named benches
-    ./run_ssnail_tests.py --list
+    tools/run_ssnail_tests.py                       # all VHDL testbenches
+    tools/run_ssnail_tests.py --tools ../ssnail_tools   # ... plus the Python tool tests
+    tools/run_ssnail_tests.py tb_ssnail_step1        # just the named benches
+    tools/run_ssnail_tests.py --list
 
 Builds in a scratch directory with GHDL (VHDL-93, as mega65-core), so the
 source tree is never touched.  Exits non-zero if anything fails.
@@ -152,49 +152,49 @@ BENCHES = {
     "tb_shite_step1": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite1_pkg.vhdl", "tb_shite_step1.vhdl"],
                        "tb_shite_step1", [[], ["-gllm=false"]], r"TB_SHITE_STEP1: ALL PASSED"),
     "tb_shite_step2": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite2_pkg.vhdl", "tb_shite_step2.vhdl"],
                        "tb_shite_step2", [["-gllm=false"]], r"TB_SHITE_STEP2: ALL PASSED"),
     "tb_shite_step3": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite3_pkg.vhdl", "tb_shite_step3.vhdl"],
                        "tb_shite_step3", [["-gllm=false"]], r"TB_SHITE_STEP3: ALL PASSED"),
     "tb_shite_step4": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite4_pkg.vhdl", "tb_shite_step4.vhdl"],
                        "tb_shite_step4", [["-gllm=false"]], r"TB_SHITE_STEP4: ALL PASSED"),
     "tb_shite_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite5_pkg.vhdl", "tb_shite_step5.vhdl"],
                        "tb_shite_step5", [["-gllm=false"]], r"TB_SHITE_STEP5: ALL PASSED"),
     "tb_shite_step6": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite6_pkg.vhdl", "tb_shite_step6.vhdl"],
                        "tb_shite_step6", [["-gllm=false"]], r"TB_SHITE_STEP6: ALL PASSED"),
     "tb_shite_step7": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite7_pkg.vhdl", "tb_shite_step7.vhdl"],
                        "tb_shite_step7", [["-gllm=false"]], r"TB_SHITE_STEP7: ALL PASSED"),
     "tb_shite_step8": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
-                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite8_pkg.vhdl", "tb_shite_step8.vhdl"],
                        "tb_shite_step8", [["-gllm=false"]], r"TB_SHITE_STEP8: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
@@ -401,7 +401,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("benches", nargs="*", help="testbenches to run (default: all)")
-    here = os.path.dirname(os.path.abspath(__file__))
+    gendir = os.path.dirname(os.path.abspath(__file__))     # src/vhdl/tools: the generators
+    here = os.path.dirname(gendir)                           # src/vhdl: sources, ./SSNAIL
     ap.add_argument("--vhdl", action="append", default=[],
                     help=f"directory with the VHDL sources (repeatable; default: {here})")
     ap.add_argument("--tools", default=os.environ.get("SSNAIL_TOOLS"),
@@ -466,7 +467,7 @@ def main():
                          f"tools, then run with --update (or git pull in {args.tools}).")
         for f in sorted(needed & set(GENERATED)):
             gscript, needs_tools = GENERATED[f]
-            gen = find(gscript, srcdirs)
+            gen = find(gscript, [gendir] + srcdirs)
             if not gen:
                 missing.append(f"{gscript} (generates {f})")
                 continue
@@ -521,7 +522,7 @@ def main():
                     results.append((label, bool(ok), detail))
 
         tabs = find("ssnail_tables_pkg.vhdl", srcdirs)
-        gtab = find("gen_tables.py", srcdirs)
+        gtab = find("gen_tables.py", [gendir] + srcdirs)
         if args.tools and tabs and gtab:
             r = subprocess.run([sys.executable, gtab, "--check"], cwd=os.path.dirname(tabs),
                                env=dict(os.environ, SSNAIL_TOOLS=os.path.abspath(args.tools)),
