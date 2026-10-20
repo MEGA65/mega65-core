@@ -156,6 +156,10 @@ architecture rtl of shite is
   -- and one registered read port (block RAM)
   type list_t is array (0 to max_row_cells - 1) of unsigned(63 downto 0);
   signal list : list_t;
+  -- (64 Kbit: block RAM, written at one address per cycle, read registered
+  -- into l_rd.  Left to itself Vivado made it LUT RAM, 5686 cells)
+  attribute ram_style : string;
+  attribute ram_style of list : signal is "block";
   signal l_ra : natural range 0 to max_row_cells - 1 := 0;
   signal l_rd : unsigned(63 downto 0) := (others => '0');
   signal l_n : natural range 0 to max_row_cells := 0;

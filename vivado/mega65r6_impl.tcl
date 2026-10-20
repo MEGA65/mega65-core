@@ -1,8 +1,11 @@
+# (wait_and_report: wait_on_run, and on failure the runs' errors into this log)
+source scripts/wait_and_report.tcl
+
 
 reset_run impl_1
 
 launch_runs impl_1
-wait_on_run impl_1
+wait_and_report impl_1
 
 # Open the completed implementation to apply bitstream properties
 open_run impl_1
