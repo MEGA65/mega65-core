@@ -35,6 +35,7 @@ Testbenches:
     tb_ssnail_step4   RMSNORM, LAYERNORM, SILUMUL, GELU, MEANROWS vs the same
     tb_ssnail_step5   ROPE, ARGMAX, ATTN (F16/F32 KV, grouped-query) vs the same
     tb_ssnail_step8   VEXP, SOFTPLUS, SSMUPD (Falcon-H1's Mamba-2) vs the same
+    tb_ssnail_step9   the vector element ops, with the LLM units and alone (has_vec: the 3D build)
     tb_shite_step1    SHITE (through ssnail_top, with and without the LLM units):
                       REBALANCE_ROW and FIND_CELL vs the reference model
     tb_shite_step2    SHITE RECALC: integer formulas, rounds, regions, change lists
@@ -149,6 +150,10 @@ BENCHES = {
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step8_pkg.vhdl",
                          "tb_ssnail_step8.vhdl"],
                         "tb_ssnail_step8", [[]], r"TB_SSNAIL_STEP8: ALL PASSED"),
+    "tb_ssnail_step9": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step9_pkg.vhdl",
+                         "tb_ssnail_step9.vhdl"],
+                        "tb_ssnail_step9", [[], ["-gllm=false", "-gvec=true"]], r"TB_SSNAIL_STEP9: ALL PASSED"),
     "tb_shite_step1": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                         "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
                         "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
@@ -259,6 +264,7 @@ GENERATED = {
     "step4_pkg.vhdl": ("gen_step4.py", True),
     "step5_pkg.vhdl": ("gen_step5.py", True),
     "step8_pkg.vhdl": ("gen_step8.py", True),
+    "step9_pkg.vhdl": ("gen_step9.py", True),
     "shite1_pkg.vhdl": ("gen_shite1.py", True),
     "shite2_pkg.vhdl": ("gen_shite2.py", True),
     "shite3_pkg.vhdl": ("gen_shite3.py", True),

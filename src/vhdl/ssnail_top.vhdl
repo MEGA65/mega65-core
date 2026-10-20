@@ -16,6 +16,7 @@ entity ssnail_top is
   generic (
     has_sdram : boolean := false;
     has_llm   : boolean := true;
+    has_vec   : boolean := false;    -- the vector element ops without the LLM units (3D)
     has_shite : boolean := false
     );
   port (
@@ -100,7 +101,7 @@ architecture rtl of ssnail_top is
 begin
 
   core : entity work.ssnail
-    generic map (has_sdram => has_sdram, has_llm => has_llm, has_cop => has_shite)
+    generic map (has_sdram => has_sdram, has_llm => has_llm, has_vec => has_vec, has_cop => has_shite)
     port map (
       cpuclock => cpuclock, reset => reset, irq => irq, ssnail_cs => ssnail_cs,
       fastio_addr => fastio_addr, fastio_write => fastio_write, fastio_read => fastio_read,

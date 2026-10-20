@@ -226,6 +226,10 @@ entity ssnail is
     -- ATTN, SSMUPD).  Without them those opcodes are ERR_OPCODE: the shell
     -- (jobs, fetch, scalar and control instructions, COPY, SYNC) remains.
     has_llm   : boolean := true;
+    -- The vector element ops alone (VADD VMUL VSUB CVT16 VRECIP VCVTI16
+    -- VMAX VMIN VPROJ16: what 3D geometry needs), without the rest of the
+    -- LLM units.  has_llm includes them.
+    has_vec   : boolean := false;
     -- A coprocessor (SHITE) on opcodes $40-$4F: see the cop_ ports
     has_cop   : boolean := false
     );
@@ -506,6 +510,42 @@ architecture shell of ssnail is
     V_CHUNK, V_CHUNK_MIN1, V_CHUNK_MIN2, V_CHUNK_ADDR, V_LDY, V_LDB, V_EL0, V_EL, V_ELST, V_ADV, E_K1, E_K2, E_K3, E_MM, E_CV, E_P1, E_P2, E_ACC, E_ACC2, R_S0, R_S1, R_S2, R_S3, R_S4, R_S5, R_S6, L_S0, L_S1, L_S2, L_S3, L_S4, L_S5, L_S6, L_S7, M_NEXT, M_S0, M_S1, M_S2, SS_PRM, SS_PRM2, SS_CHK, SS_GRP, SS_FILL, SS_FILL2, SS_ROW, RO_CS, RO_CS2, E_R1, E_R2, E_R3, E_R4, E_R5, E_R6, AM_DONE, V_EXIT);
   signal vu_st : vec_state_t := V_CHUNK;
 
+  -- What the build has.  The units' code is gated by filtering the case
+  -- selectors (cstate, vu_st, ve_kind) through these: a state or kind the
+  -- build lacks selects no branch of its own, so synthesis drops the branch
+  -- and everything only it drives (gating the decode alone is not enough:
+  -- synthesis cannot see that a state register never takes a value)
+  constant vec_on : boolean := has_llm or has_vec;
+  function llm_state(c : core_state_t) return boolean is
+  begin
+    case c is
+      when T_START | T_K | T_I | T_LOOK | T_ROM2 | T_COEFF | T_C0 | T_DONE
+         | EF_START | EF_DONE | C_ATTN | C_DEQ | C_GEMV => return true;
+      when others => return false;
+    end case;
+  end function;
+  function cs_of(c : core_state_t) return core_state_t is
+  begin
+    if (not has_llm and llm_state(c)) or (not vec_on and c = C_VEC) then
+      return C_END;
+    end if;
+    return c;
+  end function;
+  -- the vector unit's steps for the norms, MEANROWS, SSMUPD, ROPE, ARGMAX
+  function vs_of(v : vec_state_t) return vec_state_t is
+  begin
+    if not has_llm then
+      case v is
+        when E_K2 | E_K3 | E_ACC | E_ACC2 | R_S0 | R_S1 | R_S2 | R_S3 | R_S4 | R_S5 | R_S6
+           | L_S0 | L_S1 | L_S2 | L_S3 | L_S4 | L_S5 | L_S6 | L_S7 | M_NEXT | M_S0 | M_S1 | M_S2
+           | SS_PRM | SS_PRM2 | SS_CHK | SS_GRP | SS_FILL | SS_FILL2 | SS_ROW | RO_CS | RO_CS2
+           | E_R1 | E_R2 | E_R3 | E_R4 | E_R5 | E_R6 | AM_DONE => return V_EXIT;
+        when others => null;
+      end case;
+    end if;
+    return v;
+  end function;
+
   type gemv_state_t is (
     G_QFILL0, G_QFILL, G_QAM, G_KAM2, G_QID, G_QID2, G_QD16, G_QDX, G_QDX2, G_QQ, G_QQW, G_SET, G_KAM, G_KX, G_ROW0, G_ROW_MUL, G_ROW_ADDR, G2_D1, G2_D2, G2_D2W, G2_D3, G2_WAIT, G2_END, G_OUT, G_OUT2, G_OUT3, G_OUT4);
   signal gm_st : gemv_state_t := G_QFILL0;
@@ -612,6 +652,16 @@ architecture shell of ssnail is
       when K_MAX | K_MIN => return E_MM;
       when others => return E_ACC;                  -- (K_SUM; others leave C_VEC)
     end case;
+  end function;
+  -- the element operations only the LLM units use, without them: K_COPY
+  function vk_of(k : unsigned(4 downto 0)) return unsigned is
+  begin
+    if not has_llm and (k = K_SCALE or k = K_SUMSQ or k = K_SUM or k = K_LNVAR
+        or k = K_RMSOUT or k = K_LNOUT or k = K_SILUMUL or k = K_TAB or k = K_ROPE
+        or k = K_ARGMAX or k = K_SSM) then
+      return K_COPY;
+    end if;
+    return k;
   end function;
   signal pb        : unsigned(27 downto 0) := (others => '0');
   signal bx, by, bz : unsigned(27 downto 0) := (others => '0'); -- instruction bases
@@ -1913,12 +1963,14 @@ begin
         when "00000" => fastio_rdata <= SSNAIL_ID;
         when "00001" => fastio_rdata <= SSNAIL_VERSION;
         when "00010" =>
-          -- capabilities: 0 HyperRAM, 1 SDRAM, 2 the LLM / vector units, 3 SHITE
+          -- capabilities: 0 HyperRAM, 1 SDRAM, 2 the LLM units, 3 SHITE,
+          -- 4 the vector element ops (with the LLM units, or alone)
           fastio_rdata <= (others => '0');
           fastio_rdata(0) <= '1';
           if has_sdram then fastio_rdata(1) <= '1'; end if;
           if has_llm then fastio_rdata(2) <= '1'; end if;
           if has_cop then fastio_rdata(3) <= '1'; end if;
+          if vec_on then fastio_rdata(4) <= '1'; end if;
         when "00011" =>
           fastio_rdata <= (others => '0');
           fastio_rdata(7) <= irq_pend_done;
@@ -2126,6 +2178,7 @@ begin
     variable pa_x, pa_y, pa_b : w7x8_t;         -- read-ahead word addresses (0..3 used)
     variable vck_x, vck_y : unsigned(7 downto 0);  -- (simulation checks only)
     variable xv, lo, hi : unsigned(31 downto 0);
+    variable vk : unsigned(4 downto 0);         -- ve_kind, as the build has it (vk_of)
     variable ra, rb : unsigned(31 downto 0);     -- R[a], R[b] in C_RESOLVE
     variable ti : integer range 0 to 1023;
     variable wd : unsigned(15 downto 0);
@@ -2517,7 +2570,8 @@ begin
       if hr_cmd_ready = '1' then hr_valid_i <= '0'; end if;
       if sd_cmd_ready = '1' then sd_valid_i <= '0'; end if;
 
-      case cstate is
+      vk := vk_of(ve_kind);
+      case cs_of(cstate) is
         when C_IDLE =>
           busy <= '0';
           -- Load port work comes first.  A chunk is [lp_drain, lp_end): a
@@ -2956,12 +3010,18 @@ begin
               dec_errv <= true; dec_err <= ERR_OPCODE;
               dec_next <= C_END;
           end case;
-          -- Without the LLM units their opcodes are unknown (after the case:
-          -- this wins), so none of their states is ever entered
-          if not has_llm and (instr(7 downto 0) = x"10" or instr(7 downto 0) = x"11"
-              or instr(7 downto 0) = x"12" or instr(7 downto 4) = x"2"
-              or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31"
-              or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") then
+          -- Opcodes of units the build lacks are unknown (after the case:
+          -- this wins).  (Their code is gone anyway: see cs_of.)  The vector
+          -- element ops: VADD VMUL CVT16 VRECIP VCVTI16 VMAX VMIN VSUB VPROJ16
+          if (instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"29"
+              or instr(7 downto 0) = x"2E" or instr(7 downto 0) = x"2F" or instr(7 downto 0) = x"30"
+              or instr(7 downto 0) = x"31" or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") then
+            if not vec_on then
+              dec_errv <= true; dec_err <= ERR_OPCODE;
+              dec_next <= C_END;
+            end if;
+          elsif not has_llm and (instr(7 downto 0) = x"10" or instr(7 downto 0) = x"11"
+              or instr(7 downto 0) = x"12" or instr(7 downto 4) = x"2") then
             dec_errv <= true; dec_err <= ERR_OPCODE;
             dec_next <= C_END;
           end if;
@@ -3318,7 +3378,7 @@ begin
           end if;
 
         when C_VEC =>
-          case vu_st is
+          case vs_of(vu_st) is
           -- ------------------------------------------------------------------
           -- VADD / VMUL / CVT16: chunks that cross no 256-byte boundary in X,
           -- Y or Z; read X (and Y), run each element through the FPU into buf,
@@ -3477,7 +3537,7 @@ begin
               ey <= pre_y;
               eb <= pre_b;
               -- first step of each element operation
-              case ve_kind is
+              case vk is
                 when K_ARGMAX =>
                   -- compared with am_best on the next edge (see before the case)
                   am_x_q <= xv;
@@ -3517,7 +3577,7 @@ begin
                   vu_st <= E_K1; tab_ret <= C_VEC;
                 when others =>
                   fpu_a <= xv;
-                  case ve_kind is
+                  case vk is
                     when K_ADD =>
                       fpu_op <= FOP_ADD;
                       fpu_b <= pre_y;
@@ -3562,7 +3622,7 @@ begin
 
           -- second and later steps of the element operations
           when E_K1 =>
-            case ve_kind is
+            case vk is
               when K_SILUMUL =>                       -- silu(x) * y
                 fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
                 fpu_start <= '1'; go(C_FPU_WAIT);
@@ -5159,7 +5219,7 @@ begin
             go(C_FETCH_SETUP);
           end if;
 
-        when C_END =>
+        when C_END =>                 -- (and, by cs_of, any state the build lacks)
           -- Job finished (HALT, fault or abort).  PC stays on the
           -- instruction concerned.
           done <= '1';

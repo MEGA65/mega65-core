@@ -1281,12 +1281,14 @@ begin
   -- HyperRAM/SDRAM ports.
   ssnail_gen : if (target = mega65r3) or (target = mega65r4)
               or (target = mega65r5) or (target = mega65r6) generate
-    -- (has_shite: the spreadsheet engine, SHITE, on SSNAIL's opcodes $40-$4F,
-    -- on clock81; has_llm => false leaves SSNAIL's shell for it alone.  For
-    -- now SHITE is built alone, to see its own timing)
+    -- (has_llm: the LLM units; has_vec: just the vector element ops, for 3D;
+    -- has_shite: the spreadsheet engine, SHITE, on SSNAIL's opcodes $40-$4F,
+    -- on clock81.  With none of them SSNAIL is its shell: jobs, scalar and
+    -- control instructions, COPY, SYNC.  For now SHITE is built alone, to see
+    -- its own timing)
     ssnail0 : entity work.ssnail_top
       generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6),
-                   has_llm => false, has_shite => true)
+                   has_llm => false, has_vec => false, has_shite => true)
       port map (
       cpuclock => cpuclock,
       reset => reset,
