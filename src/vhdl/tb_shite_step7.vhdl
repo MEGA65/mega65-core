@@ -59,7 +59,7 @@ architecture test of tb_shite_step7 is
   signal sdram_dqml, sdram_dqmh, init_done : std_logic;
 
   -- Behavioural HyperRAM memory: 16K words
-  type mem_t is array (0 to 16383) of unsigned(15 downto 0);
+  type mem_t is array (0 to 65535) of unsigned(15 downto 0);
   signal hmem : mem_t := (others => x"0000");
   signal tb_hmem_we : std_logic := '0';
   signal tb_hmem_addr : integer := 0;
@@ -158,7 +158,7 @@ begin
             g := 1;                     -- insert a gap
           else
             g := 0;
-            hr_rdata <= hmem((a + k) mod 16384);
+            hr_rdata <= hmem((a + k) mod 65536);
             hr_rdata_valid <= '1';
             k := k + 1;
             if k = n then hr_cmd_done <= '1'; st := IDLE; end if;
@@ -169,10 +169,10 @@ begin
           k := k + 1;
           if k >= 3 and k - 3 < n then
             if hr_wdata_be(0) = '1' then
-              hmem((a + k - 3) mod 16384)(7 downto 0) <= hr_wdata(7 downto 0);
+              hmem((a + k - 3) mod 65536)(7 downto 0) <= hr_wdata(7 downto 0);
             end if;
             if hr_wdata_be(1) = '1' then
-              hmem((a + k - 3) mod 16384)(15 downto 8) <= hr_wdata(15 downto 8);
+              hmem((a + k - 3) mod 65536)(15 downto 8) <= hr_wdata(15 downto 8);
             end if;
           end if;
           if k - 3 = n - 1 then hr_cmd_done <= '1'; st := IDLE; end if;

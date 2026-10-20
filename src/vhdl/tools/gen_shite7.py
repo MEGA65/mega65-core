@@ -20,7 +20,7 @@ import shite as SH
 from shite import F
 
 B = I.HYPERRAM_BASE
-MEM = 0x8000                                # the bench's memory: 32 KB
+MEM = 0x20000                               # the bench's memory: 128 KB
 
 
 class Mem:
@@ -104,6 +104,11 @@ for x, n in ((1.005, 2), (0.125, 2), (-0.125, 2), (1e-20, 3), (-1e-20, 3), (4503
 cases.append(F().f(1.5).i(19).call(ROUND, 2).end())        # #NUM!
 cases.append(F().f(1.5).f(1.0).call(ROUND, 2).end())       # n not an integer: #NUM!
 cases.append(F().i(25).fix(0x82).i(1).call(ROUND, 2).end())  # binary fixed point: F64
+# deleted references (README 5.3): #REF! wherever they are used
+DEL_S, DEL_L = SH.DELETED_SHORT.to_bytes(4, "big"), bytes([SH.OP_REF]) + SH.DELETED_LONG.to_bytes(6, "big")
+def raw(f, b):
+    f.b += b
+    return f
 PER_ROW = 48
 NROWS = (len(cases) + PER_ROW - 1) // PER_ROW
 sh = SH.Sheet(NROWS, 64)
@@ -114,11 +119,31 @@ desc = sh.layout(m, B + 0x200, slack=0, change_cap=8)
 end = max(SH.Descriptor(m, desc).row_block(r) or 0 for r in range(NROWS)) - B
 assert end < 0x7C00, hex(end)
 
+# A second sheet, big enough that a deleted reference from row 16384,
+# column 8192 on would land on real cells (row 0) if it were not detected
+DROW, DCOL = 1 << 14, 1 << 13
+dcases = []
+dcases.append(raw(F(), DEL_S).end())
+dcases.append(raw(F(), DEL_L).end())
+dcases.append(raw(F().i(1), DEL_S).op(ADD).end())
+dcases.append(raw(F(), bytes([SH.OP_RECT]) + DEL_S + F()._ref(0, 0, True, True)).call(0, 1).end())        # SUM
+dcases.append(raw(F(), bytes([SH.OP_CELLS, 2]) + F()._ref(0, 0, True, True) + DEL_L).call(0, 1).end())   # SUM
+sh2 = SH.Sheet(DROW + 1, DCOL + 8)
+for n in range(len(dcases)):
+    sh2.number(0, n, 1000 + n)                 # what an undetected one would see
+    sh2.formula(DROW, DCOL + n, dcases[n])
+desc2 = sh2.layout(m, B + 0x8000, slack=0, change_cap=8)
+end2 = max(SH.Descriptor(m, desc2).row_block(r) or 0 for r in (0, DROW)) - B
+assert end2 < MEM - 0x400, hex(end2)
+
 ALL = 0xFFFFFFFF
 A = Asm()
 A(I.LI, 1, z=0); A(I.LI, 2, z=ALL); A(I.LI, 3, z=0); A(I.LI, 4, z=ALL)
 A(I.RECALC, 5, 2, x=desc, z=3, c=3 | 4 << 4)
 A(I.STR, 5, x=B + 0x7F00)
+A(I.LI, 1, z=DROW); A(I.LI, 2, z=DROW)
+A(I.RECALC, 6, 2, x=desc2, z=3, c=3 | 4 << 4)
+A(I.STR, 6, x=B + 0x7F04)
 A(I.HALT)
 code = A.assemble(B)
 assert len(code) <= 0x200, len(code)
@@ -135,7 +160,12 @@ mach.trace = False
 mach.hw = True
 mach.run(B)
 expect = bytes(mach.mem[:MEM])
-counts = struct.unpack("<I", expect[0x7F00:0x7F04])
+counts = struct.unpack("<II", expect[0x7F00:0x7F08])
+emem = Mem()
+emem.b[:] = expect
+for n in range(len(dcases)):                   # each one #REF! (kind 6, code 3)
+    a = SH.find_cell(emem, desc2, DROW, DCOL + n)
+    assert a and emem.read(a + 24, 1)[0] == 6 and emem.read(a + 16, 1)[0] == 3, n
 print(f"program {len(code) // 16} instructions; {len(cases)} formulas; changed {counts}; "
       f"halt pc ${mach.pc:07X}", file=sys.stderr)
 

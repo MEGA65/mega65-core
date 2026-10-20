@@ -11,8 +11,11 @@ Status: specification, draft 2: the canonical description.  It merges
 [its review notes](hardware-codec-review-notes.md) (with the
 [discussion record](formula-codec-discussion.md), kept as history).
 Implemented so far (section 12): the build structure (section 1),
-REBALANCE_ROW, FIND_CELL and RECALC's core, in hardware and in the
-reference model `SSNAIL/shite.py`.
+REBALANCE_ROW, FIND_CELL, RECALC (all but the transcendental, text and
+lookup functions), and through the codec units FORMAT_CELLS, COMPILE,
+DECOMPILE, RENDER and PARSE (the number literal); in hardware, and $40-$42
+in the reference model `SSNAIL/shite.py`.  Planned: the sheet table's
+references (3.6, 10), MOVE_CELLS and CELLS_MOVED (6).
 
 Design goals, in order: correct and deterministic results; small area
 (iterative units, shared datapaths: several million simple cell updates per
@@ -32,14 +35,15 @@ While SHITE runs an instruction the rest of SSNAIL is idle, so SHITE's
 memory accesses go through SSNAIL's LUMP ports by a plain multiplexer:
 there is no arbitration.
 
-Two generics on `ssnail` (set from `iomapper.vhdl`) choose the units:
+Generics on `ssnail_top` (set from `iomapper.vhdl`) choose the units:
+`has_llm` (SSNAIL's LLM units), `has_vec` (only the vector element ops,
+for 3D: VADD VMUL VSUB CVT16 VRECIP VCVTI16 VMAX VMIN VPROJ16; `has_llm`
+includes them) and `has_shite`.  With none of them SSNAIL is its shell;
+an opcode whose unit is not built reports ERR_OPCODE, and the unit's logic
+is not synthesised at all.
 
-| `has_llm` | `has_shite` | Built |
-|---|---|---|
-| true | true | everything |
-| true | false | SSNAIL as today |
-| false | true | SSNAIL's shell and SHITE: the LLM / vector opcodes report ERR_OPCODE |
-| false | false | nothing (no `ssnail` instance; its LUMP outputs idle, as `no_ssnail_gen` today) |
+SHITE runs on clock81 (`shite_bridge` is its clock162 side: SSNAIL's
+coprocessor port and the LUMP commands, crossing by toggles).
 
 SSNAIL's capability register says which are present, so software can check
 before it starts a job.
@@ -90,6 +94,12 @@ of one.
 | 60 | 1 | codec: decimal separator (ASCII, e.g. `.`) |
 | 61 | 1 | codec: argument separator (e.g. `,`, or `;` with a `,` decimal separator) |
 | 62 | 2 | reserved, 0 |
+| 64 | 4 | sheet table address (3.6; 0: none, the whole physical sheet is one sheet) |
+| 68 | 2 | number of sheets in the table |
+| 70 | 58 | reserved, 0 |
+
+The descriptor is 128 bytes, 16-byte aligned.  (The execution unit reads
+only bytes 0-63; bytes 64 on are the codec's and MOVE_CELLS'.)
 
 ### 3.2 Row table
 
@@ -184,6 +194,43 @@ each by the same rule.  The CPU may also maintain the tree itself.
 
 The default format (no format present) is general, default alignment, no
 fixed point.
+
+### 3.6 Sheet table (multiple sheets on one physical sheet)
+
+SHITE has one physical sheet (2^20 rows by 2^24 columns).  A program can
+give the user several sheets in two ways:
+
+- **Separate physical sheets**: a descriptor (and row table) per sheet in
+  attic RAM.  Each is complete and independent, but a formula can only
+  refer to cells of its own.
+- **Regions of one physical sheet**: each of the user's sheets is a
+  rectangle of the physical sheet, named in the sheet table.  Formulas can
+  then refer across sheets (`Costs!B3`), and one RECALC round covers them
+  all.
+
+The table: `sheets` entries of 32 bytes, 16-byte aligned:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | first row (physical) |
+| 4 | 4 | first column (physical) |
+| 8 | 4 | last row (inclusive) |
+| 12 | 4 | last column (inclusive) |
+| 16 | 4 | the name's address (ASCII) |
+| 20 | 1 | the name's length (1-31) |
+| 21 | 1 | flags: bit 0 hidden (for the program; SHITE ignores it) |
+| 22 | 10 | reserved, 0 |
+
+Rectangles must not overlap; names differ regardless of case.  Bytecode
+always holds physical references (5.3): the table only changes how
+formula text is read and written (section 10, sheet references).  A
+sheet's own cell `A1` is its first row and column.
+
+RECALC, FORMAT_CELLS and the rest know nothing of sheets: they work on
+physical rows and columns.  So nothing stops a relative reference that
+is copied far enough from reaching into another sheet's rectangle; COMPILE
+checks references against the sheets when it compiles, MOVE_CELLS and
+CELLS_MOVED when they rewrite them (6).
 
 ## 4. Values and arithmetic
 
@@ -307,6 +354,13 @@ big-endian, so that the first byte carries the marker.
   absolute, bit 46 column absolute, bits 45-44 zero, bits 43-24 row (or
   offset, 20 bits), bits 23-0 column (or offset, 24 bits).  For anything
   the short form cannot hold.
+
+A **deleted reference** (to a cell that no longer exists, such as one
+overwritten by MOVE_CELLS) is relative with both fields at their minimum:
+row -16384, column -8192 in the short form, or row -2^19, column -2^23 in
+the long one.  It is #REF! when evaluated, and `#REF!` in formula text.
+COMPILE never produces it for a real cell (such an offset uses the other
+form).  It keeps the reference's size, so it can be written in place.
 
 A compiler uses the short form whenever it fits.  `A1`, `$A1`, `A$1` and
 `$A$1` are one reference each; a formula copied elsewhere keeps its meaning;
@@ -448,6 +502,8 @@ block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 | $45 | DECOMPILE | X parameter block (section 10) | R[a] = text length, or 0 |
 | $46 | RENDER | X parameter block (section 10) | R[a] bits 3-0: the colour chosen (normal or negative), bits 15-8: the renderer's error (0: none) |
 | $47 | PARSE | X parameter block (section 10) | R[a] = the kind found (0: not a number) |
+| $48 | MOVE_CELLS | X parameter block (planned) | R[a] = cells moved |
+| $49 | CELLS_MOVED | X parameter block (planned) | R[a] = formulas changed |
 
 ### RECALC
 
@@ -589,6 +645,57 @@ implements FORMAT_CELLS itself, walking the rectangle (as RECALC's ranges do), t
 each cell's value and format, calling that operation, and handling CHANGED
 and the colours.  20 000 to 200 000 cells a second is plenty.
 
+### MOVE_CELLS and CELLS_MOVED (planned)
+
+Moving a rectangle of cells, as a spreadsheet's cut and paste does: the
+cells go to the new place, and every reference to them follows them.  Two
+instructions, so that a program can do the first alone (moving the cells
+of a sheet kept apart, say), and the second over several regions:
+
+- **MOVE_CELLS** moves the cells of the source rectangle so that its top
+  left corner is at the destination, and rewrites the references in the
+  moved formulas: a reference to a cell inside the source rectangle
+  follows it (a relative one keeps its offset, an absolute one moves with
+  the cell); one to a cell outside keeps its target (a relative one gets a
+  new offset, an absolute one is unchanged).  Cells already in the
+  destination rectangle and not themselves moved are deleted.  The result
+  is as if every cell moved at once, so the rectangles may overlap.
+- **CELLS_MOVED** then rewrites the references in all other formulas of
+  the given rows: a reference to a cell of the old rectangle follows it
+  to the new one; one to a deleted cell becomes a deleted reference
+  (5.3, `#REF!`).  A range (RECT) follows only when both its corners are in
+  the old rectangle; otherwise each corner is a reference on its own.
+  A HOSTCALL's result cell follows as a reference does.
+
+Both set CHANGED on the cells they move or change.  A reference that
+grows (an offset that no longer fits the short form) changes a cell's
+length, so both build new row blocks for the rows they change, from a
+heap the program gives them (the parameter block: its start, its end;
+SHITE returns the new start), and update the row table.  The old blocks
+are the program's to reuse.  A heap too small ends the instruction with
+ERR_FORMAT and the sheet unchanged.
+
+Parameter block (64 bytes, 16-byte aligned; CELLS_MOVED uses the same):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | the sheet descriptor |
+| 4 | 4 | source: first row |
+| 8 | 4 | source: first column |
+| 12 | 4 | source: last row |
+| 16 | 4 | source: last column |
+| 20 | 4 | destination: first row |
+| 24 | 4 | destination: first column |
+| 28 | 4 | CELLS_MOVED: first row of the formulas to fix |
+| 32 | 4 | CELLS_MOVED: last row of the formulas to fix |
+| 36 | 4 | heap start (16-byte aligned); result: the new start |
+| 40 | 4 | heap end |
+| 44 | 4 | result: references that would leave the sheet, made deleted references |
+| 48 | 16 | reserved, 0 |
+
+A reference that would fall outside the physical sheet after the move is
+made a deleted reference and counted (offset 44).
+
 ## 7. Recalculation and cycles
 
 The CPU (or a SSNAIL program: RECALC leaves the count in R[a], so BNE
@@ -616,7 +723,8 @@ others in a few more.
 ## 8. Registers
 
 SSNAIL's (`$FFD7500-$FFD751F`).  Its capability register ($02): bit 0
-HyperRAM, bit 1 SDRAM, bit 2 the LLM / vector units, bit 3 SHITE.  Jobs, status, errors, stop requests and the
+HyperRAM, bit 1 SDRAM, bit 2 the LLM units, bit 3 SHITE, bit 4 the vector
+element ops.  Jobs, status, errors, stop requests and the
 interrupt are SSNAIL's.
 
 ## 9. Hardware outline (area first)
@@ -703,6 +811,20 @@ failed compile leaves the CPU to store the text as an UNCOMPILED cell
   then binds each to its result cell, rewriting the 6-byte slot in place
   (it finds them by walking the bytecode by 5.1-5.4).
 - **Separators**: the descriptor's decimal and argument separators.
+- **Sheet references** (planned; with a sheet table, 3.6): `Name!A1`,
+  `Name!A1:B3` and `'Name with spaces'!A1` (a `'` inside the quotes
+  doubled).  A reference without a sheet name is to the formula's own
+  sheet (the one whose rectangle holds the formula cell).  COMPILE turns
+  each into a physical reference, relative or absolute as written, and
+  rejects (with its position) a reference outside its sheet's rectangle,
+  an unknown sheet, and a range whose corners are in different sheets.
+  DECOMPILE prints a reference with the sheet that holds its target, the
+  name left out when that is the formula's own sheet; a target in no sheet
+  is printed as a physical reference after `!` alone (`!A1`), which
+  COMPILE reads back the same way.  Without a sheet table everything is
+  one sheet, as before.
+- **Deleted references** (5.3): DECOMPILE prints `#REF!`; COMPILE reads
+  `#REF!` as one.
 - **Limits**: nesting and stack depths, and the output bounds, are the
   codec's to state; exceeding them is a compile error with its position.
 
@@ -779,15 +901,18 @@ conversions); `step5` ranges, cell lists, aggregates and host calls.
    references (both forms), RECT, CELLS, ADD SUB MUL DIV NEG, the
    comparisons, HOSTCALL, CALL with SUM, AVERAGE, MIN, MAX and COUNT, the
    errors, rounds and change lists (benches `tb_shite_step1` to `step5`).
-3. **FORMAT_CELLS**: the rendering in the codec unit, the walk in the
-   execution unit (section 6).
+3. **Done**: FORMAT_CELLS (the rendering in the codec unit, the walk in
+   the execution unit, section 6; `tb_shite_step8`).
 4. **Done**: PCT, IF (JZ / JMP), MOD, AND / OR / NOT, ABS, INT, TRUNC,
    SIGN, PRODUCT, COUNTA (`tb_shite_step6`); POW / POWER (integer
    exponents), ROUND, SQRT (`tb_shite_step7`).
 5. **Transcendentals** (the CORDIC unit) and **text** (STR, CONCAT, the
    text functions).
-6. **The codec** (section 10: COMPILE, DECOMPILE, RENDER, PARSE), in
-   parallel.
+6. **Done, mostly**: the codec (section 10: COMPILE, DECOMPILE, RENDER,
+   PARSE's literal; `tb_shite_step8`).  To come: PARSE's front end, the
+   15-digit general cap, the fast number path, sheet references.
+7. **Moving cells**: MOVE_CELLS, CELLS_MOVED (section 6), and deleted
+   references (5.3).
 
 A function the hardware does not have yet is #NAME? (a sheet still
 recalculates, with that cell an error).
@@ -795,5 +920,7 @@ recalculates, with that cell an error).
 ## 13. Open questions
 
 - Text: ASCII in cells (as above), or PETSCII?
-- Named ranges, cross-sheet references: not in this version.
+- Named ranges: not in this version.
+- MOVE_CELLS / CELLS_MOVED: whether CELLS_MOVED should take a list of
+  moves, so that inserting a row (every row below moves) is one call.
 - An exact stable-cycle check (section 7).

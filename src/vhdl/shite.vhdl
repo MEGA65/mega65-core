@@ -1307,6 +1307,9 @@ begin
           else rr := (row + sext15(imm(29 downto 15))) and x"000FFFFF"; end if;
           if imm(14) = '1' then cc := resize(imm(13 downto 0), 32);
           else cc := (resize(hdr(23 downto 0), 32) + sext14(imm(13 downto 0))) and x"00FFFFFF"; end if;
+          -- a deleted reference (both relative, both at their minimum):
+          -- past every sheet, so #REF! wherever it is used
+          if imm(31 downto 0) = x"A0002000" then rr := x"FFFFFFFF"; end if;
           q_row <= rr; q_col <= cc;
           st <= rf_ret;
         when E_LREF =>
@@ -1314,6 +1317,7 @@ begin
           else rr := (row + resize(imm(43 downto 24), 32)) and x"000FFFFF"; end if;
           if imm(46) = '1' then cc := resize(imm(23 downto 0), 32);
           else cc := (resize(hdr(23 downto 0), 32) + resize(imm(23 downto 0), 32)) and x"00FFFFFF"; end if;
+          if imm(47 downto 0) = x"080000800000" then rr := x"FFFFFFFF"; end if;
           q_row <= rr; q_col <= cc;
           st <= rf_ret;
         when E_RESOLVE =>

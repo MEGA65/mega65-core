@@ -85,3 +85,23 @@ Conformance points found on the way (README 6), for the renderer:
    iterative 64 x 64 multiplier (128-bit product) and 128 / 64 divider can be
    shared for it, as the F64 unit is; how to share them (a request port
    like the converter's) is to agree.
+
+## Added 2026-10-21 (README 3.1, 3.6, 5.3, 10)
+
+For the codec side, when the items above are done:
+
+6. **Sheet references.**  The descriptor grows to 128 bytes; bytes 64-69
+   point at a sheet table of named rectangles of the physical sheet
+   (README 3.6).  COMPILE reads `Name!A1`, `Name!A1:B3`, `'Quoted name'!A1`
+   and `!A1` (physical), relative to the named sheet's origin, and checks
+   the reference lies in that sheet; an unqualified reference is to the
+   formula cell's own sheet.  DECOMPILE prints the sheet holding each
+   target, leaving out the formula's own.  Bytecode is unchanged: always
+   physical references.
+7. **Deleted references** (README 5.3): relative with both fields at their
+   minimum, in either form.  DECOMPILE prints `#REF!`, COMPILE reads
+   `#REF!` back as one; COMPILE must not produce that encoding for a real
+   cell (use the long form for such an offset).
+
+The execution unit evaluates a deleted reference as #REF!, and will
+produce them in MOVE_CELLS / CELLS_MOVED (README 6, planned).
