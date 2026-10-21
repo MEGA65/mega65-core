@@ -1885,51 +1885,61 @@ begin
     ob_c_mask <= (others => '0');
     ob_c_data <= (others => '0');
     byte_index := (others => '0');
-    case cstate is
+    -- (filtered as the main case is, so a unit the build lacks leaves
+    -- nothing here: see cs_of)
+    case cs_of(cstate) is
       when C_VEC =>
-        if vu_st = V_ELST then
-          if o16 = '1' then
-            byte_index := pz(7 downto 0) + (v_i(6 downto 0) & "0");
-            ob_c_base <= byte_index(7 downto 1);
-            ob_c_mask <= "0001";
-          else
+        if vec_on then
+          if vs_of(vu_st) = V_ELST then
+            if o16 = '1' then
+              byte_index := pz(7 downto 0) + (v_i(6 downto 0) & "0");
+              ob_c_base <= byte_index(7 downto 1);
+              ob_c_mask <= "0001";
+            else
+              byte_index := pz(7 downto 0) + (v_i(5 downto 0) & "00");
+              ob_c_base <= byte_index(7 downto 1);
+              ob_c_mask <= "0011";
+            end if;
+            ob_c_data(31 downto 0) <= fpu_r;
+            ob_c_en <= '1';
+          elsif vs_of(vu_st) = E_R6 then
             byte_index := pz(7 downto 0) + (v_i(5 downto 0) & "00");
             ob_c_base <= byte_index(7 downto 1);
-            ob_c_mask <= "0011";
+            ob_c_mask <= "1111";
+            ob_c_data <= fpu_r & rp0;
+            ob_c_en <= '1';
           end if;
-          ob_c_data(31 downto 0) <= fpu_r;
-          ob_c_en <= '1';
-        elsif vu_st = E_R6 then
-          byte_index := pz(7 downto 0) + (v_i(5 downto 0) & "00");
-          ob_c_base <= byte_index(7 downto 1);
-          ob_c_mask <= "1111";
-          ob_c_data <= fpu_r & rp0;
-          ob_c_en <= '1';
         end if;
       when C_DEQ =>
-        if dq_st = D_STORE then
-          ob_c_base <= pz(7 downto 1);
-          ob_c_mask <= "0011";
-          ob_c_data(31 downto 0) <= d_val;
-          ob_c_en <= '1';
+        if has_llm then
+          if dq_st = D_STORE then
+            ob_c_base <= pz(7 downto 1);
+            ob_c_mask <= "0011";
+            ob_c_data(31 downto 0) <= d_val;
+            ob_c_en <= '1';
+          end if;
         end if;
       when C_GEMV =>
-        if gm_st = G_OUT4 then
-          ob_c_base <= pz(7 downto 1);
-          if g_f16 = '1' then
-            ob_c_mask <= "0001";
-          else
-            ob_c_mask <= "0011";
+        if has_llm then
+          if gm_st = G_OUT4 then
+            ob_c_base <= pz(7 downto 1);
+            if g_f16 = '1' then
+              ob_c_mask <= "0001";
+            else
+              ob_c_mask <= "0011";
+            end if;
+            ob_c_data(31 downto 0) <= g_val;
+            ob_c_en <= '1';
           end if;
-          ob_c_data(31 downto 0) <= g_val;
-          ob_c_en <= '1';
         end if;
       when C_ATTN =>
-        if at_st = A_WR and not at_iend then   -- at_i /= at_hd
-          ob_c_base <= pz(7 downto 1);
-          ob_c_mask <= "0011";
-          ob_c_data(31 downto 0) <= outv(to_integer(ov_ra));   -- (ov_ra = at_i here)
-          ob_c_en <= '1';
+        if has_llm then
+          if at_st = A_WR and not at_iend then   -- at_i /= at_hd
+            ob_c_base <= pz(7 downto 1);
+            ob_c_mask <= "0011";
+            ob_c_data(31 downto 0) <= outv(to_integer(ov_ra));   -- (ov_ra = at_i here)
+            ob_c_en <= '1';
+          end if;
         end if;
       when others => null;
     end case;
@@ -2805,182 +2815,196 @@ begin
               dec_next <= C_NEXT;
             when x"20" | x"21" | x"29" | x"23" | x"27" | x"2A" | x"2B" | x"22" | x"26" | x"28"
                | x"2E" | x"2F" | x"30" | x"31" | x"32" | x"33" =>
-              -- Vector engine instructions.  All F32 vectors 4-byte aligned;
-              -- CVT16 output 2-byte aligned.
-              -- (the element operation from the opcode alone, and the
-              -- working registers: only the V_ states read them, so the
-              -- checks below need not gate them)
-              bx <= ea_x; by <= ea_y; bz <= ea_z;
-              px <= ea_x; py <= ea_y; pz <= ea_z;
-              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              case instr(3 downto 0) is              -- (only K_TAB reads it)
-                when x"A" => vt_id <= "10";            -- $2A VEXP
-                when x"B" => vt_id <= "11";            -- $2B SOFTPLUS
-                when others => vt_id <= "01";          -- $27 GELU
-              end case;
-              case instr(7 downto 0) is
-                when x"20" => ve_kind <= K_ADD;
-                when x"21" => ve_kind <= K_MUL;
-                when x"29" => ve_kind <= K_CVT16;
-                when x"23" => ve_kind <= K_SILUMUL;
-                when x"27" | x"2A" | x"2B" => ve_kind <= K_TAB;
-                when x"22" => ve_kind <= K_SUMSQ;
-                when x"2E" => ve_kind <= K_RECIP;
-                when x"2F" => ve_kind <= K_CVTI;
-                when x"30" => ve_kind <= K_MAX;
-                when x"31" => ve_kind <= K_MIN;
-                when x"32" => ve_kind <= K_SUB;
-                when x"33" => ve_kind <= K_PROJ;
-                when x"26" => ve_kind <= K_SUM;
-                when others => ve_kind <= K_COPY;
-              end case;
-              if ea_x(1 downto 0) /= "00"
-                or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
-                     or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26"
-                     or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31"
-                     or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") and ea_y(1 downto 0) /= "00")
-                or ((instr(7 downto 0) = x"29" or instr(7 downto 0) = x"2F" or instr(7 downto 0) = x"33")
-                    and ea_z(0) /= '0')
-                or (instr(7 downto 0) /= x"29" and instr(7 downto 0) /= x"2F" and instr(7 downto 0) /= x"33"
-                    and ea_z(1 downto 0) /= "00") then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
-                dec_next <= C_NEXT;                       -- nothing to do
-              else
-                o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
-                ve_first <= '1';
-                ve_ret <= V_EXIT;
-                case instr(7 downto 0) is           -- (ve_kind: below)
-                  when x"20" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"21" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"29" => o16 <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"2F" => o16 <= '1'; s_sc <= n2; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"2E" => vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"30" | x"31" | x"32" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"33" =>
-                    two_ops <= '1'; o16 <= '1'; s_sc <= n2; s_r <= n1;
-                    vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"23" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"27" | x"2A" | x"2B" => vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"22" =>                     -- RMSNORM pass 1: sum of squares
-                    has_out <= '0'; ve_ret <= R_S0; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when x"26" =>                     -- LAYERNORM pass 1: sum
-                    has_out <= '0'; ve_ret <= L_S0; vu_st <= V_CHUNK; dec_next <= C_VEC;
-                  when others =>                    -- MEANROWS: row 0 copied to Z
-                    -- (mr_rows, mr_r, mr_src_row: set above)
-                    ve_ret <= M_NEXT; vu_st <= V_CHUNK; dec_next <= C_VEC;
+              if vec_on then
+                -- Vector engine instructions.  All F32 vectors 4-byte aligned;
+                -- CVT16 output 2-byte aligned.
+                -- (the element operation from the opcode alone, and the
+                -- working registers: only the V_ states read them, so the
+                -- checks below need not gate them)
+                bx <= ea_x; by <= ea_y; bz <= ea_z;
+                px <= ea_x; py <= ea_y; pz <= ea_z;
+                v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                case instr(3 downto 0) is              -- (only K_TAB reads it)
+                  when x"A" => vt_id <= "10";            -- $2A VEXP
+                  when x"B" => vt_id <= "11";            -- $2B SOFTPLUS
+                  when others => vt_id <= "01";          -- $27 GELU
                 end case;
+                case instr(7 downto 0) is
+                  when x"20" => ve_kind <= K_ADD;
+                  when x"21" => ve_kind <= K_MUL;
+                  when x"29" => ve_kind <= K_CVT16;
+                  when x"23" => ve_kind <= K_SILUMUL;
+                  when x"27" | x"2A" | x"2B" => ve_kind <= K_TAB;
+                  when x"22" => ve_kind <= K_SUMSQ;
+                  when x"2E" => ve_kind <= K_RECIP;
+                  when x"2F" => ve_kind <= K_CVTI;
+                  when x"30" => ve_kind <= K_MAX;
+                  when x"31" => ve_kind <= K_MIN;
+                  when x"32" => ve_kind <= K_SUB;
+                  when x"33" => ve_kind <= K_PROJ;
+                  when x"26" => ve_kind <= K_SUM;
+                  when others => ve_kind <= K_COPY;
+                end case;
+                if ea_x(1 downto 0) /= "00"
+                  or ((instr(7 downto 0) = x"20" or instr(7 downto 0) = x"21" or instr(7 downto 0) = x"23"
+                       or instr(7 downto 0) = x"22" or instr(7 downto 0) = x"26"
+                       or instr(7 downto 0) = x"30" or instr(7 downto 0) = x"31"
+                       or instr(7 downto 0) = x"32" or instr(7 downto 0) = x"33") and ea_y(1 downto 0) /= "00")
+                  or ((instr(7 downto 0) = x"29" or instr(7 downto 0) = x"2F" or instr(7 downto 0) = x"33")
+                      and ea_z(0) /= '0')
+                  or (instr(7 downto 0) /= x"29" and instr(7 downto 0) /= x"2F" and instr(7 downto 0) /= x"33"
+                      and ea_z(1 downto 0) /= "00") then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                elsif n0_z or (instr(7 downto 0) = x"28" and opr_a_z) then
+                  dec_next <= C_NEXT;                       -- nothing to do
+                else
+                  o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
+                  ve_first <= '1';
+                  ve_ret <= V_EXIT;
+                  case instr(7 downto 0) is           -- (ve_kind: below)
+                    when x"20" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"21" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"29" => o16 <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"2F" => o16 <= '1'; s_sc <= n2; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"2E" => vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"30" | x"31" | x"32" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"33" =>
+                      two_ops <= '1'; o16 <= '1'; s_sc <= n2; s_r <= n1;
+                      vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"23" => two_ops <= '1'; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"27" | x"2A" | x"2B" => vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"22" =>                     -- RMSNORM pass 1: sum of squares
+                      has_out <= '0'; ve_ret <= R_S0; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when x"26" =>                     -- LAYERNORM pass 1: sum
+                      has_out <= '0'; ve_ret <= L_S0; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                    when others =>                    -- MEANROWS: row 0 copied to Z
+                      -- (mr_rows, mr_r, mr_src_row: set above)
+                      ve_ret <= M_NEXT; vu_st <= V_CHUNK; dec_next <= C_VEC;
+                  end case;
+                end if;
               end if;
             when x"10" =>             -- GEMV
-              gm_st <= G_SET;                    -- (the first step, whatever the checks find)
-              d_fmt <= instr(15 downto 8);
-              d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
-              g_addz <= instr(16);
-              g_f16 <= instr(17);
-              -- (its working registers whatever the checks find: only a
-              -- GEMV that goes ahead reads them)
-              g_rows <= n1;
-              g_nb <= n0(12 downto 5);
-              gblk <= (others => '0');
-              ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
-              if not (fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8))
-                      or instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 30) then
-                dec_errv <= true; dec_err <= ERR_FORMAT;
-                dec_next <= C_END;
-              elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1'
-                or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
-                dec_errv <= true; dec_err <= ERR_OPCODE;
-                dec_next <= C_END;
-              elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
-                or (instr(17) = '0' and ea_z(1 downto 0) /= "00")
-                or (instr(15 downto 8) = 0 and ea_x(1 downto 0) /= "00")      -- (F32 weights)
-                or ((instr(15 downto 8) = 1 or instr(15 downto 8) = 30) and ea_x(0) /= '0') then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              elsif n1_z then
-                dec_next <= C_NEXT;
-              else
-                dec_next <= C_GEMV;
+              if has_llm then
+                gm_st <= G_SET;                    -- (the first step, whatever the checks find)
+                d_fmt <= instr(15 downto 8);
+                d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
+                g_addz <= instr(16);
+                g_f16 <= instr(17);
+                -- (its working registers whatever the checks find: only a
+                -- GEMV that goes ahead reads them)
+                g_rows <= n1;
+                g_nb <= n0(12 downto 5);
+                gblk <= (others => '0');
+                ps <= ea_x; px <= ea_y; pz <= ea_z; ostart <= ea_z;
+                if not (fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8))
+                        or instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 30) then
+                  dec_errv <= true; dec_err <= ERR_FORMAT;
+                  dec_next <= C_END;
+                elsif n0(4 downto 0) /= 0 or n0_z or n0_big or (instr(16) and instr(17)) = '1'
+                  or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
+                  dec_errv <= true; dec_err <= ERR_OPCODE;
+                  dec_next <= C_END;
+                elsif ea_y(1 downto 0) /= "00" or (instr(17) = '1' and ea_z(0) /= '0')
+                  or (instr(17) = '0' and ea_z(1 downto 0) /= "00")
+                  or (instr(15 downto 8) = 0 and ea_x(1 downto 0) /= "00")      -- (F32 weights)
+                  or ((instr(15 downto 8) = 1 or instr(15 downto 8) = 30) and ea_x(0) /= '0') then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                elsif n1_z then
+                  dec_next <= C_NEXT;
+                else
+                  dec_next <= C_GEMV;
+                end if;
               end if;
             when x"24" =>             -- ROPE
-              vu_st <= RO_CS;                    -- (the first step, whatever the checks find)
-              if ea_x(2 downto 0) /= "000" or ea_y(1 downto 0) /= "00" then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              elsif n0(0) /= '0' or n1(0) /= '0' or n1_z or n1_big then
-                dec_errv <= true; dec_err <= ERR_OPCODE;
-                dec_next <= C_END;
-              elsif n0_z then
-                dec_next <= C_NEXT;
-              else
-                rope_hd <= n1(8 downto 0);
-                ef_addr <= ea_y; ef_f16 <= '0';
-                cs_i <= (others => '0');
-                cs_end <= false;                       -- (n1 >= 2)
-                dec_next <= C_VEC;
+              if has_llm then
+                vu_st <= RO_CS;                    -- (the first step, whatever the checks find)
+                if ea_x(2 downto 0) /= "000" or ea_y(1 downto 0) /= "00" then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                elsif n0(0) /= '0' or n1(0) /= '0' or n1_z or n1_big then
+                  dec_errv <= true; dec_err <= ERR_OPCODE;
+                  dec_next <= C_END;
+                elsif n0_z then
+                  dec_next <= C_NEXT;
+                else
+                  rope_hd <= n1(8 downto 0);
+                  ef_addr <= ea_y; ef_f16 <= '0';
+                  cs_i <= (others => '0');
+                  cs_end <= false;                       -- (n1 >= 2)
+                  dec_next <= C_VEC;
+                end if;
               end if;
             when x"12" =>             -- ARGMAX
-              if ea_x(1 downto 0) /= "00" then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              elsif n0_z then
-                dec_next <= C_NEXT;
-              else
-                bx <= ea_x; px <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-                o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '0';
-                ve_kind <= K_ARGMAX; ve_first <= '1'; ve_g <= (others => '0');
-                ve_ret <= AM_DONE;
-                vu_st <= V_CHUNK; dec_next <= C_VEC;
+              if has_llm then
+                if ea_x(1 downto 0) /= "00" then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                elsif n0_z then
+                  dec_next <= C_NEXT;
+                else
+                  bx <= ea_x; px <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                  o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '0';
+                  ve_kind <= K_ARGMAX; ve_first <= '1'; ve_g <= (others => '0');
+                  ve_ret <= AM_DONE;
+                  vu_st <= V_CHUNK; dec_next <= C_VEC;
+                end if;
               end if;
             when x"25" =>             -- ATTN: read the parameter block first
-              at_st <= A_PRM;                    -- (the first step, whatever the checks find)
-              if ea_x(1 downto 0) /= "00" or ea_y(1 downto 0) /= "00" or ea_z(1 downto 0) /= "00" then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              else
-                at_pos <= opr_a;
-                at_pi <= (others => '0');
-                ef_addr <= ea_x; ef_f16 <= '0';
-                dec_next <= C_ATTN;
+              if has_llm then
+                at_st <= A_PRM;                    -- (the first step, whatever the checks find)
+                if ea_x(1 downto 0) /= "00" or ea_y(1 downto 0) /= "00" or ea_z(1 downto 0) /= "00" then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                else
+                  at_pos <= opr_a;
+                  at_pi <= (others => '0');
+                  ef_addr <= ea_x; ef_f16 <= '0';
+                  dec_next <= C_ATTN;
+                end if;
               end if;
             when x"2C" =>             -- SSMUPD: read the parameter block first
-              vu_st <= SS_PRM;                   -- (the first step, whatever the checks find)
-              ss_pi <= "00";
-              ef_addr <= ea_x; ef_f16 <= '0';
-              ss_left <= n1(15 downto 0); ss_done <= false;
-              if ea_x(1 downto 0) /= "00" then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              elsif n1(31 downto 16) /= 0 then
-                dec_errv <= true; dec_err <= ERR_OPCODE;
-                dec_next <= C_END;
-              elsif n0_z or n1_z then
-                dec_next <= C_NEXT;
-              else
-                o16 <= '0'; two_ops <= '1'; has_b <= '0'; has_out <= '1';
-                ve_kind <= K_SSM;
-                dec_next <= C_VEC;
+              if has_llm then
+                vu_st <= SS_PRM;                   -- (the first step, whatever the checks find)
+                ss_pi <= "00";
+                ef_addr <= ea_x; ef_f16 <= '0';
+                ss_left <= n1(15 downto 0); ss_done <= false;
+                if ea_x(1 downto 0) /= "00" then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                elsif n1(31 downto 16) /= 0 then
+                  dec_errv <= true; dec_err <= ERR_OPCODE;
+                  dec_next <= C_END;
+                elsif n0_z or n1_z then
+                  dec_next <= C_NEXT;
+                else
+                  o16 <= '0'; two_ops <= '1'; has_b <= '0'; has_out <= '1';
+                  ve_kind <= K_SSM;
+                  dec_next <= C_VEC;
+                end if;
               end if;
             when x"11" =>             -- DEQROW
-              dq_st <= D_GROUP;                    -- (the first step, whatever the checks find)
-              d_fmt <= instr(15 downto 8);
-              d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
-              -- (its working registers whatever the checks find, as GEMV's)
-              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
-              if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
-                      or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
-                      or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
-                or fmt_iq(instr(15 downto 8))                -- (GEMV only)
-                or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
-                dec_errv <= true; dec_err <= ERR_OPCODE;
-                dec_next <= C_END;
-              elsif ea_z(1 downto 0) /= "00" then
-                dec_errv <= true; dec_err <= ERR_ALIGNMENT;
-                dec_next <= C_END;
-              else
-                dec_next <= C_DEQ;
+              if has_llm then
+                dq_st <= D_GROUP;                    -- (the first step, whatever the checks find)
+                d_fmt <= instr(15 downto 8);
+                d_isk <= fmt_k(instr(15 downto 8)); d_isiq <= fmt_iq(instr(15 downto 8));
+                -- (its working registers whatever the checks find, as GEMV's)
+                v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                ps <= ea_x; pz <= ea_z; ostart <= ea_z; d_unflushed <= false;
+                if not (instr(15 downto 8) = 0 or instr(15 downto 8) = 1 or instr(15 downto 8) = 2
+                        or instr(15 downto 8) = 8 or instr(15 downto 8) = 30
+                        or fmt_q(instr(15 downto 8)) or fmt_k(instr(15 downto 8)))
+                  or fmt_iq(instr(15 downto 8))                -- (GEMV only)
+                  or (fmt_k(instr(15 downto 8)) and n0(7 downto 0) /= 0) then
+                  dec_errv <= true; dec_err <= ERR_OPCODE;
+                  dec_next <= C_END;
+                elsif ea_z(1 downto 0) /= "00" then
+                  dec_errv <= true; dec_err <= ERR_ALIGNMENT;
+                  dec_next <= C_END;
+                else
+                  dec_next <= C_DEQ;
+                end if;
               end if;
             when x"09" | x"0A" =>     -- LDR / STR
               if ea_x(1 downto 0) /= "00" then
@@ -3378,574 +3402,682 @@ begin
           end if;
 
         when C_VEC =>
-          case vs_of(vu_st) is
-          -- ------------------------------------------------------------------
-          -- VADD / VMUL / CVT16: chunks that cross no 256-byte boundary in X,
-          -- Y or Z; read X (and Y), run each element through the FPU into buf,
-          -- write Z with byte masks.
-          when V_CHUNK =>
-            -- First stage: independently register each 256-byte boundary limit,
-            -- and saturate the full-width element count.  No chained minimum
-            -- comparisons on this clock edge.
-            if v_n_z then                                 -- v_n = 0
-              if ve_ret = V_EXIT then go(C_NEXT); else vgo(ve_ret); end if;
-            else
-              if v_n(31 downto 8) = 0 then
-                vc_rem_q <= v_n(7 downto 0);
+          if vec_on then
+            case vs_of(vu_st) is
+            -- ------------------------------------------------------------------
+            -- VADD / VMUL / CVT16: chunks that cross no 256-byte boundary in X,
+            -- Y or Z; read X (and Y), run each element through the FPU into buf,
+            -- write Z with byte masks.
+            when V_CHUNK =>
+              -- First stage: independently register each 256-byte boundary limit,
+              -- and saturate the full-width element count.  No chained minimum
+              -- comparisons on this clock edge.
+              if v_n_z then                                 -- v_n = 0
+                if ve_ret = V_EXIT then go(C_NEXT); else vgo(ve_ret); end if;
               else
-                vc_rem_q <= x"FF";
-              end if;
-              vc_x_q <= resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 8);
-              if two_ops = '1' then
-                vc_y_q <= resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 8);
-              else
-                vc_y_q <= x"FF";
-              end if;
-              if has_b = '1' then
-                vc_b_q <= resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 8);
-              else
-                vc_b_q <= x"FF";
-              end if;
-              if has_out = '1' then
-                if o16 = '1' then
-                  vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 8);
+                if v_n(31 downto 8) = 0 then
+                  vc_rem_q <= v_n(7 downto 0);
                 else
-                  vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 8);
+                  vc_rem_q <= x"FF";
                 end if;
-              else
-                vc_z_q <= x"FF";
+                vc_x_q <= resize((to_unsigned(256, 9) - resize(px(7 downto 0), 9)) / 4, 8);
+                if two_ops = '1' then
+                  vc_y_q <= resize((to_unsigned(256, 9) - resize(py(7 downto 0), 9)) / 4, 8);
+                else
+                  vc_y_q <= x"FF";
+                end if;
+                if has_b = '1' then
+                  vc_b_q <= resize((to_unsigned(256, 9) - resize(pb(7 downto 0), 9)) / 4, 8);
+                else
+                  vc_b_q <= x"FF";
+                end if;
+                if has_out = '1' then
+                  if o16 = '1' then
+                    vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 2, 8);
+                  else
+                    vc_z_q <= resize((to_unsigned(256, 9) - resize(pz(7 downto 0), 9)) / 4, 8);
+                  end if;
+                else
+                  vc_z_q <= x"FF";
+                end if;
+                vgo(V_CHUNK_MIN1);
               end if;
-              vgo(V_CHUNK_MIN1);
-            end if;
 
-          when V_CHUNK_MIN1 =>
-            -- Second stage: two independent 8-bit minimum comparisons.
-            if vc_rem_q < vc_x_q then
-              vc_left_q <= vc_rem_q;
-            else
-              vc_left_q <= vc_x_q;
-            end if;
-            if vc_y_q < vc_b_q then
-              vc_right_q <= vc_y_q;
-            else
-              vc_right_q <= vc_b_q;
-            end if;
-            vgo(V_CHUNK_MIN2);
+            when V_CHUNK_MIN1 =>
+              -- Second stage: two independent 8-bit minimum comparisons.
+              if vc_rem_q < vc_x_q then
+                vc_left_q <= vc_rem_q;
+              else
+                vc_left_q <= vc_x_q;
+              end if;
+              if vc_y_q < vc_b_q then
+                vc_right_q <= vc_y_q;
+              else
+                vc_right_q <= vc_b_q;
+              end if;
+              vgo(V_CHUNK_MIN2);
 
-          when V_CHUNK_MIN2 =>
-            -- Third stage: select the remaining minimum, including Z.
-            -- Keeping the same strict-less-than preference as the original
-            -- comparison chain preserves numeric behavior for equal limits.
-            if vc_left_q < vc_right_q then
-              vlen8 := vc_left_q;
-            else
-              vlen8 := vc_right_q;
-            end if;
-            if vc_z_q < vlen8 then vlen8 := vc_z_q; end if;
-            v_e <= vlen8;
-            vgo(V_CHUNK_ADDR);
+            when V_CHUNK_MIN2 =>
+              -- Third stage: select the remaining minimum, including Z.
+              -- Keeping the same strict-less-than preference as the original
+              -- comparison chain preserves numeric behavior for equal limits.
+              if vc_left_q < vc_right_q then
+                vlen8 := vc_left_q;
+              else
+                vlen8 := vc_right_q;
+              end if;
+              if vc_z_q < vlen8 then vlen8 := vc_z_q; end if;
+              v_e <= vlen8;
+              vgo(V_CHUNK_ADDR);
 
-          when V_CHUNK_ADDR =>
-            a0 := px(27 downto 3) & "000";
-            -- Original expression, modulo 2**9:
-            -- align8(px + 4*v_e + 7) - align8(px).
-            -- Only px(2:0) and v_e(6:0) influence these nine bits.
-            span9 := resize(px(2 downto 0), 9)
-                   + (v_e(6 downto 0) & "00") + 7;
-            rd_addr <= a0;
-            rd_len <= span9(8 downto 3) & "000";
-            rd_sel <= "01";
+            when V_CHUNK_ADDR =>
+              a0 := px(27 downto 3) & "000";
+              -- Original expression, modulo 2**9:
+              -- align8(px + 4*v_e + 7) - align8(px).
+              -- Only px(2:0) and v_e(6:0) influence these nine bits.
+              span9 := resize(px(2 downto 0), 9)
+                     + (v_e(6 downto 0) & "00") + 7;
+              rd_addr <= a0;
+              rd_len <= span9(8 downto 3) & "000";
+              rd_sel <= "01";
+                dec_addr <= a0;
+                if two_ops = '1' then
+                  vu_st <= V_LDY; rd_ret <= C_VEC;
+                elsif has_b = '1' then
+                  vu_st <= V_LDB; rd_ret <= C_VEC;
+                else
+                  vu_st <= V_EL0; rd_ret <= C_VEC;
+                end if;
+                go(C_RD_DEC);
+
+            when V_LDY =>
+              a0 := py(27 downto 3) & "000";
+              span9 := resize(py(2 downto 0), 9)
+                     + (v_e(6 downto 0) & "00") + 7;
+              rd_addr <= a0;
+              rd_len <= span9(8 downto 3) & "000";
+              rd_sel <= "10";
               dec_addr <= a0;
-              if two_ops = '1' then
-                vu_st <= V_LDY; rd_ret <= C_VEC;
-              elsif has_b = '1' then
+              if has_b = '1' then
                 vu_st <= V_LDB; rd_ret <= C_VEC;
               else
                 vu_st <= V_EL0; rd_ret <= C_VEC;
               end if;
               go(C_RD_DEC);
 
-          when V_LDY =>
-            a0 := py(27 downto 3) & "000";
-            span9 := resize(py(2 downto 0), 9)
-                   + (v_e(6 downto 0) & "00") + 7;
-            rd_addr <= a0;
-            rd_len <= span9(8 downto 3) & "000";
-            rd_sel <= "10";
-            dec_addr <= a0;
-            if has_b = '1' then
-              vu_st <= V_LDB; rd_ret <= C_VEC;
-            else
+            when V_LDB =>
+              a0 := pb(27 downto 3) & "000";
+              span9 := resize(pb(2 downto 0), 9)
+                     + (v_e(6 downto 0) & "00") + 7;
+              rd_addr <= a0;
+              rd_len <= span9(8 downto 3) & "000";
+              rd_sel <= "11";
+              dec_addr <= a0;
               vu_st <= V_EL0; rd_ret <= C_VEC;
-            end if;
-            go(C_RD_DEC);
+              go(C_RD_DEC);
 
-          when V_LDB =>
-            a0 := pb(27 downto 3) & "000";
-            span9 := resize(pb(2 downto 0), 9)
-                   + (v_e(6 downto 0) & "00") + 7;
-            rd_addr <= a0;
-            rd_len <= span9(8 downto 3) & "000";
-            rd_sel <= "11";
-            dec_addr <= a0;
-            vu_st <= V_EL0; rd_ret <= C_VEC;
-            go(C_RD_DEC);
+            when V_EL0 =>
+              v_i <= (others => '0');
+              pf_go := true;
+              pf_i := (others => '0');
+              pf_x := px(7 downto 0); pf_y := py(7 downto 0); pf_b := pb(7 downto 0);
+              vgo(V_EL);
 
-          when V_EL0 =>
-            v_i <= (others => '0');
-            pf_go := true;
-            pf_i := (others => '0');
-            pf_x := px(7 downto 0); pf_y := py(7 downto 0); pf_b := pb(7 downto 0);
-            vgo(V_EL);
-
-          when V_EL =>
-            assert v_done = (v_i = v_e) report "SSNAIL: stale v_done" severity failure;
-            assert ve_nx = ve_next(ve_kind) and ve_nv = ve_nextv(ve_kind) report "SSNAIL: stale ve_nx" severity failure;
-            if v_done then                                -- v_i = v_e
-              if has_out = '1' then
-                -- (a0 = pz rounded down to 8: so a2 - a0 = pz(2:0) + the
-                -- chunk's bytes, and a1 - a0 that rounded up to 8, all
-                -- modulo 512 as before, with no adder on pz's full width)
-                a0 := pz(27 downto 3) & "000";
-                if o16 = '1' then
-                  vend9 := resize(pz(2 downto 0), 9) + (v_e & "0");
+            when V_EL =>
+              assert v_done = (v_i = v_e) report "SSNAIL: stale v_done" severity failure;
+              assert ve_nx = ve_next(ve_kind) and ve_nv = ve_nextv(ve_kind) report "SSNAIL: stale ve_nx" severity failure;
+              if v_done then                                -- v_i = v_e
+                if has_out = '1' then
+                  -- (a0 = pz rounded down to 8: so a2 - a0 = pz(2:0) + the
+                  -- chunk's bytes, and a1 - a0 that rounded up to 8, all
+                  -- modulo 512 as before, with no adder on pz's full width)
+                  a0 := pz(27 downto 3) & "000";
+                  if o16 = '1' then
+                    vend9 := resize(pz(2 downto 0), 9) + (v_e & "0");
+                  else
+                    vend9 := resize(pz(2 downto 0), 9) + (v_e(6 downto 0) & "00");
+                  end if;
+                  span9 := vend9 + 7;
+                  span9(2 downto 0) := "000";
+                  wr_addr <= a0;
+                  wr_len <= span9;
+                  mw_lead <= resize(pz(2 downto 0), 9);
+                  mw_vend <= vend9;
+                  mw_idx <= a0(7 downto 1);
+                  dec_addr <= a0;
+                  vu_st <= V_ADV; wr_ret <= C_VEC;
+                  go(C_WR_DEC);
                 else
-                  vend9 := resize(pz(2 downto 0), 9) + (v_e(6 downto 0) & "00");
+                  vgo(V_ADV);
                 end if;
-                span9 := vend9 + 7;
-                span9(2 downto 0) := "000";
-                wr_addr <= a0;
-                wr_len <= span9;
-                mw_lead <= resize(pz(2 downto 0), 9);
-                mw_vend <= vend9;
-                mw_idx <= a0(7 downto 1);
-                dec_addr <= a0;
-                vu_st <= V_ADV; wr_ret <= C_VEC;
-                go(C_WR_DEC);
               else
-                vgo(V_ADV);
+                -- operands already read (pre_*) by the state that came here
+                vck_x := px(7 downto 0) + (v_i(5 downto 0) & "00");
+                vck_y := py(7 downto 0) + (v_i(5 downto 0) & "00");
+                assert pre_x = bufx(to_integer(vck_x(7 downto 1) + 1)) & bufx(to_integer(vck_x(7 downto 1)))
+                  and (two_ops = '0' or pre_y = bufy(to_integer(vck_y(7 downto 1) + 1)) & bufy(to_integer(vck_y(7 downto 1))))
+                  report "SSNAIL: stale V_EL operands" severity failure;
+                xv := pre_x;
+                ex <= pre_x;
+                ey <= pre_y;
+                eb <= pre_b;
+                -- first step of each element operation
+                case vk is
+                  when K_ARGMAX =>
+                    if has_llm then
+                      -- compared with am_best on the next edge (see before the case)
+                      am_x_q <= xv;
+                      am_g_q <= ve_g;
+                      am_first_q <= ve_first;
+                      am_v_q <= '1';
+                      ve_first <= '0';
+                      ve_g <= ve_g + 1;
+                      v_i <= v_i + 1;
+                      pf_go := true;
+                      pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
+                    end if;
+                  when K_ROPE =>
+                    if has_llm then
+                      -- pair (x0, x1) = elements i, i+1: x0 c - x1 s, x0 s + x1 c
+                      x1v <= pre_x1;
+                      assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
+                      fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= rope_c;
+                      fpu_start <= '1'; vu_st <= E_R1; fpu_ret <= C_VEC;
+                    end if;
+                  when K_COPY | K_SUM =>
+                    fpu_r <= xv;
+                  when K_MAX =>                       -- (selected in E_MM)
+                    ve_lt <= flt(xv, pre_y);
+                  when K_MIN =>
+                    ve_lt <= flt(pre_y, xv);
+                  when K_SILUMUL | K_TAB =>
+                    if has_llm then
+                      tx <= xv;
+                      if ve_kind = K_SILUMUL then
+                        tab_id <= "00";
+                        tx_below <= flt(xv, SILU_LO); tx_above <= not flt(xv, SILU_HI);
+                      else
+                        tab_id <= vt_id;
+                        case vt_id is
+                          when "10" => tx_below <= flt(xv, EXPT_LO); tx_above <= not flt(xv, EXPT_HI);
+                          when "11" => tx_below <= flt(xv, SOFTP_LO); tx_above <= not flt(xv, SOFTP_HI);
+                          when others => tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
+                        end case;
+                      end if;
+                      vu_st <= E_K1; tab_ret <= C_VEC;
+                    end if;
+                  when others =>
+                    fpu_a <= xv;
+                    case vk is
+                      when K_ADD =>
+                        fpu_op <= FOP_ADD;
+                        fpu_b <= pre_y;
+                        vu_st <= V_ELST; fpu_ret <= C_VEC;
+                      when K_MUL =>
+                        fpu_op <= FOP_MUL;
+                        fpu_b <= pre_y;
+                        vu_st <= V_ELST; fpu_ret <= C_VEC;
+                      when K_CVT16 =>
+                        fpu_op <= FOP_F32TOF16;
+                        vu_st <= V_ELST; fpu_ret <= C_VEC;
+                      when K_SCALE =>
+                        if has_llm then
+                          fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                        end if;
+                      when K_SUMSQ =>
+                        if has_llm then
+                          fpu_op <= FOP_MUL; fpu_b <= xv; vu_st <= E_ACC; fpu_ret <= C_VEC;
+                        end if;
+                      when K_RMSOUT =>
+                        if has_llm then
+                          fpu_op <= FOP_MUL; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
+                        end if;
+                      when K_SSM =>                     -- t = x * a
+                        if has_llm then
+                          fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
+                        end if;
+                      when K_SUB =>
+                        fpu_op <= FOP_ADD;
+                        fpu_b <= (not pre_y(31)) & pre_y(30 downto 0);
+                        vu_st <= V_ELST; fpu_ret <= C_VEC;
+                      when K_PROJ =>                    -- x / w, then * s, + o, roundf
+                        fpu_op <= FOP_DIV; fpu_b <= pre_y; vu_st <= E_P1; fpu_ret <= C_VEC;
+                      when K_RECIP =>
+                        fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= xv; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                      when K_CVTI =>                    -- x * s, then roundf
+                        fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
+                      when others =>                    -- K_LNVAR, K_LNOUT: d = x - mu
+                        if has_llm then
+                          fpu_op <= FOP_ADD; fpu_b <= (not s_mu(31)) & s_mu(30 downto 0);
+                          vu_st <= E_K1; fpu_ret <= C_VEC;
+                        end if;
+                    end case;
+                    fpu_start <= '1';
+                end case;
+                if ve_nx = C_VEC then                 -- (ve_next(ve_kind), registered)
+                  vgo(ve_nv);
+                else
+                  go(ve_nx);
+                end if;
               end if;
-            else
-              -- operands already read (pre_*) by the state that came here
-              vck_x := px(7 downto 0) + (v_i(5 downto 0) & "00");
-              vck_y := py(7 downto 0) + (v_i(5 downto 0) & "00");
-              assert pre_x = bufx(to_integer(vck_x(7 downto 1) + 1)) & bufx(to_integer(vck_x(7 downto 1)))
-                and (two_ops = '0' or pre_y = bufy(to_integer(vck_y(7 downto 1) + 1)) & bufy(to_integer(vck_y(7 downto 1))))
-                report "SSNAIL: stale V_EL operands" severity failure;
-              xv := pre_x;
-              ex <= pre_x;
-              ey <= pre_y;
-              eb <= pre_b;
-              -- first step of each element operation
+
+            -- second and later steps of the element operations
+            when E_K1 =>
               case vk is
-                when K_ARGMAX =>
-                  -- compared with am_best on the next edge (see before the case)
-                  am_x_q <= xv;
-                  am_g_q <= ve_g;
-                  am_first_q <= ve_first;
-                  am_v_q <= '1';
+                when K_SILUMUL =>                       -- silu(x) * y
+                  if has_llm then
+                    fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                    fpu_start <= '1'; go(C_FPU_WAIT);
+                  end if;
+                when K_TAB =>
+                  if has_llm then
+                    fpu_r <= tval; vgo(V_ELST);
+                  end if;
+                when K_CVTI | K_PROJ =>                 -- roundf (saturating 32-bit)
+                  fpu_op <= FOP_ROUNDF; fpu_a <= fpu_r; vu_st <= E_CV; fpu_ret <= C_VEC;
+                  fpu_start <= '1'; go(C_FPU_WAIT);
+                when K_SSM =>                           -- s = y * u
+                  if has_llm then
+                    ev <= fpu_r;
+                    fpu_op <= FOP_MUL; fpu_a <= ey; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
+                    fpu_start <= '1'; go(C_FPU_WAIT);
+                  end if;
+                when K_RMSOUT =>                        -- (x * r) * g
+                  if has_llm then
+                    fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                    fpu_start <= '1'; go(C_FPU_WAIT);
+                  end if;
+                when K_LNVAR =>                         -- d * d
+                  if has_llm then
+                    fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= fpu_r; vu_st <= E_ACC; fpu_ret <= C_VEC;
+                    fpu_start <= '1'; go(C_FPU_WAIT);
+                  end if;
+                when others =>                          -- K_LNOUT: d * r
+                  if has_llm then
+                    fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
+                    fpu_start <= '1'; go(C_FPU_WAIT);
+                  end if;
+              end case;
+
+            when E_K2 =>
+              if has_llm then
+                if ve_kind = K_SSM then                   -- K_SSM: t + s
+                  fpu_op <= FOP_ADD; fpu_a <= ev; fpu_b <= fpu_r; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                else                                      -- K_LNOUT: (d * r) * g
+                  fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= E_K3; fpu_ret <= C_VEC;
+                end if;
+                fpu_start <= '1'; go(C_FPU_WAIT);
+              end if;
+
+            when E_K3 =>                                -- K_LNOUT: ... + b
+              if has_llm then
+                fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; vu_st <= V_ELST; fpu_ret <= C_VEC;
+                fpu_start <= '1'; go(C_FPU_WAIT);
+              end if;
+
+            when E_P1 =>                                -- VPROJ16: (x / w) * s
+              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_sc; vu_st <= E_P2; fpu_ret <= C_VEC;
+              fpu_start <= '1'; go(C_FPU_WAIT);
+            when E_P2 =>                                -- ... + o, then roundf in E_K1
+              fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
+              fpu_start <= '1'; go(C_FPU_WAIT);
+
+            when E_MM =>                                -- VMAX / VMIN: the choice
+              if ve_lt then fpu_r <= ey; else fpu_r <= ex; end if;
+              vgo(V_ELST);
+
+            when E_CV =>                                -- VCVTI16: to int16, saturating
+              if fpu_r(31 downto 15) = 0 or fpu_r(31 downto 15) = '1' & x"FFFF" then
+                fpu_r <= x"0000" & fpu_r(15 downto 0);
+              elsif fpu_r(31) = '1' then
+                fpu_r <= x"00008000";
+              else
+                fpu_r <= x"00007FFF";
+              end if;
+              vgo(V_ELST);
+
+            when E_ACC =>
+              if has_llm then
+                -- sequential sum: the first value as it is, then acc = acc + v
+                if ve_first = '1' then
+                  ve_acc <= fpu_r;
                   ve_first <= '0';
-                  ve_g <= ve_g + 1;
                   v_i <= v_i + 1;
                   pf_go := true;
                   pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-                when K_ROPE =>
-                  -- pair (x0, x1) = elements i, i+1: x0 c - x1 s, x0 s + x1 c
-                  x1v <= pre_x1;
-                  assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
-                  fpu_op <= FOP_MUL; fpu_a <= xv; fpu_b <= rope_c;
-                  fpu_start <= '1'; vu_st <= E_R1; fpu_ret <= C_VEC;
-                when K_COPY | K_SUM =>
-                  fpu_r <= xv;
-                when K_MAX =>                       -- (selected in E_MM)
-                  ve_lt <= flt(xv, pre_y);
-                when K_MIN =>
-                  ve_lt <= flt(pre_y, xv);
-                when K_SILUMUL | K_TAB =>
-                  tx <= xv;
-                  if ve_kind = K_SILUMUL then
-                    tab_id <= "00";
-                    tx_below <= flt(xv, SILU_LO); tx_above <= not flt(xv, SILU_HI);
-                  else
-                    tab_id <= vt_id;
-                    case vt_id is
-                      when "10" => tx_below <= flt(xv, EXPT_LO); tx_above <= not flt(xv, EXPT_HI);
-                      when "11" => tx_below <= flt(xv, SOFTP_LO); tx_above <= not flt(xv, SOFTP_HI);
-                      when others => tx_below <= flt(xv, GELU_LO); tx_above <= not flt(xv, GELU_HI);
-                    end case;
-                  end if;
-                  vu_st <= E_K1; tab_ret <= C_VEC;
-                when others =>
-                  fpu_a <= xv;
-                  case vk is
-                    when K_ADD =>
-                      fpu_op <= FOP_ADD;
-                      fpu_b <= pre_y;
-                      vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_MUL =>
-                      fpu_op <= FOP_MUL;
-                      fpu_b <= pre_y;
-                      vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_CVT16 =>
-                      fpu_op <= FOP_F32TOF16;
-                      vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_SCALE =>
-                      fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_SUMSQ =>
-                      fpu_op <= FOP_MUL; fpu_b <= xv; vu_st <= E_ACC; fpu_ret <= C_VEC;
-                    when K_RMSOUT =>
-                      fpu_op <= FOP_MUL; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
-                    when K_SSM =>                     -- t = x * a
-                      fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
-                    when K_SUB =>
-                      fpu_op <= FOP_ADD;
-                      fpu_b <= (not pre_y(31)) & pre_y(30 downto 0);
-                      vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_PROJ =>                    -- x / w, then * s, + o, roundf
-                      fpu_op <= FOP_DIV; fpu_b <= pre_y; vu_st <= E_P1; fpu_ret <= C_VEC;
-                    when K_RECIP =>
-                      fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= xv; vu_st <= V_ELST; fpu_ret <= C_VEC;
-                    when K_CVTI =>                    -- x * s, then roundf
-                      fpu_op <= FOP_MUL; fpu_b <= s_sc; vu_st <= E_K1; fpu_ret <= C_VEC;
-                    when others =>                    -- K_LNVAR, K_LNOUT: d = x - mu
-                      fpu_op <= FOP_ADD; fpu_b <= (not s_mu(31)) & s_mu(30 downto 0);
-                      vu_st <= E_K1; fpu_ret <= C_VEC;
-                  end case;
-                  fpu_start <= '1';
-              end case;
-              if ve_nx = C_VEC then                 -- (ve_next(ve_kind), registered)
-                vgo(ve_nv);
-              else
-                go(ve_nx);
+                  vgo(V_EL);
+                else
+                  fpu_op <= FOP_ADD; fpu_a <= ve_acc; fpu_b <= fpu_r; vu_st <= E_ACC2; fpu_ret <= C_VEC;
+                  fpu_start <= '1'; go(C_FPU_WAIT);
+                end if;
               end if;
-            end if;
 
-          -- second and later steps of the element operations
-          when E_K1 =>
-            case vk is
-              when K_SILUMUL =>                       -- silu(x) * y
-                fpu_op <= FOP_MUL; fpu_a <= tval; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-              when K_TAB =>
-                fpu_r <= tval; vgo(V_ELST);
-              when K_CVTI | K_PROJ =>                 -- roundf (saturating 32-bit)
-                fpu_op <= FOP_ROUNDF; fpu_a <= fpu_r; vu_st <= E_CV; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-              when K_SSM =>                           -- s = y * u
-                ev <= fpu_r;
-                fpu_op <= FOP_MUL; fpu_a <= ey; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-              when K_RMSOUT =>                        -- (x * r) * g
-                fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= V_ELST; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-              when K_LNVAR =>                         -- d * d
-                fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= fpu_r; vu_st <= E_ACC; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-              when others =>                          -- K_LNOUT: d * r
-                fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_r; vu_st <= E_K2; fpu_ret <= C_VEC;
-                fpu_start <= '1'; go(C_FPU_WAIT);
-            end case;
+            when E_ACC2 =>
+              if has_llm then
+                ve_acc <= fpu_r;
+                v_i <= v_i + 1;
+                pf_go := true;
+                pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
+                vgo(V_EL);
+              end if;
 
-          when E_K2 =>
-            if ve_kind = K_SSM then                   -- K_SSM: t + s
-              fpu_op <= FOP_ADD; fpu_a <= ev; fpu_b <= fpu_r; vu_st <= V_ELST; fpu_ret <= C_VEC;
-            else                                      -- K_LNOUT: (d * r) * g
-              fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= ey; vu_st <= E_K3; fpu_ret <= C_VEC;
-            end if;
-            fpu_start <= '1'; go(C_FPU_WAIT);
-
-          when E_K3 =>                                -- K_LNOUT: ... + b
-            fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= eb; vu_st <= V_ELST; fpu_ret <= C_VEC;
-            fpu_start <= '1'; go(C_FPU_WAIT);
-
-          when E_P1 =>                                -- VPROJ16: (x / w) * s
-            fpu_op <= FOP_MUL; fpu_a <= fpu_r; fpu_b <= s_sc; vu_st <= E_P2; fpu_ret <= C_VEC;
-            fpu_start <= '1'; go(C_FPU_WAIT);
-          when E_P2 =>                                -- ... + o, then roundf in E_K1
-            fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= s_r; vu_st <= E_K1; fpu_ret <= C_VEC;
-            fpu_start <= '1'; go(C_FPU_WAIT);
-
-          when E_MM =>                                -- VMAX / VMIN: the choice
-            if ve_lt then fpu_r <= ey; else fpu_r <= ex; end if;
-            vgo(V_ELST);
-
-          when E_CV =>                                -- VCVTI16: to int16, saturating
-            if fpu_r(31 downto 15) = 0 or fpu_r(31 downto 15) = '1' & x"FFFF" then
-              fpu_r <= x"0000" & fpu_r(15 downto 0);
-            elsif fpu_r(31) = '1' then
-              fpu_r <= x"00008000";
-            else
-              fpu_r <= x"00007FFF";
-            end if;
-            vgo(V_ELST);
-
-          when E_ACC =>
-            -- sequential sum: the first value as it is, then acc = acc + v
-            if ve_first = '1' then
-              ve_acc <= fpu_r;
-              ve_first <= '0';
+            when V_ELST =>
               v_i <= v_i + 1;
               pf_go := true;
               pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
               vgo(V_EL);
-            else
-              fpu_op <= FOP_ADD; fpu_a <= ve_acc; fpu_b <= fpu_r; vu_st <= E_ACC2; fpu_ret <= C_VEC;
-              fpu_start <= '1'; go(C_FPU_WAIT);
-            end if;
 
-          when E_ACC2 =>
-            ve_acc <= fpu_r;
-            v_i <= v_i + 1;
-            pf_go := true;
-            pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-            vgo(V_EL);
-
-          when V_ELST =>
-            v_i <= v_i + 1;
-            pf_go := true;
-            pf_x := vix + 4; pf_y := viy + 4; pf_b := vib + 4; pf_i := v_i + 1;
-            vgo(V_EL);
-
-          when V_ADV =>
-            px <= px + (resize(v_e, 26) & "00");
-            py <= py + (resize(v_e, 26) & "00");
-            pb <= pb + (resize(v_e, 26) & "00");
-            if o16 = '1' then
-              pz <= pz + (resize(v_e, 27) & "0");
-            else
-              pz <= pz + (resize(v_e, 26) & "00");
-            end if;
-            v_n <= v_n - resize(v_e, 32);
-            v_n_z <= v_n = resize(v_e, 32);
-            v_n_one <= v_n = resize(v_e, 32) + 1;
-            vgo(V_CHUNK);
-
-          -- ------------------------------------------------------------------
-          -- RMSNORM after pass 1 (ve_acc = sum of squares):
-          -- rn = 1/N; m = ss * rn; r = 1 / sqrt(m + eps); then pass 2
-          when R_S0 =>
-            fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
-            vu_st <= R_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S1 =>
-            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= R_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S2 =>
-            fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= R_S3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S3 =>
-            fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
-            vu_st <= R_S4; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S4 =>
-            fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-            vu_st <= R_S5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S5 =>
-            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= R_S6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when R_S6 =>
-            s_r <= fpu_r;
-            px <= bx; py <= by; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-            ve_kind <= K_RMSOUT; two_ops <= '1'; has_out <= '1'; ve_ret <= V_EXIT;
-            vgo(V_CHUNK);
-
-          -- LAYERNORM: after pass 1 (sum): rn = 1/N, mu = sum * rn, pass 2
-          -- (sum of (x - mu)^2), var = that * rn, r = 1 / sqrt(var + eps),
-          -- pass 3 with G at Y and B after it
-          when L_S0 =>
-            fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
-            vu_st <= L_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S1 =>
-            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= L_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S2 =>
-            s_rn <= fpu_r;
-            fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= L_S3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S3 =>
-            s_mu <= fpu_r;
-            px <= bx; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one; ve_first <= '1';
-            ve_kind <= K_LNVAR; has_out <= '0'; ve_ret <= L_S4;
-            vgo(V_CHUNK);
-          when L_S4 =>
-            fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= s_rn; fpu_start <= '1';
-            vu_st <= L_S5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S5 =>
-            fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
-            vu_st <= L_S6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S6 =>
-            fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-            vu_st <= L_S7; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when L_S7 =>
-            if ve_kind = K_LNVAR then
-              -- r = 1 / sqrt(...), then pass 3
-              fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-              ve_kind <= K_LNOUT;
-              vu_st <= L_S7; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-            else
-              s_r <= fpu_r;
-              px <= bx; py <= by; pb <= by + (n0(25 downto 0) & "00"); pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              two_ops <= '1'; has_b <= '1'; has_out <= '1'; ve_ret <= V_EXIT;
+            when V_ADV =>
+              px <= px + (resize(v_e, 26) & "00");
+              py <= py + (resize(v_e, 26) & "00");
+              pb <= pb + (resize(v_e, 26) & "00");
+              if o16 = '1' then
+                pz <= pz + (resize(v_e, 27) & "0");
+              else
+                pz <= pz + (resize(v_e, 26) & "00");
+              end if;
+              v_n <= v_n - resize(v_e, 32);
+              v_n_z <= v_n = resize(v_e, 32);
+              v_n_one <= v_n = resize(v_e, 32) + 1;
               vgo(V_CHUNK);
-            end if;
 
-          -- MEANROWS: Z = row 0; Z = Z + row r for r = 1 .. R-1; Z = Z * (1/R)
-          when M_NEXT =>
-            assert mr_end = (mr_r = mr_rows) report "SSNAIL: stale mr_end" severity failure;
-            if mr_end then
-              vgo(M_S0);
-            else
-              -- Induction: before row r, mr_src_row = bx + (r-1)*4*n0 (mod 2^28).
-              -- Thus the addition below is exactly the old bx + r*4*n0.
-              px <= mr_src_row + (n0(25 downto 0) & "00");
-              mr_src_row <= mr_src_row + (n0(25 downto 0) & "00");
-              py <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              ve_kind <= K_ADD; two_ops <= '1'; has_out <= '1'; ve_ret <= M_NEXT;
-              mr_r <= mr_r + 1;
-              vgo(V_CHUNK);
-            end if;
-          when M_S0 =>
-            fpu_op <= FOP_I2F; fpu_a <= mr_rows; fpu_start <= '1';
-            vu_st <= M_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when M_S1 =>
-            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-            vu_st <= M_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when M_S2 =>
-            s_sc <= fpu_r;
-            px <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-            ve_kind <= K_SCALE; two_ops <= '0'; has_out <= '1'; ve_ret <= V_EXIT;
-            vgo(V_CHUNK);
+            -- ------------------------------------------------------------------
+            -- RMSNORM after pass 1 (ve_acc = sum of squares):
+            -- rn = 1/N; m = ss * rn; r = 1 / sqrt(m + eps); then pass 2
+            when R_S0 =>
+              if has_llm then
+                fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
+                vu_st <= R_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S1 =>
+              if has_llm then
+                fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= R_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S2 =>
+              if has_llm then
+                fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= R_S3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S3 =>
+              if has_llm then
+                fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
+                vu_st <= R_S4; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S4 =>
+              if has_llm then
+                fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
+                vu_st <= R_S5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S5 =>
+              if has_llm then
+                fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= R_S6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when R_S6 =>
+              if has_llm then
+                s_r <= fpu_r;
+                px <= bx; py <= by; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                ve_kind <= K_RMSOUT; two_ops <= '1'; has_out <= '1'; ve_ret <= V_EXIT;
+                vgo(V_CHUNK);
+              end if;
 
-          -- SSMUPD: h[r][c] = (a[r] * h[r][c]) + (u[r] * B[c]), row by row
-          when SS_PRM =>                              -- parameter word ss_pi
-            vu_st <= SS_PRM2; ef_ret <= C_VEC;
-            go(EF_START);
-          when SS_PRM2 =>
-            case ss_pi is
-              when "00" => ss_h <= ef_val(27 downto 0);
-              when "01" => ss_a <= ef_val(27 downto 0);
-              when "10" => ss_u <= ef_val(27 downto 0);
-              when others => ss_b <= ef_val(27 downto 0);
-            end case;
-            ef_addr <= ef_addr + 4;
-            ss_pi <= ss_pi + 1;
-            if ss_pi = "11" then vgo(SS_CHK); else vgo(SS_PRM); end if;
-          when SS_CHK =>
-            if ss_h(1 downto 0) /= "00" or ss_a(1 downto 0) /= "00"
-              or ss_u(1 downto 0) /= "00" or ss_b(1 downto 0) /= "00" then
-              err <= ERR_ALIGNMENT;
-              go(C_END);
-            else
-              vgo(SS_GRP);
-            end if;
-          when SS_GRP =>                              -- a, u for the next 64 rows
-            -- (bufx holds rows of h and B: the fetch must reload it.  Written
-            -- two states before EF_START, as ef_miss needs)
-            ld_valid <= '0';
-            ef_addr <= ss_a;
-            ss_a <= ss_a + 256;
-            ss_fu <= '0';
-            ss_j <= (others => '0'); ss_jend <= false;
-            vgo(SS_FILL);
-          when SS_FILL =>
-            vu_st <= SS_FILL2; ef_ret <= C_VEC;
-            go(EF_START);
-          when SS_FILL2 =>
-            if ss_fu = '0' then
-              ss_sa(to_integer(ss_j)) <= ef_val;
-            else
-              ss_su(to_integer(ss_j)) <= ef_val;
-            end if;
-            ef_addr <= ef_addr + 4;
-            ss_j <= ss_j + 1;
-            ss_jend <= ss_j = 62;
-            if not ss_jend then
-              vgo(SS_FILL);
-            elsif ss_fu = '0' then                    -- now u
-              ss_fu <= '1';
-              ef_addr <= ss_u;
-              ss_u <= ss_u + 256;
-              vgo(SS_FILL);
-            else
-              ss_gend <= false;
-              vgo(SS_ROW);
-            end if;
-          when SS_ROW =>
-            assert ss_done = (ss_left = 0) report "SSNAIL: stale ss_done" severity failure;
-            if ss_done then
-              go(C_NEXT);
-            elsif ss_gend then
-              vgo(SS_GRP);
-            else
-              s_sc <= ss_sa(to_integer(ss_j));
-              s_r <= ss_su(to_integer(ss_j));
-              px <= ss_h; py <= ss_b; pz <= ss_h;
-              v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              ss_h <= ss_h + (n0(25 downto 0) & "00");
-              ss_j <= ss_j + 1;
-              ss_gend <= ss_j = 63;
-              ss_left <= ss_left - 1;
-              ss_done <= ss_left = 1;
-              ve_ret <= SS_ROW;
-              vgo(V_CHUNK);
-            end if;
+            -- LAYERNORM: after pass 1 (sum): rn = 1/N, mu = sum * rn, pass 2
+            -- (sum of (x - mu)^2), var = that * rn, r = 1 / sqrt(var + eps),
+            -- pass 3 with G at Y and B after it
+            when L_S0 =>
+              if has_llm then
+                fpu_op <= FOP_I2F; fpu_a <= n0; fpu_start <= '1';
+                vu_st <= L_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S1 =>
+              if has_llm then
+                fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= L_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S2 =>
+              if has_llm then
+                s_rn <= fpu_r;
+                fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= L_S3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S3 =>
+              if has_llm then
+                s_mu <= fpu_r;
+                px <= bx; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one; ve_first <= '1';
+                ve_kind <= K_LNVAR; has_out <= '0'; ve_ret <= L_S4;
+                vgo(V_CHUNK);
+              end if;
+            when L_S4 =>
+              if has_llm then
+                fpu_op <= FOP_MUL; fpu_a <= ve_acc; fpu_b <= s_rn; fpu_start <= '1';
+                vu_st <= L_S5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S5 =>
+              if has_llm then
+                fpu_op <= FOP_ADD; fpu_a <= fpu_r; fpu_b <= n2; fpu_start <= '1';
+                vu_st <= L_S6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S6 =>
+              if has_llm then
+                fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
+                vu_st <= L_S7; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when L_S7 =>
+              if has_llm then
+                if ve_kind = K_LNVAR then
+                  -- r = 1 / sqrt(...), then pass 3
+                  fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+                  ve_kind <= K_LNOUT;
+                  vu_st <= L_S7; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+                else
+                  s_r <= fpu_r;
+                  px <= bx; py <= by; pb <= by + (n0(25 downto 0) & "00"); pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                  two_ops <= '1'; has_b <= '1'; has_out <= '1'; ve_ret <= V_EXIT;
+                  vgo(V_CHUNK);
+                end if;
+              end if;
 
-          -- ROPE: load the cos/sin row, then rotate pairs through the engine
-          when RO_CS =>
-            assert cs_end = (cs_i = rope_hd) report "SSNAIL: stale cs_end" severity failure;
-            if cs_end then
-              bx <= ea_x; px <= ea_x; pz <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
-              o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
-              ve_kind <= K_ROPE; rope_j <= (others => '0');
-              ve_ret <= V_EXIT;
-              vgo(V_CHUNK);
-            else
-              vu_st <= RO_CS2; ef_ret <= C_VEC;
-              go(EF_START);
-            end if;
-          when RO_CS2 =>
-            csv(to_integer(cs_i)) <= ef_val;
-            cs_i <= cs_i + 1;
-            cs_end <= cs_i + 1 = rope_hd;
-            ef_addr <= ef_addr + 4;
-            vgo(RO_CS);
+            -- MEANROWS: Z = row 0; Z = Z + row r for r = 1 .. R-1; Z = Z * (1/R)
+            when M_NEXT =>
+              if has_llm then
+                assert mr_end = (mr_r = mr_rows) report "SSNAIL: stale mr_end" severity failure;
+                if mr_end then
+                  vgo(M_S0);
+                else
+                  -- Induction: before row r, mr_src_row = bx + (r-1)*4*n0 (mod 2^28).
+                  -- Thus the addition below is exactly the old bx + r*4*n0.
+                  px <= mr_src_row + (n0(25 downto 0) & "00");
+                  mr_src_row <= mr_src_row + (n0(25 downto 0) & "00");
+                  py <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                  ve_kind <= K_ADD; two_ops <= '1'; has_out <= '1'; ve_ret <= M_NEXT;
+                  mr_r <= mr_r + 1;
+                  vgo(V_CHUNK);
+                end if;
+              end if;
+            when M_S0 =>
+              if has_llm then
+                fpu_op <= FOP_I2F; fpu_a <= mr_rows; fpu_start <= '1';
+                vu_st <= M_S1; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when M_S1 =>
+              if has_llm then
+                fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+                vu_st <= M_S2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when M_S2 =>
+              if has_llm then
+                s_sc <= fpu_r;
+                px <= bz; pz <= bz; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                ve_kind <= K_SCALE; two_ops <= '0'; has_out <= '1'; ve_ret <= V_EXIT;
+                vgo(V_CHUNK);
+              end if;
 
-          when E_R1 =>                                -- a = x0 c; b = x1 s
-            rp_a <= fpu_r;
-            assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
-            fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_s;
-            fpu_start <= '1'; vu_st <= E_R2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when E_R2 =>                                -- r0 = a - b
-            fpu_op <= FOP_ADD; fpu_a <= rp_a; fpu_b <= (not fpu_r(31)) & fpu_r(30 downto 0);
-            fpu_start <= '1'; vu_st <= E_R3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when E_R3 =>                                -- x0 s
-            rp0 <= fpu_r;
-            assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
-            fpu_op <= FOP_MUL; fpu_a <= ex; fpu_b <= rope_s;
-            fpu_start <= '1'; vu_st <= E_R4; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when E_R4 =>                                -- x1 c
-            rp_b <= fpu_r;
-            assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
-            fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_c;
-            fpu_start <= '1'; vu_st <= E_R5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when E_R5 =>                                -- r1 = x0 s + x1 c
-            fpu_op <= FOP_ADD; fpu_a <= rp_b; fpu_b <= fpu_r;
-            fpu_start <= '1'; vu_st <= E_R6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
-          when E_R6 =>
-            v_i <= v_i + 2;
-            pf_go := true;
-            pf_x := vix + 8; pf_y := viy + 8; pf_b := vib + 8; pf_i := v_i + 2;
-            assert rope_jn = rope_j + 2 or (rope_j + 2 = rope_hd and rope_jn = 0)
-              report "SSNAIL: stale rope_jn" severity failure;
-            rope_j <= rope_jn;
-            vgo(V_EL);
+            -- SSMUPD: h[r][c] = (a[r] * h[r][c]) + (u[r] * B[c]), row by row
+            when SS_PRM =>                              -- parameter word ss_pi
+              if has_llm then
+                vu_st <= SS_PRM2; ef_ret <= C_VEC;
+                go(EF_START);
+              end if;
+            when SS_PRM2 =>
+              if has_llm then
+                case ss_pi is
+                  when "00" => ss_h <= ef_val(27 downto 0);
+                  when "01" => ss_a <= ef_val(27 downto 0);
+                  when "10" => ss_u <= ef_val(27 downto 0);
+                  when others => ss_b <= ef_val(27 downto 0);
+                end case;
+                ef_addr <= ef_addr + 4;
+                ss_pi <= ss_pi + 1;
+                if ss_pi = "11" then vgo(SS_CHK); else vgo(SS_PRM); end if;
+              end if;
+            when SS_CHK =>
+              if has_llm then
+                if ss_h(1 downto 0) /= "00" or ss_a(1 downto 0) /= "00"
+                  or ss_u(1 downto 0) /= "00" or ss_b(1 downto 0) /= "00" then
+                  err <= ERR_ALIGNMENT;
+                  go(C_END);
+                else
+                  vgo(SS_GRP);
+                end if;
+              end if;
+            when SS_GRP =>                              -- a, u for the next 64 rows
+              if has_llm then
+                -- (bufx holds rows of h and B: the fetch must reload it.  Written
+                -- two states before EF_START, as ef_miss needs)
+                ld_valid <= '0';
+                ef_addr <= ss_a;
+                ss_a <= ss_a + 256;
+                ss_fu <= '0';
+                ss_j <= (others => '0'); ss_jend <= false;
+                vgo(SS_FILL);
+              end if;
+            when SS_FILL =>
+              if has_llm then
+                vu_st <= SS_FILL2; ef_ret <= C_VEC;
+                go(EF_START);
+              end if;
+            when SS_FILL2 =>
+              if has_llm then
+                if ss_fu = '0' then
+                  ss_sa(to_integer(ss_j)) <= ef_val;
+                else
+                  ss_su(to_integer(ss_j)) <= ef_val;
+                end if;
+                ef_addr <= ef_addr + 4;
+                ss_j <= ss_j + 1;
+                ss_jend <= ss_j = 62;
+                if not ss_jend then
+                  vgo(SS_FILL);
+                elsif ss_fu = '0' then                    -- now u
+                  ss_fu <= '1';
+                  ef_addr <= ss_u;
+                  ss_u <= ss_u + 256;
+                  vgo(SS_FILL);
+                else
+                  ss_gend <= false;
+                  vgo(SS_ROW);
+                end if;
+              end if;
+            when SS_ROW =>
+              if has_llm then
+                assert ss_done = (ss_left = 0) report "SSNAIL: stale ss_done" severity failure;
+                if ss_done then
+                  go(C_NEXT);
+                elsif ss_gend then
+                  vgo(SS_GRP);
+                else
+                  s_sc <= ss_sa(to_integer(ss_j));
+                  s_r <= ss_su(to_integer(ss_j));
+                  px <= ss_h; py <= ss_b; pz <= ss_h;
+                  v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                  ss_h <= ss_h + (n0(25 downto 0) & "00");
+                  ss_j <= ss_j + 1;
+                  ss_gend <= ss_j = 63;
+                  ss_left <= ss_left - 1;
+                  ss_done <= ss_left = 1;
+                  ve_ret <= SS_ROW;
+                  vgo(V_CHUNK);
+                end if;
+              end if;
 
-          when AM_DONE =>
-            if instr(11 downto 8) /= x"F" then
-              rf_r(to_integer(instr(11 downto 8))) <= am_idx;
-            end if;
-            go(C_NEXT);
+            -- ROPE: load the cos/sin row, then rotate pairs through the engine
+            when RO_CS =>
+              if has_llm then
+                assert cs_end = (cs_i = rope_hd) report "SSNAIL: stale cs_end" severity failure;
+                if cs_end then
+                  bx <= ea_x; px <= ea_x; pz <= ea_x; v_n <= n0; v_n_z <= n0_z; v_n_one <= n0_one;
+                  o16 <= '0'; two_ops <= '0'; has_b <= '0'; has_out <= '1';
+                  ve_kind <= K_ROPE; rope_j <= (others => '0');
+                  ve_ret <= V_EXIT;
+                  vgo(V_CHUNK);
+                else
+                  vu_st <= RO_CS2; ef_ret <= C_VEC;
+                  go(EF_START);
+                end if;
+              end if;
+            when RO_CS2 =>
+              if has_llm then
+                csv(to_integer(cs_i)) <= ef_val;
+                cs_i <= cs_i + 1;
+                cs_end <= cs_i + 1 = rope_hd;
+                ef_addr <= ef_addr + 4;
+                vgo(RO_CS);
+              end if;
+
+            when E_R1 =>                                -- a = x0 c; b = x1 s
+              if has_llm then
+                rp_a <= fpu_r;
+                assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
+                fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_s;
+                fpu_start <= '1'; vu_st <= E_R2; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when E_R2 =>                                -- r0 = a - b
+              if has_llm then
+                fpu_op <= FOP_ADD; fpu_a <= rp_a; fpu_b <= (not fpu_r(31)) & fpu_r(30 downto 0);
+                fpu_start <= '1'; vu_st <= E_R3; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when E_R3 =>                                -- x0 s
+              if has_llm then
+                rp0 <= fpu_r;
+                assert rope_s = csv(to_integer(rope_j) + 1) report "SSNAIL: stale rope_s" severity failure;
+                fpu_op <= FOP_MUL; fpu_a <= ex; fpu_b <= rope_s;
+                fpu_start <= '1'; vu_st <= E_R4; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when E_R4 =>                                -- x1 c
+              if has_llm then
+                rp_b <= fpu_r;
+                assert rope_c = csv(to_integer(rope_j)) report "SSNAIL: stale rope_c" severity failure;
+                fpu_op <= FOP_MUL; fpu_a <= x1v; fpu_b <= rope_c;
+                fpu_start <= '1'; vu_st <= E_R5; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when E_R5 =>                                -- r1 = x0 s + x1 c
+              if has_llm then
+                fpu_op <= FOP_ADD; fpu_a <= rp_b; fpu_b <= fpu_r;
+                fpu_start <= '1'; vu_st <= E_R6; fpu_ret <= C_VEC; go(C_FPU_WAIT);
+              end if;
+            when E_R6 =>
+              if has_llm then
+                v_i <= v_i + 2;
+                pf_go := true;
+                pf_x := vix + 8; pf_y := viy + 8; pf_b := vib + 8; pf_i := v_i + 2;
+                assert rope_jn = rope_j + 2 or (rope_j + 2 = rope_hd and rope_jn = 0)
+                  report "SSNAIL: stale rope_jn" severity failure;
+                rope_j <= rope_jn;
+                vgo(V_EL);
+              end if;
+
+            when AM_DONE =>
+              if has_llm then
+                if instr(11 downto 8) /= x"F" then
+                  rf_r(to_integer(instr(11 downto 8))) <= am_idx;
+                end if;
+                go(C_NEXT);
+              end if;
             when V_EXIT =>
               go(C_NEXT);
-          end case;
+            end case;
+          end if;
 
         -- ------------------------------------------------------------------
         -- DEQROW: gather each group (one element, or one 32-element quant
@@ -3953,1225 +4085,340 @@ begin
         -- F32 into buf, and write buf out whenever Z crosses a 256-byte
         -- boundary or the row ends.
         when C_DEQ =>
-          case dq_st is
-          when D_GROUP =>
-            if v_n_z then                                 -- v_n = 0
-              assert d_unflushed = (pz /= ostart) report "SSNAIL: stale d_unflushed" severity failure;
-            if d_unflushed then                         -- pz /= ostart
-                a0 := ostart(27 downto 3) & "000";
-                a1 := pz + 7;
-                a1(2 downto 0) := "000";
-                wr_addr <= a0;
-                wr_len <= resize(a1 - a0, 9);
-                mw_lead <= resize(ostart - a0, 9);
-                mw_vend <= resize(pz - a0, 9);
-                mw_idx <= a0(7 downto 1);
+          if has_llm then
+            case dq_st is
+            when D_GROUP =>
+              if v_n_z then                                 -- v_n = 0
+                assert d_unflushed = (pz /= ostart) report "SSNAIL: stale d_unflushed" severity failure;
+              if d_unflushed then                         -- pz /= ostart
+                  a0 := ostart(27 downto 3) & "000";
+                  a1 := pz + 7;
+                  a1(2 downto 0) := "000";
+                  wr_addr <= a0;
+                  wr_len <= resize(a1 - a0, 9);
+                  mw_lead <= resize(ostart - a0, 9);
+                  mw_vend <= resize(pz - a0, 9);
+                  mw_idx <= a0(7 downto 1);
+                  dec_addr <= a0;
+                  ostart <= pz; d_unflushed <= false;
+                  wr_ret <= C_NEXT;
+                  go(C_WR_DEC);
+                else
+                  go(C_NEXT);
+                end if;
+              else
+                gi <= (others => '0');
+                d_j <= (others => '0');
+                d_jl <= d_isk = false and (d_fmt = 0 or d_fmt = 1 or d_fmt = 30);  -- (epg = 1)
+                d_have_scale <= '0';
+                kq_gs <= '0';
+                fetch_ret <= D_EMIT;
+                dk <= '0';
+                case to_integer(d_fmt) is
+                  when 0 => gbytes <= to_unsigned(4, 8);  epg <= to_unsigned(1, 9);
+                  when 1 | 30 => gbytes <= to_unsigned(2, 8); epg <= to_unsigned(1, 9);
+                  when 8 => gbytes <= to_unsigned(34, 8); epg <= to_unsigned(32, 9);
+                  when 39 => gbytes <= to_unsigned(17, 8); epg <= to_unsigned(32, 9);  -- MXFP4
+                  when 6 => gbytes <= to_unsigned(22, 8); epg <= to_unsigned(32, 9);   -- Q5_0
+                  when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
+                end case;
+                d_kind <= deq_kind(d_fmt);
+                if d_fmt = 39 then
+                  fetch_ret <= D_MXS;                     -- (MXFP4: the scale first)
+                end if;
+                if d_isk then                                                  -- K-quants
+                  gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
+                  dk <= '1';
+                  fetch_ret <= D_KH0;
+                end if;
+                if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
+                  kq_min <= '1';
+                else
+                  kq_min <= '0';
+                end if;
+                for i in 0 to 4 loop
+                  kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
+                end loop;
+                dq_st <= D_FETCH0;
+              end if;
+
+            -- (one cycle for ps_miss to catch up with ps and ld_block)
+            when D_FETCH0 =>
+              gi_end <= gi = gbytes;
+              dq_st <= D_FETCH;
+            when D_FETCH =>
+              assert ps_miss = (ld_valid = '0' or ps(27 downto 8) /= ld_block)
+                report "SSNAIL: ps_miss" severity failure;
+              assert gi_end = (gi = gbytes) report "SSNAIL: stale gi_end" severity failure;
+              if gi_end then
+                dq_st <= fetch_ret;
+              elsif ps_miss then
+                -- load the rest of this 256-byte block
+                a0 := ps(27 downto 3) & "000";
+                a1 := (ps(27 downto 8) + 1) & x"00";
+                rd_addr <= a0;
+                rd_len <= resize(a1 - a0, 9);
+                rd_sel <= "01";
                 dec_addr <= a0;
-                ostart <= pz; d_unflushed <= false;
-                wr_ret <= C_NEXT;
-                go(C_WR_DEC);
+                ld_block <= ps(27 downto 8);
+                ld_valid <= '1';
+                dq_st <= D_FETCH0; rd_ret <= C_DEQ;
+                go(C_RD_DEC);
               else
-                go(C_NEXT);
+                wd := bufx(to_integer(ps(7 downto 1)));
+                if ps(0) = '0' then
+                  wb := wd(7 downto 0);
+                else
+                  wb := wd(15 downto 8);
+                end if;
+                if dk = '1' then
+                  -- (K-quant super-block: byte gi of half 0 of kq_sb)
+                  kw_we(to_integer(gi(1 downto 0))) := '1';
+                  kw_a(to_integer(gi(1 downto 0))) := '0' & gi(7 downto 2);
+                  kw_d(to_integer(gi(1 downto 0))) := wb;
+                else
+                  grp(to_integer(gi(5 downto 0))) <= wb;
+                end if;
+                ps <= ps + 1;
+                gi <= gi + 1;
+                gi_end <= gi + 1 = gbytes;
+                if ps(7 downto 0) = x"FF" then
+                  dq_st <= D_FETCH0;                            -- (into the next block)
+                end if;
               end if;
-            else
-              gi <= (others => '0');
-              d_j <= (others => '0');
-              d_jl <= d_isk = false and (d_fmt = 0 or d_fmt = 1 or d_fmt = 30);  -- (epg = 1)
-              d_have_scale <= '0';
-              kq_gs <= '0';
-              fetch_ret <= D_EMIT;
-              dk <= '0';
-              case to_integer(d_fmt) is
-                when 0 => gbytes <= to_unsigned(4, 8);  epg <= to_unsigned(1, 9);
-                when 1 | 30 => gbytes <= to_unsigned(2, 8); epg <= to_unsigned(1, 9);
-                when 8 => gbytes <= to_unsigned(34, 8); epg <= to_unsigned(32, 9);
-                when 39 => gbytes <= to_unsigned(17, 8); epg <= to_unsigned(32, 9);  -- MXFP4
-                when 6 => gbytes <= to_unsigned(22, 8); epg <= to_unsigned(32, 9);   -- Q5_0
-                when others => gbytes <= to_unsigned(18, 8); epg <= to_unsigned(32, 9);  -- Q4_0, IQ4_NL
-              end case;
-              d_kind <= deq_kind(d_fmt);
-              if d_fmt = 39 then
-                fetch_ret <= D_MXS;                     -- (MXFP4: the scale first)
-              end if;
-              if d_isk then                                                  -- K-quants
-                gbytes <= to_unsigned(kq_bytes(d_fmt), 8); epg <= to_unsigned(256, 9);
-                dk <= '1';
-                fetch_ret <= D_KH0;
-              end if;
-              if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
-                kq_min <= '1';
-              else
-                kq_min <= '0';
-              end if;
-              for i in 0 to 4 loop
-                kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
-              end loop;
-              dq_st <= D_FETCH0;
-            end if;
 
-          -- (one cycle for ps_miss to catch up with ps and ld_block)
-          when D_FETCH0 =>
-            gi_end <= gi = gbytes;
-            dq_st <= D_FETCH;
-          when D_FETCH =>
-            assert ps_miss = (ld_valid = '0' or ps(27 downto 8) /= ld_block)
-              report "SSNAIL: ps_miss" severity failure;
-            assert gi_end = (gi = gbytes) report "SSNAIL: stale gi_end" severity failure;
-            if gi_end then
-              dq_st <= fetch_ret;
-            elsif ps_miss then
-              -- load the rest of this 256-byte block
-              a0 := ps(27 downto 3) & "000";
-              a1 := (ps(27 downto 8) + 1) & x"00";
-              rd_addr <= a0;
-              rd_len <= resize(a1 - a0, 9);
-              rd_sel <= "01";
-              dec_addr <= a0;
-              ld_block <= ps(27 downto 8);
-              ld_valid <= '1';
-              dq_st <= D_FETCH0; rd_ret <= C_DEQ;
-              go(C_RD_DEC);
-            else
-              wd := bufx(to_integer(ps(7 downto 1)));
-              if ps(0) = '0' then
-                wb := wd(7 downto 0);
-              else
-                wb := wd(15 downto 8);
+            -- K-quant DEQROW: the header (as the GEMV header unit: words
+            -- kq_hwc through the registered header read kq_hrd), d and dmin
+            when D_KH0 =>
+              kq_hh <= '0';
+              kq_hwl <= kq_hwc;
+              kq_hi <= (others => '0');
+              dq_st <= D_KH1;
+            when D_KH1 =>
+              kq_hwl(0 to 3) <= kq_hwl(1 to 4);            -- (kq_hrd: word 0 next)
+              dq_st <= D_KH;
+            when D_KH =>
+              kq_hb(0 to 15) <= kq_hb(4 to 19);
+              kq_hb(16) <= kq_hrd(7 downto 0);
+              kq_hb(17) <= kq_hrd(15 downto 8);
+              kq_hb(18) <= kq_hrd(23 downto 16);
+              kq_hb(19) <= kq_hrd(31 downto 24);
+              kq_hwl(0 to 3) <= kq_hwl(1 to 4);
+              kq_hi <= kq_hi + 1;
+              if kq_hi = 4 then
+                dq_st <= D_KDEC;
               end if;
-              if dk = '1' then
-                -- (K-quant super-block: byte gi of half 0 of kq_sb)
-                kw_we(to_integer(gi(1 downto 0))) := '1';
-                kw_a(to_integer(gi(1 downto 0))) := '0' & gi(7 downto 2);
-                kw_d(to_integer(gi(1 downto 0))) := wb;
-              else
-                grp(to_integer(gi(5 downto 0))) <= wb;
-              end if;
-              ps <= ps + 1;
-              gi <= gi + 1;
-              gi_end <= gi + 1 = gbytes;
-              if ps(7 downto 0) = x"FF" then
-                dq_st <= D_FETCH0;                            -- (into the next block)
-              end if;
-            end if;
-
-          -- K-quant DEQROW: the header (as the GEMV header unit: words
-          -- kq_hwc through the registered header read kq_hrd), d and dmin
-          when D_KH0 =>
-            kq_hh <= '0';
-            kq_hwl <= kq_hwc;
-            kq_hi <= (others => '0');
-            dq_st <= D_KH1;
-          when D_KH1 =>
-            kq_hwl(0 to 3) <= kq_hwl(1 to 4);            -- (kq_hrd: word 0 next)
-            dq_st <= D_KH;
-          when D_KH =>
-            kq_hb(0 to 15) <= kq_hb(4 to 19);
-            kq_hb(16) <= kq_hrd(7 downto 0);
-            kq_hb(17) <= kq_hrd(15 downto 8);
-            kq_hb(18) <= kq_hrd(23 downto 16);
-            kq_hb(19) <= kq_hrd(31 downto 24);
-            kq_hwl(0 to 3) <= kq_hwl(1 to 4);
-            kq_hi <= kq_hi + 1;
-            if kq_hi = 4 then
-              dq_st <= D_KDEC;
-            end if;
-          when D_KDEC =>
-            kq_sc(0) <= kq_scales(d_fmt, kq_hb);
-            kq_m(0) <= kq_mins(d_fmt, kq_hb);
-            kq_d16 <= kq_d(d_fmt, kq_hb);
-            kq_dmin16 <= kq_dmin(d_fmt, kq_hb);
-            dq_st <= D_KD;
-          when D_KD =>
-            fpu_op <= FOP_F16TOF32;
-            fpu_a <= x"0000" & kq_d16;
-            fpu_start <= '1';
-            dq_st <= D_KDM; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-          when D_KDM =>
-            kd32 <= fpu_r;
-            fpu_op <= FOP_F16TOF32;
-            fpu_a <= x"0000" & kq_dmin16;
-            fpu_start <= '1';
-            dq_st <= D_EMIT; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-          -- the 16-group's A = d * sc, B = dmin * m (exact)
-          when D_KA1 =>
-            fpu_op <= FOP_MUL;
-            fpu_a <= kd32;
-            fpu_b <= fpu_r;
-            fpu_start <= '1';
-            dq_st <= D_KA2; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-          when D_KA2 =>
-            kq_ga32 <= fpu_r;
-            if kq_min = '1' then
-              fpu_op <= FOP_I2F;
-              assert kq_mj = resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32) report "SSNAIL: stale kq_mj" severity failure;
-              fpu_a <= kq_mj;
+            when D_KDEC =>
+              kq_sc(0) <= kq_scales(d_fmt, kq_hb);
+              kq_m(0) <= kq_mins(d_fmt, kq_hb);
+              kq_d16 <= kq_d(d_fmt, kq_hb);
+              kq_dmin16 <= kq_dmin(d_fmt, kq_hb);
+              dq_st <= D_KD;
+            when D_KD =>
+              fpu_op <= FOP_F16TOF32;
+              fpu_a <= x"0000" & kq_d16;
               fpu_start <= '1';
-              dq_st <= D_KB1; fpu_ret <= C_DEQ;
+              dq_st <= D_KDM; fpu_ret <= C_DEQ;
               go(C_FPU_WAIT);
-            else
+            when D_KDM =>
+              kd32 <= fpu_r;
+              fpu_op <= FOP_F16TOF32;
+              fpu_a <= x"0000" & kq_dmin16;
+              fpu_start <= '1';
+              dq_st <= D_EMIT; fpu_ret <= C_DEQ;
+              go(C_FPU_WAIT);
+            -- the 16-group's A = d * sc, B = dmin * m (exact)
+            when D_KA1 =>
+              fpu_op <= FOP_MUL;
+              fpu_a <= kd32;
+              fpu_b <= fpu_r;
+              fpu_start <= '1';
+              dq_st <= D_KA2; fpu_ret <= C_DEQ;
+              go(C_FPU_WAIT);
+            when D_KA2 =>
+              kq_ga32 <= fpu_r;
+              if kq_min = '1' then
+                fpu_op <= FOP_I2F;
+                assert kq_mj = resize(kq_m(0)(to_integer(d_j(7 downto 4))), 32) report "SSNAIL: stale kq_mj" severity failure;
+                fpu_a <= kq_mj;
+                fpu_start <= '1';
+                dq_st <= D_KB1; fpu_ret <= C_DEQ;
+                go(C_FPU_WAIT);
+              else
+                kq_gs <= '1';
+                dq_st <= D_EMIT;
+              end if;
+            when D_KB1 =>
+              fpu_op <= FOP_MUL;
+              fpu_a <= kdm32;
+              fpu_b <= fpu_r;
+              fpu_start <= '1';
+              dq_st <= D_KB2; fpu_ret <= C_DEQ;
+              go(C_FPU_WAIT);
+            when D_KB2 =>
+              kq_gb32 <= fpu_r;
               kq_gs <= '1';
               dq_st <= D_EMIT;
-            end if;
-          when D_KB1 =>
-            fpu_op <= FOP_MUL;
-            fpu_a <= kdm32;
-            fpu_b <= fpu_r;
-            fpu_start <= '1';
-            dq_st <= D_KB2; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-          when D_KB2 =>
-            kq_gb32 <= fpu_r;
-            kq_gs <= '1';
-            dq_st <= D_EMIT;
-          -- element d_j: its words through the K reader's registered reads
-          when D_KQ =>
-            dq_st <= D_KQ2;
-          when D_KQ2 =>
-            kq_dq <= kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
-                          kq_wh_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
-                          kq_rd_q);
-            dq_st <= D_KQ3;
-          when D_KQ3 =>
-            fpu_op <= FOP_I2F;
-            fpu_a <= unsigned(resize(kq_dq, 32));
-            fpu_start <= '1';
-            dq_st <= D_KMUL; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-          when D_KMUL =>
-            fpu_op <= FOP_MUL;                           -- q * A
-            fpu_a <= kq_ga32;
-            fpu_b <= fpu_r;
-            fpu_start <= '1';
-            if kq_min = '1' then
-              dq_st <= D_KSUB; fpu_ret <= C_DEQ;
-            else
-              dq_st <= D_AFTER; fpu_ret <= C_DEQ;
-            end if;
-            go(C_FPU_WAIT);
-          when D_KSUB =>
-            fpu_op <= FOP_ADD;                           -- q * A - B
-            fpu_a <= fpu_r;
-            fpu_b <= (not kq_gb32(31)) & kq_gb32(30 downto 0);
-            fpu_start <= '1';
-            dq_st <= D_AFTER; fpu_ret <= C_DEQ;
-            go(C_FPU_WAIT);
-
-          when D_EMIT =>
-            assert d_kind = deq_kind(d_fmt) report "SSNAIL: stale d_kind" severity failure;
-            if d_kind = DK_K then
-              if kq_gs = '0' then
-                if d_j = 0 then
-                  kdm32 <= fpu_r;                        -- (from D_KDM)
-                end if;
-                fpu_op <= FOP_I2F;                       -- F32(sc) of the group
-                assert kq_scj = unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32)) report "SSNAIL: stale kq_scj" severity failure;
-                fpu_a <= kq_scj;
-                fpu_start <= '1';
-                dq_st <= D_KA1; fpu_ret <= C_DEQ;
-                go(C_FPU_WAIT);
+            -- element d_j: its words through the K reader's registered reads
+            when D_KQ =>
+              dq_st <= D_KQ2;
+            when D_KQ2 =>
+              kq_dq <= kq_q(kq_wl_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
+                            kq_wh_q(8 * to_integer(d_j(1 downto 0)) + 7 downto 8 * to_integer(d_j(1 downto 0))),
+                            kq_rd_q);
+              dq_st <= D_KQ3;
+            when D_KQ3 =>
+              fpu_op <= FOP_I2F;
+              fpu_a <= unsigned(resize(kq_dq, 32));
+              fpu_start <= '1';
+              dq_st <= D_KMUL; fpu_ret <= C_DEQ;
+              go(C_FPU_WAIT);
+            when D_KMUL =>
+              fpu_op <= FOP_MUL;                           -- q * A
+              fpu_a <= kq_ga32;
+              fpu_b <= fpu_r;
+              fpu_start <= '1';
+              if kq_min = '1' then
+                dq_st <= D_KSUB; fpu_ret <= C_DEQ;
               else
-                kc := kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
-                if kc.wr = '1' and d_j(4) = '1' then
-                  kc.sl := kc.sl + 4;                    -- (IQ4_XS: the high nibbles)
-                end if;
-                kq_rd_q <= kc;
-                if kq_rd(d_fmt, to_integer(d_j(7 downto 5))).wr = '1' then
-                  kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(3 downto 2));
-                else
-                  kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(4 downto 2));
-                end if;
-                kq_ha <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).ha + d_j(4 downto 2));
-                dq_st <= D_KQ;
+                dq_st <= D_AFTER; fpu_ret <= C_DEQ;
               end if;
-            end if;
-            case d_kind is
-              when DK_F32 =>                         -- F32: the bits as they are
-                d_val <= grp(3) & grp(2) & grp(1) & grp(0);
-                dq_st <= D_STORE;
-              when DK_BF16 =>
-                d_val <= grp(1) & grp(0) & x"0000";
-                dq_st <= D_STORE;
-              when DK_F16 =>
-                fpu_op <= FOP_F16TOF32;
-                fpu_a <= x"0000" & grp(1) & grp(0);
-                fpu_start <= '1';
-                dq_st <= D_QMUL; fpu_ret <= C_DEQ;
-                go(C_FPU_WAIT);
-              when DK_K =>
-                null;                                -- (K-quants: above)
-              when others =>                         -- Q8_0 / Q4_0 / Q5_0 / IQ4_NL / MXFP4
-                if d_have_scale = '0' then           -- (MXFP4's: in D_MXS)
+              go(C_FPU_WAIT);
+            when D_KSUB =>
+              fpu_op <= FOP_ADD;                           -- q * A - B
+              fpu_a <= fpu_r;
+              fpu_b <= (not kq_gb32(31)) & kq_gb32(30 downto 0);
+              fpu_start <= '1';
+              dq_st <= D_AFTER; fpu_ret <= C_DEQ;
+              go(C_FPU_WAIT);
+
+            when D_EMIT =>
+              assert d_kind = deq_kind(d_fmt) report "SSNAIL: stale d_kind" severity failure;
+              if d_kind = DK_K then
+                if kq_gs = '0' then
+                  if d_j = 0 then
+                    kdm32 <= fpu_r;                        -- (from D_KDM)
+                  end if;
+                  fpu_op <= FOP_I2F;                       -- F32(sc) of the group
+                  assert kq_scj = unsigned(resize(kq_sc(0)(to_integer(d_j(7 downto 4))), 32)) report "SSNAIL: stale kq_scj" severity failure;
+                  fpu_a <= kq_scj;
+                  fpu_start <= '1';
+                  dq_st <= D_KA1; fpu_ret <= C_DEQ;
+                  go(C_FPU_WAIT);
+                else
+                  kc := kq_rd(d_fmt, to_integer(d_j(7 downto 5)));
+                  if kc.wr = '1' and d_j(4) = '1' then
+                    kc.sl := kc.sl + 4;                    -- (IQ4_XS: the high nibbles)
+                  end if;
+                  kq_rd_q <= kc;
+                  if kq_rd(d_fmt, to_integer(d_j(7 downto 5))).wr = '1' then
+                    kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(3 downto 2));
+                  else
+                    kq_la <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).la + d_j(4 downto 2));
+                  end if;
+                  kq_ha <= '0' & (kq_rd(d_fmt, to_integer(d_j(7 downto 5))).ha + d_j(4 downto 2));
+                  dq_st <= D_KQ;
+                end if;
+              end if;
+              case d_kind is
+                when DK_F32 =>                         -- F32: the bits as they are
+                  d_val <= grp(3) & grp(2) & grp(1) & grp(0);
+                  dq_st <= D_STORE;
+                when DK_BF16 =>
+                  d_val <= grp(1) & grp(0) & x"0000";
+                  dq_st <= D_STORE;
+                when DK_F16 =>
                   fpu_op <= FOP_F16TOF32;
                   fpu_a <= x"0000" & grp(1) & grp(0);
                   fpu_start <= '1';
-                  dq_st <= D_SCALE; fpu_ret <= C_DEQ;
-                  go(C_FPU_WAIT);
-                else
-                  if d_fmt = 8 then
-                    q := resize(signed(grp(2 + to_integer(d_j(4 downto 0)))), 32);
-                  elsif d_fmt = 39 and d_j < 16 then
-                    q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
-                  elsif d_fmt = 39 then
-                    q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
-                  elsif d_fmt = 6 and d_j < 16 then
-                    q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
-                                grp(6 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
-                  elsif d_fmt = 6 then
-                    q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
-                                grp(6 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
-                  elsif d_fmt = 20 and d_j < 16 then
-                    q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
-                  elsif d_fmt = 20 then
-                    q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
-                  elsif d_j < 16 then
-                    q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
-                  else
-                    q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32) - 8;
-                  end if;
-                  assert d_qv = q report "SSNAIL: stale d_qv" severity failure;
-                  fpu_op <= FOP_I2F;
-                  fpu_a <= unsigned(d_qv);
-                  fpu_start <= '1';
                   dq_st <= D_QMUL; fpu_ret <= C_DEQ;
                   go(C_FPU_WAIT);
-                end if;
-            end case;
+                when DK_K =>
+                  null;                                -- (K-quants: above)
+                when others =>                         -- Q8_0 / Q4_0 / Q5_0 / IQ4_NL / MXFP4
+                  if d_have_scale = '0' then           -- (MXFP4's: in D_MXS)
+                    fpu_op <= FOP_F16TOF32;
+                    fpu_a <= x"0000" & grp(1) & grp(0);
+                    fpu_start <= '1';
+                    dq_st <= D_SCALE; fpu_ret <= C_DEQ;
+                    go(C_FPU_WAIT);
+                  else
+                    if d_fmt = 8 then
+                      q := resize(signed(grp(2 + to_integer(d_j(4 downto 0)))), 32);
+                    elsif d_fmt = 39 and d_j < 16 then
+                      q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+                    elsif d_fmt = 39 then
+                      q := resize(e2m1x2(grp(1 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+                    elsif d_fmt = 6 and d_j < 16 then
+                      q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                                  grp(6 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+                    elsif d_fmt = 6 then
+                      q := resize(q5v(grp(2 + to_integer(d_j(4 downto 3)))(to_integer(d_j(2 downto 0))),
+                                  grp(6 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+                    elsif d_fmt = 20 and d_j < 16 then
+                      q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32);
+                    elsif d_fmt = 20 then
+                      q := resize(iq4v(grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32);
+                    elsif d_j < 16 then
+                      q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(3 downto 0)), 32) - 8;
+                    else
+                      q := resize(signed('0' & grp(2 + to_integer(d_j(3 downto 0)))(7 downto 4)), 32) - 8;
+                    end if;
+                    assert d_qv = q report "SSNAIL: stale d_qv" severity failure;
+                    fpu_op <= FOP_I2F;
+                    fpu_a <= unsigned(d_qv);
+                    fpu_start <= '1';
+                    dq_st <= D_QMUL; fpu_ret <= C_DEQ;
+                    go(C_FPU_WAIT);
+                  end if;
+              end case;
 
-          when D_SCALE =>
-            dq_scale <= fpu_r;
-            d_have_scale <= '1';
-            dq_st <= D_EMIT;
+            when D_SCALE =>
+              dq_scale <= fpu_r;
+              d_have_scale <= '1';
+              dq_st <= D_EMIT;
 
-          -- MXFP4: the block's scale, a power of two (no FPU), before D_EMIT,
-          -- so D_EMIT's choice of next state does not depend on the format
-          when D_MXS =>
-            dq_scale <= e8m0_half(grp(0));
-            d_have_scale <= '1';
-            dq_st <= D_EMIT;
+            -- MXFP4: the block's scale, a power of two (no FPU), before D_EMIT,
+            -- so D_EMIT's choice of next state does not depend on the format
+            when D_MXS =>
+              dq_scale <= e8m0_half(grp(0));
+              d_have_scale <= '1';
+              dq_st <= D_EMIT;
 
-          when D_QMUL =>
-            if d_kind = DK_F16 then
-              d_val <= fpu_r;                        -- F16 conversion result
+            when D_QMUL =>
+              if d_kind = DK_F16 then
+                d_val <= fpu_r;                        -- F16 conversion result
+                dq_st <= D_STORE;
+              else
+                fpu_op <= FOP_MUL;                     -- d * q, as F32
+                fpu_a <= dq_scale;
+                fpu_b <= fpu_r;
+                fpu_start <= '1';
+                dq_st <= D_AFTER; fpu_ret <= C_DEQ;
+                go(C_FPU_WAIT);
+              end if;
+
+            when D_AFTER =>
+              d_val <= fpu_r;
               dq_st <= D_STORE;
-            else
-              fpu_op <= FOP_MUL;                     -- d * q, as F32
-              fpu_a <= dq_scale;
-              fpu_b <= fpu_r;
-              fpu_start <= '1';
-              dq_st <= D_AFTER; fpu_ret <= C_DEQ;
-              go(C_FPU_WAIT);
-            end if;
 
-          when D_AFTER =>
-            d_val <= fpu_r;
-            dq_st <= D_STORE;
-
-          when D_STORE =>
-            assert pz_p4 = pz + 4 report "SSNAIL: stale pz_p4" severity failure;
-            a2 := pz_p4;
-            pz <= a2;
-            v_n <= v_n - 1;
-            v_n_z <= v_n_one;
-            v_n_one <= v_n = 2;
-            d_j <= d_j + 1;
-            d_jl <= d_j + 2 = epg;
-            assert d_jl = (d_j + 1 = epg) report "SSNAIL: stale d_jl" severity failure;
-            if d_j(3 downto 0) = 15 then
-              kq_gs <= '0';                             -- (K: a new 16-group)
-            end if;
-            -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
-            assert pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_252" severity failure;
-            if pz_252 or v_n_one then                    -- pz(7 downto 0) = 252, v_n = 1
-              -- flush the output written since ostart
-              a0 := ostart(27 downto 3) & "000";
-              a1 := a2 + 7;
-              a1(2 downto 0) := "000";
-              wr_addr <= a0;
-              wr_len <= resize(a1 - a0, 9);
-              mw_lead <= resize(ostart - a0, 9);
-              mw_vend <= resize(a2 - a0, 9);
-              mw_idx <= a0(7 downto 1);
-              dec_addr <= a0;
-              ostart <= a2;
-              d_unflushed <= false;
-              if v_n_one then
-                wr_ret <= C_NEXT;
-              elsif d_jl then
-                dq_st <= D_GROUP; wr_ret <= C_DEQ;
-              else
-                dq_st <= D_EMIT; wr_ret <= C_DEQ;
-              end if;
-              go(C_WR_DEC);
-            elsif d_jl then
-              d_unflushed <= a2 /= ostart;
-              dq_st <= D_GROUP;
-            else
-              d_unflushed <= a2 /= ostart;
-              dq_st <= D_EMIT_W;                     -- (d_qv follows d_j)
-            end if;
-
-          when D_EMIT_W =>
-            dq_st <= D_EMIT;
-          end case;
-
-        when C_GEMV =>
-          case gm_st is
-          -- ------------------------------------------------------------------
-          -- GEMV, phase 1: quantise x to Q8_0 (ssnail_hw.quantize_q8_0)
-          -- GEMV set-up from the format (d_fmt): block length (the
-          -- assembler's), the tail's terms per row (super-blocks, for
-          -- K-quants), and the K-quant state
-          when G_SET =>
-            assert d_isk = fmt_k(d_fmt) and d_isiq = fmt_iq(d_fmt) report "SSNAIL: stale d_isk" severity failure;
-            if d_isk then
-              kq_on <= '1';
-              g_bl <= to_unsigned(kq_bytes(d_fmt), 8);
-              g_nbt <= "000" & g_nb(7 downto 3);
-            else
-              kq_on <= '0';
-              if d_fmt = 8 then
-                g_bl <= to_unsigned(34, 8);
-              elsif d_fmt = 39 then
-                g_bl <= to_unsigned(17, 8);
-              elsif d_fmt = 6 then
-                g_bl <= to_unsigned(22, 8);
-              else
-                g_bl <= to_unsigned(18, 8);
-              end if;
-              g_nbt <= g_nb;
-            end if;
-            if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
-              kq_min <= '1';
-            else
-              kq_min <= '0';
-            end if;
-            kq_nsb <= "000" & g_nb(7 downto 3);
-            for i in 0 to 4 loop
-              kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
-            end loop;
-            -- float weights: the float lane, one tail term a row
-            fl_on <= '0'; fl_f32 <= '0'; fl_bf <= '0'; fl_ax <= '0';
-            xq_on <= '1';
-            fl_n <= n0(12 downto 0); fl_short <= false;
-            if d_fmt = 0 or d_fmt = 1 or d_fmt = 30 then
-              fl_on <= '1'; xq_on <= '0';
-              g_nbt <= to_unsigned(1, 8);
-              if d_fmt = 0 then
-                fl_f32 <= '1'; g_bl <= to_unsigned(128, 8);
-              else
-                g_bl <= to_unsigned(64, 8);
-              end if;
-              if d_fmt = 30 then fl_bf <= '1'; end if;
-            end if;
-            -- the codebook formats (IQ front end)
-            kq_kr <= '0'; iq_on <= '0'; kq_wo <= (others => '0'); kq_dsh <= "00";
-            if d_isiq then
-              iq_on <= '1';
-              kq_wo <= to_unsigned(2, 8);
-              if d_fmt = 18 then kq_dsh <= "10"; elsif d_fmt /= 21 then kq_dsh <= "11"; end if;
-            elsif d_isk then
-              kq_kr <= '1';
-            end if;
-            if d_fmt = 18 or d_fmt = 21 then iq3 <= '1'; else iq3 <= '0'; end if;
-            if d_fmt = 16 or d_fmt = 18 then iq_xxs <= '1'; else iq_xxs <= '0'; end if;
-            if d_fmt = 16 or d_fmt = 17 or d_fmt = 18 then iq_ks <= '1'; else iq_ks <= '0'; end if;
-            if d_fmt = 17 or d_fmt = 18 or d_fmt = 21 then iq_2w <= '1'; else iq_2w <= '0'; end if;
-            if d_fmt = 17 then iq_u16 <= '1'; else iq_u16 <= '0'; end if;
-            if d_fmt = 21 or d_fmt = 22 then iq_hb <= '1'; else iq_hb <= '0'; end if;
-            case to_integer(d_fmt) is
-              when 17 | 21 => iq_base <= "01";
-              when 22 => iq_base <= "10";
-              when others => iq_base <= "00";
-            end case;
-            kq_pass <= '0'; kq_sub <= (others => '0'); kq_amax <= (others => '0');
-            gm_st <= G_QFILL0;
-
-          when G_QFILL0 =>
-            assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
-            g_j <= (others => '0');
-            g_amax <= (others => '0');
-            qf_hit <= ld_valid = '1' and px(27 downto 8) = ld_block;
-            gm_st <= G_QFILL;
-
-          when G_QFILL =>
-            assert qf_hit = (ld_valid = '1' and px(27 downto 8) = ld_block)
-              report "SSNAIL: stale qf_hit" severity failure;
-            if g_j = 32 and fl_on = '1' then             -- (float: x as it is)
-              gblk <= gblk + 1;
-              assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
-              if g_qlast then
-                gm_st <= G_ROW0;
-              else
-                gm_st <= G_QFILL0;
-              end if;
-            elsif g_j = 32 and kq_on = '1' and kq_pass = '0' then
-              gm_st <= G_KAM;                                 -- (K: amax over 256 first)
-            elsif g_j = 32 and kq_on = '1' then
-              g_j <= (others => '0');                    -- (K: d and id known)
-              gm_st <= G_QQ;
-            elsif g_j = 32 then
-              gm_st <= G_QAM;                                 -- (the last element's qf_v
-                                                         -- lands in g_amax now)
-            elsif not qf_hit then                       -- px's block is not loaded
-              a0 := px(27 downto 3) & "000";
-              a1 := (px(27 downto 8) + 1) & x"00";
-              rd_addr <= a0;
-              rd_len <= resize(a1 - a0, 9);
-              rd_sel <= "01";
-              dec_addr <= a0;
-              ld_block <= px(27 downto 8);
-              ld_valid <= '1';
-              qf_hit <= true;
-              gm_st <= G_QFILL; rd_ret <= C_GEMV;
-              go(C_RD_DEC);
-            else
-              fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
-              xb(to_integer(g_j)) <= fv;
-              xw_we := true; xw_a := gblk(6 downto 0) & g_j(4 downto 0); xw_d := fv;
-              -- |x| ordering = integer ordering of the low 31 bits
-              qf_v <= fv(30 downto 0);
-              qf_vld <= true;
-              px <= px + 4;
-              qf_hit <= px(7 downto 0) < 252;             -- px + 4 in the same block
-              g_j <= g_j + 1;
-            end if;
-
-          when G_QAM =>
-            assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
-            fpu_op <= FOP_DIV;                           -- d = amax / 127
-            fpu_a <= '0' & g_amax;
-            fpu_b <= x"42FE0000";
-            fpu_start <= '1';
-            gm_st <= G_QID; fpu_ret <= C_GEMV;
-            go(C_FPU_WAIT);
-
-          -- K-quants: the amax of 32 more elements (g_amax is complete now);
-          -- after 256, d = amax / 127 as for Q8_0
-          when G_KAM =>
-            assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
-            if g_amax > kq_amax then
-              kq_amax <= g_amax;
-            end if;
-            kq_sub <= kq_sub + 1;
-            if kq_sub = 7 then
-              gm_st <= G_KAM2;                                -- (kq_amax complete next)
-            else
-              gm_st <= G_QFILL0;
-            end if;
-
-          when G_KAM2 =>
-            fpu_op <= FOP_DIV;
-            fpu_a <= '0' & kq_amax;
-            fpu_b <= x"42FE0000";
-            fpu_start <= '1';
-            gm_st <= G_QID; fpu_ret <= C_GEMV;
-            go(C_FPU_WAIT);
-
-          -- K-quants: the super-block's scale is F32 (not rounded to F16);
-          -- read its 256 elements again, to quantise them
-          when G_KX =>
-            dxs(to_integer(gblk(7 downto 3))) <= g_d;
-            px <= px - 1024;
-            kq_pass <= '1';
-            gm_st <= G_QFILL0;
-
-          when G_QID =>
-            g_d <= fpu_r;
-            assert fr_z = (fpu_r(30 downto 0) = 0) report "SSNAIL: stale fr_z" severity failure;
-            if fr_z and kq_on = '1' then
-              g_id <= (others => '0');
-              gm_st <= G_KX;
-            elsif fr_z then
-              g_id <= (others => '0');                   -- id = d ? 1/d : 0
-              gm_st <= G_QD16;
-            else
-              fpu_op <= FOP_DIV;
-              fpu_a <= x"3F800000";
-              fpu_b <= fpu_r;
-              fpu_start <= '1';
-              gm_st <= G_QID2; fpu_ret <= C_GEMV;
-              go(C_FPU_WAIT);
-            end if;
-
-          when G_QID2 =>
-            g_id <= fpu_r;
-            if kq_on = '1' then
-              gm_st <= G_KX;
-            else
-              gm_st <= G_QD16;
-            end if;
-
-          when G_QD16 =>
-            fpu_op <= FOP_F32TOF16;                      -- the stored scale is F16
-            fpu_a <= g_d;
-            fpu_start <= '1';
-            gm_st <= G_QDX; fpu_ret <= C_GEMV;
-            go(C_FPU_WAIT);
-
-          when G_QDX =>
-            fpu_op <= FOP_F16TOF32;
-            fpu_a <= fpu_r;
-            fpu_start <= '1';
-            gm_st <= G_QDX2; fpu_ret <= C_GEMV;
-            go(C_FPU_WAIT);
-
-          when G_QDX2 =>
-            dxs(to_integer(gblk)) <= fpu_r;
-            g_j <= (others => '0');
-            gm_st <= G_QQ;
-
-          -- the block's 32 elements quantised by the x quantiser (xq_*): x * id
-          -- on the float lane's multiplier, roundf, into qx (and the 16-sums)
-          when G_QQ =>
-            if not xq_busy then                          -- (the last block stored)
-              xq_iss <= '1';
-              xq_j <= (others => '0');
-              xq_id <= g_id;
-              xq_blk <= gblk;
-              gm_st <= G_QQW;
-            end if;
-          when G_QQW =>                                  -- (xb free once issued)
-            if xq_iss = '0' then
-              gblk <= gblk + 1;
-              if kq_on = '1' then
-                kq_sub <= kq_sub + 1;
-                if kq_sub = 7 then                       -- super-block done
-                  kq_pass <= '0';
-                  kq_amax <= (others => '0');
-                end if;
-              end if;
-              assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
-              if g_qlast then
-                gm_st <= G_ROW0;
-              else
-                gm_st <= G_QFILL0;
-              end if;
-            end if;
-
-          -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
-          when G_ROW0 =>
-            -- Row phase.  Decode the region of the first and last weight
-            -- bytes once: the stream needs the matrix in a single region.
-            -- (First, the x quantiser's last results in.)
-            if xq_busy then
-              null;
-            else
-            xq_on <= '0';
-            ld_valid <= '0';
-            out_loaded <= '0';
-            g_r <= (others => '0');
-            g_end <= g_rows = 0; g_last <= g_rows = 1;
-            gblk <= (others => '0');
-            a0 := ps(27 downto 3) & "000";
-            str_base <= a0;
-            sr_next <= a0;
-            sr_segst <= a0;
-            sr_segs <= (others => '0');
-            g2_ret <= C_GEMV;                    -- (G2_D3 returns to G2_WAIT)
-            ta_on <= '1'; ta_st <= TA_IDLE; ta_done <= false;
-            -- Setup a small serial multiplier.  Full 32-bit rows are needed
-            -- for as_blocks; only low 20 bits were used for byte-span above.
-            if kq_on = '1' then
-              g_mul_nb <= kq_nsb;                       -- super-blocks per row
-              g_mul_end <= kq_nsb(7 downto 1) = 0;
-            else
-              g_mul_nb <= g_nb;
-              g_mul_end <= g_nb(7 downto 1) = 0;
-            end if;
-            g_mul_a32 <= g_rows;
-            g_mul_p32 <= (others => '0');
-            g_mul_p28 <= (others => '0');
-            -- (block bytes) * rows20, from registers
-            assert g_rbl = resize(g_rows(19 downto 0) * g_bl, 28) report "SSNAIL: stale g_rbl" severity failure;
-            g_mul_a28 <= g_rbl;
-            gm_st <= G_ROW_MUL;
-            end if;
-          when G_ROW_MUL =>
-            -- Add a shifted multiplicand for each set bit of blocks/row.
-            -- Arithmetic is modulo 2^32 and 2^28, as in the old resize().
-            if g_mul_nb(0) = '1' then
-              g_mul_p32 <= g_mul_p32 + g_mul_a32;
-              g_mul_p28 <= g_mul_p28 + g_mul_a28;
-            end if;
-            g_mul_a32 <= g_mul_a32(30 downto 0) & '0';
-            g_mul_a28 <= g_mul_a28(26 downto 0) & '0';
-            g_mul_nb <= '0' & g_mul_nb(7 downto 1);
-            g_mul_end <= g_mul_nb(7 downto 2) = 0;
-            assert g_mul_end = (g_mul_nb(7 downto 1) = 0) report "SSNAIL: stale g_mul_end" severity failure;
-            if g_mul_end then                         -- g_mul_nb(7 downto 1) = 0
-              -- Final partial product is registered at this edge.  Consume
-              -- it in the following state, not in this same cycle.
-              gm_st <= G_ROW_ADDR;
-            end if;
-          when G_ROW_ADDR =>
-            a0 := ps(27 downto 3) & "000";
-            a2 := ps + g_mul_p28;
-            a1 := a2 + 7;
-            a1(2 downto 0) := "000";
-            sr_end <= a1;
-            sr_lend <= a1;
-            dec_addr <= a0;
-            gm_st <= G2_D1;
-          when G2_D1 =>
-            gm_st <= G2_D2;                          -- decode of the start
-          when G2_D2 =>
-            if dec_ok = '0' then
-              err <= ERR_ADDRESS;
-              go(C_END);
-            else
-              str_local <= dec_local;
-              str_is_sd <= dec_is_sd;
-              dec_addr <= sr_lend - 8;                -- and of the last group
-              gm_st <= G2_D2W;
-            end if;
-          when G2_D2W =>
-            gm_st <= G2_D3;                          -- its decode
-          when G2_D3 =>
-            if dec_ok = '0' or dec_is_sd /= str_is_sd then
-              err <= ERR_ADDRESS;                     -- straddles two regions
-              go(C_END);
-            else
-              -- start the pipeline
-              g2 <= '1';
-              wf_w <= (others => '0'); wf_r <= (others => '0');
-              wf_z <= true; wf_o <= false;
-              rq_w <= (others => '0'); rq_r <= (others => '0');
-              -- (as_flags depends on a block length only through >= 4)
-              as_rem <= g_bl;
-              as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
-              as_skip <= ps(2 downto 0);
-              as_full <= '0'; pb_v <= '0'; ub_full <= '0';
-              kq_wh <= '0'; kq_wp <= kq_wo; kq_full <= "00"; kq_fset <= '0';
-              iq_st <= IQ_IDLE; iq_h <= '0'; iq_p <= (others => '0'); iq_full <= '0';
-              iq_v1 <= '0'; iq_v2 <= '0'; iq_v3 <= '0';
-              kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
-              kq_hwl <= kq_hwc;
-              kq_rh <= '0'; kq_p <= (others => '0');
-              kq_c1 <= '0'; kq_c2 <= '0'; kq_c3 <= '0'; kq_s1 <= (others => '0');
-              kq_pre <= '0';
-              kq_fs <= KF_IDLE; kq_fgo <= '0'; kq_fsb <= (others => '0');
-              as_blocks <= g_mul_p32;
-              if g_mul_p32 /= 0 and fl_on = '0' then as_any <= '1'; else as_any <= '0'; end if;
-              if fl_on = '1' then fl_st <= FL_RUN; else fl_st <= FL_DONE; end if;
-              fl_skip <= ps(2 downto 1);
-              fl_c <= (others => '0'); fl_cl <= false; fl_k <= (others => '0'); fl_hv <= '0';
-              fl_cz <= true; fl_first <= '1'; fl_bk <= '0'; cb_st <= CB_IDLE;
-              fl_rr <= g_rows; fl_rl <= g_rows = 1;
-              mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
-              mc_scale_ok <= '0';
-              mc_sblk <= (others => '0'); kq_sp <= (others => '0'); kq_srh <= '0';
-              mc_nq <= "00"; mq_v <= "00"; mq_scok <= "00";
-              mq_w <= '0'; mq_r <= '0'; mq_ss <= '0'; fpu3_busy <= '0';
-              tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
-              tl_full <= '0';
-              g_r <= (others => '0');
-              g_end <= g_rows = 0; g_last <= g_rows = 1;
-              gm_st <= G2_WAIT;                  -- (when g2_ret = C_GEMV)
-              go(g2_ret);
-            end if;
-
-          when G2_WAIT =>
-            -- the stream reader may issue here (see below); rows' sums come
-            -- from the tail accumulator
-            assert g_end = (g_r = g_rows) report "SSNAIL: stale g_end" severity failure;
-            if g_end then                               -- g_r = g_rows
-              ta_on <= '0';
-              gm_st <= G2_END;
-            elsif ta_done then
-              g_accv <= ta_sum;
-              ta_done <= false;
-              gm_st <= G_OUT;                                -- row done: output it
-            end if;
-          when G2_END =>
-            -- all rows out: let any trailing stream reads land, then stop
-            assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
-            if rq_w = rq_r and sr_iz and out_z then
-              g2 <= '0';
-              go(C_NEXT);
-            end if;
-
-          when G_OUT =>
-            assert g_have_old = (out_loaded = '1' and pz(27 downto 8) = out_block)
-              report "SSNAIL: stale g_have_old" severity failure;
-            assert not g_have_old or g_addz = '0'
-              or g_oldv = buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)))
-              report "SSNAIL: stale g_oldv" severity failure;
-            if g_addz = '1' and not g_have_old then
-              -- bring in the existing outputs of this 256-byte block
-              a0 := pz(27 downto 3) & "000";
-              a1 := (pz(27 downto 8) + 1) & x"00";
-              rd_addr <= a0;
-              rd_len <= resize(a1 - a0, 9);
-              rd_sel <= "00";
-              dec_addr <= a0;
-              out_block <= pz(27 downto 8);
-              out_loaded <= '1';
-              gm_st <= G_OUT; rd_ret <= C_GEMV;
-              go(C_RD_DEC);
-            elsif g_addz = '1' then
-              fpu_op <= FOP_ADD;                         -- y = acc + y_old
-              fpu_a <= g_accv;
-              fpu_b <= g_oldv;
-              fpu_start <= '1';
-              gm_st <= G_OUT2; fpu_ret <= C_GEMV;
-              go(C_FPU_WAIT);
-            else
-              fpu_r <= g_accv;
-              gm_st <= G_OUT2;
-            end if;
-
-          when G_OUT2 =>
-            if g_f16 = '1' then
-              fpu_op <= FOP_F32TOF16;
-              fpu_a <= fpu_r;
-              fpu_start <= '1';
-              gm_st <= G_OUT3; fpu_ret <= C_GEMV;
-              go(C_FPU_WAIT);
-            else
-              gm_st <= G_OUT3;
-            end if;
-
-          when G_OUT3 =>
-            g_val <= fpu_r;
-            gm_st <= G_OUT4;
-
-          when G_OUT4 =>
-            assert pz_p2 = pz + 2 and pz_p4 = pz + 4 and pz_254 = (pz(7 downto 0) = 254)
-              and pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_p2 / pz_p4" severity failure;
-            if g_f16 = '1' then
-              a2 := pz_p2;
-            else
+            when D_STORE =>
+              assert pz_p4 = pz + 4 report "SSNAIL: stale pz_p4" severity failure;
               a2 := pz_p4;
-            end if;
-            pz <= a2;
-            g_r <= g_r + 1;
-            assert g_last = (g_r + 1 = g_rows) report "SSNAIL: stale g_last" severity failure;
-            g_end <= g_last;
-            g_last <= g_r + 2 = g_rows;
-            -- (a2 ends a 256-byte block: tested on pz, without the carry)
-            if (g_f16 = '1' and pz_254) or (g_f16 = '0' and pz_252)
-              or g_last then                            -- g_r + 1 = g_rows
-              a0 := ostart(27 downto 3) & "000";
-              a1 := a2 + 7;
-              a1(2 downto 0) := "000";
-              wr_addr <= a0;
-              wr_len <= resize(a1 - a0, 9);
-              mw_lead <= resize(ostart - a0, 9);
-              mw_vend <= resize(a2 - a0, 9);
-              mw_idx <= a0(7 downto 1);
-              dec_addr <= a0;
-              ostart <= a2;
-              gm_st <= G2_WAIT; wr_ret <= C_GEMV;
-              go(C_WR_DEC);
-            else
-              gm_st <= G2_WAIT;
-            end if;
-          end case;
-
-        -- ------------------------------------------------------------------
-        -- Table lookup (ssnail_hw.Table): tval = f(tx), then tab_ret.
-        when T_START =>
-          assert tx_below = flt(tx, SILU_LO) or tab_id /= "00" report "SSNAIL: stale tx_below" severity failure;
-          assert tx_above = not flt(tx, SILU_HI) or tab_id /= "00" report "SSNAIL: stale tx_above" severity failure;
-          assert tx_below = flt(tx, GELU_LO) or tab_id /= "01" report "SSNAIL: stale tx_below" severity failure;
-          assert tx_above = not flt(tx, GELU_HI) or tab_id /= "01" report "SSNAIL: stale tx_above" severity failure;
-          assert tx_below = flt(tx, EXPT_LO) or tab_id /= "10" report "SSNAIL: stale tx_below" severity failure;
-          assert tx_above = not flt(tx, EXPT_HI) or tab_id /= "10" report "SSNAIL: stale tx_above" severity failure;
-          assert tx_below = flt(tx, SOFTP_LO) or tab_id /= "11" report "SSNAIL: stale tx_below" severity failure;
-          assert tx_above = not flt(tx, SOFTP_HI) or tab_id /= "11" report "SSNAIL: stale tx_above" severity failure;
-          case tab_id is
-            when "00" => lo := SILU_LO; hi := SILU_HI;
-            when "01" => lo := GELU_LO; hi := GELU_HI;
-            when "10" => lo := EXPT_LO; hi := EXPT_HI;
-            when others => lo := SOFTP_LO; hi := SOFTP_HI;
-          end case;
-          if tx_below then                             -- flt(tx, lo)
-            tval <= (others => '0');                   -- below: 0
-            go(tab_ret);
-          elsif tx_above then                          -- not flt(tx, hi)
-            if tab_id = "10" then
-              tval <= x"3F800000";                     -- exp above: 1
-            else
-              tval <= tx;                              -- silu, gelu, softplus above: x
-            end if;
-            go(tab_ret);
-          else
-            fpu_op <= FOP_ADD;                         -- x - lo
-            fpu_a <= tx;
-            fpu_b <= (not lo(31)) & lo(30 downto 0);
-            fpu_start <= '1';
-            fpu_ret <= T_K;
-            go(C_FPU_WAIT);
-          end if;
-
-        when T_K =>
-          fpu_op <= FOP_MUL;                           -- (x - lo) * k
-          fpu_a <= fpu_r;
-          case tab_id is
-            when "00" => fpu_b <= SILU_K;
-            when "01" => fpu_b <= GELU_K;
-            when "10" => fpu_b <= EXPT_K;
-            when others => fpu_b <= SOFTP_K;
-          end case;
-          fpu_start <= '1';
-          fpu_ret <= T_I;
-          go(C_FPU_WAIT);
-
-        when T_I =>
-          fpu_op <= FOP_TRUNC;                         -- floor (it is >= 0)
-          fpu_a <= fpu_r;
-          fpu_start <= '1';
-          fpu_ret <= T_LOOK;
-          go(C_FPU_WAIT);
-
-        when T_LOOK =>
-          assert fr_neg = (fpu_r(31) = '1') and fr_big = (fpu_r > TAB_SEGMENTS - 1)
-            report "SSNAIL: stale fr_neg/fr_big" severity failure;
-          if fr_neg then
-            ti := 0;
-          elsif fr_big then
-            ti := TAB_SEGMENTS - 1;
-          else
-            ti := to_integer(fpu_r(15 downto 0));
-          end if;
-          -- One synchronous ROM read: the table's bank is the address's top
-          -- two bits.  Compute the banked ROM address *before* the clocked
-          -- read, ensuring Vivado sees only one physical read port.
-          ti := ti + 256 * to_integer(tab_id);
-          rom_a := ti;                    -- (read below)
-          go(T_ROM2);
-
-        when T_ROM2 =>
-          go(T_COEFF);                    -- (coeff_word -> coeff_q)
-
-        when T_COEFF =>
-          -- The ROM word read in T_LOOK, through its output register
-          fpu_op <= FOP_MUL;
-          fpu_a <= coeff_q(31 downto 0);
-          tc0 <= coeff_q(63 downto 32);
-          fpu_b <= tx;
-          fpu_start <= '1';
-          fpu_ret <= T_C0;
-          go(C_FPU_WAIT);
-
-        when T_C0 =>
-          fpu_op <= FOP_ADD;                           -- c0[i] + c1[i] * x
-          fpu_a <= tc0;
-          fpu_b <= fpu_r;
-          fpu_start <= '1';
-          fpu_ret <= T_DONE;
-          go(C_FPU_WAIT);
-
-        when T_DONE =>
-          tval <= fpu_r;
-          go(tab_ret);
-
-        -- ------------------------------------------------------------------
-        -- Element fetch: ef_val = F32 at ef_addr (F16 converted if ef_f16),
-        -- through bufx with whole-block loads.
-        when EF_START =>
-          assert ef_miss = (ld_valid = '0' or ef_addr(27 downto 8) /= ld_block)
-            report "SSNAIL: stale ef_miss" severity failure;
-          if ef_miss then
-            -- the whole block: unlike the streaming fetchers, accesses here
-            -- can go backwards within a block (parameter block, then q)
-            a0 := ef_addr(27 downto 8) & x"00";
-            a1 := (ef_addr(27 downto 8) + 1) & x"00";
-            rd_addr <= a0;
-            rd_len <= resize(a1 - a0, 9);
-            rd_sel <= "01";
-            dec_addr <= a0;
-            ld_block <= ef_addr(27 downto 8);
-            ld_valid <= '1';
-            rd_ret <= EF_START;
-            go(C_RD_DEC);
-          elsif ef_f16 = '1' then
-            fpu_op <= FOP_F16TOF32;
-            fpu_a <= x"0000" & bufx(to_integer(ef_addr(7 downto 1)));
-            fpu_start <= '1';
-            fpu_ret <= EF_DONE;
-            go(C_FPU_WAIT);
-          else
-            ef_val <= bufx(to_integer(ef_addr(7 downto 1) + 1)) & bufx(to_integer(ef_addr(7 downto 1)));
-            go(ef_ret);
-          end if;
-        when EF_DONE =>
-          ef_val <= fpu_r;
-          go(ef_ret);
-
-        -- ------------------------------------------------------------------
-        -- ATTN (ssnail_hw.attention_head, per head)
-        when C_ATTN =>
-          case at_st is
-          when A_PRM =>                               -- read parameter word at_pi
-            at_st <= A_PRM2; ef_ret <= C_ATTN;
-            go(EF_START);
-          when A_PRM2 =>
-            case to_integer(at_pi) is
-              when 0 => at_k <= ef_val(27 downto 0);
-              when 1 => at_v <= ef_val(27 downto 0);
-              when 2 => at_nh <= ef_val;
-              when 3 => at_nkv <= ef_val;
-              when 4 => at_hd <= ef_val;
-              when others => at_fmt <= ef_val;
-            end case;
-            ef_addr <= ef_addr + 4;
-            at_pi <= at_pi + 1;
-            if at_pi = 5 then
-              at_st <= A_CHK;
-            else
-              at_st <= A_PRM;
-            end if;
-          when A_CHK =>                               -- check the parameters
-            -- (K / V are streamed: 8-aligned, and a head's row 8-byte sized)
-            at_bad <= at_hd = 0 or at_hd > 256 or at_nkv = 0 or at_nh = 0 or at_pos >= 1024
-                      or at_nh(15 downto 0) < at_nkv(15 downto 0)
-                      or at_k(2 downto 0) /= 0 or at_v(2 downto 0) /= 0
-                      or (at_fmt = 1 and at_hd(1 downto 0) /= 0) or at_hd(0) /= '0';
-            at_st <= A_RS0;
-          when A_RS0 =>
-            if at_bad then
-              err <= ERR_OPCODE;
-              go(C_END);
-            else
-              -- K/V row = n_kv_heads * head_dim elements
-              if at_fmt = 1 then
-                assert at_p14 = at_nkv(13 downto 0) * at_hd(13 downto 0) and at_p13 = at_nkv(12 downto 0) * at_hd(12 downto 0)
-                  report "SSNAIL: stale at_p14 / at_p13" severity failure;
-                at_rowb <= resize(at_p14, 27) & '0';
-                at_kv_stride <= at_hd(26 downto 0) & '0';
-              else
-                at_rowb <= at_p13 & "00";
-                at_kv_stride <= at_hd(25 downto 0) & "00";
-              end if;
-              fpu_op <= FOP_I2F; fpu_a <= at_hd; fpu_start <= '1';
-              at_st <= A_RS1; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-            end if;
-          when A_RS1 =>                               -- rs = 1 / sqrt(hd)
-            fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
-            at_st <= A_RS2; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-          when A_RS2 =>
-            fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
-            at_st <= A_RS3; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-          when A_RS3 =>
-            at_rs <= fpu_r;
-            -- group = n_heads / n_kv_heads, by repeated subtraction
-            at_group <= (others => '0');
-            at_gc <= at_nh(15 downto 0);
-            at_ge <= at_nh(15 downto 0) >= at_nkv(15 downto 0);
-            at_span <= (others => '0');
-            at_sm <= at_pos(9 downto 0);
-            at_ma <= at_rowb;
-            at_st <= A_SPAN;
-          when A_SPAN =>                              -- at_span = at_pos * at_rowb
-            if at_sm(0) = '1' then
-              at_span <= at_span + at_ma;
-            end if;
-            at_ma <= at_ma(26 downto 0) & '0';
-            at_sm <= '0' & at_sm(9 downto 1);
-            if at_sm(9 downto 1) = 0 then
-              at_st <= A_SPAN2;
-            end if;
-          when A_SPAN2 =>
-            at_spl <= at_span + at_kv_stride;         -- (to a head's last byte)
-            at_st <= A_GRP;
-          when A_GRP =>
-            assert at_ge = (at_gc >= at_nkv(15 downto 0)) report "SSNAIL: stale at_ge" severity failure;
-            if at_ge then                             -- at_gc >= at_nkv
-              at_gc <= at_gc - at_nkv(15 downto 0);
-              at_ge <= at_gc - at_nkv(15 downto 0) >= at_nkv(15 downto 0);
-              at_group <= at_group + 1;
-            else
-              at_h <= (others => '0');
-              at_hend <= at_nh(15 downto 0) = 0;
-              at_kvh <= (others => '0');
-              at_kv_offset <= (others => '0');
-              at_qhead_addr <= ea_y;
-              at_gc <= (others => '0');
-              pz <= ea_z; ostart <= ea_z;
-              at_st <= A_HEAD;
-            end if;
-
-          when A_HEAD =>                              -- load q for head at_h
-            assert at_hend = (at_h = at_nh(15 downto 0)) report "SSNAIL: stale at_hend" severity failure;
-            if at_hend then                           -- at_h = at_nh
-              go(C_NEXT);
-            else
-              at_i <= (others => '0');
-              -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
-              ef_addr <= at_qhead_addr;
-              ef_f16 <= '0';
-              at_st <= A_Q;
-            end if;
-          when A_Q =>
-            assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
-            if at_iend then                           -- at_i = at_hd
-              at_t <= (others => '0');
-              at_vp <= '0';
-              at_st <= A_STR0;                             -- stream K
-            else
-              at_st <= A_Q2; ef_ret <= C_ATTN;
-              go(EF_START);
-            end if;
-          when A_Q2 =>
-            xw_we := true; xw_a := "000" & at_i; xw_d := ef_val;   -- (q: the float lane's x)
-            at_i <= at_i + 1;
-            ef_addr <= ef_addr + 4;
-            at_st <= A_Q;
-
-          -- K or V of this head as one strided stream (rows at_rowb apart, a
-          -- head's row each) into the float lane: K's rows dotted with q
-          -- (scores), or V's rows times w_t into outv (the output pass)
-          when A_STR0 =>
-            if at_vp = '1' then
-              at_ea <= at_v + at_kv_offset;
-            else
-              at_ea <= at_k + at_kv_offset;
-            end if;
-            at_st <= A_STR;
-          when A_STR =>
-            ps <= at_ea;
-            str_base <= at_ea; sr_next <= at_ea; sr_segst <= at_ea;
-            sr_end <= at_ea + at_kv_stride;
-            sr_lend <= at_ea + at_spl;
-            sr_stride <= at_rowb;
-            sr_segs <= at_pos(9 downto 0);
-            dec_addr <= at_ea;
-            g_rows <= resize(at_pos1, 32);
-            kq_on <= '0'; kq_kr <= '0'; iq_on <= '0'; xq_on <= '0';
-            ta_on <= '0';
-            fl_on <= '1'; fl_ax <= at_vp; fl_bf <= '0';
-            if at_fmt = 1 then fl_f32 <= '0'; else fl_f32 <= '1'; end if;
-            fl_n <= resize(at_hd(8 downto 0), 13);
-            fl_short <= at_hd(8 downto 0) < 12;
-            fl_wv <= '0';
-            at_slv <= false;
-            if at_vp = '1' then at_st <= A_O_F; g2_ret <= C_ATTN; else at_st <= A_S_T; g2_ret <= C_ATTN; end if;
-            gm_st <= G2_D1; go(C_GEMV);
-          -- the stream's last reads in and the lane done: stop the pipeline
-          when A_SE =>
-            assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
-            if rq_w = rq_r and sr_iz and out_z and fl_st = FL_DONE then
-              g2 <= '0';
-              fl_ax <= '0';
-              if at_vp = '1' then
-                at_i <= (others => '0');
-                at_st <= A_O_W;
-              else
-                at_st <= A_E_T;
-              end if;
-            end if;
-
-          -- scores: s_t = dot8(k_t, q) * rs, from the lane; track the maximum
-          when A_S_T =>
-            -- the running maximum, from the score A_S_SC just stored
-            if at_slv and (at_s0 or flt(at_m, at_sl)) then
-              at_m <= at_sl;
-            end if;
-            at_slv <= false;
-            assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
-            if at_tend then                           -- at_t = at_pos + 1
-              at_t <= (others => '0');
-              ve_first <= '1';
-              at_st <= A_SE;
-            else
-              at_st <= A_S_W;
-            end if;
-          when A_S_W =>
-            if tl_full = '1' then
-              tl_full_clr := '1';
-              fpu_op <= FOP_MUL; fpu_a <= tl_term; fpu_b <= at_rs; fpu_start <= '1';
-              at_st <= A_S_SC; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-            end if;
-          when A_S_SC =>
-            sw_we := true; sw_a := at_t(9 downto 0); sw_d := fpu_r;
-            at_sl <= fpu_r; at_slv <= true; at_s0 <= at_t = 0;
-            at_t <= at_t + 1;
-            at_st <= A_S_T;
-
-          -- e_t = EXP(s_t - m), by the softmax engine; z = seq_sum(e), here
-          when A_E_T =>
-            sx_on <= '1';
-            sx_nm <= (not at_m(31)) & at_m(30 downto 0);
-            ve_first <= '1';
-            at_st <= A_E_W;
-          when A_E_W =>
-            assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
-            assert sx_hav = (sx_wcnt /= at_t) and sx_avn = resize(sx_wcnt - at_t, 5)
-              report "SSNAIL: stale sx_hav" severity failure;
-            if at_tend then                           -- at_t = at_pos + 1
-              fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
-              at_st <= A_E_R; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-            elsif sx_hav then                         -- sx_wcnt /= at_t
-              at_st <= A_E_P;
-            end if;
-          when A_E_P =>
-            at_t <= at_t + 1;
-            sx_take := true;
-            assert sx_fq = sx_fifo(to_integer(at_t(3 downto 0))) report "SSNAIL: stale sx_fq" severity failure;
-            if ve_first = '1' then
-              at_acc <= sx_fq; ve_first <= '0';
-              at_st <= A_E_W;
-            else
-              fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= sx_fq;
-              fpu_start <= '1'; at_st <= A_E_3; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-            end if;
-          when A_E_3 =>
-            at_acc <= fpu_r;
-            at_st <= A_E_W;
-          when A_E_R =>                               -- r = 1 / z; then V
-            at_r <= fpu_r;
-            sx_on <= '0';
-            at_t <= (others => '0');
-            at_vp <= '1';
-            at_st <= A_STR0;
-
-          -- out = out + w_t * v_t, sequentially over t, in the lane: w_t =
-          -- e_t * r to it a row ahead (fl_wq while fl_wv)
-          when A_O_F =>
-            assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
-            if at_tend then                           -- every w_t given
-              at_st <= A_SE;
-            elsif fl_wv = '0' then
-              at_st <= A_O_F0;
-            end if;
-          when A_O_F0 =>                              -- (at_sv: sarr(at_t) by now)
-            at_st <= A_O_F1;
-          when A_O_F1 =>
-            assert at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
-            fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
-            fpu_start <= '1'; at_st <= A_O_F2; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
-          when A_O_F2 =>
-            fl_wq <= fpu_r;
-            fl_wv <= '1';
-            at_t <= at_t + 1;
-            at_st <= A_O_F;
-          when A_O_W =>
-            assert pz_p4 = pz + 4 and pz_252 = (pz(7 downto 0) = 252)
-              report "SSNAIL: stale pz_p4 / pz_252" severity failure;
-            at_pz4 <= pz_p4; at_pz252 <= pz_252;
-            at_st <= A_WR;
-
-          -- write this head's output: through buf, flushed at 256-byte
-          -- boundaries and at the end of the head
-          when A_WR =>
-            assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
-            if at_iend then                           -- at_i = at_hd
-              at_st <= A_HNEXT;
-            else
-              assert at_pz4 = pz + 4 and at_pz252 = (pz(7 downto 0) = 252)
-                report "SSNAIL: stale at_pz4 / at_pz252" severity failure;
-              a2 := at_pz4;
               pz <= a2;
-              at_pz4 <= at_pz4 + 4;
-              at_pz252 <= at_pz4(7 downto 0) = 252;
-              at_i <= at_i + 1;
+              v_n <= v_n - 1;
+              v_n_z <= v_n_one;
+              v_n_one <= v_n = 2;
+              d_j <= d_j + 1;
+              d_jl <= d_j + 2 = epg;
+              assert d_jl = (d_j + 1 = epg) report "SSNAIL: stale d_jl" severity failure;
+              if d_j(3 downto 0) = 15 then
+                kq_gs <= '0';                             -- (K: a new 16-group)
+              end if;
               -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
-              assert at_inx = (at_i + 1 = at_hd(8 downto 0)) report "SSNAIL: stale at_inx" severity failure;
-              if at_pz252 or at_inx then
+              assert pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_252" severity failure;
+              if pz_252 or v_n_one then                    -- pz(7 downto 0) = 252, v_n = 1
+                -- flush the output written since ostart
                 a0 := ostart(27 downto 3) & "000";
                 a1 := a2 + 7;
                 a1(2 downto 0) := "000";
@@ -5182,26 +4429,937 @@ begin
                 mw_idx <= a0(7 downto 1);
                 dec_addr <= a0;
                 ostart <= a2;
-                at_st <= A_WR; wr_ret <= C_ATTN;
+                d_unflushed <= false;
+                if v_n_one then
+                  wr_ret <= C_NEXT;
+                elsif d_jl then
+                  dq_st <= D_GROUP; wr_ret <= C_DEQ;
+                else
+                  dq_st <= D_EMIT; wr_ret <= C_DEQ;
+                end if;
                 go(C_WR_DEC);
+              elsif d_jl then
+                d_unflushed <= a2 /= ostart;
+                dq_st <= D_GROUP;
+              else
+                d_unflushed <= a2 /= ostart;
+                dq_st <= D_EMIT_W;                     -- (d_qv follows d_j)
               end if;
-            end if;
-          when A_WR2 =>
-            at_st <= A_HNEXT;
-          when A_HNEXT =>
-            at_h <= at_h + 1;
-            at_hend <= at_h + 1 = at_nh(15 downto 0);
-            at_qhead_addr <= at_qhead_addr + (at_hd(25 downto 0) & "00");
-            assert at_glast = (at_gc + 1 = at_group) report "SSNAIL: stale at_glast" severity failure;
-            if at_glast then                          -- at_gc + 1 = at_group
-              at_gc <= (others => '0');
-              at_kvh <= at_kvh + 1;
-              at_kv_offset <= at_kv_offset + at_kv_stride;
+
+            when D_EMIT_W =>
+              dq_st <= D_EMIT;
+            end case;
+          end if;
+
+        when C_GEMV =>
+          if has_llm then
+            case gm_st is
+            -- ------------------------------------------------------------------
+            -- GEMV, phase 1: quantise x to Q8_0 (ssnail_hw.quantize_q8_0)
+            -- GEMV set-up from the format (d_fmt): block length (the
+            -- assembler's), the tail's terms per row (super-blocks, for
+            -- K-quants), and the K-quant state
+            when G_SET =>
+              assert d_isk = fmt_k(d_fmt) and d_isiq = fmt_iq(d_fmt) report "SSNAIL: stale d_isk" severity failure;
+              if d_isk then
+                kq_on <= '1';
+                g_bl <= to_unsigned(kq_bytes(d_fmt), 8);
+                g_nbt <= "000" & g_nb(7 downto 3);
+              else
+                kq_on <= '0';
+                if d_fmt = 8 then
+                  g_bl <= to_unsigned(34, 8);
+                elsif d_fmt = 39 then
+                  g_bl <= to_unsigned(17, 8);
+                elsif d_fmt = 6 then
+                  g_bl <= to_unsigned(22, 8);
+                else
+                  g_bl <= to_unsigned(18, 8);
+                end if;
+                g_nbt <= g_nb;
+              end if;
+              if d_fmt = 10 or d_fmt = 12 or d_fmt = 13 then
+                kq_min <= '1';
+              else
+                kq_min <= '0';
+              end if;
+              kq_nsb <= "000" & g_nb(7 downto 3);
+              for i in 0 to 4 loop
+                kq_hwc(i) <= to_unsigned(kq_hword(d_fmt, i), 6);
+              end loop;
+              -- float weights: the float lane, one tail term a row
+              fl_on <= '0'; fl_f32 <= '0'; fl_bf <= '0'; fl_ax <= '0';
+              xq_on <= '1';
+              fl_n <= n0(12 downto 0); fl_short <= false;
+              if d_fmt = 0 or d_fmt = 1 or d_fmt = 30 then
+                fl_on <= '1'; xq_on <= '0';
+                g_nbt <= to_unsigned(1, 8);
+                if d_fmt = 0 then
+                  fl_f32 <= '1'; g_bl <= to_unsigned(128, 8);
+                else
+                  g_bl <= to_unsigned(64, 8);
+                end if;
+                if d_fmt = 30 then fl_bf <= '1'; end if;
+              end if;
+              -- the codebook formats (IQ front end)
+              kq_kr <= '0'; iq_on <= '0'; kq_wo <= (others => '0'); kq_dsh <= "00";
+              if d_isiq then
+                iq_on <= '1';
+                kq_wo <= to_unsigned(2, 8);
+                if d_fmt = 18 then kq_dsh <= "10"; elsif d_fmt /= 21 then kq_dsh <= "11"; end if;
+              elsif d_isk then
+                kq_kr <= '1';
+              end if;
+              if d_fmt = 18 or d_fmt = 21 then iq3 <= '1'; else iq3 <= '0'; end if;
+              if d_fmt = 16 or d_fmt = 18 then iq_xxs <= '1'; else iq_xxs <= '0'; end if;
+              if d_fmt = 16 or d_fmt = 17 or d_fmt = 18 then iq_ks <= '1'; else iq_ks <= '0'; end if;
+              if d_fmt = 17 or d_fmt = 18 or d_fmt = 21 then iq_2w <= '1'; else iq_2w <= '0'; end if;
+              if d_fmt = 17 then iq_u16 <= '1'; else iq_u16 <= '0'; end if;
+              if d_fmt = 21 or d_fmt = 22 then iq_hb <= '1'; else iq_hb <= '0'; end if;
+              case to_integer(d_fmt) is
+                when 17 | 21 => iq_base <= "01";
+                when 22 => iq_base <= "10";
+                when others => iq_base <= "00";
+              end case;
+              kq_pass <= '0'; kq_sub <= (others => '0'); kq_amax <= (others => '0');
+              gm_st <= G_QFILL0;
+
+            when G_QFILL0 =>
+              assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
+              g_j <= (others => '0');
+              g_amax <= (others => '0');
+              qf_hit <= ld_valid = '1' and px(27 downto 8) = ld_block;
+              gm_st <= G_QFILL;
+
+            when G_QFILL =>
+              assert qf_hit = (ld_valid = '1' and px(27 downto 8) = ld_block)
+                report "SSNAIL: stale qf_hit" severity failure;
+              if g_j = 32 and fl_on = '1' then             -- (float: x as it is)
+                gblk <= gblk + 1;
+                assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
+                if g_qlast then
+                  gm_st <= G_ROW0;
+                else
+                  gm_st <= G_QFILL0;
+                end if;
+              elsif g_j = 32 and kq_on = '1' and kq_pass = '0' then
+                gm_st <= G_KAM;                                 -- (K: amax over 256 first)
+              elsif g_j = 32 and kq_on = '1' then
+                g_j <= (others => '0');                    -- (K: d and id known)
+                gm_st <= G_QQ;
+              elsif g_j = 32 then
+                gm_st <= G_QAM;                                 -- (the last element's qf_v
+                                                           -- lands in g_amax now)
+              elsif not qf_hit then                       -- px's block is not loaded
+                a0 := px(27 downto 3) & "000";
+                a1 := (px(27 downto 8) + 1) & x"00";
+                rd_addr <= a0;
+                rd_len <= resize(a1 - a0, 9);
+                rd_sel <= "01";
+                dec_addr <= a0;
+                ld_block <= px(27 downto 8);
+                ld_valid <= '1';
+                qf_hit <= true;
+                gm_st <= G_QFILL; rd_ret <= C_GEMV;
+                go(C_RD_DEC);
+              else
+                fv := bufx(to_integer(px(7 downto 1) + 1)) & bufx(to_integer(px(7 downto 1)));
+                xb(to_integer(g_j)) <= fv;
+                xw_we := true; xw_a := gblk(6 downto 0) & g_j(4 downto 0); xw_d := fv;
+                -- |x| ordering = integer ordering of the low 31 bits
+                qf_v <= fv(30 downto 0);
+                qf_vld <= true;
+                px <= px + 4;
+                qf_hit <= px(7 downto 0) < 252;             -- px + 4 in the same block
+                g_j <= g_j + 1;
+              end if;
+
+            when G_QAM =>
+              assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
+              fpu_op <= FOP_DIV;                           -- d = amax / 127
+              fpu_a <= '0' & g_amax;
+              fpu_b <= x"42FE0000";
+              fpu_start <= '1';
+              gm_st <= G_QID; fpu_ret <= C_GEMV;
+              go(C_FPU_WAIT);
+
+            -- K-quants: the amax of 32 more elements (g_amax is complete now);
+            -- after 256, d = amax / 127 as for Q8_0
+            when G_KAM =>
+              assert not qf_vld report "SSNAIL: g_amax update pending" severity failure;
+              if g_amax > kq_amax then
+                kq_amax <= g_amax;
+              end if;
+              kq_sub <= kq_sub + 1;
+              if kq_sub = 7 then
+                gm_st <= G_KAM2;                                -- (kq_amax complete next)
+              else
+                gm_st <= G_QFILL0;
+              end if;
+
+            when G_KAM2 =>
+              fpu_op <= FOP_DIV;
+              fpu_a <= '0' & kq_amax;
+              fpu_b <= x"42FE0000";
+              fpu_start <= '1';
+              gm_st <= G_QID; fpu_ret <= C_GEMV;
+              go(C_FPU_WAIT);
+
+            -- K-quants: the super-block's scale is F32 (not rounded to F16);
+            -- read its 256 elements again, to quantise them
+            when G_KX =>
+              dxs(to_integer(gblk(7 downto 3))) <= g_d;
+              px <= px - 1024;
+              kq_pass <= '1';
+              gm_st <= G_QFILL0;
+
+            when G_QID =>
+              g_d <= fpu_r;
+              assert fr_z = (fpu_r(30 downto 0) = 0) report "SSNAIL: stale fr_z" severity failure;
+              if fr_z and kq_on = '1' then
+                g_id <= (others => '0');
+                gm_st <= G_KX;
+              elsif fr_z then
+                g_id <= (others => '0');                   -- id = d ? 1/d : 0
+                gm_st <= G_QD16;
+              else
+                fpu_op <= FOP_DIV;
+                fpu_a <= x"3F800000";
+                fpu_b <= fpu_r;
+                fpu_start <= '1';
+                gm_st <= G_QID2; fpu_ret <= C_GEMV;
+                go(C_FPU_WAIT);
+              end if;
+
+            when G_QID2 =>
+              g_id <= fpu_r;
+              if kq_on = '1' then
+                gm_st <= G_KX;
+              else
+                gm_st <= G_QD16;
+              end if;
+
+            when G_QD16 =>
+              fpu_op <= FOP_F32TOF16;                      -- the stored scale is F16
+              fpu_a <= g_d;
+              fpu_start <= '1';
+              gm_st <= G_QDX; fpu_ret <= C_GEMV;
+              go(C_FPU_WAIT);
+
+            when G_QDX =>
+              fpu_op <= FOP_F16TOF32;
+              fpu_a <= fpu_r;
+              fpu_start <= '1';
+              gm_st <= G_QDX2; fpu_ret <= C_GEMV;
+              go(C_FPU_WAIT);
+
+            when G_QDX2 =>
+              dxs(to_integer(gblk)) <= fpu_r;
+              g_j <= (others => '0');
+              gm_st <= G_QQ;
+
+            -- the block's 32 elements quantised by the x quantiser (xq_*): x * id
+            -- on the float lane's multiplier, roundf, into qx (and the 16-sums)
+            when G_QQ =>
+              if not xq_busy then                          -- (the last block stored)
+                xq_iss <= '1';
+                xq_j <= (others => '0');
+                xq_id <= g_id;
+                xq_blk <= gblk;
+                gm_st <= G_QQW;
+              end if;
+            when G_QQW =>                                  -- (xb free once issued)
+              if xq_iss = '0' then
+                gblk <= gblk + 1;
+                if kq_on = '1' then
+                  kq_sub <= kq_sub + 1;
+                  if kq_sub = 7 then                       -- super-block done
+                    kq_pass <= '0';
+                    kq_amax <= (others => '0');
+                  end if;
+                end if;
+                assert g_qlast = (gblk + 1 = g_nb) report "SSNAIL: stale g_qlast" severity failure;
+                if g_qlast then
+                  gm_st <= G_ROW0;
+                else
+                  gm_st <= G_QFILL0;
+                end if;
+              end if;
+
+            -- GEMV, phase 2: each row, block by block (ssnail_hw.gemv_quant)
+            when G_ROW0 =>
+              -- Row phase.  Decode the region of the first and last weight
+              -- bytes once: the stream needs the matrix in a single region.
+              -- (First, the x quantiser's last results in.)
+              if xq_busy then
+                null;
+              else
+              xq_on <= '0';
+              ld_valid <= '0';
+              out_loaded <= '0';
+              g_r <= (others => '0');
+              g_end <= g_rows = 0; g_last <= g_rows = 1;
+              gblk <= (others => '0');
+              a0 := ps(27 downto 3) & "000";
+              str_base <= a0;
+              sr_next <= a0;
+              sr_segst <= a0;
+              sr_segs <= (others => '0');
+              g2_ret <= C_GEMV;                    -- (G2_D3 returns to G2_WAIT)
+              ta_on <= '1'; ta_st <= TA_IDLE; ta_done <= false;
+              -- Setup a small serial multiplier.  Full 32-bit rows are needed
+              -- for as_blocks; only low 20 bits were used for byte-span above.
+              if kq_on = '1' then
+                g_mul_nb <= kq_nsb;                       -- super-blocks per row
+                g_mul_end <= kq_nsb(7 downto 1) = 0;
+              else
+                g_mul_nb <= g_nb;
+                g_mul_end <= g_nb(7 downto 1) = 0;
+              end if;
+              g_mul_a32 <= g_rows;
+              g_mul_p32 <= (others => '0');
+              g_mul_p28 <= (others => '0');
+              -- (block bytes) * rows20, from registers
+              assert g_rbl = resize(g_rows(19 downto 0) * g_bl, 28) report "SSNAIL: stale g_rbl" severity failure;
+              g_mul_a28 <= g_rbl;
+              gm_st <= G_ROW_MUL;
+              end if;
+            when G_ROW_MUL =>
+              -- Add a shifted multiplicand for each set bit of blocks/row.
+              -- Arithmetic is modulo 2^32 and 2^28, as in the old resize().
+              if g_mul_nb(0) = '1' then
+                g_mul_p32 <= g_mul_p32 + g_mul_a32;
+                g_mul_p28 <= g_mul_p28 + g_mul_a28;
+              end if;
+              g_mul_a32 <= g_mul_a32(30 downto 0) & '0';
+              g_mul_a28 <= g_mul_a28(26 downto 0) & '0';
+              g_mul_nb <= '0' & g_mul_nb(7 downto 1);
+              g_mul_end <= g_mul_nb(7 downto 2) = 0;
+              assert g_mul_end = (g_mul_nb(7 downto 1) = 0) report "SSNAIL: stale g_mul_end" severity failure;
+              if g_mul_end then                         -- g_mul_nb(7 downto 1) = 0
+                -- Final partial product is registered at this edge.  Consume
+                -- it in the following state, not in this same cycle.
+                gm_st <= G_ROW_ADDR;
+              end if;
+            when G_ROW_ADDR =>
+              a0 := ps(27 downto 3) & "000";
+              a2 := ps + g_mul_p28;
+              a1 := a2 + 7;
+              a1(2 downto 0) := "000";
+              sr_end <= a1;
+              sr_lend <= a1;
+              dec_addr <= a0;
+              gm_st <= G2_D1;
+            when G2_D1 =>
+              gm_st <= G2_D2;                          -- decode of the start
+            when G2_D2 =>
+              if dec_ok = '0' then
+                err <= ERR_ADDRESS;
+                go(C_END);
+              else
+                str_local <= dec_local;
+                str_is_sd <= dec_is_sd;
+                dec_addr <= sr_lend - 8;                -- and of the last group
+                gm_st <= G2_D2W;
+              end if;
+            when G2_D2W =>
+              gm_st <= G2_D3;                          -- its decode
+            when G2_D3 =>
+              if dec_ok = '0' or dec_is_sd /= str_is_sd then
+                err <= ERR_ADDRESS;                     -- straddles two regions
+                go(C_END);
+              else
+                -- start the pipeline
+                g2 <= '1';
+                wf_w <= (others => '0'); wf_r <= (others => '0');
+                wf_z <= true; wf_o <= false;
+                rq_w <= (others => '0'); rq_r <= (others => '0');
+                -- (as_flags depends on a block length only through >= 4)
+                as_rem <= g_bl;
+                as_f <= as_flags(to_integer(ps(2 downto 0)), 34);
+                as_skip <= ps(2 downto 0);
+                as_full <= '0'; pb_v <= '0'; ub_full <= '0';
+                kq_wh <= '0'; kq_wp <= kq_wo; kq_full <= "00"; kq_fset <= '0';
+                iq_st <= IQ_IDLE; iq_h <= '0'; iq_p <= (others => '0'); iq_full <= '0';
+                iq_v1 <= '0'; iq_v2 <= '0'; iq_v3 <= '0';
+                kq_hs <= KH_IDLE; kq_hh <= '0'; kq_hok <= "00"; kq_hsb <= (others => '0');
+                kq_hwl <= kq_hwc;
+                kq_rh <= '0'; kq_p <= (others => '0');
+                kq_c1 <= '0'; kq_c2 <= '0'; kq_c3 <= '0'; kq_s1 <= (others => '0');
+                kq_pre <= '0';
+                kq_fs <= KF_IDLE; kq_fgo <= '0'; kq_fsb <= (others => '0');
+                as_blocks <= g_mul_p32;
+                if g_mul_p32 /= 0 and fl_on = '0' then as_any <= '1'; else as_any <= '0'; end if;
+                if fl_on = '1' then fl_st <= FL_RUN; else fl_st <= FL_DONE; end if;
+                fl_skip <= ps(2 downto 1);
+                fl_c <= (others => '0'); fl_cl <= false; fl_k <= (others => '0'); fl_hv <= '0';
+                fl_cz <= true; fl_first <= '1'; fl_bk <= '0'; cb_st <= CB_IDLE;
+                fl_rr <= g_rows; fl_rl <= g_rows = 1;
+                mc_busy <= '0'; mc_done <= '0'; mc_blk <= (others => '0');
+                mc_scale_ok <= '0';
+                mc_sblk <= (others => '0'); kq_sp <= (others => '0'); kq_srh <= '0';
+                mc_nq <= "00"; mq_v <= "00"; mq_scok <= "00";
+                mq_w <= '0'; mq_r <= '0'; mq_ss <= '0'; fpu3_busy <= '0';
+                tm_busy <= '0'; f2_term <= '0'; th_v <= '0';
+                tl_full <= '0';
+                g_r <= (others => '0');
+                g_end <= g_rows = 0; g_last <= g_rows = 1;
+                gm_st <= G2_WAIT;                  -- (when g2_ret = C_GEMV)
+                go(g2_ret);
+              end if;
+
+            when G2_WAIT =>
+              -- the stream reader may issue here (see below); rows' sums come
+              -- from the tail accumulator
+              assert g_end = (g_r = g_rows) report "SSNAIL: stale g_end" severity failure;
+              if g_end then                               -- g_r = g_rows
+                ta_on <= '0';
+                gm_st <= G2_END;
+              elsif ta_done then
+                g_accv <= ta_sum;
+                ta_done <= false;
+                gm_st <= G_OUT;                                -- row done: output it
+              end if;
+            when G2_END =>
+              -- all rows out: let any trailing stream reads land, then stop
+              assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
+              if rq_w = rq_r and sr_iz and out_z then
+                g2 <= '0';
+                go(C_NEXT);
+              end if;
+
+            when G_OUT =>
+              assert g_have_old = (out_loaded = '1' and pz(27 downto 8) = out_block)
+                report "SSNAIL: stale g_have_old" severity failure;
+              assert not g_have_old or g_addz = '0'
+                or g_oldv = buf_in(to_integer(pz(7 downto 1) + 1)) & buf_in(to_integer(pz(7 downto 1)))
+                report "SSNAIL: stale g_oldv" severity failure;
+              if g_addz = '1' and not g_have_old then
+                -- bring in the existing outputs of this 256-byte block
+                a0 := pz(27 downto 3) & "000";
+                a1 := (pz(27 downto 8) + 1) & x"00";
+                rd_addr <= a0;
+                rd_len <= resize(a1 - a0, 9);
+                rd_sel <= "00";
+                dec_addr <= a0;
+                out_block <= pz(27 downto 8);
+                out_loaded <= '1';
+                gm_st <= G_OUT; rd_ret <= C_GEMV;
+                go(C_RD_DEC);
+              elsif g_addz = '1' then
+                fpu_op <= FOP_ADD;                         -- y = acc + y_old
+                fpu_a <= g_accv;
+                fpu_b <= g_oldv;
+                fpu_start <= '1';
+                gm_st <= G_OUT2; fpu_ret <= C_GEMV;
+                go(C_FPU_WAIT);
+              else
+                fpu_r <= g_accv;
+                gm_st <= G_OUT2;
+              end if;
+
+            when G_OUT2 =>
+              if g_f16 = '1' then
+                fpu_op <= FOP_F32TOF16;
+                fpu_a <= fpu_r;
+                fpu_start <= '1';
+                gm_st <= G_OUT3; fpu_ret <= C_GEMV;
+                go(C_FPU_WAIT);
+              else
+                gm_st <= G_OUT3;
+              end if;
+
+            when G_OUT3 =>
+              g_val <= fpu_r;
+              gm_st <= G_OUT4;
+
+            when G_OUT4 =>
+              assert pz_p2 = pz + 2 and pz_p4 = pz + 4 and pz_254 = (pz(7 downto 0) = 254)
+                and pz_252 = (pz(7 downto 0) = 252) report "SSNAIL: stale pz_p2 / pz_p4" severity failure;
+              if g_f16 = '1' then
+                a2 := pz_p2;
+              else
+                a2 := pz_p4;
+              end if;
+              pz <= a2;
+              g_r <= g_r + 1;
+              assert g_last = (g_r + 1 = g_rows) report "SSNAIL: stale g_last" severity failure;
+              g_end <= g_last;
+              g_last <= g_r + 2 = g_rows;
+              -- (a2 ends a 256-byte block: tested on pz, without the carry)
+              if (g_f16 = '1' and pz_254) or (g_f16 = '0' and pz_252)
+                or g_last then                            -- g_r + 1 = g_rows
+                a0 := ostart(27 downto 3) & "000";
+                a1 := a2 + 7;
+                a1(2 downto 0) := "000";
+                wr_addr <= a0;
+                wr_len <= resize(a1 - a0, 9);
+                mw_lead <= resize(ostart - a0, 9);
+                mw_vend <= resize(a2 - a0, 9);
+                mw_idx <= a0(7 downto 1);
+                dec_addr <= a0;
+                ostart <= a2;
+                gm_st <= G2_WAIT; wr_ret <= C_GEMV;
+                go(C_WR_DEC);
+              else
+                gm_st <= G2_WAIT;
+              end if;
+            end case;
+          end if;
+
+        -- ------------------------------------------------------------------
+        -- Table lookup (ssnail_hw.Table): tval = f(tx), then tab_ret.
+        when T_START =>
+          if has_llm then
+            assert tx_below = flt(tx, SILU_LO) or tab_id /= "00" report "SSNAIL: stale tx_below" severity failure;
+            assert tx_above = not flt(tx, SILU_HI) or tab_id /= "00" report "SSNAIL: stale tx_above" severity failure;
+            assert tx_below = flt(tx, GELU_LO) or tab_id /= "01" report "SSNAIL: stale tx_below" severity failure;
+            assert tx_above = not flt(tx, GELU_HI) or tab_id /= "01" report "SSNAIL: stale tx_above" severity failure;
+            assert tx_below = flt(tx, EXPT_LO) or tab_id /= "10" report "SSNAIL: stale tx_below" severity failure;
+            assert tx_above = not flt(tx, EXPT_HI) or tab_id /= "10" report "SSNAIL: stale tx_above" severity failure;
+            assert tx_below = flt(tx, SOFTP_LO) or tab_id /= "11" report "SSNAIL: stale tx_below" severity failure;
+            assert tx_above = not flt(tx, SOFTP_HI) or tab_id /= "11" report "SSNAIL: stale tx_above" severity failure;
+            case tab_id is
+              when "00" => lo := SILU_LO; hi := SILU_HI;
+              when "01" => lo := GELU_LO; hi := GELU_HI;
+              when "10" => lo := EXPT_LO; hi := EXPT_HI;
+              when others => lo := SOFTP_LO; hi := SOFTP_HI;
+            end case;
+            if tx_below then                             -- flt(tx, lo)
+              tval <= (others => '0');                   -- below: 0
+              go(tab_ret);
+            elsif tx_above then                          -- not flt(tx, hi)
+              if tab_id = "10" then
+                tval <= x"3F800000";                     -- exp above: 1
+              else
+                tval <= tx;                              -- silu, gelu, softplus above: x
+              end if;
+              go(tab_ret);
             else
-              at_gc <= at_gc + 1;
+              fpu_op <= FOP_ADD;                         -- x - lo
+              fpu_a <= tx;
+              fpu_b <= (not lo(31)) & lo(30 downto 0);
+              fpu_start <= '1';
+              fpu_ret <= T_K;
+              go(C_FPU_WAIT);
             end if;
-            at_st <= A_HEAD;
-          end case;
+          end if;
+
+        when T_K =>
+          if has_llm then
+            fpu_op <= FOP_MUL;                           -- (x - lo) * k
+            fpu_a <= fpu_r;
+            case tab_id is
+              when "00" => fpu_b <= SILU_K;
+              when "01" => fpu_b <= GELU_K;
+              when "10" => fpu_b <= EXPT_K;
+              when others => fpu_b <= SOFTP_K;
+            end case;
+            fpu_start <= '1';
+            fpu_ret <= T_I;
+            go(C_FPU_WAIT);
+          end if;
+
+        when T_I =>
+          if has_llm then
+            fpu_op <= FOP_TRUNC;                         -- floor (it is >= 0)
+            fpu_a <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= T_LOOK;
+            go(C_FPU_WAIT);
+          end if;
+
+        when T_LOOK =>
+          if has_llm then
+            assert fr_neg = (fpu_r(31) = '1') and fr_big = (fpu_r > TAB_SEGMENTS - 1)
+              report "SSNAIL: stale fr_neg/fr_big" severity failure;
+            if fr_neg then
+              ti := 0;
+            elsif fr_big then
+              ti := TAB_SEGMENTS - 1;
+            else
+              ti := to_integer(fpu_r(15 downto 0));
+            end if;
+            -- One synchronous ROM read: the table's bank is the address's top
+            -- two bits.  Compute the banked ROM address *before* the clocked
+            -- read, ensuring Vivado sees only one physical read port.
+            ti := ti + 256 * to_integer(tab_id);
+            rom_a := ti;                    -- (read below)
+            go(T_ROM2);
+          end if;
+
+        when T_ROM2 =>
+          if has_llm then
+            go(T_COEFF);                    -- (coeff_word -> coeff_q)
+          end if;
+
+        when T_COEFF =>
+          if has_llm then
+            -- The ROM word read in T_LOOK, through its output register
+            fpu_op <= FOP_MUL;
+            fpu_a <= coeff_q(31 downto 0);
+            tc0 <= coeff_q(63 downto 32);
+            fpu_b <= tx;
+            fpu_start <= '1';
+            fpu_ret <= T_C0;
+            go(C_FPU_WAIT);
+          end if;
+
+        when T_C0 =>
+          if has_llm then
+            fpu_op <= FOP_ADD;                           -- c0[i] + c1[i] * x
+            fpu_a <= tc0;
+            fpu_b <= fpu_r;
+            fpu_start <= '1';
+            fpu_ret <= T_DONE;
+            go(C_FPU_WAIT);
+          end if;
+
+        when T_DONE =>
+          if has_llm then
+            tval <= fpu_r;
+            go(tab_ret);
+          end if;
+
+        -- ------------------------------------------------------------------
+        -- Element fetch: ef_val = F32 at ef_addr (F16 converted if ef_f16),
+        -- through bufx with whole-block loads.
+        when EF_START =>
+          if has_llm then
+            assert ef_miss = (ld_valid = '0' or ef_addr(27 downto 8) /= ld_block)
+              report "SSNAIL: stale ef_miss" severity failure;
+            if ef_miss then
+              -- the whole block: unlike the streaming fetchers, accesses here
+              -- can go backwards within a block (parameter block, then q)
+              a0 := ef_addr(27 downto 8) & x"00";
+              a1 := (ef_addr(27 downto 8) + 1) & x"00";
+              rd_addr <= a0;
+              rd_len <= resize(a1 - a0, 9);
+              rd_sel <= "01";
+              dec_addr <= a0;
+              ld_block <= ef_addr(27 downto 8);
+              ld_valid <= '1';
+              rd_ret <= EF_START;
+              go(C_RD_DEC);
+            elsif ef_f16 = '1' then
+              fpu_op <= FOP_F16TOF32;
+              fpu_a <= x"0000" & bufx(to_integer(ef_addr(7 downto 1)));
+              fpu_start <= '1';
+              fpu_ret <= EF_DONE;
+              go(C_FPU_WAIT);
+            else
+              ef_val <= bufx(to_integer(ef_addr(7 downto 1) + 1)) & bufx(to_integer(ef_addr(7 downto 1)));
+              go(ef_ret);
+            end if;
+          end if;
+        when EF_DONE =>
+          if has_llm then
+            ef_val <= fpu_r;
+            go(ef_ret);
+          end if;
+
+        -- ------------------------------------------------------------------
+        -- ATTN (ssnail_hw.attention_head, per head)
+        when C_ATTN =>
+          if has_llm then
+            case at_st is
+            when A_PRM =>                               -- read parameter word at_pi
+              at_st <= A_PRM2; ef_ret <= C_ATTN;
+              go(EF_START);
+            when A_PRM2 =>
+              case to_integer(at_pi) is
+                when 0 => at_k <= ef_val(27 downto 0);
+                when 1 => at_v <= ef_val(27 downto 0);
+                when 2 => at_nh <= ef_val;
+                when 3 => at_nkv <= ef_val;
+                when 4 => at_hd <= ef_val;
+                when others => at_fmt <= ef_val;
+              end case;
+              ef_addr <= ef_addr + 4;
+              at_pi <= at_pi + 1;
+              if at_pi = 5 then
+                at_st <= A_CHK;
+              else
+                at_st <= A_PRM;
+              end if;
+            when A_CHK =>                               -- check the parameters
+              -- (K / V are streamed: 8-aligned, and a head's row 8-byte sized)
+              at_bad <= at_hd = 0 or at_hd > 256 or at_nkv = 0 or at_nh = 0 or at_pos >= 1024
+                        or at_nh(15 downto 0) < at_nkv(15 downto 0)
+                        or at_k(2 downto 0) /= 0 or at_v(2 downto 0) /= 0
+                        or (at_fmt = 1 and at_hd(1 downto 0) /= 0) or at_hd(0) /= '0';
+              at_st <= A_RS0;
+            when A_RS0 =>
+              if at_bad then
+                err <= ERR_OPCODE;
+                go(C_END);
+              else
+                -- K/V row = n_kv_heads * head_dim elements
+                if at_fmt = 1 then
+                  assert at_p14 = at_nkv(13 downto 0) * at_hd(13 downto 0) and at_p13 = at_nkv(12 downto 0) * at_hd(12 downto 0)
+                    report "SSNAIL: stale at_p14 / at_p13" severity failure;
+                  at_rowb <= resize(at_p14, 27) & '0';
+                  at_kv_stride <= at_hd(26 downto 0) & '0';
+                else
+                  at_rowb <= at_p13 & "00";
+                  at_kv_stride <= at_hd(25 downto 0) & "00";
+                end if;
+                fpu_op <= FOP_I2F; fpu_a <= at_hd; fpu_start <= '1';
+                at_st <= A_RS1; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+              end if;
+            when A_RS1 =>                               -- rs = 1 / sqrt(hd)
+              fpu_op <= FOP_SQRT; fpu_a <= fpu_r; fpu_start <= '1';
+              at_st <= A_RS2; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+            when A_RS2 =>
+              fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= fpu_r; fpu_start <= '1';
+              at_st <= A_RS3; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+            when A_RS3 =>
+              at_rs <= fpu_r;
+              -- group = n_heads / n_kv_heads, by repeated subtraction
+              at_group <= (others => '0');
+              at_gc <= at_nh(15 downto 0);
+              at_ge <= at_nh(15 downto 0) >= at_nkv(15 downto 0);
+              at_span <= (others => '0');
+              at_sm <= at_pos(9 downto 0);
+              at_ma <= at_rowb;
+              at_st <= A_SPAN;
+            when A_SPAN =>                              -- at_span = at_pos * at_rowb
+              if at_sm(0) = '1' then
+                at_span <= at_span + at_ma;
+              end if;
+              at_ma <= at_ma(26 downto 0) & '0';
+              at_sm <= '0' & at_sm(9 downto 1);
+              if at_sm(9 downto 1) = 0 then
+                at_st <= A_SPAN2;
+              end if;
+            when A_SPAN2 =>
+              at_spl <= at_span + at_kv_stride;         -- (to a head's last byte)
+              at_st <= A_GRP;
+            when A_GRP =>
+              assert at_ge = (at_gc >= at_nkv(15 downto 0)) report "SSNAIL: stale at_ge" severity failure;
+              if at_ge then                             -- at_gc >= at_nkv
+                at_gc <= at_gc - at_nkv(15 downto 0);
+                at_ge <= at_gc - at_nkv(15 downto 0) >= at_nkv(15 downto 0);
+                at_group <= at_group + 1;
+              else
+                at_h <= (others => '0');
+                at_hend <= at_nh(15 downto 0) = 0;
+                at_kvh <= (others => '0');
+                at_kv_offset <= (others => '0');
+                at_qhead_addr <= ea_y;
+                at_gc <= (others => '0');
+                pz <= ea_z; ostart <= ea_z;
+                at_st <= A_HEAD;
+              end if;
+
+            when A_HEAD =>                              -- load q for head at_h
+              assert at_hend = (at_h = at_nh(15 downto 0)) report "SSNAIL: stale at_hend" severity failure;
+              if at_hend then                           -- at_h = at_nh
+                go(C_NEXT);
+              else
+                at_i <= (others => '0');
+                -- at_qhead_addr = ea_y + at_h*at_hd*4 (mod 2^28).
+                ef_addr <= at_qhead_addr;
+                ef_f16 <= '0';
+                at_st <= A_Q;
+              end if;
+            when A_Q =>
+              assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+              if at_iend then                           -- at_i = at_hd
+                at_t <= (others => '0');
+                at_vp <= '0';
+                at_st <= A_STR0;                             -- stream K
+              else
+                at_st <= A_Q2; ef_ret <= C_ATTN;
+                go(EF_START);
+              end if;
+            when A_Q2 =>
+              xw_we := true; xw_a := "000" & at_i; xw_d := ef_val;   -- (q: the float lane's x)
+              at_i <= at_i + 1;
+              ef_addr <= ef_addr + 4;
+              at_st <= A_Q;
+
+            -- K or V of this head as one strided stream (rows at_rowb apart, a
+            -- head's row each) into the float lane: K's rows dotted with q
+            -- (scores), or V's rows times w_t into outv (the output pass)
+            when A_STR0 =>
+              if at_vp = '1' then
+                at_ea <= at_v + at_kv_offset;
+              else
+                at_ea <= at_k + at_kv_offset;
+              end if;
+              at_st <= A_STR;
+            when A_STR =>
+              ps <= at_ea;
+              str_base <= at_ea; sr_next <= at_ea; sr_segst <= at_ea;
+              sr_end <= at_ea + at_kv_stride;
+              sr_lend <= at_ea + at_spl;
+              sr_stride <= at_rowb;
+              sr_segs <= at_pos(9 downto 0);
+              dec_addr <= at_ea;
+              g_rows <= resize(at_pos1, 32);
+              kq_on <= '0'; kq_kr <= '0'; iq_on <= '0'; xq_on <= '0';
+              ta_on <= '0';
+              fl_on <= '1'; fl_ax <= at_vp; fl_bf <= '0';
+              if at_fmt = 1 then fl_f32 <= '0'; else fl_f32 <= '1'; end if;
+              fl_n <= resize(at_hd(8 downto 0), 13);
+              fl_short <= at_hd(8 downto 0) < 12;
+              fl_wv <= '0';
+              at_slv <= false;
+              if at_vp = '1' then at_st <= A_O_F; g2_ret <= C_ATTN; else at_st <= A_S_T; g2_ret <= C_ATTN; end if;
+              gm_st <= G2_D1; go(C_GEMV);
+            -- the stream's last reads in and the lane done: stop the pipeline
+            when A_SE =>
+              assert sr_iz = (sr_inflight = 0) report "SSNAIL: stale sr_iz" severity failure;
+              if rq_w = rq_r and sr_iz and out_z and fl_st = FL_DONE then
+                g2 <= '0';
+                fl_ax <= '0';
+                if at_vp = '1' then
+                  at_i <= (others => '0');
+                  at_st <= A_O_W;
+                else
+                  at_st <= A_E_T;
+                end if;
+              end if;
+
+            -- scores: s_t = dot8(k_t, q) * rs, from the lane; track the maximum
+            when A_S_T =>
+              -- the running maximum, from the score A_S_SC just stored
+              if at_slv and (at_s0 or flt(at_m, at_sl)) then
+                at_m <= at_sl;
+              end if;
+              at_slv <= false;
+              assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+              if at_tend then                           -- at_t = at_pos + 1
+                at_t <= (others => '0');
+                ve_first <= '1';
+                at_st <= A_SE;
+              else
+                at_st <= A_S_W;
+              end if;
+            when A_S_W =>
+              if tl_full = '1' then
+                tl_full_clr := '1';
+                fpu_op <= FOP_MUL; fpu_a <= tl_term; fpu_b <= at_rs; fpu_start <= '1';
+                at_st <= A_S_SC; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+              end if;
+            when A_S_SC =>
+              sw_we := true; sw_a := at_t(9 downto 0); sw_d := fpu_r;
+              at_sl <= fpu_r; at_slv <= true; at_s0 <= at_t = 0;
+              at_t <= at_t + 1;
+              at_st <= A_S_T;
+
+            -- e_t = EXP(s_t - m), by the softmax engine; z = seq_sum(e), here
+            when A_E_T =>
+              sx_on <= '1';
+              sx_nm <= (not at_m(31)) & at_m(30 downto 0);
+              ve_first <= '1';
+              at_st <= A_E_W;
+            when A_E_W =>
+              assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+              assert sx_hav = (sx_wcnt /= at_t) and sx_avn = resize(sx_wcnt - at_t, 5)
+                report "SSNAIL: stale sx_hav" severity failure;
+              if at_tend then                           -- at_t = at_pos + 1
+                fpu_op <= FOP_DIV; fpu_a <= x"3F800000"; fpu_b <= at_acc; fpu_start <= '1';
+                at_st <= A_E_R; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+              elsif sx_hav then                         -- sx_wcnt /= at_t
+                at_st <= A_E_P;
+              end if;
+            when A_E_P =>
+              at_t <= at_t + 1;
+              sx_take := true;
+              assert sx_fq = sx_fifo(to_integer(at_t(3 downto 0))) report "SSNAIL: stale sx_fq" severity failure;
+              if ve_first = '1' then
+                at_acc <= sx_fq; ve_first <= '0';
+                at_st <= A_E_W;
+              else
+                fpu_op <= FOP_ADD; fpu_a <= at_acc; fpu_b <= sx_fq;
+                fpu_start <= '1'; at_st <= A_E_3; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+              end if;
+            when A_E_3 =>
+              at_acc <= fpu_r;
+              at_st <= A_E_W;
+            when A_E_R =>                               -- r = 1 / z; then V
+              at_r <= fpu_r;
+              sx_on <= '0';
+              at_t <= (others => '0');
+              at_vp <= '1';
+              at_st <= A_STR0;
+
+            -- out = out + w_t * v_t, sequentially over t, in the lane: w_t =
+            -- e_t * r to it a row ahead (fl_wq while fl_wv)
+            when A_O_F =>
+              assert at_tend = (at_t = at_pos(15 downto 0) + 1) report "SSNAIL: stale at_tend" severity failure;
+              if at_tend then                           -- every w_t given
+                at_st <= A_SE;
+              elsif fl_wv = '0' then
+                at_st <= A_O_F0;
+              end if;
+            when A_O_F0 =>                              -- (at_sv: sarr(at_t) by now)
+              at_st <= A_O_F1;
+            when A_O_F1 =>
+              assert at_sv = sarr(to_integer(at_t(9 downto 0))) report "SSNAIL: stale at_sv" severity failure;
+              fpu_op <= FOP_MUL; fpu_a <= at_sv; fpu_b <= at_r;
+              fpu_start <= '1'; at_st <= A_O_F2; fpu_ret <= C_ATTN; go(C_FPU_WAIT);
+            when A_O_F2 =>
+              fl_wq <= fpu_r;
+              fl_wv <= '1';
+              at_t <= at_t + 1;
+              at_st <= A_O_F;
+            when A_O_W =>
+              assert pz_p4 = pz + 4 and pz_252 = (pz(7 downto 0) = 252)
+                report "SSNAIL: stale pz_p4 / pz_252" severity failure;
+              at_pz4 <= pz_p4; at_pz252 <= pz_252;
+              at_st <= A_WR;
+
+            -- write this head's output: through buf, flushed at 256-byte
+            -- boundaries and at the end of the head
+            when A_WR =>
+              assert at_iend = (at_i = at_hd(8 downto 0)) report "SSNAIL: stale at_iend" severity failure;
+              if at_iend then                           -- at_i = at_hd
+                at_st <= A_HNEXT;
+              else
+                assert at_pz4 = pz + 4 and at_pz252 = (pz(7 downto 0) = 252)
+                  report "SSNAIL: stale at_pz4 / at_pz252" severity failure;
+                a2 := at_pz4;
+                pz <= a2;
+                at_pz4 <= at_pz4 + 4;
+                at_pz252 <= at_pz4(7 downto 0) = 252;
+                at_i <= at_i + 1;
+                -- (a2 = pz + 4 ends a 256-byte block: tested on pz, without the carry)
+                assert at_inx = (at_i + 1 = at_hd(8 downto 0)) report "SSNAIL: stale at_inx" severity failure;
+                if at_pz252 or at_inx then
+                  a0 := ostart(27 downto 3) & "000";
+                  a1 := a2 + 7;
+                  a1(2 downto 0) := "000";
+                  wr_addr <= a0;
+                  wr_len <= resize(a1 - a0, 9);
+                  mw_lead <= resize(ostart - a0, 9);
+                  mw_vend <= resize(a2 - a0, 9);
+                  mw_idx <= a0(7 downto 1);
+                  dec_addr <= a0;
+                  ostart <= a2;
+                  at_st <= A_WR; wr_ret <= C_ATTN;
+                  go(C_WR_DEC);
+                end if;
+              end if;
+            when A_WR2 =>
+              at_st <= A_HNEXT;
+            when A_HNEXT =>
+              at_h <= at_h + 1;
+              at_hend <= at_h + 1 = at_nh(15 downto 0);
+              at_qhead_addr <= at_qhead_addr + (at_hd(25 downto 0) & "00");
+              assert at_glast = (at_gc + 1 = at_group) report "SSNAIL: stale at_glast" severity failure;
+              if at_glast then                          -- at_gc + 1 = at_group
+                at_gc <= (others => '0');
+                at_kvh <= at_kvh + 1;
+                at_kv_offset <= at_kv_offset + at_kv_stride;
+              else
+                at_gc <= at_gc + 1;
+              end if;
+              at_st <= A_HEAD;
+            end case;
+          end if;
 
         when C_NEXT =>
           if br_taken = '1' then
@@ -5235,7 +5393,7 @@ begin
       -- state that resets or advances the counter reloads them as if it
       -- had; when a branch does not, the counter's next writer reloads them
       -- before any use (asserted at each use).
-      if cstate = C_ATTN then
+      if cs_of(cstate) = C_ATTN then
         case at_st is
           when A_HEAD | A_S_T | A_O_W =>               -- at_i <= 0
             at_iend <= at_hd(8 downto 0) = 0;
@@ -5247,7 +5405,7 @@ begin
         end case;
       end if;
       -- (sarr's read: see sarr_q)
-      if cstate = C_ATTN then
+      if cs_of(cstate) = C_ATTN then
         case at_st is
           when A_Q | A_S_T | A_E_R =>                  -- at_t <= 0
             at_tend <= at_pos1 = 0;
