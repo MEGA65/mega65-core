@@ -792,9 +792,7 @@ op_readdir:
         ld r0, [x+F_FLAGS]
         andi r0, 2
         jz rd_notdir
-        lx l1                           ; L0 = the walk's cluster, R3/R4 position
-        xset FD                          ; (keep X of the descriptor in the stack: re-get)
-        call fdptr
+        call fdptr                      ; L0 = the walk's cluster, R3/R4 position
         lld l0, [x+F_CUR]
         ld r3, [x+F_CIDX]
         ld r4, [x+F_CIDX+1]
@@ -1238,9 +1236,8 @@ lc_past:
 cmd_read:
         arg l0
         ltob r0, l0, 3
-        lshl l0, 8                      ; n (16 bits)
-        lshr l0, 8
-        landi l0, $FFFF
+        lshl l0, 16                     ; n (16 bits)
+        lshr l0, 16
         lmov l3, l0
         xset G_PATHP                    ; (keep n)
         lst l3, [x+0]
@@ -1344,7 +1341,8 @@ rdc_bad2:
 cmd_readsector:
         arg l0
         ltob r0, l0, 3
-        landi l0, $FFFFFF
+        lshl l0, 8                      ; k (24 bits)
+        lshr l0, 8
         lmov l3, l0
         xset G_PATHP
         lst l3, [x+0]

@@ -35,6 +35,7 @@ INSTRUCTIONS (r = R register, l = L register, n = number, lbl = label)
                             chain (>= $0FFFFFF8), C = free or bad.  The FAT
                             sector is read into the engine slot ($800)
   fatset l,l                FAT entry = value, in R14 FATs of L5 sectors from L6
+                            (each FAT sector through the engine slot)
   ncmp n                    compare n bytes [x] and [y], ASCII case-blind: Z
   scmp                      compare the 0-terminated strings at x and y, ASCII
                             case-blind: Z
@@ -150,6 +151,33 @@ class Machine:
         self.cmdcode = 0
         self.steps = 0
         self.sector_ops = 0
+        self.trace = None                   # start_trace(): for the RTL testbench
+
+    # --- a transcript, replayed by tb_fat32_engine.vhdl ---
+    def start_trace(self):
+        self.trace = []
+        self.trace_sectors = {}
+        self._shadow = bytearray(4096)
+
+    @staticmethod
+    def _runs(old, new):
+        i = 0
+        while i < 4096:
+            if old[i] == new[i]:
+                i += 1
+                continue
+            j = i
+            while j < 4096 and j - i < 64 and old[j] != new[j]:
+                j += 1
+            yield i, bytes(new[i:j])
+            i = j
+
+    def write_trace(self, path):
+        with open(path, "w") as f:
+            for (slot, lba), data in sorted(self.trace_sectors.items()):
+                f.write("S %d %08X %s\n" % (slot, lba, data.hex().upper()))
+            for line in self.trace:
+                f.write(line + "\n")
 
     # --- the card ---
     def _sector(self, lba, data=None):
@@ -162,6 +190,8 @@ class Machine:
         if data is None:
             d = f.read(512)
             self.e = len(d) != 512
+            if self.trace is not None and not self.e:
+                self.trace_sectors[(self.slot, lba)] = d
             return d.ljust(512, b"\0")
         f.write(data)
         self.e = False
@@ -173,6 +203,11 @@ class Machine:
         if hypervisor is not None:
             self.hypervisor = hypervisor
         self.cmdcode, self.arg = code, arg
+        if self.trace is not None:
+            for a, d in self._runs(self._shadow, self.buf):
+                self.trace.append("W %03X %s" % (a, d.hex().upper()))
+            self.trace.append("C %02X %08X %d" % (code, arg, int(self.hypervisor)))
+            before = bytes(self.buf)
         self.pc = 0
         self.stack = []
         self.result = None
@@ -184,6 +219,11 @@ class Machine:
             n += 1
         self.steps += n
         self.last_steps = n
+        if self.trace is not None:
+            for a, d in self._runs(before, self.buf):
+                self.trace.append("E %03X %s" % (a, d.hex().upper()))
+            self.trace.append("R %02X %08X %X" % (self.result, self.arg, n))
+            self._shadow = bytearray(self.buf)
         return self.result, self.arg
 
     def b(self, a):
@@ -244,9 +284,9 @@ def _lflags(m, v): m.z = (v & M32) == 0
 def op_lldi(m, d, n): m.l[d[1]] = n[1] & M32; _lflags(m, m.l[d[1]])
 def op_lmov(m, d, s): m.l[d[1]] = m.l[s[1]]; _lflags(m, m.l[d[1]])
 def op_ladd(m, d, s): v = m.l[d[1]] + m.l[s[1]]; m.c = v > M32; m.l[d[1]] = v & M32; _lflags(m, v)
-def op_laddi(m, d, n): v = m.l[d[1]] + n[1]; m.c = v > M32; m.l[d[1]] = v & M32; _lflags(m, v)
+def op_laddi(m, d, n): v = m.l[d[1]] + (n[1] & M32); m.c = v > M32; m.l[d[1]] = v & M32; _lflags(m, v)
 def op_lsub(m, d, s): v = m.l[d[1]] - m.l[s[1]]; m.c = v < 0; m.l[d[1]] = v & M32; _lflags(m, v)
-def op_lsubi(m, d, n): v = m.l[d[1]] - n[1]; m.c = v < 0; m.l[d[1]] = v & M32; _lflags(m, v)
+def op_lsubi(m, d, n): v = m.l[d[1]] - (n[1] & M32); m.c = v < 0; m.l[d[1]] = v & M32; _lflags(m, v)
 def op_lcmp(m, d, s): a, b = m.l[d[1]], m.l[s[1]]; m.z, m.c = a == b, a < b
 def op_lcmpi(m, d, n): a, b = m.l[d[1]], n[1] & M32; m.z, m.c = a == b, a < b
 def op_lshl(m, d, n): m.l[d[1]] = (m.l[d[1]] << n[1]) & M32; _lflags(m, m.l[d[1]])
@@ -305,16 +345,19 @@ def op_ret(m):
     m.pc = m.stack.pop()
 
 def op_slot(m, s): m.slot = m.r[s[1]] & 1
-def op_sread(m, s): m.buf[0x800:0xA00] = m._sector(m.l[s[1]])
+def _read_into(m, lba, at):
+    d = m._sector(lba)
+    if not m.e:                             # (a failed read leaves the buffer)
+        m.buf[at:at + 512] = d
+def op_sread(m, s): _read_into(m, m.l[s[1]], 0x800)
 def op_swrite(m, s): m._sector(m.l[s[1]], bytes(m.buf[0x800:0xA00]))
-def op_dread(m, s): m.buf[0xE00:0x1000] = m._sector(m.l[s[1]])
+def op_dread(m, s): _read_into(m, m.l[s[1]], 0xE00)
 def op_dwrite(m, s): m._sector(m.l[s[1]], bytes(m.buf[0xE00:0x1000]))
 def op_fatnx(m, d):
     c = m.l[d[1]]
-    sec = m._sector(m.l[6] + (c >> 7))
-    m.buf[0x800:0xA00] = sec                # (it goes through the engine slot)
-    o = (c & 127) * 4
-    v = int.from_bytes(sec[o:o + 4], "little") & 0x0FFFFFFF
+    _read_into(m, m.l[6] + (c >> 7), 0x800)  # (it goes through the engine slot)
+    o = 0x800 + (c & 127) * 4
+    v = int.from_bytes(m.buf[o:o + 4], "little") & 0x0FFFFFFF
     m.l[d[1]] = v
     m.z = v >= 0x0FFFFFF8
     m.c = v == 0 or v == 0x0FFFFFF7 or (1 <= v < 2)
@@ -322,11 +365,13 @@ def op_fatset(m, a, v):
     c = m.l[a[1]]
     for k in range(max(1, m.r[14])):
         lba = m.l[6] + k * m.l[5] + (c >> 7)
-        sec = bytearray(m._sector(lba))
-        o = (c & 127) * 4
-        old = int.from_bytes(sec[o:o + 4], "little")
-        sec[o:o + 4] = ((old & 0xF0000000) | (m.l[v[1]] & 0x0FFFFFFF)).to_bytes(4, "little")
-        m._sector(lba, bytes(sec))
+        _read_into(m, lba, 0x800)               # (through the engine slot)
+        if m.e:
+            return
+        o = 0x800 + (c & 127) * 4
+        old = int.from_bytes(m.buf[o:o + 4], "little")
+        m.buf[o:o + 4] = ((old & 0xF0000000) | (m.l[v[1]] & 0x0FFFFFFF)).to_bytes(4, "little")
+        m._sector(lba, bytes(m.buf[0x800:0xA00]))
 def op_ncmp(m, n):
     up = lambda c: c - 32 if 97 <= c <= 122 else c
     m.z = all(up(m.b(m.x + i)) == up(m.b(m.y + i)) for i in range(n[1]))
@@ -373,3 +418,120 @@ def op_fail(m, n): m.result = n[1]
 def op_failr(m, s): m.result = m.r[s[1]] or 0xFF
 
 OPS = {name[3:]: fn for name, fn in globals().items() if name.startswith("op_")}
+
+
+# ---- the instruction word ------------------------------------------------------
+# 24 bits: [23:17] opcode, [16:13] register A, [12:9] register B (an L register
+# uses the low 3 bits of its field), immediates in the low bits:
+#   n8 [7:0]   s13/u13 [12:0] (L-register immediates: lldi/lcmpi/landi zero-
+#   extend, laddi/lsubi sign-extend)   n5 [4:0] (long shifts)   u12/s12 [11:0]
+#   (pointers)   k2 [1:0] (ltob)   a11 [10:0] (jumps)
+#   memory operands: [12] 0 = X, 1 = Y; offset n8 [7:0]
+# Operand kinds: r/l take the next register field; anything else is the
+# immediate.
+ENCODING = [
+    # (mnemonic, operand kinds, immediate format)
+    ("ldi", "rn", "n8"), ("addi", "rn", "n8"), ("subi", "rn", "n8"), ("andi", "rn", "n8"),
+    ("ori", "rn", "n8"), ("xori", "rn", "n8"), ("cmpi", "rn", "n8"),
+    ("mov", "rr", None), ("add", "rr", None), ("sub", "rr", None), ("and", "rr", None),
+    ("or", "rr", None), ("xor", "rr", None), ("cmp", "rr", None),
+    ("shl", "r", None), ("shr", "r", None), ("inc", "r", None), ("dec", "r", None),
+    ("ld", "rm", "m"), ("st", "rm", "m"), ("ldx", "r", None), ("sty", "r", None),
+    ("lldi", "ln", "u13"), ("lcmpi", "ln", "u13"), ("landi", "ln", "u13"),
+    ("laddi", "ln", "s13"), ("lsubi", "ln", "s13"),
+    ("lmov", "ll", None), ("ladd", "ll", None), ("lsub", "ll", None), ("lcmp", "ll", None),
+    ("land", "ll", None), ("lor", "ll", None),
+    ("lshl", "ln", "n5"), ("lshr", "ln", "n5"), ("lshlr", "lr", None), ("lshrr", "lr", None),
+    ("lz", "l", None),
+    ("lld", "lm", "m"), ("lst", "lm", "m"), ("lldw", "lm", "m"), ("lstw", "lm", "m"),
+    ("ltob", "rln", "k2"), ("btol", "lr", None),
+    ("xset", "n", "u12"), ("yset", "n", "u12"), ("xaddi", "n", "s12"), ("yaddi", "n", "s12"),
+    ("xadd", "r", None), ("yadd", "r", None), ("xl", "l", None), ("yl", "l", None),
+    ("lx", "l", None), ("ly", "l", None), ("xy", "", None),
+    ("jmp", "a", "a11"), ("jz", "a", "a11"), ("jnz", "a", "a11"), ("jc", "a", "a11"),
+    ("jnc", "a", "a11"), ("je", "a", "a11"), ("jne", "a", "a11"), ("call", "a", "a11"),
+    ("ret", "", None),
+    ("slot", "r", None), ("sread", "l", None), ("swrite", "l", None), ("dread", "l", None),
+    ("dwrite", "l", None), ("fatnx", "l", None), ("fatset", "ll", None),
+    ("ncmp", "n", "n8"), ("scmp", "", None), ("lfnput", "", None), ("lfnsum", "r", None),
+    ("copy", "r", None), ("fill", "r", None),
+    ("cmd", "r", None), ("arg", "l", None), ("setarg", "l", None), ("hyp", "", None),
+    ("done", "", None), ("fail", "n", "n8"), ("failr", "r", None),
+]
+OPCODE = {name: i for i, (name, _, _) in enumerate(ENCODING)}
+assert len(OPCODE) <= 128 and set(OPCODE) == set(OPS), set(OPS) ^ set(OPCODE)
+
+
+def encode(prog):
+    """-> list of 24-bit instruction words"""
+    out = []
+    for op, args, lineno in prog:
+        name, kinds, imm = ENCODING[OPCODE[op]]
+        if len(args) != len(kinds):
+            raise AsmError("line %d: %s takes %d operands" % (lineno, op, len(kinds)))
+        w = OPCODE[op] << 17
+        regs = 0
+        for kind, a in zip(kinds, args):
+            if kind in "rl":
+                if a[0] != kind:
+                    raise AsmError("line %d: %s: operand should be %s register" % (lineno, op, kind.upper()))
+                w |= a[1] << (13 - 4 * regs)
+                regs += 1
+                continue
+            if kind == "m":
+                if a[0] != "m" or not 0 <= a[2] <= 255:
+                    raise AsmError("line %d: %s: needs [x+0..255] / [y+0..255]" % (lineno, op))
+                w |= (a[1] == "y") << 12 | a[2]
+                continue
+            v = a[1]
+            bits, signed = {"n8": (8, False), "u13": (13, False), "s13": (13, True),
+                            "n5": (5, False), "u12": (12, False), "s12": (12, True),
+                            "k2": (2, False), "a11": (11, False)}[imm]
+            lo, hi = (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
+            if kind == "n" and imm == "n8" and -128 <= v < 0:
+                v &= 0xFF                       # (byte immediates: either sign)
+            if not lo <= v <= hi:
+                raise AsmError("line %d: %s: %d does not fit %s" % (lineno, op, v, imm))
+            w |= v & ((1 << bits) - 1)
+        out.append(w)
+    if len(out) > 2048:
+        raise AsmError("program too long: %d instructions" % len(out))
+    return out
+
+
+def decode_imm(op, w):
+    """the immediate of word w as the hardware sees it (for checking encode)"""
+    imm = ENCODING[OPCODE[op]][2]
+    if imm == "m":
+        return w & 0xFF
+    bits, signed = {"n8": (8, False), "u13": (13, False), "s13": (13, True), "n5": (5, False),
+                    "u12": (12, False), "s12": (12, True), "k2": (2, False), "a11": (11, False)}[imm]
+    v = w & ((1 << bits) - 1)
+    return v - (1 << bits) if signed and v >> (bits - 1) else v
+
+
+def vhdl_rom(prog, name="fat32_rom_pkg"):
+    words = encode(prog)
+    lines = ["-- Generated by src/tools/fat32sim.py from the FAT32 engine firmware",
+             "-- (MEGA65/mega65-core#766).  Do not edit.",
+             "library ieee;", "use ieee.std_logic_1164.all;", "",
+             "package %s is" % name,
+             "  constant FAT32_ROM_SIZE : natural := %d;" % len(words),
+             "  type t_fat32_rom is array(0 to 2047) of std_logic_vector(23 downto 0);",
+             "  constant FAT32_ROM : t_fat32_rom := ("]
+    for i, (w, (op, args, lineno)) in enumerate(zip(words, prog)):
+        lines.append('    %4d => x"%06X",  -- %s (line %d)' % (i, w, op, lineno))
+    lines.append('    others => x"%06X");' % (OPCODE["fail"] << 17 | 0xFF))
+    for i, (n, _, _) in enumerate(ENCODING):
+        lines.append("  constant OP_%s : natural := %d;" % (n.upper(), i))
+    lines.append("end package;")
+    return "\n".join(lines) + "\n"
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 3:
+        sys.exit("usage: fat32sim.py firmware.fs rom_package.vhdl")
+    prog = assemble(open(sys.argv[1]).read())
+    open(sys.argv[2], "w").write(vhdl_rom(prog))
+    print("%d instructions" % len(prog))

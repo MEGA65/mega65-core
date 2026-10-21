@@ -27,8 +27,9 @@ E_ACCESS, E_BADREQ, E_LONG, E_ROFS = 9, 10, 11, 15
 
 class Engine:
     def __init__(self, image, hypervisor=False):
-        self.m = fat32sim.Machine(fat32sim.assemble(open(FIRMWARE).read()),
-                                  cards={1: image}, hypervisor=hypervisor)
+        prog = fat32sim.assemble(open(FIRMWARE).read())
+        fat32sim.encode(prog)               # (it must fit the instruction word)
+        self.m = fat32sim.Machine(prog, cards={1: image}, hypervisor=hypervisor)
 
     def req(self, op, fd=0, flags=0, arg0=0, arg1=0, path=b""):
         """a $70 request -> (status, the response block)"""
@@ -75,10 +76,12 @@ def u32(r, o):
     return struct.unpack("<I", r[o:o + 4])[0]
 
 
-def tests(image, verbose):
+def tests(image, verbose, trace=None, short=False):
     img = fat32img.Image(image)
     vol = img.volume(0)
     e = Engine(image)
+    if trace:
+        e.m.start_trace()
     passed = []
 
     def check(name, cond, detail=""):
@@ -203,10 +206,11 @@ def tests(image, verbose):
     check("sector past the end", e.readsector(fd, 1600)[0] == E_END)
     e.m.sector_ops = 0
     e.ok(0x23, fd=fd, arg0=0)
-    for k in range(1600):
+    n = 64 if short else 1600
+    for k in range(n):
         e.read(fd, 512)
     check("a whole file reads one sector per sector, plus FAT steps",
-          e.m.sector_ops <= 1600 + 200, e.m.sector_ops)
+          e.m.sector_ops <= n + n // 8, e.m.sector_ops)
     e.ok(0x22, fd=fd)
 
     # descriptors
@@ -231,6 +235,8 @@ def tests(image, verbose):
     e.ok(0x22, fd=0)
     e.m.hypervisor = False
 
+    if trace:
+        e.m.write_trace(trace)
     print("%d checks passed, %d engine steps, %d instructions of firmware"
           % (len(passed), e.m.steps, len(e.m.prog)))
 
@@ -239,13 +245,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--trace", help="write a transcript for tb_fat32_engine.vhdl")
+    ap.add_argument("--short", action="store_true", help="read 64 sectors, not the whole file")
     a = ap.parse_args()
     if a.image and os.path.exists(a.image):
         image = a.image
     else:
         image = a.image or os.path.join(tempfile.mkdtemp(prefix="fat32eng"), "test.img")
         fat32img.standard_image(image).close()
-    tests(image, a.verbose)
+    tests(image, a.verbose, a.trace, a.short)
 
 
 if __name__ == "__main__":
