@@ -588,6 +588,10 @@ architecture behavioural of sdcardio_native is
   signal diskimage2_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage1_enable : std_logic := '0';
   signal diskimage2_enable : std_logic := '0';
+  signal diskimage1_slot : std_logic := '0';
+  signal diskimage2_slot : std_logic := '0';
+  signal f011_image_slot : std_logic;
+  signal fs_programs_ro : std_logic := '0';   -- (the engine's G_RO, $2E3)
   signal diskimage1_offset : unsigned(16 downto 0);
   signal diskimage2_offset : unsigned(16 downto 0);
   signal f011_track : unsigned(7 downto 0) := x"01";
@@ -1238,6 +1242,7 @@ begin  -- behavioural
   nat_limited <= card_limits(card_index(nat_slot));
   nat_capacity <= ds_capacity(card_index(nat_slot));
   ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';
+  f011_image_slot <= diskimage2_slot when f011_ds(0) = '1' else diskimage1_slot;
   ui_pending_init <= nat_init_req or (nat_init_wait and (not nat_cmd_ready or not nat_quiet))
     when nat_init_both = '1' or sd_interface_select_internal = nat_init_slot else '0';
   ui_error_flag <= '0' when ui_pending_init = '1' else
@@ -1478,7 +1483,7 @@ begin  -- behavioural
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
            f011_track0,f011_rsector_found,f011_over_index,
            sdhc_mode,sd_datatoken, sd_rdata,
-           diskimage1_enable,f011_disk1_present,
+           diskimage1_enable,f011_disk1_present,diskimage1_slot,diskimage2_slot,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
            f011_disk2_write_protected,diskimage_sector,diskimage2_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
@@ -1768,6 +1773,10 @@ begin  -- behavioural
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
             fastio_rdata(3) <= virtualise_f011_drive1;
+            -- @IO:GS $D68A.4 SD:D0SLOT (read only) The card drive 0's image is on (1 = external): the card selected when its start sector was set
+            -- @IO:GS $D68A.5 SD:D1SLOT (read only) The card drive 1's image is on
+            fastio_rdata(4) <= diskimage1_slot;
+            fastio_rdata(5) <= diskimage2_slot;
 
             fastio_rdata(6) <= f011_d64_disk;
             fastio_rdata(7) <= f011_d64_disk2;
@@ -2214,6 +2223,9 @@ begin  -- behavioural
       nat_cmd_valid <= '0';
       cd_clear <= '0';
       fe_start <= '0';
+      if sd_fat32 and f011_buffer_write = '1' and f011_buffer_write_address = x"2E3" then
+        fs_programs_ro <= f011_buffer_wdata(0);
+      end if;
       ui_error(card_index(nat_slot)) <= sdio_error;
       ui_saved_code(card_index(nat_slot)) <= nat_err_code;
       ui_fsm_error(card_index(nat_slot)) <= sdio_fsm_error;
@@ -3113,7 +3125,7 @@ begin  -- behavioural
                       sd_sector(31 downto 17) <= (others => '0');
                     else
                       -- SD card
-                      nat_slot <= sd_interface_select_internal;
+                      nat_slot <= f011_image_slot;
                       sd_state <= ReadSector;
                     end if;
                     sdio_error <= '0';
@@ -3199,7 +3211,7 @@ begin  -- behavioural
                       f011_busy <= '1';
                       f011_crc <= '0';
                       f011_rnf <= '0';
-                      nat_slot <= sd_interface_select_internal;
+                      nat_slot <= f011_image_slot;
                       sd_state <= F011WriteSector;
                     elsif (use_real_floppy0='0' or f011_ds/="000") and (use_real_floppy2='0' or f011_ds/="001") then
                       sd_state <= HyperTrapWrite;
@@ -3547,7 +3559,16 @@ begin  -- behavioural
 
                 when x"03" | x"04" | x"05" | x"06" =>
                   -- Write sector ($03), multi-sector write first / next / last
-                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                  if fs_programs_ro = '1' and hypervisor_mode = '0' then
+                    -- refused by the read-only policy: $D687 = $0F (E_ROFS)
+                    report "SDWRITE: refused, read-only policy for programs";
+                    fe_status_r <= x"0F";
+                    fe_last <= '1';
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_error <= '1';
+                    end if;
+                  elsif (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
                     or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
                   then
                     if fastio_wdata = x"03" then
@@ -3834,18 +3855,22 @@ begin  -- behavioural
             when x"8c" =>
               if hypervisor_mode='1' then
                 diskimage_sector(7 downto 0) <= fastio_wdata;
+                diskimage1_slot <= sd_interface_select_internal;
               end if;
             when x"8d" =>
               if hypervisor_mode='1' then
                 diskimage_sector(15 downto 8) <= fastio_wdata;
+                diskimage1_slot <= sd_interface_select_internal;
               end if;
             when x"8e" =>
               if hypervisor_mode='1' then
                 diskimage_sector(23 downto 16) <= fastio_wdata;
+                diskimage1_slot <= sd_interface_select_internal;
               end if;
             when x"8f" =>
               if hypervisor_mode='1' then
                 diskimage_sector(31 downto 24) <= fastio_wdata;
+                diskimage1_slot <= sd_interface_select_internal;
               end if;
 
             -- @IO:GS $D690-$D693 - F011 drive 1 disk image address on SD card
@@ -3856,18 +3881,22 @@ begin  -- behavioural
             when x"90" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(7 downto 0) <= fastio_wdata;
+                diskimage2_slot <= sd_interface_select_internal;
               end if;
             when x"91" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(15 downto 8) <= fastio_wdata;
+                diskimage2_slot <= sd_interface_select_internal;
               end if;
             when x"92" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(23 downto 16) <= fastio_wdata;
+                diskimage2_slot <= sd_interface_select_internal;
               end if;
             when x"93" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(31 downto 24) <= fastio_wdata;
+                diskimage2_slot <= sd_interface_select_internal;
               end if;
             when x"96" =>
               autotune_enable <= fastio_wdata(7);

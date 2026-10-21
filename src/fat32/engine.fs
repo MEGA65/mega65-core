@@ -108,6 +108,7 @@
 .equ E_ROFS,   15
 .equ E_STALE,  16
 .equ E_BUSY,   17
+.equ E_FRAG,   18
 
 ; ==============================================================================
 start:
@@ -155,6 +156,14 @@ warm:
         jz cmd_readsector
         cmpi r0, $75
         jz cmd_writesector
+        cmpi r0, $76
+        jz cmd_qread
+        cmpi r0, $77
+        jz cmd_qread
+        cmpi r0, $78
+        jz cmd_qwrite
+        cmpi r0, $79
+        jz cmd_qwrite
         fail E_BADREQ
 
 ; ---- $70: a request block ----------------------------------------------------
@@ -182,6 +191,10 @@ request:
         jz op_sysaccess
         cmpi r0, 6
         jz op_settime
+        cmpi r0, 7
+        jz op_thaw
+        cmpi r0, 8
+        jz op_mount
         cmpi r0, $14
         jz op_mkdir
         cmpi r0, $15
@@ -253,6 +266,15 @@ error2:
 ; rescan: the MBRs of the external card (slot 1), then the internal (slot 0);
 ; up to 4 FAT32 partitions each become drives 1.. (8 at most)
 op_rescan:
+        call rescan
+        xset REQ
+        btol l0, r5
+        lst l0, [x+R_ARG0]
+        jmp ok
+
+; rescan: the drive table built again (current directories: the roots) -> R5
+; the drives found
+rescan:
         ldi r0, 0
         yset DRV
         ldi r1, 0
@@ -430,10 +452,7 @@ rs_done:
         ldi r0, 1
 rs_nodrive:
         st r0, [x+0]                    ; G_DRIVE
-        xset REQ
-        btol l0, r5
-        lst l0, [x+R_ARG0]
-        jmp ok
+        ret
 
 ; partitions: R_ARG0 = count; 16 bytes each at R_DATA: drive, slot, type,
 ; log2 sectors per cluster, partition LBA, size, clusters
@@ -1376,6 +1395,8 @@ op_open_r:
         mov r0, r10
         andi r0, $01
         jnz op_access
+        ldi r6, $0C                     ; one writer at a time (else one could
+        call busy_mask                  ;   free clusters the other still uses)
 op_open_ok:
         call fdalloc
         ldi r0, 1                       ; open; bit 0 write -> 2, bit 1 append -> 3
@@ -1404,8 +1425,8 @@ op_close:
         call fdmap
         call fdptr
         ld r0, [x+F_FLAGS]
-        andi r0, $11                    ; open and dirty: the entry first
-        cmpi r0, $11
+        andi r0, $91                    ; open and dirty: the entry first
+        cmpi r0, $11                    ;   (not when stale: it may be another's)
         jnz cl_clean
         ld r5, [x+F_DRIVE]
         call usedrive
@@ -1498,6 +1519,7 @@ lc_past:
 ; in $D681-$D682 (0 at the end of the file)
 cmd_read:
         arg l0
+cmd_read_l0:
         ltob r0, l0, 3
         lshl l0, 16                     ; n (16 bits)
         lshr l0, 16
@@ -2396,11 +2418,15 @@ ent_new:
 
 ; busy: E_BUSY if a descriptor is open on the entry at G_DLBA/G_DOFF
 busy:
+        ldi r6, 1
+; busy_mask: as busy, counting only descriptors with a flag of R6 (open for
+; writing: $0C)
+busy_mask:
         ldi r2, 0
 bz_loop:
         call fdptr
         ld r0, [x+F_FLAGS]
-        andi r0, 1
+        and r0, r6
         jz bz_next
         lld l1, [x+F_DLBA]
         lldw l2, [x+F_DOFF]
@@ -2959,6 +2985,7 @@ cmd_write:
         ldi r8, 0
 cw_go:
         arg l0
+cw_l0:
         ltob r0, l0, 3
         lshl l0, 16
         lshr l0, 16
@@ -3100,3 +3127,415 @@ cmd_writesector:
         ori r0, $10
         st r0, [x+F_FLAGS]
         done
+
+; ==============================================================================
+; $76/$77 read the next 512 bytes of fd 0/1, $78/$79 write them: the caller's
+; 0/1 (H0/H1 in hypervisor mode, a program's own otherwise).  The count comes
+; back as for $71/$72.  A whole sector inside the file at an aligned position
+; goes straight between the card and $E00 (writes: the entry is updated at
+; flush or close, as for $75); anything else is $71/$72 with n = 512.
+cmd_qread:
+        call quick_fast
+        jc qr_slow
+        dread l2
+        je io_error
+        jmp quick_done
+qr_slow:
+        call quick_arg
+        jmp cmd_read_l0
+
+cmd_qwrite:
+        call quick_fd
+        call fd_writable
+        ld r0, [x+F_FLAGS]              ; (append: always at the end)
+        andi r0, $08
+        jnz qw_slow
+        call quick_fast
+        jc qw_slow
+        dwrite l2
+        je io_error
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        ori r0, $10
+        st r0, [x+F_FLAGS]
+        jmp quick_done
+qw_slow:
+        call quick_arg
+        ldi r8, 0
+        jmp cw_l0
+
+; quick_fd: the command's descriptor (bit 0) -> R2, X, its drive loaded
+quick_fd:
+        cmd r0
+        andi r0, 1
+        call fdget
+        ret
+
+; quick_fast: a file open, its position aligned and a whole sector inside it
+; -> L2 the sector; else C set
+quick_fast:
+        call quick_fd
+        ld r0, [x+F_FLAGS]
+        andi r0, 2
+        jnz rdc_bad
+        lld l1, [x+F_POS]
+        ltob r0, l1, 0
+        cmpi r0, 0
+        jnz qf_no
+        ltob r0, l1, 1
+        andi r0, 1
+        jnz qf_no
+        lmov l3, l1
+        laddi l3, 512
+        lld l2, [x+F_SIZE]
+        lcmp l2, l3
+        jc qf_no
+        call locate
+        ret
+qf_no:
+        ldi r0, 0
+        cmpi r0, 1                      ; C = 1
+        ret
+
+; quick_done: the position advanced by a sector, the count 512
+quick_done:
+        call fdptr
+        lld l1, [x+F_POS]
+        laddi l1, 512
+        lst l1, [x+F_POS]
+        lldi l0, 512
+        setarg l0
+        done
+
+; quick_arg: L0 = the $71/$72 argument: the descriptor, n = 512
+quick_arg:
+        cmd r0
+        andi r0, 1
+        btol l0, r0
+        lshl l0, 24
+        lldi l1, 512
+        lor l0, l1
+        ret
+
+; ==============================================================================
+; $07 thaw (hypervisor), after the freezer has put $000-$7FF back: the cards
+; are scanned again, each drive is found again by its volume (serial number,
+; partition start and size: the card may have been changed, or its partitions
+; found in another order), then every open descriptor is checked against the
+; card.  A file's entry must still be in use at the same place with the same
+; first cluster (its size is taken from it, its place in the chain restarts);
+; a directory's first sector must still be its own "." entry.  One that fails
+; becomes stale.  Current directories that fail fall back to the root.
+; -> R_ARG0: the descriptors made stale (bits 0-1 H0/H1, 2-9 the programs'
+; 0-7), R_ARG1: drives found
+.equ T_DRV,    NAME      ; (384) the frozen drive table
+.equ T_CWD,    $500      ; (32) the frozen current directories
+.equ T_DRIVE,  $520      ;   and current drive
+.equ T_STALE,  $522      ; (2) the mask being built
+op_thaw:
+        hyp
+        jnc op_access
+        xset DRV
+        yset T_DRV
+        ldi r1, 0
+        copy r1
+        ldi r1, 128
+        copy r1
+        xset CWD
+        yset T_CWD
+        ldi r1, 33
+        copy r1
+        xset T_STALE
+        ldi r0, 0
+        st r0, [x+0]
+        st r0, [x+1]
+        call rescan
+        ; the current directories
+        ldi r6, 1
+th_cwd:
+        btol l0, r6
+        laddi l0, -1
+        lshl l0, 2
+        laddi l0, T_CWD
+        xl l0
+        lld l0, [x+0]
+        lz l0
+        jz th_cwd_next
+        xset G_PREV                     ; (keep it)
+        lst l0, [x+0]
+        call th_find
+        cmpi r5, 0
+        jz th_cwd_next
+        call usedrive
+        xset G_PREV
+        lld l0, [x+0]
+        call dir_ok
+        jnz th_cwd_next
+        btol l2, r5
+        laddi l2, -1
+        lshl l2, 2
+        laddi l2, CWD
+        xl l2
+        xset G_PREV
+        lld l0, [x+0]
+        xl l2
+        lst l0, [x+0]
+th_cwd_next:
+        inc r6
+        cmpi r6, 9
+        jnz th_cwd
+        xset T_DRIVE                    ; the current drive
+        ld r6, [x+0]
+        call th_find
+        cmpi r5, 0
+        jz th_fds
+        xset G_DRIVE
+        st r5, [x+0]
+th_fds:
+        ldi r2, 0
+th_fd:
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, 1
+        jz th_next
+        ld r0, [x+F_FLAGS]
+        andi r0, $80
+        jnz th_next
+        ld r6, [x+F_DRIVE]
+        call th_find
+        cmpi r5, 0
+        jz th_stale
+        call fdptr
+        st r5, [x+F_DRIVE]
+        call usedrive
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, 2
+        jnz th_dir
+        lld l0, [x+F_DLBA]              ; a file: its entry
+        sread l0
+        je th_stale
+        lldw l1, [x+F_DOFF]
+        laddi l1, SEC
+        lld l2, [x+F_FIRST]
+        xl l1
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz th_stale
+        cmpi r0, $E5
+        jz th_stale
+        ld r0, [x+11]
+        andi r0, $18
+        jnz th_stale
+        lldw l0, [x+20]
+        lshl l0, 16
+        lldw l3, [x+26]
+        lor l0, l3
+        lcmp l0, l2
+        jnz th_stale
+        lld l3, [x+28]
+        call fdptr
+        lst l3, [x+F_SIZE]
+        lst l2, [x+F_CUR]
+        lldi l0, 0
+        lst l0, [x+F_CIDX]
+        jmp th_next
+th_dir:
+        lld l0, [x+F_FIRST]
+        call dir_ok
+        jz th_next
+th_stale:
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        ori r0, $80
+        st r0, [x+F_FLAGS]
+        xset T_STALE                    ; bit R2 of the mask
+        mov r1, r2
+        cmpi r1, 8
+        jc th_bit
+        xaddi 1
+        subi r1, 8
+th_bit:
+        ldi r0, 1
+th_shift:
+        cmpi r1, 0
+        jz th_set
+        shl r0
+        dec r1
+        jmp th_shift
+th_set:
+        ld r1, [x+0]
+        or r1, r0
+        st r1, [x+0]
+th_next:
+        inc r2
+        cmpi r2, 10
+        jnz th_fd
+        xset T_STALE
+        lldw l0, [x+0]
+        xset REQ
+        lst l0, [x+R_ARG0]
+        xset G_NDRV
+        ld r0, [x+0]
+        btol l0, r0
+        xset REQ
+        lst l0, [x+R_ARG1]
+        jmp ok
+
+; th_find: frozen drive R6 (1..8) -> R5 the drive its volume is now (0: gone).
+; The same number first, then any.
+th_find:
+        cmpi r6, 0
+        jz tf_none
+        cmpi r6, 9
+        jnc tf_none
+        mov r0, r6
+        dec r0
+        call drvaddr
+        laddi l2, T_DRV-DRV
+        xl l2
+        ld r0, [x+D_FLAGS]
+        andi r0, 1
+        jz tf_none
+        mov r5, r6
+        call tf_same
+        jz tf_ret
+        ldi r5, 1
+tf_loop:
+        call tf_same
+        jz tf_ret
+        inc r5
+        cmpi r5, 9
+        jnz tf_loop
+tf_none:
+        ldi r5, 0
+tf_ret:
+        ret
+; tf_same: drive R5 holds the volume of frozen record X? (Z set if so)
+tf_same:
+        mov r0, r5
+        dec r0
+        call drvaddr
+        yl l2
+        ld r0, [y+D_FLAGS]
+        andi r0, 1
+        jz tf_no
+        lld l0, [x+D_SERIAL]
+        lld l1, [y+D_SERIAL]
+        lcmp l0, l1
+        jnz tf_ret2
+        lld l0, [x+D_PART]
+        lld l1, [y+D_PART]
+        lcmp l0, l1
+        jnz tf_ret2
+        lld l0, [x+D_SIZE]
+        lld l1, [y+D_SIZE]
+        lcmp l0, l1
+tf_ret2:
+        ret
+tf_no:
+        ldi r0, 1                       ; (Z = 0)
+        ret
+
+; dir_ok: is cluster L0 (0 = the root) a directory of the drive in use?  Its
+; first entry must be "." naming it.  -> Z set if so
+dir_ok:
+        lz l0
+        jz do_ret
+        ldi r3, 0
+        call clus2lba
+        lmov l3, l0
+        sread l2
+        je do_no
+        xset SEC
+        ld r0, [x+0]
+        cmpi r0, '.'
+        jnz do_ret
+        ld r0, [x+1]
+        cmpi r0, ' '
+        jnz do_ret
+        ld r0, [x+11]
+        andi r0, $10
+        jz do_no
+        lldw l0, [x+20]
+        lshl l0, 16
+        lldw l1, [x+26]
+        lor l0, l1
+        lcmp l0, l3
+do_ret:
+        ret
+do_no:
+        ldi r0, 1                       ; (Z = 0)
+        ret
+
+; ==============================================================================
+; $08 mountimage (hypervisor): descriptor R_FD (open; bit 7 a program's) as an
+; F011 disk image.  The F011 reads and writes the card itself, at the image's
+; start + the track/sector offset, so the file must be one run of clusters
+; (else E_FRAG).  Open for writing, its entry gets the archive bit and the
+; time now (the F011's writes go around the engine).
+; -> R_ARG0 the start sector (for $D68C), R_ARG1 the size in sectors,
+; R_FLAGS the card (1 external: select it before writing $D68C)
+op_mount:
+        hyp
+        jnc op_access
+        xset REQ
+        ld r0, [x+R_FD]
+        call fdget
+        ld r0, [x+F_FLAGS]
+        andi r0, 2
+        jnz op_isdir
+        lld l0, [x+F_FIRST]
+        lz l0
+        jz mt_frag
+        xset G_PREV
+        lst l0, [x+0]
+mt_walk:
+        lmov l3, l0
+        laddi l3, 1
+        fatnx l0
+        jz mt_end
+        jc io_error
+        lcmp l0, l3
+        jnz mt_frag
+        jmp mt_walk
+mt_end:
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, $0C
+        jz mt_out
+        call dirent_update
+mt_out:
+        xset G_PREV
+        lld l0, [x+0]
+        ldi r3, 0
+        call clus2lba
+        xset REQ
+        lst l2, [x+R_ARG0]
+        call fdptr
+        lld l1, [x+F_SIZE]
+        lshr l1, 9
+        lld l3, [x+F_SIZE]              ; (rounded up)
+        ltob r1, l3, 0
+        ltob r6, l3, 1
+        andi r6, 1
+        or r1, r6
+        cmpi r1, 0
+        jz mt_size
+        laddi l1, 1
+mt_size:
+        xset REQ
+        lst l1, [x+R_ARG1]
+        mov r0, r5
+        dec r0
+        call drvaddr
+        xl l2
+        ld r0, [x+D_FLAGS]
+        shr r0
+        andi r0, 1
+        xset REQ
+        st r0, [x+R_FLAGS]
+        jmp ok
+mt_frag:
+        ldi r12, E_FRAG
+        jmp error

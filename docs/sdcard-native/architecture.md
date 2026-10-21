@@ -113,6 +113,12 @@ The fork keeps the existing `$D680` interface and adds:
 - Commands may borrow the sector-number registers `$D681-$D684` as
   parameters.  This is the agreed convention for every new command below.
 
+With the engine (`sd_fat32`), its read-only policy for programs also
+refuses their raw writes `$03-$06`: an error, with `$D687` = `$0F`.  Each
+F011 disk image is bound to the card selected when the hypervisor wrote its
+start sector (`$D68C-$D68F`, `$D690-$D693`); `$D68A` bits 4 and 5 show
+which (1 = external).
+
 **Legacy ready semantics (hardware finding, 2026-10-18).** Hyppo probes slot
 1 first and treats `$D680 & $03 == 0` as a usable card.  It does not inspect
 the native ready/error flags.  The initial fork exposed the SD engine's idle

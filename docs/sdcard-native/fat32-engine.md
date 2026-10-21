@@ -140,12 +140,16 @@ hypervisor must not write there while descriptors are open.
 | `$73` | `append(fd, n)` | as `$71` | bytes in from the SD half |
 | `$74` | Read exactly 512 bytes at file sector k | `$D681-$D683` = k, `$D684` = fd | out to the SD half |
 | `$75` | Write exactly 512 bytes at file sector k | as `$74` | in from the SD half |
-| `$76-$7F` | Reserved | | |
+| `$76/$77` | Read the next 512 bytes of fd 0/1 | | as `$71` |
+| `$78/$79` | Write the next 512 bytes of fd 0/1 | | as `$72` |
+| `$7A-$7F` | Reserved | | |
 
-- **`$74/$75` are the disk-image path.** For FDs 0 and 1 they use the run
-  table: a lookup, not a walk along the cluster chain.  An exact read that
-  crosses the end of the file is rejected.  The file position is left
-  unchanged.
+- **`$74/$75` are a software path to disk images** (or any file): sector
+  k of the file, through its cluster chain from the cached position.  A
+  sector that crosses the end of the file is rejected, and the file
+  position is left unchanged.  The F011 does not use them: its emulation
+  reads and writes the card directly at `$D68C`/`$D690` + the track/sector
+  offset, so a mounted image must be contiguous (phase 4).
 - **The `$70` request block** is at the start of the SD half: magic `"F3"`,
   version, op, fd, flags, two 32-bit arguments, then a path or name (ASCII,
   0-terminated, at most 255 characters).  The response replaces it: magic,
@@ -166,6 +170,8 @@ the response, byte 3 is the status (0, or an error code below).
 | `$04` | `policy` (hypervisor) | arg0 bit 0: programs may not modify the file system | |
 | `$05` | `systemaccess` (hypervisor) | arg0 bit 0: programs see SYSTEM entries | |
 | `$06` | `settime` (hypervisor) | arg0 = FAT time \| date << 16 (0: 2026-01-01) | |
+| `$07` | `thaw` (hypervisor; below) | | arg0 = descriptors made stale (bits 0-1 H0/H1, 2-9 the programs' 0-7), arg1 = drives found |
+| `$08` | `mountimage` (hypervisor) | fd (open; one run of clusters, else error 18) | arg0 = start sector (for `$D68C`/`$D690`), arg1 = size in sectors, flags (+5) = the card (1 external) |
 | `$10` | `opendir` | path | fd |
 | `$11` | `readdir` | fd | entry (below), or error 8 at the end |
 | `$12` | `chdir` | path | |
@@ -192,6 +198,35 @@ hint) are written before the command completes.  If a write or truncate
 runs out of space part way, the entry still gets what was allocated, so no
 cluster leaks.
 
+**Quick commands `$76-$79`** take no parameters: the caller's fd 0 or 1
+(H0/H1 in hypervisor mode, the program's own otherwise), 512 bytes at its
+position, which advances; the count comes back in `$D681-$D682` as for
+`$71/$72`.  A whole sector inside the file at a 512-byte-aligned position
+goes straight between the card and `$E00` (a write then updates the entry
+at flush or close, as `$75` does); anything else is `$71/$72` with n = 512,
+so a write at the end extends the file.
+
+**One writer per file:** opening a file for writing (or appending) fails
+with 17 (busy) while another descriptor, in either name space, has it open
+for writing.  Otherwise one could truncate clusters the other still uses.
+Readers are not limited.
+
+**Thaw (`$07`):** the freezer saves `$000-$7FF` and puts it back, then
+the hypervisor issues `thaw`.  The cards are scanned again, and each frozen
+drive is found again by its volume (serial number, partition start and
+size), so a card that moved to the other slot, or partitions found in a
+different order, are followed.  Then every open descriptor is checked
+against the card.  A file's directory entry must still be in use, at the
+same place, with the same first cluster: its size is taken from the entry
+and its place in the chain restarts from the first cluster.  A directory's
+first sector must still hold its own `.` entry.  A descriptor that fails is
+marked stale (error 16 until closed; closing it writes nothing).  Current
+directories that fail fall back to the root.  This also works after a power
+cycle: nothing in a descriptor depends on the session.  The full names of
+open files are not stored, and none are needed.  The thaw returns which
+descriptors went stale.  A hypervisor that opened H0/H1 before the restore
+loses them: they come back as the frozen program's.
+
 An entry (from +16): attributes, 3 bytes 0, size (4), first cluster (4),
 time and date (4), the 8.3 name as text (13, 0-terminated), and from +48
 the long name (UTF-8; or the 8.3 name), 0-terminated.
@@ -205,7 +240,8 @@ space or `.`.
 Errors: 1 not found, 2 not a directory, 3 is a directory, 4 bad fd, 5 no
 free fd, 6 no such drive, 7 I/O, 8 end, 9 denied, 10 bad request, 11 name
 too long, 12 exists, 13 not empty, 14 no space, 15 read-only, 16 stale
-descriptor, 17 busy (open, or a current directory).
+descriptor, 17 busy (open, or a current directory), 18 fragmented (an
+image must be one run of clusters).
 
 **Descriptors:** two name spaces.  In hypervisor mode `fd` 0 and 1 are H0
 and H1 (disk images); programs have their own 0-7.  The hypervisor reaches
@@ -219,7 +255,7 @@ the entry copy, the name buffers (path component and long name, UTF-8),
 the UCS-2 buffer at `$580`, the write side's working state at `$788`, and
 "F3" at `$7FE`.  Without "F3" (power on) the engine clears the area first.
 
-**Firmware size:** about 2465 instructions, so the ROM is 4K x 24 (12-bit
+**Firmware size:** about 2810 instructions, so the ROM is 4K x 24 (12-bit
 jump addresses) in LUTs.
 
 `$70` operations:
@@ -229,7 +265,7 @@ jump addresses) in LUTs.
 | Drives | `rescan` (read both cards' MBRs: external first, up to 4 FAT32 partitions per card, as 1: to 8:), `getpartitionlist`, `setdrive`, `volinfo` (later) |
 | Directories | `opendir(path)`, `readdir(fd)` (one entry per call, long filename included), `chdir`, `getcwd`, `mkdir`, `rmdir`, `findfirst/findnext` (wildcards: later) |
 | Files | `open(path, flags, [fd])`, `openentry(dirfd, entry, flags, [fd])`, `close`, `create`, `delete`, `rename`, `stat`, `setattr`, `seek(fd, offset, whence)`, `truncate(fd, length)` (shorter or longer; longer allocates contiguously when it can), `flush` (placeholder: writes are synchronous) |
-| Hypervisor only | `mountimage(fd 0/1, path)`, `systemaccess(on/off)`, `policy(read-only/read-write)`, `settime`, `getfdstate/setfdstate` (freezer: later), `defrag/copycontig` (later) |
+| Hypervisor only | `mountimage(fd)`, `systemaccess(on/off)`, `policy(read-only/read-write)`, `settime`, `thaw`, `defrag/copycontig` (later) |
 
 ## 6. Rules
 
@@ -242,18 +278,24 @@ jump addresses) in LUTs.
 - **SYSTEM attribute:** files and directories with it are invisible and
   inaccessible from user mode until the hypervisor issues `systemaccess on`.
   This covers paths, directory listings and entry-based opens alike.
-- **Policy:** in read-only mode, every modifying operation fails, raw sector
-  writes (`$03-$06`) included.  That check goes in the write-gate logic of
-  `sdcardio_native`, so there is no way around it.
+- **Policy:** in read-only mode, every modifying operation fails for
+  programs, raw sector writes (`$03-$06`) included.  The raw-write check is
+  in `sdcardio_native`'s command decode: a refused write is an error with
+  `$D687` = `$0F` (15, read-only).  Its register follows every write of the
+  policy byte (`$2E3`) into the sector buffer, by the engine, a cold start or
+  the freezer's restore, so the firmware and the hardware cannot disagree.
+  The hypervisor is never refused.
 - **Archive bit:** set whenever a file is modified.
 - **Writes are synchronous:** the data, both FATs and the directory entry
   (size, time, archive) are written before the command completes.
-- **Card removal or a new partition scan** marks the affected descriptors
-  stale; they then fail until closed.  Drive numbers are not silently
-  re-pointed to another volume.
-- **Names:** ASCII only, compared case-insensitively.  A long filename with
-  characters outside ASCII is listed with `?` in their place and can be
-  opened by its 8.3 name.
+- **Stale descriptors:** a thaw marks a descriptor stale when its file or
+  directory is no longer where it was; it then fails until closed.  Drive
+  numbers follow the volume, never silently another one.  (Card removal
+  does not yet mark descriptors stale.)
+- **One writer per file** (busy otherwise); readers are not limited.
+- **Names:** UTF-8, at most 255 bytes per component (longer long names are
+  listed cut short with an ellipsis, and open by that form).  Matching
+  ignores case for ASCII letters only.
 - **Paths:** `/` separated, optional drive prefix `n:`, with `.` and `..`.
 - **Sectors:** 512 bytes per sector only; FAT32 only (no FAT12/16, no exFAT).
 
@@ -298,11 +340,39 @@ jump addresses) in LUTs.
    the image, `fsck.fat` and the FSInfo free count checked after each part
    (FSInfo is not fixed first), and the RTL matches the simulator on all
    480 commands and 3179 sector writes.  `tb_sdcardio_native` creates,
-   writes and reads back a file through the real controller.  The
-   read-only policy is enforced by the firmware; the hardware gate on raw
-   sector writes (`$03-$06`) for programs is still to do.
-4. **Disk images on FDs 0/1** (run tables), and HYPPO integration.
-5. **Later:** freezer state, `findfirst/findnext`, `volinfo`, `defrag`.
+   writes and reads back a file through the real controller.
+4. **Disk images and the freezer.**  Done so far:
+   - the quick commands `$76-$79`;
+   - `thaw`;
+   - one writer per file;
+   - the hardware read-only gate on programs' raw writes;
+   - each F011 image bound to its card: the card selected when the
+     hypervisor writes `$D68C-$D68F` (drive 0) or `$D690-$D693` (drive 1),
+     readable as `$D68A` bits 4 and 5.  Before, the F011 used whichever
+     card was selected when it asked, which breaks once the engine or Hyppo
+     moves between the cards.
+
+   `test_fat32_engine.py`: 93 write checks, among them the quick commands, mountimage,
+   thaw within a session (a file deleted meanwhile goes stale, the rest
+   carry on), and thaw with the card moved to the internal slot and another
+   card in the external one.  `tb_sdcardio_native`: a quick read, the
+   policy gate (refused for a program, `$D687` = `$0F`; the hypervisor's
+   write and, with the policy off, a program's go ahead) and the image
+   slots.
+
+   - `mountimage` (`$08`): checks that an open file is one run of
+     clusters and gives its start sector, size and card.  Open for writing,
+     its entry gets the archive bit and the time now, because the F011's
+     writes go around the engine.  To mount, the hypervisor opens the image
+     on H0/H1 and issues `mountimage`.  It then selects that card (`$C0`/`$C1`),
+     writes the start to `$D68C` (or `$D690`), and sets `$D68B` as today.
+     The size check (819200 bytes for a D81, and so on) is left to the
+     hypervisor, which knows the image types.  Keeping the descriptor open
+     while mounted makes delete, rename and a second writer fail with busy.
+
+   To do: HYPPO integration (the hypervisor's own FAT32 code replaced by
+   the engine), then hardware tests.
+5. **Later:** `findfirst/findnext`, `volinfo`, `defrag`, `copy`.
 
 ## 9. Questions
 

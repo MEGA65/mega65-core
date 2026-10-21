@@ -100,6 +100,7 @@ architecture tb of tb_sdcardio_native is
   signal first_clock : t_times := (others => 0 ns);
 
   signal fails : natural := 0;
+  signal hyp : std_logic := '1';             -- the CPU in hypervisor mode
 
 begin
 
@@ -117,7 +118,7 @@ begin
       sdcardio_cs => sdcardio_cs, f011_cs => f011_cs,
       hw_errata_level => hw_errata,
       hw_errata_disable_toggle => '0', hw_errata_enable_toggle => '0',
-      hypervisor_mode => '1',
+      hypervisor_mode => hyp,
       fpga_temperature => (others => '0'), pwm_knob => (others => '0'),
       fastio_addr => fastio_addr, fastio_addr_fast => fastio_addr,
       fastio_write => fastio_write, fastio_read => fastio_read,
@@ -1010,6 +1011,92 @@ begin
     wait_ready(5 ms);
     peek(16#FFE0F#, v);
     check(v = 16#0F#, "FAT32 engine: cluster 3 ends its chain, in the second FAT too");
+
+    -- $76/$77: the next 512 bytes of descriptor 0/1 (here the hypervisor's)
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 16#23#);                     -- seek to 0
+    poke(16#FFE04#, h1);
+    poke(16#FFE05#, 0);
+    for i in 6 to 9 loop
+      poke(16#FFE00# + i, 0);
+    end loop;
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    for i in 0 to 9 loop
+      poke(16#FFE00# + i, 0);
+    end loop;
+    poke(16#D3680#, 16#76# + h1);
+    wait_ready(20 ms);
+    peek(16#D3681#, v);
+    check(v = 10, "FAT32 engine: quick read: 10 bytes (" & integer'image(to_integer(v)) & ")");
+    h0 := 0;
+    for i in 0 to 9 loop
+      peek(16#FFE00# + i, v);
+      if v /= 48 + i then h0 := h0 + 1; end if;
+    end loop;
+    check(h0 = 0, "FAT32 engine: quick read: the bytes");
+
+    -- the read-only policy for programs gates their raw sector writes too
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 4);                          -- policy: read-only
+    poke(16#FFE06#, 1);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    set_sector(40);
+    hyp <= '0';
+    poke(16#D3680#, 16#57#);
+    poke(16#D3680#, 16#03#);
+    t0 := now;
+    loop
+      peek(16#D3680#, v);
+      exit when v(0) = '0';
+      assert now - t0 < 5 ms report "read-only policy: no end" severity failure;
+      wait for 1 us;
+    end loop;
+    check(v(6) = '1', "read-only policy: a program's sector write is refused");
+    peek(16#D3687#, v);
+    check(v = 16#0F#, "read-only policy: $D687 = $0F");
+    hyp <= '1';
+    fill_buffer(40);
+    poke(16#D3680#, 16#57#);
+    poke(16#D3680#, 16#03#);
+    wait_ready(5 ms);
+    peek(16#D3680#, v);
+    check(v(6) = '0', "read-only policy: the hypervisor's write goes ahead");
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 4);                          -- policy: read-write
+    poke(16#FFE06#, 0);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    set_sector(41);
+    hyp <= '0';
+    poke(16#D3680#, 16#57#);
+    poke(16#D3680#, 16#03#);
+    wait_ready(5 ms);
+    peek(16#D3680#, v);
+    check(v(6) = '0', "read-only policy off: a program's write goes ahead");
+    hyp <= '1';
+    set_sector(40);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    check_buffer(40, true, "read-only policy: the hypervisor's sector written");
+
+    -- each disk image is on the card selected when its start was set
+    poke(16#D3680#, 16#C1#);
+    poke(16#D368C#, 0);
+    poke(16#D3680#, 16#C0#);
+    poke(16#D3690#, 0);
+    peek(16#D368A#, v);
+    check(v(5 downto 4) = "01", "disk images: drive 0 on the external card, drive 1 internal");
+    poke(16#D368F#, 0);
+    peek(16#D368A#, v);
+    check(v(5 downto 4) = "00", "disk images: drive 0 moved to the internal card");
 
     if fails = 0 then
       report "ALL TESTS PASSED";

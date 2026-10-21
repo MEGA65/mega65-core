@@ -279,7 +279,7 @@ def tests(image, verbose, trace=None, short=False):
           % (len(passed), e.m.steps, len(e.m.prog)))
 
 
-E_EXIST, E_NOTEMPTY, E_NOSPC, E_STALE, E_BUSY = 12, 13, 14, 16, 17
+E_EXIST, E_NOTEMPTY, E_NOSPC, E_STALE, E_BUSY, E_FRAG = 12, 13, 14, 16, 17, 18
 
 
 def write_tests(image, verbose, trace=None):
@@ -417,6 +417,68 @@ def write_tests(image, verbose, trace=None):
     e.ok(0x22, fd=fd)
     fsck("truncate")
 
+    # $76-$79: the next 512 bytes of fd 0/1 (the caller's name space)
+    img = "/GAMES/A Long File Name.data"
+
+    def quick(cmd, data=None):
+        if data is not None:
+            e.m.buf[0xE00:0x1000] = data
+        st, n = e.m.command(cmd)
+        return st, n, bytes(e.m.buf[0xE00:0xE00 + n])
+
+    other = e.ok(0x20, path="/NEW.TXT")[4]              # the program's 0
+    fd = e.ok(0x20, flags=1, path=img)[4]               # and 1
+    check("quick: descriptors 0 and 1", (other, fd) == (0, 1))
+    pats = [bytes(((i * 7 + k) & 255) for i in range(512)) for k in range(4)]
+    check("$79 writes fd 1", all(quick(0x79, p)[:2] == (0, 512) for p in pats))
+    check("$79 advanced the position", u32(e.ok(0x23, fd=fd, flags=1, arg0=0), 6) == 2048)
+    e.ok(0x23, fd=fd, arg0=0)
+    check("$77 reads them back", [quick(0x77)[2] for _ in range(4)] == pats)
+    check("$76 reads fd 0", quick(0x76)[2] == b"hello, WORLD\n" + b"hello, world\n" * 9 + b"appended")
+    e.ok(0x23, fd=fd, arg0=100)
+    check("$77 unaligned", quick(0x77)[2] == (pats[0] + pats[1])[100:612])
+    e.ok(0x23, fd=fd, arg0=819200 - 100)
+    check("$77 at the end: the rest", quick(0x77)[1:] == (100, bytes(100)))
+    check("$77 past the end: 0", quick(0x77)[:2] == (0, 0))
+    check("$78 on a read-only descriptor", quick(0x78, pats[0])[0] == E_ACCESS)
+    st, n, _ = quick(0x79, pats[3])
+    check("$79 at the end extends", (st, n) == (0, 512))
+    e.m.hypervisor = True
+    check("$76 in hypervisor mode: H0", quick(0x76)[0] == E_BADFD)
+    check("one writer at a time", e.req(0x20, fd=0, flags=0x81, path=img)[0] == E_BUSY
+          and e.req(0x20, fd=0, flags=0x80, path=img)[0] == 0)
+    e.ok(0x22, fd=0)
+    e.ok(0x22, fd=0x80 | fd)
+    h = e.ok(0x20, fd=0, flags=0x81, path=img)[4]
+    check("$78 writes H0", h == 0 and quick(0x78, pats[2])[:2] == (0, 512))
+    e.ok(0x22, fd=0)
+    e.m.hypervisor = False
+    e.ok(0x22, fd=other)
+    got = vol().read_file(img)
+    check("quick writes on the card", got[:2048] == pats[2] + b"".join(pats[1:])
+          and got[819200:] == pats[3] and len(got) == 819712, len(got))
+    fsck("quick commands")
+
+    # mountimage: one run of clusters, its start sector and card
+    check("mountimage is the hypervisor's", e.req(8, fd=0)[0] == E_ACCESS)
+    e.m.hypervisor = True
+    e.ok(0x27, arg0=0, path=img)                         # (the archive bit off)
+    e.ok(0x20, fd=1, flags=0x81, path=img)
+    r = e.ok(8, fd=1)
+    lba, n = u32(r, 6), u32(r, 10)
+    e.m.flush()
+    with open(copy, "rb") as f:
+        f.seek(lba * 512)
+        raw = f.read(1024)
+    check("mountimage: start, size, card", raw == pats[2] + pats[1] and n == 1601 and r[5] == 1,
+          (lba, n, r[5]))
+    check("mountimage for writing sets the archive bit", entry(e.ok(0x24, path=img))[2] & 0x20)
+    e.ok(0x22, fd=1)
+    e.ok(0x20, fd=1, flags=0x80, path="/GAMES/Arcade Classics/Space Invaders Deluxe.d81")
+    check("mountimage: a fragmented file", e.req(8, fd=1)[0] == E_FRAG)
+    e.ok(0x22, fd=1)
+    e.m.hypervisor = False
+
     # directories
     e.ok(0x14, path="/NEWDIR")
     check("mkdir again", e.req(0x14, path="/NEWDIR")[0] == E_EXIST)
@@ -487,9 +549,86 @@ def write_tests(image, verbose, trace=None):
     check("the time stamp", struct.unpack_from("<HH", raw, 22) == (0x6000, 0x5C55), raw[22:26].hex())
     fsck("attributes")
 
+    # thaw: the freezer saves $000-$7FF, something else runs, it is put back
+    short_prg = vol().read_file("/GAMES/SHORT.PRG")
+    lots = []
+    fd = e.ok(0x10, path="/LOTS")[4]
+    while True:
+        st, r = e.req(0x11, fd=fd)
+        if st:
+            break
+        lots.append(entry(r))
+    e.ok(0x22, fd=fd)
+    e.ok(0x12, path="/GAMES")
+    fa = e.ok(0x20, path="SHORT.PRG")[4]
+    e.read(fa, 100)
+    fb = e.ok(0x20, flags=1, path="/STAMPED.TXT")[4]
+    fc = e.ok(0x10, path="/LOTS")[4]
+    got = [entry(e.ok(0x11, fd=fc)) for _ in range(5)]
+    e.m.hypervisor = True
+    e.ok(0x20, fd=0, flags=0x80, path="/README.TXT")
+    frozen = bytes(e.m.buf[0:0x800])
+    for f in (0x80 | fa, 0x80 | fb, 0x80 | fc, 0):     # meanwhile
+        e.ok(0x22, fd=f)
+    e.ok(0x25, path="/STAMPED.TXT")
+    e.ok(0x12, path="/")
+    e.ok(1)
+    e.m.hypervisor = False
+    check("thaw is the hypervisor's", e.req(7)[0] == E_ACCESS)
+    e.m.buf[0:0x800] = frozen
+    e.m.hypervisor = True
+    r = e.ok(7)
+    check("thaw: the deleted file alone is stale", (u32(r, 6), u32(r, 10)) == (1 << (2 + fb), 2),
+          (u32(r, 6), u32(r, 10)))
+    check("thaw: H0 reads on", e.read(0, 5) == b"Hello")
+    e.ok(0x22, fd=0)
+    e.m.hypervisor = False
+    check("thaw: a file reads on", e.read(fa, 100) == short_prg[100:200])
+    check("thaw: the deleted file", e.m.command(0x71, arg=(fb << 24) | 1)[0] == E_STALE)
+    check("thaw: readdir goes on", [entry(e.ok(0x11, fd=fc)) for _ in range(5)] == lots[5:10]
+          and got == lots[:5])
+    r = e.ok(0x13)
+    check("thaw: the current directory", r[16:].split(b"\0")[0] == b"/GAMES", r[16:40])
+    for f in (fa, fb, fc):
+        e.ok(0x22, fd=f)
+    e.ok(0x12, path="/")
+    fsck("thaw")
+
     if trace:
         e.m.write_trace(trace)
         e.m.trace = None
+
+    # thaw after the card moved to the internal slot, with another card (a copy,
+    # its volumes' serial numbers changed) in the external one: drives 3 and 4
+    other = os.path.join(work, "other.img")
+    subprocess.run(["cp", "--sparse=always", image, other], check=True)
+    with open(other, "r+b") as f:
+        for _, start, _ in fatimg().partitions:
+            f.seek(start * 512 + 67)
+            f.write(b"\x12\x34\x56\x78")
+    e.ok(0x12, path="/GAMES")
+    fa = e.ok(0x20, path="SHORT.PRG")[4]
+    e.read(fa, 10)
+    fb = e.ok(0x20, path="2:/SECOND.TXT")[4]
+    frozen = bytes(e.m.buf[0:0x800])
+    e.m.flush()
+    e.m.files = {0: open(copy, "r+b"), 1: open(other, "r+b")}
+    e.m.buf[0:0x800] = frozen
+    e.m.hypervisor = True
+    r = e.ok(7)
+    e.m.hypervisor = False
+    check("thaw, card moved: nothing stale, 4 drives", (u32(r, 6), u32(r, 10)) == (0, 4),
+          (u32(r, 6), u32(r, 10)))
+    check("thaw, card moved: reads on", e.read(fa, 20) == short_prg[10:30]
+          and e.read(fb, 100) == b"second partition\n")
+    check("thaw, card moved: the current drive and directory follow",
+          e.req(0x24, path="/D1")[0] == 0 and e.ok(0x13)[16:23] == b"/GAMES\0"
+          and e.ok(0x13, arg0=3)[16:23] == b"/GAMES\0")
+    e.ok(0x22, fd=fa)
+    e.ok(0x22, fd=fb)
+    e.m.flush()
+    e.m.files = {1: open(copy, "r+b")}
+    e.ok(1)
 
     # fill the second partition, then free it (not in the transcript: 80k sectors)
     e.ok(3, arg0=2)

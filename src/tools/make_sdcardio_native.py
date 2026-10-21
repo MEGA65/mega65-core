@@ -1087,12 +1087,30 @@ capture = '''              if sdio_busy = '0' and fastio_wdata /= x"C0" and fast
 '''
 s = s[:a] + capture + block + s[b:]
 # Bind image requests only in the SD-backed branches, not real-drive commands.
+# Each image is on the card that was selected when the hypervisor set its
+# start sector ($D68C-$D68F / $D690-$D693; readable as $D68A bits 4/5), not
+# whichever card is selected when the F011 asks (the FAT32 engine and Hyppo
+# move between the cards).
 rep('''                      -- SD card
                       sd_state <= ReadSector;''', '''                      -- SD card
-                      nat_slot <= sd_interface_select_internal;
+                      nat_slot <= f011_image_slot;
                       sd_state <= ReadSector;''')
-rep('''                      sd_state <= F011WriteSector;''', '''                      nat_slot <= sd_interface_select_internal;
+rep('''                      sd_state <= F011WriteSector;''', '''                      nat_slot <= f011_image_slot;
                       sd_state <= F011WriteSector;''')
+rep('''  signal diskimage2_enable : std_logic := '0';''', '''  signal diskimage2_enable : std_logic := '0';
+  signal diskimage1_slot : std_logic := '0';
+  signal diskimage2_slot : std_logic := '0';
+  signal f011_image_slot : std_logic;''')
+rep('''            fastio_rdata(3) <= virtualise_f011_drive1;''', '''            fastio_rdata(3) <= virtualise_f011_drive1;
+            -- @IO:GS $D68A.4 SD:D0SLOT (read only) The card drive 0's image is on (1 = external): the card selected when its start sector was set
+            -- @IO:GS $D68A.5 SD:D1SLOT (read only) The card drive 1's image is on
+            fastio_rdata(4) <= diskimage1_slot;
+            fastio_rdata(5) <= diskimage2_slot;''')
+rep('''           diskimage1_enable,f011_disk1_present,''', '''           diskimage1_enable,f011_disk1_present,diskimage1_slot,diskimage2_slot,''')
+for reg, slot in (("diskimage_sector", "diskimage1_slot"), ("diskimage2_sector", "diskimage2_slot")):
+    for hi, lo in ((7, 0), (15, 8), (23, 16), (31, 24)):
+        line = "                %s(%d downto %d) <= fastio_wdata;" % (reg, hi, lo)
+        rep(line, line + "\n                %s <= sd_interface_select_internal;" % slot)
 rep('''            nat_kind <= K_SINGLE;
             sd_state <= ReadSector;''', '''            nat_kind <= K_SINGLE;
             nat_slot <= sd_interface_select_internal;
@@ -1409,6 +1427,37 @@ rep("""--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,"
 --     docs/sdcard-native/fat32-engine.md).  $D687 is its status after one of
 --     its commands.
 --   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""")
+
+rep("""  ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';""",
+    """  ui_owner <= '1' when sd_interface_select_internal = nat_slot else '0';
+  f011_image_slot <= diskimage2_slot when f011_ds(0) = '1' else diskimage1_slot;""")
+
+# The FAT32 engine's read-only policy for programs (op $04) is also a hardware
+# gate on raw sector writes: the register follows every write of the policy
+# byte (G_RO, $2E3) into the sector buffer, whether by the engine, a cold start
+# or the freezer putting the engine's area back, so the two cannot disagree.
+rep("""  signal f011_image_slot : std_logic;""", """  signal f011_image_slot : std_logic;
+  signal fs_programs_ro : std_logic := '0';   -- (the engine's G_RO, $2E3)""")
+rep("""      fe_start <= '0';
+      ui_error(card_index(nat_slot)) <= sdio_error;""", """      fe_start <= '0';
+      if sd_fat32 and f011_buffer_write = '1' and f011_buffer_write_address = x"2E3" then
+        fs_programs_ro <= f011_buffer_wdata(0);
+      end if;
+      ui_error(card_index(nat_slot)) <= sdio_error;""")
+rep("""                when x"03" | x"04" | x"05" | x"06" =>
+                  -- Write sector ($03), multi-sector write first / next / last
+                  if (write_sector_gate_open='1'""", """                when x"03" | x"04" | x"05" | x"06" =>
+                  -- Write sector ($03), multi-sector write first / next / last
+                  if fs_programs_ro = '1' and hypervisor_mode = '0' then
+                    -- refused by the read-only policy: $D687 = $0F (E_ROFS)
+                    report "SDWRITE: refused, read-only policy for programs";
+                    fe_status_r <= x"0F";
+                    fe_last <= '1';
+                    ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_error <= '1';
+                    end if;
+                  elsif (write_sector_gate_open='1'""")
 
 
 open(dst, 'w').write(s)
