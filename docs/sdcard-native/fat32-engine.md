@@ -14,11 +14,10 @@ implemented yet.
   instructions for the work FAT32 does all the time: reading a sector
   through the cache, following a FAT chain, comparing names, assembling long
   filenames.  Its program is in **LUT ROM**.
-- **Memory: no new BRAM if it fits, otherwise the one RAMB36 allowed.**  The
-  existing sector buffer is two 4 KB BRAMs, of which only `$A00-$FFF` is
-  used: `$000-$9FF` (2.5 KB) is free in both copies.  The engine's working
-  sector (512 bytes) goes there in any case.  Whether its tables fit in the
-  remaining 2 KB or need the extra RAMB36 is decided in §4.
+- **Memory: no new BRAM** (decided).  The existing sector buffer is two
+  4 KB BRAMs, of which only `$A00-$FFF` is used: `$000-$9FF` (2.5 KB) is
+  free in both copies.  The engine's working sector (512 bytes) and all its
+  tables (about 1.7 KB, §4) go there.
 - **The CPU interface** uses `$D680` command codes `$70-$7F` (free), with
   parameters in `$D681-$D684` and the sector buffer.  The data operations
   keep the whole sector buffer for data.
@@ -60,12 +59,11 @@ implemented yet.
 
 | Resource | Use |
 |---|---|
-| `A` (8 bits) | Accumulator |
 | `R0-R15` (8 bits) | Byte registers (counters, characters, flags) |
 | `L0-L7` (32 bits) | Clusters, LBAs, file positions and sizes |
 | `X`, `Y` (12 bits) | Byte pointers into the sector buffer address space (`$000-$FFF`) |
 | `S` (8-deep) | Return stack (in registers, not memory) |
-| Flags | `Z`, `C`, `N`, plus `E` (an error from the last sector operation) |
+| Flags | `Z`, `C`, plus `E` (an error from the last sector operation) |
 
 The state tables (§4) are in the same 12-bit address space, so one pair of
 pointers reaches everything.
@@ -99,6 +97,13 @@ add (`LSHL` by log2 of the sectors per cluster, which is stored at mount).
   firmware development and testing happens here.
 - `src/fat32/*.fs`: the firmware sources.
 
+**As built (phase 1):** the assembler is part of `fat32sim.py` for now (the
+VHDL ROM output comes with the engine RTL), and its docstring is the
+instruction reference.  `src/tools/test_fat32_engine.py` runs
+`src/fat32/engine.fs` against the `fat32img.py` fixture and checks every
+result against `fat32img`'s own reading of the image (49 checks).  The
+phase 1 firmware is about 1070 instructions, under half the 2K budget.
+
 ## 4. Memory layout
 
 Each address below is in the 12-bit sector buffer space; the engine's tables
@@ -115,9 +120,8 @@ take whatever area is decided on.
 | Scratch | 128 | Path parsing, allocation |
 | **Total** | **~1.7 KB + 512** | |
 
-That leaves about 300 bytes spare in `$000-$9FF`.  If it fits, **the
-engine needs no new BRAM.**  If later features crowd it out, the one RAMB36
-allowed is still available.
+That leaves about 300 bytes spare in `$000-$9FF`, and **the engine needs no
+new BRAM**.  Any later features have to fit in that, or make room.
 
 The CPU can address `$000-$9FF` in hypervisor mode (direct 12-bit
 addresses), but not in user mode.  The engine's state is therefore visible
@@ -147,6 +151,32 @@ hypervisor must not write there while descriptors are open.
   partition list, ...).
 - **Completion:** busy (`$D680.0`) as for any command.  The status and
   error code are in the response block, and in `$D687` for `$71-$75`.
+
+**As built (phase 1 firmware):** the request block is `"F3"`, version 1,
+op (+3), fd (+4), flags (+5), arg0 (+6), arg1 (+10), path or data (+16).  In
+the response, byte 3 is the status (0, or an error code below).
+
+| Op | Operation | In | Out |
+|---|---|---|---|
+| `$01` | `rescan` | | arg0 = drives found |
+| `$02` | `getpartitionlist` | | arg0 = n; 16 bytes each from +16: drive, slot, type, log2 sectors per cluster, partition LBA, size, clusters |
+| `$03` | `setdrive` | arg0 = drive | |
+| `$10` | `opendir` | path | fd |
+| `$11` | `readdir` | fd | entry (below), or error 8 at the end |
+| `$12` | `chdir` | path | |
+| `$13` | `getcwd` | arg0 = drive (0 the current) | the path from +16 (found by walking up `..`) |
+| `$20` | `open` | path; flags bit 0 write, bit 1 append, bit 7 use fd | fd |
+| `$22` | `close` | fd | |
+| `$23` | `seek` | fd, arg0 offset, flags 0 start / 1 position / 2 end | arg0 = new position |
+| `$24` | `stat` | path | entry |
+
+An entry (from +16): attributes, 3 bytes 0, size (4), first cluster (4),
+time and date (4), the 8.3 name as text (13, 0-terminated), and from +48
+the long name (or the 8.3 name), 0-terminated.
+
+Errors: 1 not found, 2 not a directory, 3 is a directory, 4 bad fd, 5 no
+free fd, 6 no such drive, 7 I/O, 8 end, 9 denied, 10 bad request, 11 name
+too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
 
 `$70` operations:
 
@@ -194,7 +224,7 @@ hypervisor must not write there while descriptors are open.
 
 ## 8. Phases
 
-1. **Toolchain:** assembler, simulator, image fixtures.  Firmware for
+1. **Toolchain:** assembler, simulator, image fixtures (done).  Firmware for
    `rescan`, `getpartitionlist`, `setdrive`, `opendir`, `readdir`, `open`,
    `read`, `seek`, `close`, `stat`, `chdir`, `getcwd`, `$74`.
 2. **Engine RTL** running phase 1's firmware.  The sector slot in the sector
@@ -206,9 +236,11 @@ hypervisor must not write there while descriptors are open.
 
 ## 9. Questions
 
-1. **No new BRAM** (tables in the spare `$000-$9FF` of the sector buffer,
-   visible to the hypervisor) or **the one RAMB36** (private, more room)?
-   The proposal is the former.
+1. ~~No new BRAM, or the one RAMB36?~~ **Decided (2026-10-21): no new
+   BRAM.**  The engine's sector slot and tables use the spare `$000-$9FF`
+   of the existing sector buffer.  (That space had been earmarked for
+   FD2000/FD4000 sectors from real floppy drives, a much less compelling
+   use than hardware FAT32.)
 2. **One `$70` with a request block** for everything but the data paths, as
    proposed?  Or a code per operation, with arguments in registers?
 3. **Long filenames with non-ASCII characters:** list them with `?` as
