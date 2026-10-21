@@ -288,6 +288,8 @@ entity machine is
          sd_dat_o : out std_logic_vector(7 downto 0) := (others => '1');
          sd_dat_oe : out std_logic_vector(7 downto 0) := (others => '0');
          sd_dat_i : in std_logic_vector(7 downto 0) := (others => '1');
+         sd_cd : in std_logic_vector(1 downto 0) := "11";   -- card detect (raw)
+         sd_wp : in std_logic_vector(1 downto 0) := "00";   -- write protect (raw)
 
          ----------------------------------------------------------------------
          -- Floppy drive interface
@@ -1941,6 +1943,8 @@ begin
       sd_dat_o => sd_dat_o,
       sd_dat_oe => sd_dat_oe,
       sd_dat_i => sd_dat_i,
+      sd_cd => sd_cd,
+      sd_wp => sd_wp,
 
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,

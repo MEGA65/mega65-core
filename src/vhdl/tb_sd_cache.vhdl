@@ -121,6 +121,7 @@ architecture tb of tb_sd_cache is
   signal wr_base : natural := 0;
   signal pipe1   : unsigned(7 downto 0) := (others => '0');
   signal fails   : natural := 0;
+  signal media   : std_logic_vector(1 downto 0) := "00";
 
 begin
 
@@ -128,7 +129,7 @@ begin
   cpuclock <= not cpuclock after TCPU / 2 when not done;
 
   cache : entity work.sd_cache
-    generic map (G_LINES => LINES)
+    generic map (G_LINES => LINES, G_META => 4)
     port map (
       clock => cpuclock,
       u_cmd_valid => u_cmd_valid, u_cmd_ready => u_cmd_ready, u_cmd_code => u_cmd_code,
@@ -153,6 +154,7 @@ begin
       d_rd_block => d_rd_block, d_rd_good => d_rd_good, d_rd_bad => d_rd_bad,
       d_wr_fetch => d_wr_fetch, d_wr_offset => d_wr_offset, d_wr_block => d_wr_block,
       d_wr_data => d_wr_data,
+      media_change => media,
       cache_on => cache_on, cache_hits => hits, cache_misses => misses);
 
   single : if not G_DUAL_TEST generate
@@ -328,6 +330,18 @@ begin
       check(u_error = '0' and n_good = 1 and same(n, written, 0, rx), msg);
     end procedure;
 
+    -- the same, with an arg (bit 15: metadata read)
+    procedure read1a(n : natural; written : boolean; arg : natural; msg : string; t : out time) is
+      variable t0 : time;
+    begin
+      clear_rx;
+      t0 := now;
+      command(2, n, 1, arg);
+      wait_idle(10 ms);
+      t := now - t0;
+      check(u_error = '0' and n_good = 1 and same(n, written, 0, rx), msg);
+    end procedure;
+
     procedure readslot(slot, n : natural; written_base : integer := -1) is
       variable want : unsigned(7 downto 0);
     begin
@@ -346,6 +360,7 @@ begin
 
     variable t, t_miss, t_hit : time;
     variable h0, m0 : natural;
+    variable t_ahead : time;
 
   begin
     wait for 100 ns;
@@ -502,6 +517,78 @@ begin
     for n in 0 to 11 loop
       read1(2000 + (n mod 6) * 8 + n mod 3, false, "random: sector " & integer'image(2000 + (n mod 6) * 8 + n mod 3), t);
     end loop;
+
+    ----------------------------------------------------------------------------
+    -- sequential read-ahead: five lines read in order come from one card
+    -- read (a stream that grows ahead of the reader)
+    command(8, 0, 0, 2);                 -- empty the cache
+    wait_idle(1 ms);
+    command(8, 0, 0, 3 + 16);            -- LRU
+    wait_idle(1 ms);
+    m0 := to_integer(misses);
+    h0 := to_integer(hits);
+    for n in 4000 to 4039 loop
+      read1(n, false, "stream: sector " & integer'image(n), t);
+    end loop;
+    check(to_integer(misses) = m0 + 1 and to_integer(hits) = h0 + 39,
+          "stream: 40 sectors over five lines from one card read");
+    -- after a pause the stream is ahead of the reader: the next sector is
+    -- already there
+    wait for 300 us;
+    read1(4040, false, "stream: sector 4040 after a pause", t_ahead);
+    report "  read-ahead hit " & time'image(t_ahead) & " (a miss took " & time'image(t_miss) & ")";
+    check(t_ahead < t_miss / 2 and to_integer(misses) = m0 + 1, "  ... it was read ahead");
+    -- something else ends the stream; the data stays right
+    read1(4100, false, "stream: a non-sequential read ends it", t);
+    read1(4041, false, "stream: sector 4041 afterwards", t);
+
+    ----------------------------------------------------------------------------
+    -- the meta cache (4 slots in this testbench)
+    m0 := to_integer(misses);
+    read1a(5000, false, 16#8000#, "meta: sector 5000 (miss)", t);
+    read1a(5000, false, 16#8000#, "meta: sector 5000 again", t);
+    check(to_integer(misses) = m0 + 1, "  ... a hit");
+    h0 := to_integer(hits);
+    read1(5000, false, "meta: a data read of 5000 finds it there", t);
+    check(to_integer(hits) = h0 + 1 and to_integer(misses) = m0 + 1, "  ... a hit, no line taken");
+    -- a metadata hit during a stream leaves the stream running
+    read1(6000, false, "meta: stream sector 6000", t);
+    read1(6001, false, "meta: stream sector 6001", t);
+    m0 := to_integer(misses);
+    read1a(5000, false, 16#8000#, "meta: sector 5000 during the stream", t);
+    for n in 6002 to 6012 loop
+      read1(n, false, "meta: stream sector " & integer'image(n), t);
+    end loop;
+    check(to_integer(misses) = m0, "  ... the stream went on (no misses)");
+    -- LRU in the meta cache: 5000 is used again, so 5100 is replaced
+    read1a(5100, false, 16#8000#, "meta LRU: 5100", t);
+    read1a(5200, false, 16#8000#, "meta LRU: 5200", t);
+    read1a(5300, false, 16#8000#, "meta LRU: 5300", t);
+    read1a(5000, false, 16#8000#, "meta LRU: 5000 again", t);
+    read1a(5400, false, 16#8000#, "meta LRU: 5400 replaces the oldest", t);
+    m0 := to_integer(misses);
+    read1a(5000, false, 16#8000#, "meta LRU: 5000 still there", t);
+    check(to_integer(misses) = m0, "  ... a hit");
+    read1a(5100, false, 16#8000#, "meta LRU: 5100 was replaced", t);
+    check(to_integer(misses) = m0 + 1, "  ... a miss");
+    -- a write updates the metadata copy
+    wr_base <= 5000;
+    command(3, 5000, 1, 0);
+    wait_idle(10 ms);
+    h0 := to_integer(hits);
+    read1a(5000, true, 16#8000#, "meta: sector 5000 after a write", t);
+    check(to_integer(hits) = h0 + 1, "  ... from the meta cache");
+
+    -- a card change empties that card's part of the cache
+    read1(7000, false, "card change: sector 7000", t);
+    read1(7000, false, "card change: sector 7000 again", t);
+    m0 := to_integer(misses);
+    wait until rising_edge(cpuclock);
+    media <= "01";
+    wait until rising_edge(cpuclock);
+    media <= "00";
+    read1(7000, false, "card change: sector 7000 after it", t);
+    check(to_integer(misses) = m0 + 1, "  ... a miss");
 
     -- init empties the cache
     read1(3000, false, "sector 3000", t);

@@ -86,6 +86,7 @@ architecture tb of tb_sdcardio_native is
   signal sd_dat_o  : std_logic_vector(7 downto 0);
   signal sd_dat_oe : std_logic_vector(7 downto 0);
   signal sd_dat_i  : std_logic_vector(7 downto 0) := (others => '1');
+  signal sd_cd_t   : std_logic_vector(1 downto 0) := "11";   -- card detect levels
 
   signal card_clk : std_logic := '1';
   signal card_cmd : std_logic;
@@ -131,6 +132,7 @@ begin
       sd_clk => sd_clk, sd_cmd_o => sd_cmd_o, sd_cmd_oe => sd_cmd_oe,
       sd_cmd_i => sd_cmd_i, sd_dat_o => sd_dat_o, sd_dat_oe => sd_dat_oe,
       sd_dat_i => sd_dat_i,
+      sd_cd => sd_cd_t,
       f_index => '1', f_track0 => '1', f_writeprotect => '1', f_rdata => '1',
       f_diskchanged => '1',
       sd1541_request_toggle => '0', sd1541_enable => '0', sd1541_track => (others => '0'),
@@ -782,7 +784,7 @@ begin
     peek(16#D3682#, v);
     h1 := h1 + 256 * to_integer(v);
     report "  cache hits " & integer'image(h0) & " -> " & integer'image(h1);
-    check(h1 = h0 + 1, "  ... it was a cache hit ($28)");
+    if G_CACHE_LINES /= 0 then check(h1 = h0 + 1, "  ... it was a cache hit ($28)"); end if;
     -- cache off: still right (from the card)
     poke(16#D3680#, 16#26#);
     wait_ready(1 ms);
@@ -792,6 +794,40 @@ begin
     check_buffer(51, false, "read with the cache off ($26)");
     poke(16#D3680#, 16#25#);
     wait_ready(1 ms);
+
+    -- card detect: diagnostic byte 16 shows the levels; a change of slot 0's
+    -- card detect is sticky and makes its cached sectors misses
+    poke(16#D36CE#, 16#10#);
+    peek(16#D36CF#, v);
+    report "  card detect byte: " & integer'image(to_integer(v));
+    check(v = x"05", "card detect: both cards present, no changes");
+    set_sector(60);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    set_sector(60);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    poke(16#D3680#, 16#28#);
+    peek(16#D3683#, v);
+    h0 := to_integer(v);                 -- misses (low byte)
+    sd_cd_t(0) <= '0';
+    wait for 2500 us;
+    poke(16#D36CE#, 16#10#);
+    peek(16#D36CF#, v);
+    check(v = x"14", "card detect: slot 0 changed (sticky)");
+    set_sector(60);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    check_buffer(60, false, "card detect: sector 60 read again");
+    poke(16#D3680#, 16#28#);
+    peek(16#D3683#, v);
+    if G_CACHE_LINES /= 0 then
+      check(to_integer(v) = h0 + 1, "  ... a miss: the card change emptied its cache");
+    end if;
+    poke(16#D36CE#, 16#50#);             -- clear the changes
+    peek(16#D36CF#, v);
+    check(v = x"04", "card detect: change cleared");
+    sd_cd_t(0) <= '1';
 
     if fails = 0 then
       report "ALL TESTS PASSED";

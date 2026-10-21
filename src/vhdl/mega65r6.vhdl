@@ -238,6 +238,10 @@ entity container is
          sd2MISO : inout std_logic;     -- DAT0
          sd2DAT1 : inout std_logic;
          sd2DAT2 : inout std_logic;
+         -- card detect / write protect switches (with board pull-ups)
+         sdCD : in std_logic;           -- full-size socket (slot 0)
+         sdWP : in std_logic;
+         sd2CD : in std_logic;          -- micro-SD socket (slot 1), no WP
 
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -1249,6 +1253,8 @@ begin
           sd_dat_o => sd_dat_o,
           sd_dat_oe => sd_dat_oe,
           sd_dat_i => sd_dat_i,
+          sd_cd => sd2CD & sdCD,
+          sd_wp => '0' & sdWP,
 
           slow_access_request_toggle => slow_access_request_toggle,
           slow_access_ready_toggle => slow_access_ready_toggle,

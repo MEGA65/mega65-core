@@ -5,8 +5,10 @@ Issues: SD controller MEGA65/mega65-core#890, cache #953, hardware FAT32 #766.
 Status: native 4-bit and SPI reads, the data cache/read-ahead and Hyppo boot
 work on hardware with `30f3f7e15`. The two persistent card sessions and
 parallel initialisation described below are tested in simulation; FPGA
-resource/timing results and hardware confirmation are pending. The separate
-metadata cache and hardware FAT32 engine remain plans.
+resource/timing results and hardware confirmation are pending. Sequential
+read-ahead across lines and the separate metadata cache (§2.3, §2.4) are
+built and simulated (2026-10-21), not yet tried on hardware. The hardware
+FAT32 engine is designed ([fat32-engine.md](fat32-engine.md)), not built.
 
 ## 1. Where things stand
 
@@ -487,6 +489,24 @@ Read-ahead into the next line (§2.3) is what removes that.
 Software doesn't need to know about the multi-sector commands; plain `$02`
 reads get the benefit.
 
+**As built (`sd_cache`, generic `G_AHEAD`, default 2):** a single-sector data
+read of the sector after the previous one makes the fill a *stream*: its
+open-ended read gets no "last" grant.  When the reader is within `G_AHEAD`
+lines of the stream's end, the next line is allocated (never one of the
+stream's own lines) and 8 more blocks are granted.  Up to `G_AHEAD + 2`
+lines form the stream's window; the oldest drops out as the reader passes
+it.  A reader that stops leaves the card paused with its clock stopped; any
+other command ends the stream with C_STOP.  The extension happens at the end
+of the read that asked for it, before the next command is taken.  Streams
+stop at the card's reported end and after 60000 blocks (the next read then
+starts a new one).  Lines filled by a stream are chosen for replacement
+first once the stream has passed them (random policy), unless they are read
+again.  `tb_sd_cache`: 40 sequential sectors over five lines come from one
+card read, and after a pause the next sector is already there (13 µs, against
+77 µs for a miss).
+
+The design notes from before it was built:
+
 - **Trigger:** a read of the last sector plus one, while the fill for that line
   is still running or has just finished.  Then keep the open-ended CMD18 going
   with C_MORE grants into the next line, and allocate that line.
@@ -501,6 +521,17 @@ reads get the benefit.
   for free.
 
 ### 2.4 Meta cache
+
+**As built (`sd_cache`, generic `G_META`, default 16 sectors = 2 RAMB36):**
+metadata reads (`$0B`, arg bit 15) are looked up in both caches; a miss reads
+just that sector into a meta slot (an empty one, else LRU by default, or
+random: `$32`).  A metadata hit during a stream leaves the stream running; a
+metadata miss ends it.  Data reads also find sectors in the meta cache.
+Writes update both caches; flushes, init and card selection behave as for
+the data cache.  With the default sizes the r6 build uses 18 RAMB36 for
+caching (16 data lines, 2 for metadata): the 72 KB agreed.
+
+The design notes from before it was built:
 
 - **New command byte `$0B`:** a metadata read, otherwise the same as `$02`.
   Hyppo's FAT and directory code, and the libc, use it; plain programs keep
@@ -540,7 +571,7 @@ Proposed codes, all taking parameters or returning values via `$D681-$D684`:
 | `$27` | Invalidate all |
 | `$28` | Latch hit/miss counters into `$D681-$D684` for reading |
 | `$29` | Data cache replacement: `$D681` bit 0 = 0 random, 1 LRU (built) |
-| `$2A` | Meta cache replacement: `$D681` bit 0 = 0 random, 1 LRU (planned) |
+| `$32` | Meta cache replacement: `$D681` bit 0 = 0 random, 1 LRU (built; `$2A` went to error recovery) |
 
 - **Verify mode, for testing on hardware:** re-read every hit from the card
   and compare, counting mismatches.

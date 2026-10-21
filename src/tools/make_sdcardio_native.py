@@ -63,7 +63,10 @@ rep("""-- The sector buffers are a bit of a pain,""",
 --       $D680 <- $0B  read a sector of file system metadata (otherwise as $02)
 --       $D680 <- $25 / $26 / $27  cache on / off / empty
 --       $D680 <- $28  hit and miss counts (16 bits each) into $D681-$D684
---       $D680 <- $29  replacement: $D681 bit 0 = 0 random, 1 LRU
+--       $D680 <- $29  data cache replacement: $D681 bit 0 = 0 random, 1 LRU
+--       $D680 <- $32  metadata cache replacement (as $29; LRU by default)
+--     (metadata cache: generic sd_meta_sectors, 16 by default, 0 = none;
+--     sequential reads are read ahead into the following lines)
 --       $D680 <- $2A  clear errors/recover the current card without reset;
 --                     native SD verifies CMD12/CMD13, and invalidates its cache
 --   * persistent slots ($D6CC=$53, $D6CD=1, $D6D7=$D2):
@@ -132,7 +135,7 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
 
   -- the native SD controller
   type nat_kind_t is (K_SINGLE, K_FIRST, K_NEXT, K_LAST, K_PROBE, K_ACCEPT, K_NORMAL, K_STOP,
-                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY, K_CLEAR, K_INFO);
+                      K_CACHE_ON, K_CACHE_OFF, K_CACHE_FLUSH, K_CACHE_POLICY, K_CACHE_MPOLICY, K_CLEAR, K_INFO);
   signal nat_kind        : nat_kind_t := K_SINGLE;
   signal nat_info_kind   : unsigned(1 downto 0) := (others => '0');
   signal nat_cmd_valid   : std_logic := '0';
@@ -250,6 +253,7 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
   cache0: entity work.sd_cache
     generic map (
       G_LINES  => sd_cache_lines,
+      G_META   => sd_meta_sectors,
       G_WR_LAT => 2
       )
     port map (
@@ -624,10 +628,11 @@ cut("""                when x"00" =>
                     sdio_fsm_error <= '1';
                   end if;
 
-                when x"25" | x"26" | x"27" | x"29" | x"2A" =>
+                when x"25" | x"26" | x"27" | x"29" | x"2A" | x"32" =>
                   -- Sector cache: on ($25), off ($26), empty ($27),
-                  -- replacement policy ($29: $D681 bit 0 = 0 random, 1 LRU)
-                  -- or clear errors/recover the card without reset ($2A).
+                  -- replacement policy ($29 data, $32 metadata: $D681 bit 0
+                  -- = 0 random, 1 LRU) or clear errors/recover the card
+                  -- without reset ($2A).
                   if sdio_busy='1' then
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -637,6 +642,7 @@ cut("""                when x"00" =>
                       when x"26" => nat_kind <= K_CACHE_OFF;
                       when x"27" => nat_kind <= K_CACHE_FLUSH;
                       when x"2A" => nat_kind <= K_CLEAR;
+                      when x"32" => nat_kind <= K_CACHE_MPOLICY;
                       when others => nat_kind <= K_CACHE_POLICY;
                     end case;
                     sd_state <= NativeCommand;
@@ -868,6 +874,13 @@ rep("""        when QspiBusyArm =>""", """        when NativeCommand =>
               -- ($0A: nothing (more) to end)
               sdio_busy <= '0';
               sd_state <= Idle;
+            elsif nat_busy='0' and sd_cache_lines = 0 and
+              (nat_kind = K_CACHE_ON or nat_kind = K_CACHE_OFF or nat_kind = K_CACHE_FLUSH
+               or nat_kind = K_CACHE_POLICY or nat_kind = K_CACHE_MPOLICY) then
+              -- (no cache built: nothing to do; the native controller does
+              -- not know the cache's command)
+              sdio_busy <= '0';
+              sd_state <= Idle;
             elsif nat_busy='0' then
               nat_cmd_addr  <= (others => '0');      -- probe sector 0
               nat_cmd_count <= to_unsigned(8, 16);
@@ -890,6 +903,9 @@ rep("""        when QspiBusyArm =>""", """        when NativeCommand =>
                 when K_CACHE_POLICY =>
                   nat_cmd_code <= x"8";
                   nat_cmd_arg  <= "00000000000" & sd_sector(0) & "0011";
+                when K_CACHE_MPOLICY =>
+                  nat_cmd_code <= x"8";
+                  nat_cmd_arg  <= "0000000000" & '1' & sd_sector(0) & "0011";
                 when others =>
                   nat_cmd_code <= x"7";
                   nat_cmd_arg  <= (others => '0');
@@ -929,6 +945,8 @@ rep("""    target : mega65_target_t;
     sd_xilinx_io : boolean := true;
     -- sector cache: 4 KB lines (one RAMB36 each), 0 = no cache
     sd_cache_lines : natural := 16;
+    -- metadata cache: sectors (8 per RAMB36), 0 = none
+    sd_meta_sectors : natural := 16;
     -- 0 derives the real timer from cpu_frequency; simulation may shorten it
     sd_ms_cycles : natural := 0;
     sd_auto_init : boolean := true
@@ -1079,6 +1097,96 @@ rep('''            nat_kind <= K_SINGLE;
             sd_state <= ReadSector;''', '''            nat_kind <= K_SINGLE;
             nat_slot <= sd_interface_select_internal;
             sd_state <= ReadSector;''')
+
+# --- card detect / write protect (#890): debounce, cache invalidation, status
+rep("""    sd_dat_i : in std_logic_vector(7 downto 0);
+""", """    sd_dat_i : in std_logic_vector(7 downto 0);
+    -- the slots' card-detect and write-protect switches, raw levels
+    -- (index = slot); a change of card detect invalidates that slot's
+    -- cached sectors
+    sd_cd : in std_logic_vector(1 downto 0) := "11";
+    sd_wp : in std_logic_vector(1 downto 0) := "00";
+""")
+rep("""  signal diag_index : unsigned(3 downto 0) := (others => '0');""",
+    """  signal diag_index : unsigned(4 downto 0) := (others => '0');
+  -- card detect: synchronised, debounced (stable for 2^16 cycles), sticky
+  -- changes; read in diagnostic byte 16
+  signal cd_s1, cd_s2, wp_s1, wp_s2 : std_logic_vector(1 downto 0) := "00";
+  signal cd_stable  : std_logic_vector(1 downto 0) := "00";
+  signal cd_seen    : std_logic := '0';    -- (the first stable level is no change)
+  signal cd_boot    : unsigned(17 downto 0) := (others => '0');
+  signal cd_changed : std_logic_vector(1 downto 0) := "00";
+  signal cd_pulse   : std_logic_vector(1 downto 0) := "00";
+  signal cd_clear   : std_logic := '0';
+  type t_cd_cnt is array (0 to 1) of unsigned(15 downto 0);
+  signal cd_cnt     : t_cd_cnt := (others => (others => '0'));""")
+rep("""          when x"CE" => fastio_rdata <= "0000" & diag_index;
+          when x"CF" =>
+            fastio_rdata <= diag_snapshot(to_integer(diag_index)*8+7 downto to_integer(diag_index)*8);""",
+    """          when x"CE" => fastio_rdata <= "000" & diag_index;
+          when x"CF" =>
+            if diag_index(4) = '0' then
+              fastio_rdata <= diag_snapshot(to_integer(diag_index(3 downto 0))*8+7
+                                            downto to_integer(diag_index(3 downto 0))*8);
+            elsif diag_index(3 downto 0) = 0 then
+              -- byte 16: card detect / write protect (live)
+              fastio_rdata <= "00" & unsigned(cd_changed) & '0' & cd_stable(1)
+                              & wp_s2(0) & cd_stable(0);
+            else
+              fastio_rdata <= x"00";
+            end if;""")
+rep("""              diag_index <= fastio_wdata(3 downto 0);""",
+    """              diag_index <= fastio_wdata(4 downto 0);
+              if fastio_wdata(6) = '1' then cd_clear <= '1'; end if;""")
+rep("""      nat_cmd_valid <= '0';
+""", """      nat_cmd_valid <= '0';
+      cd_clear <= '0';
+""")
+rep("""      u_wr_data     => nat_wr_data,
+""", """      u_wr_data     => nat_wr_data,
+      media_change  => cd_pulse,
+""")
+rep("""  cache0: entity work.sd_cache""", """  card_detect : process (clock)
+  begin
+    if rising_edge(clock) then
+      cd_s1 <= sd_cd;
+      cd_s2 <= cd_s1;
+      wp_s1 <= sd_wp;
+      wp_s2 <= wp_s1;
+      cd_pulse <= "00";
+      for i in 0 to 1 loop
+        if cd_s2(i) = cd_stable(i) then
+          cd_cnt(i) <= (others => '0');
+        elsif cd_cnt(i) = x"FFFF" then
+          cd_cnt(i) <= (others => '0');
+          cd_stable(i) <= cd_s2(i);
+          if cd_seen = '1' then
+            cd_changed(i) <= '1';
+            cd_pulse(i) <= '1';
+          end if;
+        else
+          cd_cnt(i) <= cd_cnt(i) + 1;
+        end if;
+      end loop;
+      -- the levels after power-up are not changes: start watching after
+      -- twice the debounce period
+      if cd_boot(17) = '0' then
+        cd_boot <= cd_boot + 1;
+      end if;
+      cd_seen <= cd_boot(17);
+      if cd_clear = '1' then
+        cd_changed <= "00";
+      end if;
+    end if;
+  end process card_detect;
+
+  cache0: entity work.sd_cache""")
+rep("""--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""",
+    """--   * card detect: diagnostic byte 16 ($D6CE <- $10, read $D6CF): bit 0
+--     slot 0 card detect, 1 slot 0 write protect, 2 slot 1 card detect (raw
+--     levels, debounced), 4/5 slot 0/1 changed (sticky; $D6CE bit 6 = 1
+--     clears).  A change invalidates that slot's cached sectors.
+--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""")
 
 open(dst, 'w').write(s)
 print("ok")
