@@ -11,19 +11,33 @@ proc report_run_errors {} {
     set log [file join [get_property DIRECTORY $r] runme.log]
     if {![file exists $log]} { continue }
     set f [open $log r]
-    set lines {}
+    set errors {}
+    set warn_order {}
+    array unset warn_count
+    array unset warn_first
     set n 0
     while {[gets $f line] >= 0} {
       incr n
-      if {[regexp {^(ERROR|CRITICAL WARNING):} $line]} {
-        lappend lines "  $log:$n: $line"
+      if {[regexp {^ERROR:} $line]} {
+        lappend errors "  $log:$n: $line"
+      } elseif {[regexp {^CRITICAL WARNING:} $line]} {
+        # (one line per distinct warning: the same one repeated, such as
+        # the TRNG's ring oscillators' timing loops, would bury the errors)
+        if {![info exists warn_count($line)]} {
+          set warn_count($line) 0
+          set warn_first($line) $n
+          lappend warn_order $line
+        }
+        incr warn_count($line)
       }
     }
     close $f
-    if {[llength $lines] > 0} {
-      puts "==== [get_property NAME $r] ([get_property STATUS $r]): [llength $lines] error / critical warning lines ===="
-      # (the first 60: the cause is nearly always among the first few)
-      foreach l [lrange $lines 0 59] { puts $l }
+    if {[llength $errors] == 0 && [llength $warn_order] == 0} { continue }
+    puts "==== [get_property NAME $r] ([get_property STATUS $r]): [llength $errors] errors, [llength $warn_order] distinct critical warnings ===="
+    # every error, first: the cause is among them
+    foreach l $errors { puts $l }
+    foreach w [lrange $warn_order 0 29] {
+      puts "  $log:$warn_first($w): $w  (x$warn_count($w))"
     }
   }
 }
