@@ -1288,7 +1288,7 @@ begin
     -- instructions, COPY, SYNC.  For now the LLM units are left out)
     ssnail0 : entity work.ssnail_top
       generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6),
-                   has_llm => false, has_vec => false, has_shite => true)
+                   has_llm => false, has_vec => true, has_shite => true)
       port map (
       cpuclock => cpuclock,
       reset => reset,
