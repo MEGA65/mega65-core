@@ -16,7 +16,7 @@ entity tb_shite_step5 is
 end entity;
 
 architecture test of tb_shite_step5 is
-  signal clock162, cpuclock, pixelclock, clock81 : std_logic := '0';
+  signal clock162, cpuclock, pixelclock, sclock : std_logic := '0';
   -- Same as tb_sdram_lump: clock162r is a (delta-delayed) copy of clock162
   signal clock162r : std_logic := '0';
   signal finished : boolean := false;
@@ -66,12 +66,15 @@ architecture test of tb_shite_step5 is
   signal tb_hmem_data : unsigned(15 downto 0) := x"0000";
 
 begin
-  -- clock162 and SHITE's clock81 (half the rate) change in the same delta,
-  -- as their synchronous crossings need
+  -- clock162 and SHITE's clock (a quarter of the rate, as on the board)
+  -- change in the same delta, as their synchronous crossings need
   process
+    variable ph : natural := 0;
   begin
     while not finished loop
-      wait for 3 ns; clock162 <= '1'; clock81 <= not clock81;
+      wait for 3 ns; clock162 <= '1';
+      if ph = 0 then sclock <= not sclock; end if;
+      ph := (ph + 1) mod 2;
       wait for 3 ns; clock162 <= '0';
     end loop;
     wait;
@@ -88,7 +91,7 @@ begin
       cpuclock => cpuclock, reset => '1', irq => irq, ssnail_cs => cs,
       fastio_addr => addr, fastio_write => wr, fastio_read => rd,
       fastio_wdata => wdata, fastio_rdata => rdata,
-      clock162 => clock162, clock81 => clock81,
+      clock162 => clock162, sclock => sclock,
       hr_cmd_valid => hr_cmd_valid, hr_cmd_ready => hr_cmd_ready,
       hr_cmd_op => hr_cmd_op, hr_cmd_addr => hr_cmd_addr, hr_cmd_len => hr_cmd_len,
       hr_rdata => hr_rdata, hr_rdata_valid => hr_rdata_valid,
@@ -220,7 +223,7 @@ begin
     procedure wait_done(name : string; expect_err : integer; expect_pc : integer) is
       variable v, e, p0, p1 : unsigned(7 downto 0);
     begin
-      for i in 1 to 20000 loop
+      for i in 1 to 40000 loop
         peek(4, v);
         if v(0) = '0' then
           peek(5, e); peek(12, p0); peek(13, p1);

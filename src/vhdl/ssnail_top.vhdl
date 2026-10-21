@@ -3,8 +3,10 @@
 -- SHITE's opcodes and hands it the LUMP ports for each one (cop_own), so
 -- the ports are simply multiplexed here: no arbitration.
 --
--- SHITE runs on clock81 (half clock162, from the same MMCM): shite_bridge
--- is its clock162 side, the coprocessor port and the LUMP commands.
+-- SHITE runs on sclock, a clock from the same MMCM as clock162 at an
+-- integer fraction of its rate (the CPU's 40.5 MHz on the boards):
+-- shite_bridge is its clock162 side, the coprocessor port and the LUMP
+-- commands.
 --
 -- The same ports as ssnail.
 
@@ -31,7 +33,7 @@ entity ssnail_top is
     fastio_rdata : out unsigned(7 downto 0);
 
     clock162 : in std_logic;
-    clock81  : in std_logic := '0';     -- SHITE's (needed with has_shite)
+    sclock   : in std_logic := '0';     -- SHITE's (needed with has_shite)
 
     hr_cmd_valid   : out std_logic := '0';
     hr_cmd_ready   : in  std_logic := '0';
@@ -89,7 +91,7 @@ architecture rtl of ssnail_top is
   signal cop_ra, cop_rb, cop_rc, cop_rd, cop_z, cop_result : unsigned(31 downto 0) := (others => '0');
   signal cop_x : unsigned(27 downto 0) := (others => '0');
   signal map_hr_base, map_hr_size, map_sd_base, map_sd_size : unsigned(7 downto 0);
-  -- the bridge <-> SHITE (clock81)
+  -- the bridge <-> SHITE (sclock)
   signal b_start_t, b_abort, b_done_t, b_wr, b_g_t, b_g_write, b_g_sd, b_g_ack_t, b_g_err : std_logic := '0';
   signal b_op, b_err : unsigned(7 downto 0) := (others => '0');
   signal b_ra, b_rb, b_rc, b_rd, b_z, b_result : unsigned(31 downto 0) := (others => '0');
@@ -154,7 +156,7 @@ begin
 
     sh : entity work.shite
       port map (
-        clock => clock81,
+        clock => sclock,
         start_t => b_start_t, op => b_op, ra => b_ra, rb => b_rb, rc => b_rc,
         rd => b_rd, z => b_z, x => b_x,
         abort => b_abort, done_t => b_done_t, err => b_err, wr => b_wr, result => b_result,

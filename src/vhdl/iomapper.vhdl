@@ -1283,9 +1283,9 @@ begin
               or (target = mega65r5) or (target = mega65r6) generate
     -- (has_llm: the LLM units; has_vec: just the vector element ops, for 3D;
     -- has_shite: the spreadsheet engine, SHITE, on SSNAIL's opcodes $40-$4F,
-    -- on clock81.  With none of them SSNAIL is its shell: jobs, scalar and
-    -- control instructions, COPY, SYNC.  For now SHITE is built alone, to see
-    -- its own timing)
+    -- on the CPU's clock, 40.5 MHz, a quarter of clock162 from the same
+    -- MMCM.  With none of them SSNAIL is its shell: jobs, scalar and control
+    -- instructions, COPY, SYNC.  For now the LLM units are left out)
     ssnail0 : entity work.ssnail_top
       generic map (has_sdram => (target = mega65r4) or (target = mega65r5) or (target = mega65r6),
                    has_llm => false, has_vec => false, has_shite => true)
@@ -1300,7 +1300,7 @@ begin
       std_logic_vector(fastio_rdata) => data_o,
       fastio_wdata => unsigned(data_i),
       clock162 => clock162,
-      clock81 => pixelclk,
+      sclock => cpuclock,
       hr_cmd_valid => ssnail_hr_cmd_valid,
       hr_cmd_ready => ssnail_hr_cmd_ready,
       hr_cmd_op => ssnail_hr_cmd_op,

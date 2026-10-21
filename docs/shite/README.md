@@ -44,7 +44,8 @@ includes them) and `has_shite`.  With none of them SSNAIL is its shell;
 an opcode whose unit is not built reports ERR_OPCODE, and the unit's logic
 is not synthesised at all.
 
-SHITE runs on clock81 (`shite_bridge` is its clock162 side: SSNAIL's
+SHITE runs on the CPU's 40.5 MHz clock, a quarter of clock162 from the same
+MMCM (`shite_bridge` is its clock162 side: SSNAIL's
 coprocessor port and the LUMP commands, crossing by toggles).
 
 SSNAIL's capability register says which are present, so software can check

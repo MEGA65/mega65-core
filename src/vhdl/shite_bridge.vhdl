@@ -1,6 +1,6 @@
--- SHITE's clock162 side.  The engine itself (shite) runs on clock81, which
--- comes from the same MMCM as clock162 at half the rate, so the crossings
--- are synchronous: every signal crossing either way leaves a flip-flop and
+-- SHITE's clock162 side.  The engine itself (shite) runs on sclock, which
+-- comes from the same MMCM as clock162 at an integer fraction of its rate
+-- (a quarter, on the boards), so the crossings are synchronous: every signal crossing either way leaves a flip-flop and
 -- arrives at one (no logic between), and Vivado times each against
 -- clock162's period.  Events cross as toggles, their data held from the
 -- toggle's change until the answer.
@@ -34,7 +34,7 @@ entity shite_bridge is
     cop_result : out unsigned(31 downto 0) := (others => '0');
     map_hr_base, map_hr_size, map_sd_base, map_sd_size : in unsigned(7 downto 0);
 
-    -- to shite (clock81)
+    -- to shite (sclock)
     start_t : out std_logic := '0';
     op      : out unsigned(7 downto 0) := (others => '0');
     ra, rb, rc, rd, z : out unsigned(31 downto 0) := (others => '0');

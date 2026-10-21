@@ -10,7 +10,7 @@
 -- RENDER ($46), PARSE ($47).
 -- Memory is reached one 8-byte group at a time (no cache yet).
 --
--- Runs on clock81: shite_bridge (clock162) takes SSNAIL's coprocessor
+-- Runs on sclock (40.5 MHz on the boards): shite_bridge (clock162) takes SSNAIL's coprocessor
 -- port and issues the LUMP commands, the events crossing as toggles
 -- (start_t, done_t, g_t, g_ack_t) with their data held meanwhile.
 
@@ -26,7 +26,7 @@ entity shite is
     max_row_cells : natural := 1024
     );
   port (
-    clock : in std_logic;                 -- clock81
+    clock : in std_logic;                 -- sclock
     -- from SSNAIL's coprocessor port, through shite_bridge: held from
     -- start_t's change until done_t's
     start_t : in  std_logic;
@@ -140,6 +140,10 @@ architecture rtl of shite is
   signal m_local : unsigned(26 downto 0) := (others => '0');
   -- the crossings' toggles, registered, and the last seen
   signal s_r, s_seen, a_r, a_seen, g_tr, done_tr : std_logic := '0';
+  -- (the group's bytes and error, registered with a_r: a crossing from
+  -- clock162 has one clock162 period, too short for M_WAIT's choice)
+  signal g_rd_r : unsigned(63 downto 0) := (others => '0');
+  signal g_err_r : std_logic := '0';
   signal abt : std_logic := '0';
   signal mp_hr_base, mp_hr_size, mp_sd_base, mp_sd_size : unsigned(7 downto 0) := (others => '0');
 
@@ -788,6 +792,7 @@ begin
       est_wd <= t_aux & t_kind & t_ref & t_k & t_v;
       -- (from clock162: registered before any use)
       s_r <= start_t; a_r <= g_ack_t; abt <= abort;
+      g_rd_r <= g_rd; g_err_r <= g_err;
       mp_hr_base <= map_hr_base; mp_hr_size <= map_hr_size;
       mp_sd_base <= map_sd_base; mp_sd_size <= map_sd_size;
 
@@ -857,10 +862,10 @@ begin
         when M_WAIT =>
           if a_r /= a_seen then
             a_seen <= a_r;
-            if g_err = '1' then
+            if g_err_r = '1' then
               if sj_mode then sj_fault <= true; st <= mem_ret; else fault(ERR_READ); end if;
             else
-              m_rd <= g_rd;
+              m_rd <= g_rd_r;
               st <= mem_ret;
             end if;
           end if;
