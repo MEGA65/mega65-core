@@ -72,6 +72,9 @@ architecture rtl of fat32_engine is
     S_COPY_W, S_FILL,
     S_SCMP_A, S_SCMP_B,
     S_LFN_SEQ, S_LFN_LO, S_LFN_HI,
+    S_U8_LO, S_U8_HI, S_U8_LO2, S_U8_HI2, S_U8_PUT, S_U8_EMIT, S_U8_ELL, S_U8_END,
+    S_UC_B0, S_UC_CONT, S_UC_UNIT, S_UC_W1, S_UC_W2, S_UC_ERR, S_UC_TERM,
+    S_LM_CLR, S_LM_RD, S_LM_LO, S_LM_HI, S_LM_WLO, S_LM_WHI,
     S_SUM,
     S_SEC,
     S_FAT_RD, S_FAT_LD,
@@ -105,6 +108,17 @@ architecture rtl of fat32_engine is
   signal byte   : unsigned(7 downto 0) := (others => '0');
   signal sum    : unsigned(7 downto 0) := (others => '0');
   signal lfnbase : unsigned(11 downto 0) := (others => '0');
+  -- utf8 / ucs2 / lfnmake
+  signal u_ui, u_op, u_bnd : unsigned(8 downto 0) := (others => '0');
+  signal u_cp   : unsigned(20 downto 0) := (others => '0');
+  signal u_w    : unsigned(15 downto 0) := (others => '0');
+  signal u_lo   : unsigned(7 downto 0) := (others => '0');
+  signal u_k    : unsigned(10 downto 0) := (others => '0');
+  signal u_n    : unsigned(8 downto 0) := (others => '0');
+  signal u_more, u_t : unsigned(1 downto 0) := (others => '0');
+  signal u_nb   : unsigned(2 downto 0) := (others => '0');
+  signal u_byte : unsigned(1 downto 0) := (others => '0');
+  signal u_end, u_second : std_logic := '0';
   signal fat_k  : unsigned(7 downto 0) := (others => '0');
   signal fs_lba : unsigned(31 downto 0) := (others => '0');
 
@@ -126,6 +140,31 @@ architecture rtl of fat32_engine is
       return '1';
     end if;
     return '0';
+  end function;
+
+  function utf8_byte(cp : unsigned(20 downto 0); nb : unsigned(2 downto 0);
+                     k : unsigned(1 downto 0)) return unsigned is
+    variable b : unsigned(7 downto 0);
+  begin
+    case to_integer(nb) is
+      when 1 => b := '0' & cp(6 downto 0);
+      when 2 =>
+        if k = 0 then b := "110" & cp(10 downto 6); else b := "10" & cp(5 downto 0); end if;
+      when 3 =>
+        case to_integer(k) is
+          when 0 => b := "1110" & cp(15 downto 12);
+          when 1 => b := "10" & cp(11 downto 6);
+          when others => b := "10" & cp(5 downto 0);
+        end case;
+      when others =>
+        case to_integer(k) is
+          when 0 => b := "11110" & cp(20 downto 18);
+          when 1 => b := "10" & cp(17 downto 12);
+          when 2 => b := "10" & cp(11 downto 6);
+          when others => b := "10" & cp(5 downto 0);
+        end case;
+    end case;
+    return b;
   end function;
 
   function upc(c : unsigned(7 downto 0)) return unsigned is
@@ -453,6 +492,18 @@ begin
               end if;
             when OP_LFNPUT =>
               read_byte(x, S_LFN_SEQ);
+            when OP_UTF8 =>
+              u_ui  <= (others => '0');
+              u_op  <= (others => '0');
+              u_bnd <= (others => '0');
+              read_byte(x, S_U8_LO);
+            when OP_UCS2 =>
+              u_k <= (others => '0');
+              u_n <= (others => '0');
+              read_byte(x, S_UC_B0);
+            when OP_LFNMAKE =>
+              u_k <= (others => '0');
+              state <= S_LM_CLR;
             when OP_LFNSUM =>
               sum <= (others => '0');
               idx <= (others => '0');
@@ -575,10 +626,11 @@ begin
             read_byte(x + resize(idx + 1, 12), S_SCMP_A);
           end if;
 
+        -- lfnput: an entry's 13 UCS-2 characters, as stored, to y + 26 * (seq - 1)
         when S_LFN_SEQ =>
           seq := to_integer(byte(4 downto 0));
           if seq >= 1 and seq <= 20 then
-            lfnbase <= y + to_unsigned(13 * (seq - 1), 12);
+            lfnbase <= y + to_unsigned(26 * (seq - 1), 12);
             idx     <= (others => '0');
             read_byte(x + LFN_POS(0), S_LFN_LO);
           else
@@ -586,24 +638,266 @@ begin
           end if;
 
         when S_LFN_LO =>
-          acc(7 downto 0) <= byte;
+          write_byte(lfnbase + resize(idx & '0', 12), byte);
           read_byte(x + LFN_POS(to_integer(idx(3 downto 0))) + 1, S_LFN_HI);
 
         when S_LFN_HI =>
-          -- 0 and $FFFF are padding (0), others above ASCII are '?'
-          if byte = 0 and acc(7) = '0' then
-            v8 := acc(7 downto 0);
-          elsif byte = x"FF" and acc(7 downto 0) = x"FF" then
-            v8 := x"00";
-          else
-            v8 := x"3F";
-          end if;
-          write_byte(lfnbase + resize(idx, 12), v8);
+          write_byte(lfnbase + resize(idx & '1', 12), byte);
           if idx = 12 then
             state <= S_FETCH;
           else
             idx <= idx + 1;
             read_byte(x + LFN_POS(to_integer(idx(3 downto 0)) + 1), S_LFN_LO);
+          end if;
+
+        -- utf8: the UCS-2 name at x as UTF-8 at y (255 bytes at most)
+        when S_U8_LO =>
+          u_w(7 downto 0) <= byte;
+          read_byte(x + resize(u_ui & '1', 12), S_U8_HI);
+
+        when S_U8_HI =>
+          v32 := x"0000" & byte & u_w(7 downto 0);
+          if v32(15 downto 0) = x"0000" or v32(15 downto 0) = x"FFFF" then
+            state <= S_U8_END;
+          elsif v32(15 downto 10) = "110110" and u_ui < 259 then
+            u_w <= v32(15 downto 0);            -- a high surrogate: the next?
+            read_byte(x + resize((u_ui + 1) & '0', 12), S_U8_LO2);
+          elsif v32(15 downto 11) = "11011" then
+            u_cp  <= to_unsigned(16#FFFD#, 21);
+            u_ui  <= u_ui + 1;
+            state <= S_U8_PUT;
+          else
+            u_cp  <= resize(v32(15 downto 0), 21);
+            u_ui  <= u_ui + 1;
+            state <= S_U8_PUT;
+          end if;
+
+        when S_U8_LO2 =>
+          u_lo <= byte;
+          read_byte(x + resize((u_ui + 1) & '1', 12), S_U8_HI2);
+
+        when S_U8_HI2 =>
+          if byte(7 downto 2) = "110111" then
+            u_cp <= to_unsigned(16#10000#, 21)
+                    + (u_w(9 downto 0) & byte(1 downto 0) & u_lo);
+            u_ui <= u_ui + 2;
+          else
+            u_cp <= to_unsigned(16#FFFD#, 21);
+            u_ui <= u_ui + 1;
+          end if;
+          state <= S_U8_PUT;
+
+        when S_U8_PUT =>
+          if u_cp < 16#80# then
+            u_nb <= to_unsigned(1, 3);
+            t9 := u_op + 1;
+          elsif u_cp < 16#800# then
+            u_nb <= to_unsigned(2, 3);
+            t9 := u_op + 2;
+          elsif u_cp < 16#10000# then
+            u_nb <= to_unsigned(3, 3);
+            t9 := u_op + 3;
+          else
+            u_nb <= to_unsigned(4, 3);
+            t9 := u_op + 4;
+          end if;
+          u_byte <= "00";
+          if t9 > 255 then
+            u_op  <= u_bnd;
+            state <= S_U8_ELL;
+          else
+            state <= S_U8_EMIT;
+          end if;
+
+        when S_U8_EMIT =>
+          write_byte(y + resize(u_op, 12) + resize(u_byte, 12), utf8_byte(u_cp, u_nb, u_byte));
+          if resize(u_byte, 3) + 1 = u_nb then
+            t9 := u_op + resize(u_nb, 9);
+            u_op <= t9;
+            if t9 <= 252 then
+              u_bnd <= t9;
+            end if;
+            if u_ui >= 260 then
+              state <= S_U8_END;
+            else
+              read_byte(x + resize(u_ui & '0', 12), S_U8_LO);
+            end if;
+          else
+            u_byte <= u_byte + 1;
+          end if;
+
+        when S_U8_ELL =>
+          -- "..." (U+2026), then the terminator
+          case u_byte is
+            when "00"   => write_byte(y + resize(u_op, 12), x"E2");
+            when "01"   => write_byte(y + resize(u_op, 12) + 1, x"80");
+            when "10"   => write_byte(y + resize(u_op, 12) + 2, x"A6");
+            when others => write_byte(y + resize(u_op, 12) + 3, x"00");
+          end case;
+          if u_byte = "11" then
+            state <= S_FETCH;
+          else
+            u_byte <= u_byte + 1;
+          end if;
+
+        when S_U8_END =>
+          write_byte(y + resize(u_op, 12), x"00");
+          state <= S_FETCH;
+
+        -- ucs2: the UTF-8 name at x as UCS-2 at y
+        when S_UC_B0 =>
+          if byte = 0 then
+            u_byte <= "00";
+            state <= S_UC_TERM;
+          elsif byte < 16#80# then
+            u_cp <= resize(byte, 21);
+            u_k  <= u_k + 1;
+            state <= S_UC_UNIT;
+          elsif byte >= 16#C2# and byte <= 16#DF# then
+            u_cp <= resize(byte(4 downto 0), 21);
+            u_more <= "01";
+            u_t <= "00";
+            read_byte(x + resize(u_k + 1, 12), S_UC_CONT);
+          elsif byte >= 16#E0# and byte <= 16#EF# then
+            u_cp <= resize(byte(3 downto 0), 21);
+            u_more <= "10";
+            u_t <= "00";
+            read_byte(x + resize(u_k + 1, 12), S_UC_CONT);
+          elsif byte >= 16#F0# and byte <= 16#F4# then
+            u_cp <= resize(byte(2 downto 0), 21);
+            u_more <= "11";
+            u_t <= "00";
+            read_byte(x + resize(u_k + 1, 12), S_UC_CONT);
+          else
+            u_byte <= "00";
+            state <= S_UC_ERR;
+          end if;
+
+        when S_UC_CONT =>
+          if byte(7 downto 6) /= "10" then
+            u_byte <= "00";
+            state <= S_UC_ERR;
+          else
+            v32 := resize(u_cp(14 downto 0) & byte(5 downto 0), 32);
+            u_cp <= v32(20 downto 0);
+            if u_t + 1 = u_more then
+              if (u_more = 2 and (v32 < 16#800# or (v32 >= 16#D800# and v32 <= 16#DFFF#)))
+                or (u_more = 3 and (v32 < 16#10000# or v32 > 16#10FFFF#)) then
+                u_byte <= "00";
+                state <= S_UC_ERR;
+              else
+                u_k <= u_k + 1 + resize(u_more, 11);
+                state <= S_UC_UNIT;
+              end if;
+            else
+              u_t <= u_t + 1;
+              read_byte(x + resize(u_k + 2 + resize(u_t, 11), 12), S_UC_CONT);
+            end if;
+          end if;
+
+        when S_UC_UNIT =>
+          -- one unit, or a surrogate pair
+          if u_cp < 16#10000# then
+            u_w <= u_cp(15 downto 0);
+            u_second <= '0';
+          else
+            v32 := resize(u_cp, 32) - 16#10000#;
+            u_w <= "110110" & v32(19 downto 10);
+            u_cp <= resize("110111" & v32(9 downto 0), 21);
+            u_second <= '1';
+          end if;
+          state <= S_UC_W1;
+
+        when S_UC_W1 =>
+          if u_n = 255 then
+            u_byte <= "00";
+            state <= S_UC_ERR;
+          else
+            write_byte(y + resize(u_n & '0', 12), u_w(7 downto 0));
+            state <= S_UC_W2;
+          end if;
+
+        when S_UC_W2 =>
+          write_byte(y + resize(u_n & '1', 12), u_w(15 downto 8));
+          u_n <= u_n + 1;
+          if u_second = '1' then
+            u_second <= '0';
+            u_w <= u_cp(15 downto 0);
+            state <= S_UC_W1;
+          else
+            read_byte(x + resize(u_k, 12), S_UC_B0);
+          end if;
+
+        when S_UC_ERR =>
+          write_byte(y + resize(u_byte, 12), x"00");
+          if u_byte = "01" then
+            r(0) <= (others => '0');
+            cf <= '1';
+            state <= S_FETCH;
+          else
+            u_byte <= "01";
+          end if;
+
+        when S_UC_TERM =>
+          write_byte(y + resize(u_n & u_byte(0), 12), x"00");
+          if u_byte = "01" then
+            r(0) <= u_n(7 downto 0);
+            cf <= '0';
+            state <= S_FETCH;
+          else
+            u_byte <= "01";
+          end if;
+
+        -- lfnmake: the entry's fixed bytes, then its 13 characters
+        when S_LM_CLR =>
+          if u_k = 0 then
+            write_byte(y, r(ra));
+          elsif u_k = 11 then
+            write_byte(y + 11, x"0F");
+          elsif u_k = 13 then
+            write_byte(y + 13, r(rb));
+          else
+            write_byte(y + resize(u_k(4 downto 0), 12), x"00");
+          end if;
+          if u_k = 31 then
+            idx <= (others => '0');
+            u_end <= '0';
+            lfnbase <= resize(x + to_unsigned(26, 12) * resize(r(ra)(4 downto 0), 7) - 26, 12);
+            state <= S_LM_RD;
+          else
+            u_k <= u_k + 1;
+          end if;
+
+        when S_LM_RD =>
+          if u_end = '1' then
+            u_w <= x"FFFF";
+            state <= S_LM_WLO;
+          else
+            read_byte(lfnbase + resize(idx & '0', 12), S_LM_LO);
+          end if;
+
+        when S_LM_LO =>
+          u_lo <= byte;
+          read_byte(lfnbase + resize(idx & '1', 12), S_LM_HI);
+
+        when S_LM_HI =>
+          u_w <= byte & u_lo;
+          state <= S_LM_WLO;
+
+        when S_LM_WLO =>
+          write_byte(y + LFN_POS(to_integer(idx(3 downto 0))), u_w(7 downto 0));
+          state <= S_LM_WHI;
+
+        when S_LM_WHI =>
+          write_byte(y + LFN_POS(to_integer(idx(3 downto 0))) + 1, u_w(15 downto 8));
+          if u_w = 0 then
+            u_end <= '1';
+          end if;
+          if idx = 12 then
+            state <= S_FETCH;
+          else
+            idx <= idx + 1;
+            state <= S_LM_RD;
           end if;
 
         when S_SUM =>

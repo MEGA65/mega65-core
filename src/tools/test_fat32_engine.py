@@ -75,6 +75,18 @@ def entry(r):
     return long, short, attr, size, first
 
 
+def shown(name):
+    """a long name as the engine gives it: UTF-8, 255 bytes at most (longer:
+    cut at a character, then an ellipsis)"""
+    b = name.encode()
+    if len(b) <= 255:
+        return name
+    while len(b) > 252:
+        name = name[:-1]
+        b = name.encode()
+    return name + "\u2026"
+
+
 def u32(r, o):
     return struct.unpack("<I", r[o:o + 4])[0]
 
@@ -126,7 +138,7 @@ def tests(image, verbose, trace=None, short=False):
         for long, short, attr, first, size in vol.listdir(cluster):
             if hidden_system and attr & 0x04:
                 continue
-            out.append((long, short, attr, size, first))
+            out.append((shown(long), short, attr, size, first))
         return out
 
     got = listing("/")
@@ -141,6 +153,18 @@ def tests(image, verbose, trace=None, short=False):
     check("long directory names in the path", any(g[0] == "Space Invaders Deluxe.d81" for g in got), got)
     got = listing("/games/arcade classics/../SHORT.PRG/..".rsplit("/", 2)[0])
     check("case-blind, ..", any(g[0] == "SHORT.PRG" for g in got), got)
+
+    got = listing("/UNICODE")
+    want = expect(vol.lookup("/UNICODE")[1])
+    check("UTF-8 long names (a surrogate pair, a 304-byte name cut short)",
+          got == want and any(g[0].endswith("\u2026") for g in got), (got, want))
+    fd = e.ok(0x20, path="/unicode/grüße – ✓ 😀.txt")[4]
+    check("open a UTF-8 name", e.read(fd, 100) == b"Unicode name\n")
+    e.ok(0x22, fd=fd)
+    fd = e.ok(0x20, path="/UNICODE/" + shown("✓" * 100 + ".txt"))[4]
+    check("open a long name by its shortened form", e.read(fd, 100) == b"a long UTF-8 name\n")
+    e.ok(0x22, fd=fd)
+    check("a 304-byte path component", e.req(0x20, path="/UNICODE/" + "✓" * 100 + ".txt")[0] == E_LONG)
 
     check("opendir of a file", e.req(0x10, path="/README.TXT")[0] == E_NOTDIR)
     check("not found", e.req(0x10, path="/NOPE")[0] == E_NOENT)
@@ -178,7 +202,7 @@ def tests(image, verbose, trace=None, short=False):
     check("phase 1 is read-only", e.req(0x20, flags=1, path="/README.TXT")[0] == E_ROFS)
 
     fd = e.ok(0x20, path="/README.TXT")[4]
-    check("first descriptor is 2", fd == 2, fd)
+    check("first descriptor is 0", fd == 0, fd)
     data = e.read(fd, 512)
     check("read a small file", data == vol.read_file("/README.TXT"), data)
     check("read at the end", e.read(fd, 100) == b"")
@@ -217,13 +241,13 @@ def tests(image, verbose, trace=None, short=False):
     e.ok(0x22, fd=fd)
 
     # descriptors
-    fds = [e.ok(0x20, path="/README.TXT")[4] for _ in range(6)]
-    check("descriptors 2-7", fds == [2, 3, 4, 5, 6, 7], fds)
+    fds = [e.ok(0x20, path="/README.TXT")[4] for _ in range(8)]
+    check("descriptors 0-7", fds == list(range(8)), fds)
     check("no free descriptor", e.req(0x20, path="/README.TXT")[0] == E_NFILE)
     for f in fds:
         e.ok(0x22, fd=f)
-    check("descriptors 0/1 are the hypervisor's",
-          e.req(0x20, fd=0, flags=0x80, path="/README.TXT")[0] == E_ACCESS)
+    check("no descriptor 8", e.req(0x22, fd=8)[0] == E_BADFD)
+    check("programs cannot reach the hypervisor's", e.req(0x22, fd=0x80)[0] == E_BADFD)
     r = e.ok(0x20, fd=5, flags=0x80, path="/README.TXT")
     check("a descriptor asked for", r[4] == 5)
     e.ok(0x22, fd=5)
@@ -233,10 +257,19 @@ def tests(image, verbose, trace=None, short=False):
     e.m.hypervisor = True
     got = listing("/MEGA65")
     check("hypervisor sees SYSTEM files", any(g[0] == "HICKUP.M65" for g in got), got)
-    fd = e.ok(0x20, fd=0, flags=0x80, path="/MEGA65/HICKUP.M65")[4]
-    check("hypervisor descriptor 0", fd == 0 and e.read(0, 11) == b"system file")
-    e.ok(0x22, fd=0)
     e.m.hypervisor = False
+    ufd = e.ok(0x20, path="/README.TXT")[4]             # the program's 0
+    e.m.hypervisor = True
+    fd = e.ok(0x20, fd=0, flags=0x80, path="/MEGA65/HICKUP.M65")[4]
+    check("hypervisor descriptor H0", fd == 0 and e.read(0, 11) == b"system file")
+    check("H0 is not the program's 0", e.read(0x80, 5) == b"Hello")
+    check("hypervisor: two descriptors", e.ok(0x20, path="/README.TXT")[4] == 1
+          and e.req(0x20, path="/README.TXT")[0] == E_NFILE)
+    e.ok(0x22, fd=0)
+    e.ok(0x22, fd=1)
+    e.m.hypervisor = False
+    check("the program's 0 unaffected", e.read(ufd, 6) == b" from ")
+    e.ok(0x22, fd=ufd)
 
     if trace:
         e.m.write_trace(trace)

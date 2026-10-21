@@ -170,17 +170,18 @@ class Volume:
                 continue
             if raw[11] == 0x0F:
                 seq = raw[0] & 0x1F
-                chars = raw[1:11] + raw[14:26] + raw[28:32]
-                part = ""
-                for i in range(0, 26, 2):
-                    u = chars[i] | (chars[i + 1] << 8)
-                    if u in (0, 0xFFFF):
-                        break
-                    part += chr(u) if u < 128 else "?"
-                lfn[seq] = part
+                lfn[seq] = raw[1:11] + raw[14:26] + raw[28:32]
                 continue
             short = unpack83(raw[:11])
-            long = "".join(lfn[k] for k in sorted(lfn)) if lfn else short
+            long = short
+            if lfn:
+                units = b"".join(lfn[k] for k in sorted(lfn))
+                end = len(units)
+                for i in range(0, len(units), 2):
+                    if units[i:i + 2] in (b"\0\0", b"\xff\xff"):
+                        end = i
+                        break
+                long = units[:end].decode("utf-16-le", errors="replace")
             lfn = {}
             first = struct.unpack_from("<H", raw, 20)[0] << 16 | struct.unpack_from("<H", raw, 26)[0]
             size = struct.unpack_from("<I", raw, 28)[0]
@@ -224,7 +225,8 @@ class Volume:
 
     def _alias(self, cluster, name):
         base, _, ext = name.upper().rpartition(".") if "." in name else (name.upper(), "", "")
-        clean = lambda s: "".join(c for c in s if c.isalnum() or c in "$%'-_@~`!(){}^#&")
+        clean = lambda s: "".join(c if c.isascii() and (c.isalnum() or c in "$%'-_@~`!(){}^#&") else "_"
+                                  for c in s if c not in " .")
         base, ext = clean(base), clean(ext)[:3]
         existing = {short for _, short, _, _, _ in self.listdir(cluster)}
         for n in range(1, 1000):
@@ -239,7 +241,9 @@ class Volume:
             short, lfn_parts = name, []
         else:
             short = self._alias(cluster, name)
-            u = name.encode("ascii")
+            b = name.encode("utf-16-le")
+            u = list(struct.unpack("<%dH" % (len(b) // 2), b))
+            assert len(u) <= 255, "name too long"
             lfn_parts = [u[i:i + 13] for i in range(0, len(u), 13)]
         name11 = pack83(short)
         slots = self._free_slots(cluster, len(lfn_parts) + 1)
@@ -387,6 +391,9 @@ def standard_image(path):
     v.mkdir("/LOTS")
     for i in range(70):
         v.write_file("/LOTS/file number %03d.txt" % i, ("file %d\n" % i).encode())
+    v.mkdir("/UNICODE")
+    v.write_file("/UNICODE/Grüße – ✓ 😀.txt", "Unicode name\n".encode())
+    v.write_file("/UNICODE/" + "✓" * 100 + ".txt", b"a long UTF-8 name\n")
     v2 = img.volume(1)
     v2.write_file("/SECOND.TXT", b"second partition\n")
     assert img.check(), "fsck.fat failed"

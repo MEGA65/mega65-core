@@ -9,9 +9,10 @@
 ;   directory walk: L0 cluster, R3 sector in cluster, R4 entry in sector,
 ;   X the entry (in the engine sector)
 ;   R12 the error code (error)    R0-R2, R6-R10, L1-L3 are scratch
+;   R15 scratch of the small helpers (drvaddr)
 
-; ---- memory ----------------------------------------------------------------
-.equ DRV,      $000      ; 8 drives x 32
+; ---- memory ($000-$7FF of the sector buffer; the freezer saves it) --------------
+.equ DRV,      $000      ; 8 drives x 48
 .equ D_FLAGS,  0         ; bit 0 valid, bit 1 slot
 .equ D_SPCL,   1
 .equ D_NFATS,  2
@@ -23,8 +24,12 @@
 .equ D_ROOT,   20
 .equ D_NCL,    24
 .equ D_SIZE,   28
-.equ FD,       $100      ; 8 descriptors x 48
-.equ F_FLAGS,  0         ; bit 0 open, 1 directory, 2 write, 3 append
+.equ D_SERIAL, 32        ; the volume serial number (thaw checks it)
+.equ D_FSINFO, 36        ; the FSInfo sector (absolute; 0 = none)
+.equ D_FREE,   40        ; free clusters ($FFFFFFFF = unknown)
+.equ D_HINT,   44        ; where to look for a free cluster
+.equ FD,       $180      ; 10 descriptors x 32: H0, H1 (hypervisor), user 0-7
+.equ F_FLAGS,  0         ; bit 0 open, 1 directory, 2 write, 3 append, 7 stale
 .equ F_DRIVE,  1
 .equ F_ATTR,   2
 .equ F_FIRST,  4
@@ -34,22 +39,23 @@
 .equ F_SIZE,   20
 .equ F_DLBA,   24        ; the directory entry: sector (absolute)
 .equ F_DOFF,   28        ;   and offset in it
-.equ F_SLOT,   30
-.equ CWD,      $280      ; 8 x 4: the current directory's cluster (0 = root)
-.equ G_DRIVE,  $2A0      ; the current drive
-.equ G_NDRV,   $2A1      ; drives found
-.equ G_SYS,    $2A2      ; SYSTEM entries visible to programs
-.equ G_PATHP,  $2A4      ; (2) the path being resolved
-.equ G_DLBA,   $2A8      ; (4) the last entry found: sector
-.equ G_DOFF,   $2AC      ; (2)   and offset
-.equ G_CHILD,  $2B0      ; (4) getcwd: the directory being named
-.equ G_PARENT, $2B4      ; (4)   its parent
-.equ G_OUT,    $2B8      ; (2)   where the path starts (built backwards)
-.equ ENT,      $2C0      ; (32) a copy of the last entry found
-.equ NAME,     $300      ; 256: the path component
-.equ LFN,      $400      ; 256: the long filename being assembled
-.equ SHORT,    $500      ; 16: an 8.3 name as text
-.equ PTBL,     $510      ; 64: the partition table being scanned
+.equ CWD,      $2C0      ; 8 x 4: the current directory's cluster (0 = root)
+.equ G_DRIVE,  $2E0      ; the current drive
+.equ G_NDRV,   $2E1      ; drives found
+.equ G_SYS,    $2E2      ; SYSTEM entries visible to programs
+.equ G_RO,     $2E3      ; programs may not modify the file system
+.equ G_PATHP,  $2E4      ; (2) the path being resolved
+.equ G_DLBA,   $2E8      ; (4) the last entry found: sector
+.equ G_DOFF,   $2EC      ; (4)   and offset
+.equ G_CHILD,  $2F0      ; (4) getcwd: the directory being named
+.equ G_PARENT, $2F4      ; (4)   its parent
+.equ G_OUT,    $2F8      ; (2)   where the path starts (built backwards)
+.equ ENT,      $320      ; (32) a copy of the last entry found
+.equ SHORT,    $340      ; 16: an 8.3 name as text
+.equ NAME,     $380      ; 256: the path component (UTF-8)
+.equ LFN,      $480      ; 256: the long filename being assembled (UTF-8)
+.equ UCS,      $580      ; 520: a long filename's UCS-2 characters, as stored
+.equ PTBL,     $580      ; 64: the partition table being scanned (rescan only)
 .equ SEC,      $800      ; the engine's sector
 .equ REQ,      $E00      ; request / response block (the CPU's sector buffer)
 .equ R_OP,     3
@@ -71,7 +77,11 @@
 .equ E_ACCESS, 9
 .equ E_BADREQ, 10
 .equ E_LONG,   11
+.equ E_EXIST,  12
+.equ E_NOTEMPTY, 13
+.equ E_NOSPC,  14
 .equ E_ROFS,   15
+.equ E_STALE,  16
 
 ; ==============================================================================
 start:
@@ -145,7 +155,9 @@ op_rescan:
         ldi r0, 0
         yset DRV
         ldi r1, 0
-        fill r1                         ; 256 bytes: the drive table
+        fill r1                         ; the drive table (384 bytes)
+        ldi r1, 128
+        fill r1
         yset CWD
         ldi r1, 32
         fill r1
@@ -212,10 +224,9 @@ rs_log2:
         inc r7
         jmp rs_log2
 rs_log2_done:
-        ; the drive's record: Y = DRV + 32 * R5
-        btol l2, r5
-        lshl l2, 5
-        laddi l2, DRV
+        ; the drive's record
+        mov r0, r5
+        call drvaddr
         yl l2
         mov r0, r9
         shl r0
@@ -238,12 +249,66 @@ rs_fats:
         lst l2, [y+D_DATA]
         lld l0, [x+44]
         lst l0, [y+D_ROOT]
+        lld l0, [x+67]
+        lst l0, [y+D_SERIAL]
+        lldw l0, [x+48]                 ; FSInfo: read below
+        lst l0, [y+D_FSINFO]
         lld l0, [x+32]                  ; clusters: (total - (data - part)) >> spcl + 2
         lsub l2, l1
         lsub l0, l2
         lshrr l0, r7
         laddi l0, 2
         lst l0, [y+D_NCL]
+        ; FSInfo: the free count and the hint, if its signatures are right
+        lldi l0, 0
+        lsubi l0, 1
+        lst l0, [y+D_FREE]
+        lldi l0, 2
+        lst l0, [y+D_HINT]
+        lld l0, [y+D_FSINFO]
+        lz l0
+        jz rs_counted
+        ladd l0, l1
+        lst l0, [y+D_FSINFO]
+        sread l0
+        je rs_nofsinfo
+        xset SEC                        ; "RRaA" ... "rrAa"
+        ld r0, [x+0]
+        cmpi r0, 'R'
+        jnz rs_nofsinfo
+        ld r0, [x+1]
+        cmpi r0, 'R'
+        jnz rs_nofsinfo
+        ld r0, [x+2]
+        cmpi r0, 'a'
+        jnz rs_nofsinfo
+        ld r0, [x+3]
+        cmpi r0, 'A'
+        jnz rs_nofsinfo
+        xset SEC+484
+        ld r0, [x+0]
+        cmpi r0, 'r'
+        jnz rs_nofsinfo
+        ld r0, [x+1]
+        cmpi r0, 'r'
+        jnz rs_nofsinfo
+        ld r0, [x+2]
+        cmpi r0, 'A'
+        jnz rs_nofsinfo
+        ld r0, [x+3]
+        cmpi r0, 'a'
+        jnz rs_nofsinfo
+        lld l0, [x+4]
+        lst l0, [y+D_FREE]
+        lld l0, [x+8]
+        lcmpi l0, 2
+        jc rs_counted
+        lst l0, [y+D_HINT]
+        jmp rs_counted
+rs_nofsinfo:
+        lldi l0, 0
+        lst l0, [y+D_FSINFO]
+rs_counted:
         inc r5
         ; (the MBR is in PTBL: the next entry needs no re-read)
 rs_next_entry:
@@ -282,9 +347,8 @@ op_partitions:
 pl_loop:
         cmp r1, r5
         jz ok
-        btol l2, r1
-        lshl l2, 5
-        laddi l2, DRV
+        mov r0, r1
+        call drvaddr
         xl l2
         mov r0, r1
         inc r0
@@ -327,10 +391,9 @@ ud_have:
         jz ud_bad
         cmpi r5, 9
         jnc ud_bad
-        btol l2, r5
-        laddi l2, -1
-        lshl l2, 5
-        laddi l2, DRV
+        mov r0, r5
+        dec r0
+        call drvaddr
         xl l2
         ld r0, [x+D_FLAGS]
         mov r1, r0
@@ -357,6 +420,16 @@ ud_ok:
 ud_bad:
         ldi r12, E_NODRV
         jmp error
+
+; drvaddr: L2 = the record of drive R0 + 1 (R15 scratch)
+drvaddr:
+        mov r15, r0
+        shl r15
+        add r15, r0
+        btol l2, r15
+        lshl l2, 4
+        laddi l2, DRV
+        ret
 
 ; L2 = the LBA of cluster L0, sector R3
 clus2lba:
@@ -471,6 +544,28 @@ vis_yes:
         cmpi r0, 2                      ; C = 1
         ret
 
+; lfn_part: the long-filename entry at X into UCS (the last part comes
+; first: it starts the name again); R6 = its checksum, R7 = 1
+lfn_part:
+        ld r0, [x+0]
+        andi r0, $40
+        jz lp_part
+        lx l3
+        ldi r0, 0                       ; (520 bytes)
+        yset UCS
+        ldi r1, 0
+        fill r1
+        fill r1
+        ldi r1, 8
+        fill r1
+        xl l3
+lp_part:
+        ld r6, [x+13]
+        yset UCS
+        lfnput
+        ldi r7, 1
+        ret
+
 ; dir_search: the entry named NAME in directory L0 -> R0 = 1 found (ENT, G_DLBA,
 ; G_DOFF set; L3 = its first cluster, R10 its attributes), else R0 = 0
 dir_search:
@@ -496,6 +591,9 @@ ds_entry:
         cmp r0, r6
         jnz ds_short
         lx l3
+        xset UCS
+        yset LFN
+        utf8
         xset LFN
         yset NAME
         scmp
@@ -516,20 +614,7 @@ ds_next:
         jz ds_notfound
         jmp ds_entry
 ds_lfn:
-        ld r0, [x+0]
-        andi r0, $40
-        jz ds_lfn_part
-        lx l3                           ; the last part comes first: start again
-        ldi r0, 0
-        yset LFN
-        ldi r1, 0
-        fill r1
-        xl l3
-ds_lfn_part:
-        ld r6, [x+13]
-        yset LFN
-        lfnput
-        ldi r7, 1
+        call lfn_part
         jmp ds_next
 ds_found:
         lx l3                           ; keep the entry and where it is
@@ -675,45 +760,84 @@ rv_long:
         jmp error
 
 ; ---- descriptors -----------------------------------------------------------------
-; fdptr: X = descriptor R2
+; Two name spaces: the hypervisor's H0 and H1 (internal 0, 1: disk images) and
+; the programs' 0-7 (internal 2-9).  In hypervisor mode a descriptor number
+; with bit 7 set means the programs' one (the freezer, cleaning up).
+
+; fdptr: X = descriptor R2 (internal)
 fdptr:
         btol l1, r2
-        lmov l2, l1
         lshl l1, 5
-        lshl l2, 4
-        ladd l1, l2
         laddi l1, FD
         xl l1
         ret
 
-; fdalloc: R2 = a free descriptor (the one asked for if R_FLAGS bit 7)
+; fdmap: R0 = a descriptor number -> R2 = internal (bad: error)
+fdmap:
+        hyp
+        jnc fm_user
+        mov r2, r0
+        andi r2, $80
+        jnz fm_hyp_user
+        mov r2, r0
+        cmpi r2, 2
+        jnc fa_bad
+        ret
+fm_hyp_user:
+        mov r2, r0
+        andi r2, $7F
+        jmp fm_check
+fm_user:
+        mov r2, r0
+fm_check:
+        cmpi r2, 8
+        jnc fa_bad
+        addi r2, 2
+        ret
+
+; fdnum: R0 = the number of internal descriptor R2 (for the caller)
+fdnum:
+        mov r0, r2
+        cmpi r0, 2
+        jc fn_ret
+        subi r0, 2
+        hyp
+        jnc fn_ret
+        ori r0, $80
+fn_ret:
+        ret
+
+; fdalloc: R2 = a free descriptor: the one in R_FD if R_FLAGS bit 7, else the
+; first free one of the caller's (in hypervisor mode, R_FD bit 7: the programs')
 fdalloc:
         xset REQ
         ld r0, [x+R_FLAGS]
         andi r0, $80
         jz fa_scan
-        ld r2, [x+R_FD]
-        cmpi r2, 8
-        jnc fa_bad
-        cmpi r2, 2
-        jnc fa_check
-        hyp                             ; 0 and 1: the hypervisor's
-        jnc fa_access
-fa_check:
+        ld r0, [x+R_FD]
+        call fdmap
         call fdptr
         ld r0, [x+F_FLAGS]
         andi r0, 1
         jnz fa_full
         ret
 fa_scan:
-        ldi r2, 2
+        ldi r2, 2                       ; programs: 2-9
+        ldi r1, 10
+        hyp
+        jnc fa_next
+        ld r0, [x+R_FD]
+        andi r0, $80
+        jnz fa_next
+        ldi r2, 0                       ; the hypervisor: 0-1
+        ldi r1, 2
 fa_next:
         call fdptr
         ld r0, [x+F_FLAGS]
         andi r0, 1
         jz fa_ret
         inc r2
-        cmpi r2, 8
+        cmp r2, r1
         jnz fa_next
 fa_full:
         ldi r12, E_NFILE
@@ -721,26 +845,26 @@ fa_full:
 fa_bad:
         ldi r12, E_BADFD
         jmp error
-fa_access:
-        ldi r12, E_ACCESS
-        jmp error
 fa_ret:
         ret
 
-; fdget: R2 = R0 (the descriptor), must be open -> X, R5 its drive (loaded)
+; fdget: R0 = a descriptor number, open -> R2, X, R5 its drive (loaded)
 fdget:
-        mov r2, r0
-        cmpi r2, 8
-        jnc fa_bad
+        call fdmap
         call fdptr
         ld r0, [x+F_FLAGS]
         andi r0, 1
         jz fa_bad
-        lx l1
+        ld r0, [x+F_FLAGS]
+        andi r0, $80
+        jnz fd_stale
         ld r5, [x+F_DRIVE]
         call usedrive
         call fdptr
         ret
+fd_stale:
+        ldi r12, E_STALE
+        jmp error
 
 ; fdnew: fill descriptor R2 (X) for the object resolve found: R0 = flags
 fdnew:
@@ -776,8 +900,9 @@ op_opendir:
         call fdalloc
         ldi r0, 3                       ; open, directory
         call fdnew
+        call fdnum
         xset REQ
-        st r2, [x+R_FD]
+        st r0, [x+R_FD]
         jmp ok
 od_notdir:
         ldi r12, E_NOTDIR
@@ -828,7 +953,8 @@ rd_entry:
         ; found: the response
         lx l3
         xset REQ
-        ld r2, [x+R_FD]
+        ld r0, [x+R_FD]
+        call fdmap
         xl l3
         call rd_save
         call entry_out
@@ -837,10 +963,9 @@ rd_entry:
         lfnsum r0
         cmp r0, r6
         jnz rd_short_only
-        xset LFN
+        xset UCS
         yset REQ+R_DATA+32
-        ldi r1, 0
-        copy r1
+        utf8
         jmp ok
 rd_short_only:
         xset SHORT
@@ -855,25 +980,13 @@ rd_next:
         jz rd_end_mark
         jmp rd_entry
 rd_lfn:
-        ld r0, [x+0]
-        andi r0, $40
-        jz rd_lfn_part
-        lx l3
-        ldi r0, 0
-        yset LFN
-        ldi r1, 0
-        fill r1
-        xl l3
-rd_lfn_part:
-        ld r6, [x+13]
-        yset LFN
-        lfnput
-        ldi r7, 1
+        call lfn_part
         jmp rd_next
 rd_end_mark:
         lldi l0, 0                      ; ended: remember that
         xset REQ
-        ld r2, [x+R_FD]
+        ld r0, [x+R_FD]
+        call fdmap
         call fdptr
         lst l0, [x+F_CUR]
         ldi r0, 1
@@ -1060,6 +1173,9 @@ fc_entry:
         lfnsum r0
         cmp r0, r6
         jnz fc_short
+        xset UCS
+        yset LFN
+        utf8
         lldi l3, LFN
         ldi r0, 1
         ret
@@ -1075,20 +1191,7 @@ fc_next:
         jz ds_notfound
         jmp fc_entry
 fc_lfn:
-        ld r0, [x+0]
-        andi r0, $40
-        jz fc_lfn_part
-        lx l3
-        ldi r0, 0
-        yset LFN
-        ldi r1, 0
-        fill r1
-        xl l3
-fc_lfn_part:
-        ld r6, [x+13]
-        yset LFN
-        lfnput
-        ldi r7, 1
+        call lfn_part
         jmp fc_next
 
 ; stat(path) -> R_DATA as readdir
@@ -1131,8 +1234,9 @@ op_open:
         call fdalloc
         ldi r0, 1
         call fdnew
+        call fdnum
         xset REQ
-        st r2, [x+R_FD]
+        st r0, [x+R_FD]
         jmp ok
 op_isdir:
         ldi r12, E_ISDIR
@@ -1145,9 +1249,7 @@ op_rofs:
 op_close:
         xset REQ
         ld r0, [x+R_FD]
-        mov r2, r0
-        cmpi r2, 8
-        jnc fa_bad
+        call fdmap
         call fdptr
         ldi r0, 0
         st r0, [x+F_FLAGS]

@@ -39,8 +39,19 @@ INSTRUCTIONS (r = R register, l = L register, n = number, lbl = label)
   ncmp n                    compare n bytes [x] and [y], ASCII case-blind: Z
   scmp                      compare the 0-terminated strings at x and y, ASCII
                             case-blind: Z
-  lfnput                    long-filename entry at x: its 13 characters as ASCII
-                            (others '?') into [y + 13 * (sequence - 1)]
+  lfnput                    long-filename entry at x: its 13 UCS-2 characters, as
+                            stored, to [y + 26 * (sequence - 1)]
+  utf8                      the UCS-2 name at x (to $0000 / $FFFF, 260 at most)
+                            as UTF-8 at y, 0-terminated, 255 bytes at most: a
+                            longer one is cut at a character and ends in "..."
+                            (U+2026); unpaired surrogates become U+FFFD
+  ucs2                      the 0-terminated UTF-8 name at x as UCS-2 at y,
+                            $0000-terminated; R0 = its length; C = not UTF-8,
+                            or longer than 255
+  lfnmake r,r               long-filename entry at y: sequence byte r (bits 0-4
+                            the number, bit 6 the last), checksum r, the
+                            characters from the UCS-2 name at x (after its end
+                            $0000, then $FFFF)
   lfnsum r                  r = the 8.3 checksum of the 11 bytes at x
   copy r                    r bytes (0 = 256) from [x] to [y]; x, y advance
   fill r                    r bytes (0 = 256) of R0 at [y]; y advances
@@ -387,15 +398,111 @@ def op_scmp(m):
             m.z = True
             return
         i += 1
+LFN_POS = [1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30]
 def op_lfnput(m):
     seq = m.b(m.x) & 0x1F
     if not 1 <= seq <= 20:
         return
-    pos = [1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30]
-    for i, p in enumerate(pos):
-        u = m.b(m.x + p) | m.b(m.x + p + 1) << 8
-        ch = 0 if u in (0, 0xFFFF) else (u if u < 128 else ord("?"))
-        m.setb(m.y + 13 * (seq - 1) + i, ch)
+    for i, p in enumerate(LFN_POS):
+        m.setb(m.y + 26 * (seq - 1) + 2 * i, m.b(m.x + p))
+        m.setb(m.y + 26 * (seq - 1) + 2 * i + 1, m.b(m.x + p + 1))
+def utf8_bytes(cp):
+    return chr(cp).encode("utf-8", errors="surrogatepass")
+def op_utf8(m):
+    word = lambda i: m.b(m.x + 2 * i) | m.b(m.x + 2 * i + 1) << 8
+    out, i, boundary = bytearray(), 0, 0
+    while i < 260:
+        u = word(i)
+        if u in (0, 0xFFFF):
+            break
+        if 0xD800 <= u < 0xDC00 and i + 1 < 260 and 0xDC00 <= word(i + 1) < 0xE000:
+            cp = 0x10000 + ((u - 0xD800) << 10) + (word(i + 1) - 0xDC00)
+            i += 2
+        else:
+            cp = 0xFFFD if 0xD800 <= u < 0xE000 else u
+            i += 1
+        enc = utf8_bytes(cp)
+        if len(out) + len(enc) > 255:
+            out = out[:boundary] + "\u2026".encode()
+            break
+        out += enc
+        if len(out) <= 252:
+            boundary = len(out)
+    for k, c in enumerate(out + b"\0"):
+        m.setb(m.y + k, c)
+def op_ucs2(m):
+    """(as the hardware does it: units are written as they are decoded; an
+    error writes $0000 at the start)"""
+    k, n, err = 0, 0, False
+    def unit(u):
+        nonlocal n, err
+        if n == 255:
+            err = True
+            return
+        m.setb(m.y + 2 * n, u)
+        m.setb(m.y + 2 * n + 1, u >> 8)
+        n += 1
+    while not err:
+        b0 = m.b(m.x + k)
+        if b0 == 0:
+            break
+        if b0 < 0x80:
+            cp, more = b0, 0
+        elif 0xC2 <= b0 <= 0xDF:
+            cp, more = b0 & 0x1F, 1
+        elif 0xE0 <= b0 <= 0xEF:
+            cp, more = b0 & 0x0F, 2
+        elif 0xF0 <= b0 <= 0xF4:
+            cp, more = b0 & 0x07, 3
+        else:
+            err = True
+            break
+        for t in range(more):
+            c = m.b(m.x + k + 1 + t)
+            if c & 0xC0 != 0x80:
+                err = True
+                break
+            cp = cp << 6 | (c & 0x3F)
+        if err:
+            break
+        if (more == 2 and (cp < 0x800 or 0xD800 <= cp <= 0xDFFF)) or \
+           (more == 3 and not 0x10000 <= cp <= 0x10FFFF):
+            err = True
+            break
+        k += 1 + more
+        if cp < 0x10000:
+            unit(cp)
+        else:
+            unit(0xD800 + ((cp - 0x10000) >> 10))
+            unit(0xDC00 + ((cp - 0x10000) & 0x3FF))
+    if err:
+        m.setb(m.y, 0)
+        m.setb(m.y + 1, 0)
+        n = 0
+    else:
+        m.setb(m.y + 2 * n, 0)
+        m.setb(m.y + 2 * n + 1, 0)
+    m.c = err
+    m.r[0] = n
+def op_lfnmake(m, rs, rc):
+    seq = m.r[rs[1]]
+    n = seq & 0x1F
+    for i in range(32):
+        m.setb(m.y + i, 0)
+    m.setb(m.y, seq)
+    m.setb(m.y + 11, 0x0F)
+    m.setb(m.y + 13, m.r[rc[1]])
+    ended = False
+    for i, p in enumerate(LFN_POS):
+        k = 13 * (n - 1) + i
+        if ended:
+            u = 0xFFFF
+        else:
+            u = m.b(m.x + 2 * k) | m.b(m.x + 2 * k + 1) << 8
+            if u == 0:
+                ended = True
+        m.setb(m.y + p, u)
+        m.setb(m.y + p + 1, u >> 8)
 def op_lfnsum(m, d):
     s = 0
     for i in range(11):
@@ -454,6 +561,7 @@ ENCODING = [
     ("slot", "r", None), ("sread", "l", None), ("swrite", "l", None), ("dread", "l", None),
     ("dwrite", "l", None), ("fatnx", "l", None), ("fatset", "ll", None),
     ("ncmp", "n", "n8"), ("scmp", "", None), ("lfnput", "", None), ("lfnsum", "r", None),
+    ("utf8", "", None), ("ucs2", "", None), ("lfnmake", "rr", None),
     ("copy", "r", None), ("fill", "r", None),
     ("cmd", "r", None), ("arg", "l", None), ("setarg", "l", None), ("hyp", "", None),
     ("done", "", None), ("fail", "n", "n8"), ("failr", "r", None),
