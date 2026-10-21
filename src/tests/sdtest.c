@@ -89,6 +89,7 @@ static void sim_read(uint32_t s)
 static uint8_t regs[256];
 static void POKE(uint16_t a, uint8_t v)
 {
+  if (a == 0xD6DC) { regs[0xDC] = v; return; }
   if (a >= 0xD681 && a <= 0xD684) {
     regs[a & 0xff] = v;
     sim_sector = regs[0x81] | ((uint32_t)regs[0x82] << 8) | ((uint32_t)regs[0x83] << 16) | ((uint32_t)regs[0x84] << 24);
@@ -114,6 +115,8 @@ static uint8_t PEEK(uint16_t a)
   if (a == 0xD680) return 0x00;          /* never busy, no error */
   if (a == 0xD686) return sim_status;
   if (a == 0xD687) return 0;
+  if (a == 0xD6D9) return 0xA3;          /* capacity known, limit on */
+  if (a == 0xD6DD) return (uint8_t)((SIM_SECTORS - 1) >> (8 * (regs[0xDC] & 3)));
   return 0;
 }
 static void hw_init(void)
@@ -168,11 +171,20 @@ static char *read_line(char *s, int n)
 
 static uint8_t sd_error;
 
+/* wait for the controller; an empty slot can leave BUSY set, so give up
+   after a while (several seconds) */
 static void sd_wait(void)
 {
-  while (PEEK(0xD680) & 0x03)
-    continue;
-  if (PEEK(0xD680) & 0x40) sd_error = 1;
+  uint16_t a, b;
+  for (a = 0; a < 2000; a++) {
+    for (b = 0; b < 1000; b++) {
+      if (!(PEEK(0xD680) & 0x03)) {
+        if (PEEK(0xD680) & 0x40) sd_error = 1;
+        return;
+      }
+    }
+  }
+  sd_error = 1;
 }
 
 static void sd_set_sector(uint32_t s)
@@ -197,14 +209,30 @@ static void sd_wcmd(uint8_t c, uint32_t s)
   sd_wait();
 }
 
+/* select a card (the controller keeps both cards' sessions: reset it only
+   if it is not ready) */
 static uint8_t sd_select(uint8_t slot)
 {
   POKE(0xD680, slot ? 0xC1 : 0xC0);
+  sd_error = 0;
+  if ((PEEK(0xD686) & 1) && !(PEEK(0xD680) & 0x43)) return 1;
   POKE(0xD680, 0x00);
   POKE(0xD680, 0x01);
-  sd_error = 0;
   sd_wait();
   return !sd_error && (PEEK(0xD686) & 1);
+}
+
+/* the selected card's size in sectors, from the controller (0: unknown) */
+static uint32_t sd_capacity(void)
+{
+  uint32_t last = 0;
+  uint8_t i;
+  if ((PEEK(0xD6D9) & 0xFE) != 0xA2) return 0;    /* capacity not known */
+  for (i = 0; i < 4; i++) {
+    POKE(0xD6DC, i);
+    last |= (uint32_t)PEEK(0xD6DD) << (8 * i);
+  }
+  return last + 1;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -502,6 +530,7 @@ static void show_card(uint8_t slot)
   }
   st = PEEK(0xD686);
   printf("%s%s%s", st & 2 ? "4-bit" : "spi", st & 4 ? ", high speed" : "", st & 8 ? ", sdhc" : "");
+  if (sd_capacity()) printf(", %lu mb", (unsigned long)(sd_capacity() / SECTORS_PER_MB));
   sd_set_sector(0);
   sd_cmd(0x02);
   if (buf[0] == 'S' && buf[1] == 'D' && buf[2] == 'T' && buf[3] == '1') {
@@ -526,7 +555,7 @@ int main(int argc, char **argv)
 {
   static char line[64];
   uint8_t slot;
-  uint32_t max_mb, n;
+  uint32_t max_mb, n, cap;
   uint16_t slab;
 
   hw_init();
@@ -577,6 +606,11 @@ int main(int argc, char **argv)
   run_seed = strtoul(line, 0, 0);
   if (!run_seed) run_seed = 1;
 
+  cap = sd_capacity();
+  if (cap && max_mb * SECTORS_PER_MB > cap) {
+    max_mb = cap / SECTORS_PER_MB;
+    printf("(the card holds %lu mb: slabs up to that)\n", (unsigned long)max_mb);
+  }
   printf("\nthis overwrites the first %lu mb of the card in slot %u.\n"
          "type: this will destroy card contents\n> ", (unsigned long)max_mb, slot);
   read_line(line, sizeof(line));
