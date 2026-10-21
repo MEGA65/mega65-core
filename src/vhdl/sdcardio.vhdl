@@ -485,6 +485,20 @@ architecture behavioural of sdcardio is
   signal fdc_sector_data_gap_2x : std_logic := '0';
   signal fdc_sector_found_2x : std_logic := '0';
   signal last_fdc_sector_found_2x : std_logic := '0';
+  -- Header found by the fixed HD-rate (TIB) reader, and the rate/encoding
+  -- override used while a sector write runs at a fixed reader's rate.
+  signal fdc_sector_found_hd : std_logic := '0';
+  signal last_fdc_sector_found_hd : std_logic := '0';
+  signal write_rate_override : std_logic := '0';
+  signal write_saved_cycles_per_interval : unsigned(7 downto 0) := x"51";
+  signal write_saved_variable_data_rate : std_logic := '1';
+  signal write_saved_encoding_mode : unsigned(3 downto 0) := x"0";
+  -- A fixed-rate reader found the sector first: wait this long for the
+  -- variable reader to find it too before committing to the fixed rate.
+  constant write_pick_window : integer := 2592; -- 2 bytes at DD (64us)
+  signal write_pick_pending : std_logic := '0';
+  signal write_pick_countdown : integer range 0 to write_pick_window := 0;
+  signal write_pick_dd : std_logic := '0';
   signal fdc_2x_select : std_logic := '0';
   signal auto_fdc_2x_select : std_logic := '1';
   signal fdc_variable_data_rate : std_logic := '1';
@@ -970,8 +984,8 @@ begin  -- behavioural
     track_info_rate => hd_track_info_rate,
     track_info_encoding => hd_track_info_encoding,
     track_info_sectors => hd_track_info_sectors,
-    track_info_valid => hd_track_info_valid
-
+    track_info_valid => hd_track_info_valid,
+    sector_found => fdc_sector_found_hd
     );
 
 
@@ -1077,6 +1091,10 @@ begin  -- behavioural
            sd_buffer_offset
            ) is
     variable temp_cmd : unsigned(7 downto 0);
+    -- Sector write trigger: which readers just found the target header,
+    -- and which rate the write starts at this cycle (if any).
+    variable wr_v_edge, wr_d_edge, wr_h_edge : boolean;
+    variable wr_start, wr_start_dd, wr_start_hd : boolean;
   begin
 
     -- ==================================================================
@@ -1874,6 +1892,7 @@ begin  -- behavioural
       last_fw_ready_for_next <= fw_ready_for_next;
       last_fdc_sector_found <= fdc_sector_found;
       last_fdc_sector_found_2x <= fdc_sector_found_2x;
+      last_fdc_sector_found_hd <= fdc_sector_found_hd;
 
       if fdc_writing_cooldown /= 0 then
         fdc_writing <= '1';
@@ -2623,6 +2642,7 @@ begin  -- behavioural
                   elsif virtualise_f011_drive0='0' and f011_ds="000" and use_real_floppy0='1' then
                     -- Access to real first floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    write_pick_pending <= '0';
                     -- Allow use of auto-stepping to correct track
                     fdc_sector_operation <= '1';
                     -- Setup timeouts etc
@@ -2635,6 +2655,7 @@ begin  -- behavioural
                   elsif virtualise_f011_drive1='0' and f011_ds="001" and use_real_floppy2='1' then
                     -- Access to real second floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    write_pick_pending <= '0';
                     -- Allow use of auto-stepping to correct track
                     fdc_sector_operation <= '1';
                     -- Setup timeouts etc
@@ -4026,7 +4047,55 @@ begin  -- behavioural
 
           -- Wait until we get a fresh event of hitting the sector we
           -- are looking for.
-          if fdc_sector_found='1' and last_fdc_sector_found='0' then
+          -- Any reader that finds the sector may start the write, and the
+          -- write then runs at that reader's rate and encoding. The variable
+          -- reader (mfm_fast, selected rate and encoding) always wins and
+          -- starts the write at once. When a fixed-rate reader (mfm0 at DD,
+          -- mfmhdonly at HD) finds it first, wait up to write_pick_window
+          -- cycles for the variable reader to find it too: the fastest
+          -- decoder tends to signal first (e.g. the HD reader on a DD track
+          -- in a DD-mode drive), so the first signal alone can pick the
+          -- wrong rate. If the variable reader stays silent, DD beats HD.
+          -- A fixed-rate write overrides the writer's rate and encoding for
+          -- this one sector; they are restored when it ends.
+          wr_v_edge := fdc_sector_found_2x='1' and last_fdc_sector_found_2x='0';
+          wr_d_edge := fdc_sector_found='1' and last_fdc_sector_found='0';
+          wr_h_edge := fdc_sector_found_hd='1' and last_fdc_sector_found_hd='0';
+          wr_start := false; wr_start_dd := false; wr_start_hd := false;
+          if wr_v_edge then
+            wr_start := true;
+          elsif write_pick_pending='1' then
+            if wr_d_edge then
+              write_pick_dd <= '1';
+            end if;
+            if write_pick_countdown /= 0 then
+              write_pick_countdown <= write_pick_countdown - 1;
+            elsif write_pick_dd='1' or wr_d_edge then
+              wr_start := true; wr_start_dd := true;
+            else
+              wr_start := true; wr_start_hd := true;
+            end if;
+          elsif wr_d_edge or wr_h_edge then
+            write_pick_pending <= '1';
+            write_pick_countdown <= write_pick_window;
+            if wr_d_edge then write_pick_dd <= '1'; else write_pick_dd <= '0'; end if;
+          end if;
+
+          if wr_start then
+            write_pick_pending <= '0';
+            if wr_start_dd or wr_start_hd then
+              write_rate_override <= '1';
+              write_saved_cycles_per_interval <= cycles_per_interval;
+              write_saved_variable_data_rate <= fdc_variable_data_rate;
+              write_saved_encoding_mode <= fdc_encoding_mode;
+              fdc_variable_data_rate <= '0';
+              fdc_encoding_mode <= x"0";
+              if wr_start_dd then
+                cycles_per_interval <= to_unsigned(81,8);
+              else
+                cycles_per_interval <= to_unsigned(40,8);
+              end if;
+            end if;
             -- Indicate that we still have the gap and sync mark bytes etc to write
             fdc_write_byte_number <= 0;
             -- And immediately open the write gate
@@ -4142,6 +4211,12 @@ begin  -- behavioural
                 f011_busy <= '0';
                 sd_state <= Idle;
                 fdc_sector_operation <= '0';
+                if write_rate_override='1' then
+                  write_rate_override <= '0';
+                  cycles_per_interval <= write_saved_cycles_per_interval;
+                  fdc_variable_data_rate <= write_saved_variable_data_rate;
+                  fdc_encoding_mode <= write_saved_encoding_mode;
+                end if;
             end case;
           end if;
 
