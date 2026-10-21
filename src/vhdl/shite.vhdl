@@ -162,6 +162,11 @@ architecture rtl of shite is
   attribute ram_style of list : signal is "block";
   signal l_ra : natural range 0 to max_row_cells - 1 := 0;
   signal l_rd : unsigned(63 downto 0) := (others => '0');
+  -- its write port, registered: the write lands a cycle after the state
+  -- that asks for it (no read needs it sooner: see the RAM's process)
+  signal l_we : std_logic := '0';
+  signal l_wa : natural range 0 to max_row_cells - 1 := 0;
+  signal l_wd : unsigned(63 downto 0) := (others => '0');
   signal l_n : natural range 0 to max_row_cells := 0;
   signal l_i, l_j : natural range 0 to max_row_cells := 0;
   signal l_key, l_cur : unsigned(63 downto 0) := (others => '0');
@@ -663,6 +668,22 @@ begin
   done_t <= done_tr;
   g_write <= m_write; g_wd <= m_wd; g_be <= m_be;
 
+  -- REBALANCE_ROW's list: a simple dual-port block RAM, alone in its
+  -- process (in the main one Vivado built it from LUT RAM, ram_style or
+  -- not).  A read is used only through L_WAIT, never in the cycle after
+  -- its address was written (the write is still landing then: asserted)
+  process (clock)
+  begin
+    if rising_edge(clock) then
+      if l_we = '1' then
+        list(l_wa) <= l_wd;
+      end if;
+      l_rd <= list(l_ra);
+      assert not (st = L_WAIT and l_we = '1' and l_wa = l_ra)
+        report "SHITE: the list RAM read where a write is landing" severity failure;
+    end if;
+  end process;
+
   process (clock)
     variable mb : unsigned(7 downto 0);
     variable w : unsigned(15 downto 0);
@@ -747,7 +768,7 @@ begin
         m_ok <= '0';
       end if;
 
-      l_rd <= list(l_ra);                 -- (the list RAM's read port)
+      l_we <= '0';                        -- (the list RAM's write port)
 
       -- the codec units: one-cycle pulses, and their jobs' ends latched
       co_start <= '0'; ce_start <= '0'; nu_start_self <= '0';
@@ -930,7 +951,7 @@ begin
             format_fault(row);                  -- (more cells than the list holds)
           else
             if m_rd(27 downto 24) /= K_FREE then
-              list(l_n) <= m_rd(23 downto 0) & g & m_rd(39 downto 24) & x"00";
+              l_we <= '1'; l_wa <= l_n; l_wd <= m_rd(23 downto 0) & g & m_rd(39 downto 24) & x"00";
               l_n <= l_n + 1;
             end if;
             g <= g + m_rd(39 downto 32);
@@ -963,14 +984,14 @@ begin
           if l_rd(63 downto 40) = l_key(63 downto 40) then
             format_fault(row);                  -- two cells in one column
           elsif l_rd(63 downto 40) > l_key(63 downto 40) then
-            list(l_j) <= l_rd;
+            l_we <= '1'; l_wa <= l_j; l_wd <= l_rd;
             l_j <= l_j - 1;
             st <= B_SORT2;
           else
             st <= B_SORT4;
           end if;
         when B_SORT4 =>
-          list(l_j) <= l_key;
+          l_we <= '1'; l_wa <= l_j; l_wd <= l_key;
           l_i <= l_i + 1;
           st <= B_SORT;
 
