@@ -70,8 +70,10 @@ pointers reaches everything.
 
 ### 3.2 Instructions (sketch)
 
-Instructions are 24 bits.  The program budget is 2K instructions (48 Kbit
-of LUT ROM, about 750 LUT6s); the goal is to need about half of that.
+Instructions are 24 bits.  The program budget was 2K instructions; with
+the write side the firmware is about 2465, so jump addresses became 12
+bits and the ROM is 4K deep (about 59 Kbit of LUT ROM as used).  A BRAM is
+the fallback if the LUTs are too dear.
 
 | Group | Instructions |
 |---|---|
@@ -101,8 +103,8 @@ add (`LSHL` by log2 of the sectors per cluster, which is stored at mount).
 VHDL ROM output comes with the engine RTL), and its docstring is the
 instruction reference.  `src/tools/test_fat32_engine.py` runs
 `src/fat32/engine.fs` against the `fat32img.py` fixture and checks every
-result against `fat32img`'s own reading of the image (49 checks).  The
-phase 1 firmware is about 1070 instructions, under half the 2K budget.
+result against `fat32img`'s own reading of the image (57 read checks, 61
+write checks).
 
 ## 4. Memory layout
 
@@ -152,7 +154,7 @@ hypervisor must not write there while descriptors are open.
 - **Completion:** busy (`$D680.0`) as for any command.  The status and
   error code are in the response block, and in `$D687` for `$71-$75`.
 
-**As built (phase 1 firmware):** the request block is `"F3"`, version 1,
+**As built (phases 1 and 3):** the request block is `"F3"`, version 1,
 op (+3), fd (+4), flags (+5), arg0 (+6), arg1 (+10), path or data (+16).  In
 the response, byte 3 is the status (0, or an error code below).
 
@@ -161,22 +163,64 @@ the response, byte 3 is the status (0, or an error code below).
 | `$01` | `rescan` | | arg0 = drives found |
 | `$02` | `getpartitionlist` | | arg0 = n; 16 bytes each from +16: drive, slot, type, log2 sectors per cluster, partition LBA, size, clusters |
 | `$03` | `setdrive` | arg0 = drive | |
+| `$04` | `policy` (hypervisor) | arg0 bit 0: programs may not modify the file system | |
+| `$05` | `systemaccess` (hypervisor) | arg0 bit 0: programs see SYSTEM entries | |
+| `$06` | `settime` (hypervisor) | arg0 = FAT time \| date << 16 (0: 2026-01-01) | |
 | `$10` | `opendir` | path | fd |
 | `$11` | `readdir` | fd | entry (below), or error 8 at the end |
 | `$12` | `chdir` | path | |
 | `$13` | `getcwd` | arg0 = drive (0 the current) | the path from +16 (found by walking up `..`) |
+| `$14` | `mkdir` | path | |
+| `$15` | `rmdir` | path (empty, nobody's current directory, not open) | |
 | `$20` | `open` | path; flags bit 0 write, bit 1 append, bit 7 use fd | fd |
-| `$22` | `close` | fd | |
+| `$21` | `create` | path; arg0 attributes (read-only, hidden, system; archive is set); flags bit 7 use fd | fd, open for writing |
+| `$22` | `close` | fd (writes the entry if `$75` left it out of date) | |
 | `$23` | `seek` | fd, arg0 offset, flags 0 start / 1 position / 2 end | arg0 = new position |
 | `$24` | `stat` | path | entry |
+| `$25` | `delete` | path (a file, not open) | |
+| `$26` | `rename` | the old path, then the new one after its terminator (one drive; directories move too, `..` follows) | |
+| `$27` | `setattr` | path, arg0 (read-only, hidden, system, archive) | |
+| `$28` | `truncate` | fd, arg0 length (shorter frees; longer allocates from the file's end on, so contiguously where it can, and fills with zeros) | |
+| `$29` | `flush` | fd | |
+
+`$72` write and `$73` append take `$D681-$D682` = n (at most 512) and `$D684`
+= fd, the bytes at `$E00`; `$75` writes exactly 512 bytes at file sector
+`$D681-$D683`, inside the file (disk images: the entry is updated at flush
+or close).  Writes are synchronous: data, both FATs, the directory entry
+(size, first cluster, archive bit, time stamp) and FSInfo (free count,
+hint) are written before the command completes.  If a write or truncate
+runs out of space part way, the entry still gets what was allocated, so no
+cluster leaks.
 
 An entry (from +16): attributes, 3 bytes 0, size (4), first cluster (4),
 time and date (4), the 8.3 name as text (13, 0-terminated), and from +48
-the long name (or the 8.3 name), 0-terminated.
+the long name (UTF-8; or the 8.3 name), 0-terminated.
+
+New names: an 8.3 alias (the name itself if it fits; else up to 6
+characters and `~1`..`~9`, then 5 and `~10`..`~99`), plus long-name entries
+(UCS-2 from UTF-8) unless the name is exactly its alias.  Names may not be
+`.`/`..`, contain `" * / : < > ? \ |` or control characters, or end in a
+space or `.`.
 
 Errors: 1 not found, 2 not a directory, 3 is a directory, 4 bad fd, 5 no
 free fd, 6 no such drive, 7 I/O, 8 end, 9 denied, 10 bad request, 11 name
-too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
+too long, 12 exists, 13 not empty, 14 no space, 15 read-only, 16 stale
+descriptor, 17 busy (open, or a current directory).
+
+**Descriptors:** two name spaces.  In hypervisor mode `fd` 0 and 1 are H0
+and H1 (disk images); programs have their own 0-7.  The hypervisor reaches
+the programs' descriptors with bit 7 of the number (`$80`-`$87`), for the
+freezer and for cleaning up.
+
+**Memory** (`$000-$7FF`, what the freezer saves): drive records (8 x 48:
+geometry, volume serial, FSInfo sector, free count, hint) at `$000`,
+descriptors (10 x 32) at `$180`, current directories at `$2C0`, globals,
+the entry copy, the name buffers (path component and long name, UTF-8),
+the UCS-2 buffer at `$580`, the write side's working state at `$788`, and
+"F3" at `$7FE`.  Without "F3" (power on) the engine clears the area first.
+
+**Firmware size:** about 2465 instructions, so the ROM is 4K x 24 (12-bit
+jump addresses) in LUTs.
 
 `$70` operations:
 
@@ -189,9 +233,10 @@ too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
 
 ## 6. Rules
 
-- **Descriptors:** 0 and 1 are only for disk images (hypervisor only).
-  `open` gives the lowest free one of 2-7, or the one requested if it is
-  free.  Directories use descriptors too.
+- **Descriptors:** the hypervisor's H0/H1 (disk images) and the
+  programs' 0-7 are separate name spaces.  `open` gives the lowest free
+  one of the caller's, or the one requested if it is free.  Directories use
+  descriptors too.
 - **Open flags:** read-only or read-write, appendable or not.  Overwriting
   existing bytes and growing the file are separate permissions.
 - **SYSTEM attribute:** files and directories with it are invisible and
@@ -248,7 +293,14 @@ too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
      and runs rescan and the partition list through the real cache and
      controller, plus a bad request (`$D687` = 10).
 3. **Writes:** `create`, `write`, `append`, `truncate`, `delete`, `mkdir`,
-   `rmdir`, `rename`, `setattr`, `$75`.  Policies and the SYSTEM attribute.
+   `rmdir`, `rename`, `setattr`, `$75`.  Policies and the SYSTEM attribute.  **Done** (see the
+   table above): `test_fat32_engine.py` runs 61 write checks on a copy of
+   the image, `fsck.fat` and the FSInfo free count checked after each part
+   (FSInfo is not fixed first), and the RTL matches the simulator on all
+   480 commands and 3179 sector writes.  `tb_sdcardio_native` creates,
+   writes and reads back a file through the real controller.  The
+   read-only policy is enforced by the firmware; the hardware gate on raw
+   sector writes (`$03-$06`) for programs is still to do.
 4. **Disk images on FDs 0/1** (run tables), and HYPPO integration.
 5. **Later:** freezer state, `findfirst/findnext`, `volinfo`, `defrag`.
 

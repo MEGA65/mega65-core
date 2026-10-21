@@ -1,6 +1,6 @@
 ; Hardware FAT32 engine firmware (MEGA65/mega65-core#766).
-; Assembled by src/tools/fat32asm / run by src/tools/fat32sim.py; design in
-; docs/sdcard-native/fat32-engine.md.  Phase 1: read-only.
+; Assembled and simulated by src/tools/fat32sim.py (the ROM: fat32_rom.vhdl);
+; design in docs/sdcard-native/fat32-engine.md.
 ;
 ; Register conventions (kept across subroutines unless noted):
 ;   R5  drive in use (1..8)       R11 sectors per cluster  R13 log2 of it
@@ -9,7 +9,7 @@
 ;   directory walk: L0 cluster, R3 sector in cluster, R4 entry in sector,
 ;   X the entry (in the engine sector)
 ;   R12 the error code (error)    R0-R2, R6-R10, L1-L3 are scratch
-;   R15 scratch of the small helpers (drvaddr)
+;   R15 scratch of the small helpers (drvaddr, fdptr)
 
 ; ---- memory ($000-$7FF of the sector buffer; the freezer saves it) --------------
 .equ DRV,      $000      ; 8 drives x 48
@@ -56,6 +56,31 @@
 .equ LFN,      $480      ; 256: the long filename being assembled (UTF-8)
 .equ UCS,      $580      ; 520: a long filename's UCS-2 characters, as stored
 .equ PTBL,     $580      ; 64: the partition table being scanned (rescan only)
+.equ G_WPOS,   $788      ; (4) write: the position
+.equ G_WN,     $78C      ; (4)   the count
+.equ G_WDONE,  $790      ; (4)   bytes done
+.equ G_PREV,   $794      ; (4) alloc: the cluster to link from
+.equ G_PREVC,  $798      ; (4) locate_w: the cluster before
+.equ G_IDX,    $79C      ; (4)   the index reached
+.equ G_TGT,    $7A0      ; (4)   the index wanted
+.equ G_FSTART, $7A4      ; (4) find_free: where the search started
+.equ G_RUN,    $7A8      ; (7) a directory entry's run: cluster, sector, entry, count
+.equ G_PARDIR, $7B0      ; (4) the parent directory (create, mkdir, rename)
+.equ G_TIME,   $7B4      ; (4) the time stamp: FAT time, date (0: 2026-01-01)
+.equ G_NEWCL,  $7B8      ; (4) mkdir: the new directory's cluster
+.equ G_FSDIRTY, $7BC     ; FSInfo needs writing
+.equ G_ALLVIS, $7BD      ; every entry is visible (existence checks)
+.equ G_BASELEN, $7BE     ; alias: the length of the base
+.equ G_CUTC,   $7BF      ; resolve_parent: the character cut, where (2), the
+                         ;   name's length (G_CUTC+3)
+.equ G_PBASE,  $7F4      ; (2) the path resolve reads
+.equ G_ONERR,  $7F6      ; a descriptor whose entry an error must still write
+.equ G_ERR,    $7F7      ;   (the error meanwhile)
+.equ G_MAGIC,  $7FE      ; (2) "F3": the area is initialised (else: cleared first)
+.equ G_SAVRUN, $7C4      ; (8) rename: the old entry's run
+.equ G_SAVENT, $7CC      ; (32) rename: the old entry; truncate: the length
+.equ G_DIRCL,  $7EC      ; (4) rename: the directory's cluster
+.equ G_LEN,    $7F0      ; (4) truncate: the new length
 .equ SEC,      $800      ; the engine's sector
 .equ REQ,      $E00      ; request / response block (the CPU's sector buffer)
 .equ R_OP,     3
@@ -82,20 +107,61 @@
 .equ E_NOSPC,  14
 .equ E_ROFS,   15
 .equ E_STALE,  16
+.equ E_BUSY,   17
 
 ; ==============================================================================
 start:
+        xset G_MAGIC                    ; cold: the whole area cleared (no
+        ld r0, [x+0]                    ; drives, no descriptors, defaults)
+        cmpi r0, 'F'
+        jnz cold
+        ld r0, [x+1]
+        cmpi r0, '3'
+        jz warm
+cold:
+        ldi r0, 0
+        yset $000
+        ldi r1, 0
+        fill r1
+        fill r1
+        fill r1
+        fill r1
+        fill r1
+        fill r1
+        fill r1
+        fill r1
+        xset G_MAGIC
+        ldi r0, 'F'
+        st r0, [x+0]
+        ldi r0, '3'
+        st r0, [x+1]
+warm:
+        xset G_ONERR
+        ldi r0, $FF
+        st r0, [x+0]
+        xset G_ALLVIS                   ; (an error may have left it set)
+        ldi r0, 0
+        st r0, [x+0]
         cmd r0
         cmpi r0, $70
         jz request
         cmpi r0, $71
         jz cmd_read
+        cmpi r0, $72
+        jz cmd_write
+        cmpi r0, $73
+        jz cmd_append
         cmpi r0, $74
         jz cmd_readsector
+        cmpi r0, $75
+        jz cmd_writesector
         fail E_BADREQ
 
 ; ---- $70: a request block ----------------------------------------------------
 request:
+        lldi l0, REQ+R_DATA
+        xset G_PBASE
+        lstw l0, [x+0]
         xset REQ
         ld r0, [x+0]
         cmpi r0, 'F'
@@ -110,6 +176,28 @@ request:
         jz op_partitions
         cmpi r0, 3
         jz op_setdrive
+        cmpi r0, 4
+        jz op_policy
+        cmpi r0, 5
+        jz op_sysaccess
+        cmpi r0, 6
+        jz op_settime
+        cmpi r0, $14
+        jz op_mkdir
+        cmpi r0, $15
+        jz op_rmdir
+        cmpi r0, $21
+        jz op_create
+        cmpi r0, $25
+        jz op_delete
+        cmpi r0, $26
+        jz op_rename
+        cmpi r0, $27
+        jz op_setattr
+        cmpi r0, $28
+        jz op_truncate
+        cmpi r0, $29
+        jz op_flush
         cmpi r0, $10
         jz op_opendir
         cmpi r0, $11
@@ -134,6 +222,19 @@ bad_request:
 ok:
         ldi r12, 0
 error:
+        xset G_ONERR                    ; a file grown part way: its entry
+        ld r2, [x+0]
+        cmpi r2, $FF
+        jz error_resp
+        ldi r0, $FF
+        st r0, [x+0]
+        xset G_ERR
+        st r12, [x+0]
+        call dirent_update
+        call fsinfo_sync
+        xset G_ERR
+        ld r12, [x+0]
+error_resp:
         xset REQ
         ldi r0, 'F'
         st r0, [x+0]
@@ -529,6 +630,12 @@ visible:
         ld r0, [x+11]
         andi r0, $04
         jz vis_yes
+        lx l3
+        xset G_ALLVIS
+        ld r0, [x+0]
+        xl l3
+        cmpi r0, 0
+        jnz vis_yes
         hyp
         jc vis_yes
         lx l3
@@ -551,6 +658,11 @@ lfn_part:
         andi r0, $40
         jz lp_part
         lx l3
+        xset G_RUN                      ; where the run starts
+        lst l0, [x+0]
+        st r3, [x+4]
+        st r4, [x+5]
+        ldi r7, 0
         ldi r0, 0                       ; (520 bytes)
         yset UCS
         ldi r1, 0
@@ -563,7 +675,7 @@ lp_part:
         ld r6, [x+13]
         yset UCS
         lfnput
-        ldi r7, 1
+        inc r7
         ret
 
 ; dir_search: the entry named NAME in directory L0 -> R0 = 1 found (ENT, G_DLBA,
@@ -617,7 +729,25 @@ ds_lfn:
         call lfn_part
         jmp ds_next
 ds_found:
-        lx l3                           ; keep the entry and where it is
+        lx l3                           ; the run: the long name's, or this entry
+        cmpi r7, 0
+        jz dsf_single
+        lfnsum r0
+        cmp r0, r6
+        jnz dsf_single
+        inc r7
+        xset G_RUN+6
+        st r7, [x+0]
+        jmp dsf_copy
+dsf_single:
+        xset G_RUN
+        lst l0, [x+0]
+        st r3, [x+4]
+        st r4, [x+5]
+        ldi r0, 1
+        st r0, [x+6]
+dsf_copy:
+        xl l3                           ; keep the entry and where it is
         yset ENT
         ldi r1, 32
         copy r1
@@ -645,7 +775,9 @@ ds_notfound:
 ; directory: 0 = root), R5 the drive (its registers loaded).  ENT holds the
 ; entry (none for the root: R9 = 0, else 1).
 resolve:
-        xset REQ+R_DATA
+        xset G_PBASE
+        lldw l1, [x+0]
+        xl l1
         ldi r5, 0
         ld r0, [x+1]                    ; "n:"?
         cmpi r0, ':'
@@ -764,12 +896,16 @@ rv_long:
 ; the programs' 0-7 (internal 2-9).  In hypervisor mode a descriptor number
 ; with bit 7 set means the programs' one (the freezer, cleaning up).
 
-; fdptr: X = descriptor R2 (internal)
+; fdptr: X = descriptor R2 (internal); R15 scratch, nothing else
 fdptr:
-        btol l1, r2
-        lshl l1, 5
-        laddi l1, FD
-        xl l1
+        mov r15, r2
+        shl r15
+        shl r15
+        shl r15
+        shl r15
+        xset FD
+        xadd r15
+        xadd r15
         ret
 
 ; fdmap: R0 = a descriptor number -> R2 = internal (bad: error)
@@ -1224,15 +1360,28 @@ op_open:
         xset REQ
         ld r0, [x+R_FLAGS]
         andi r0, 3
-        jnz op_rofs                     ; (phase 1: read only)
+        jz op_open_r
+        call need_rw
+op_open_r:
         call resolve
         cmpi r9, 0
         jz op_isdir
         mov r0, r10
         andi r0, $10
         jnz op_isdir
+        xset REQ                        ; write: not a read-only file
+        ld r8, [x+R_FLAGS]
+        andi r8, 3
+        jz op_open_ok
+        mov r0, r10
+        andi r0, $01
+        jnz op_access
+op_open_ok:
         call fdalloc
-        ldi r0, 1
+        ldi r0, 1                       ; open; bit 0 write -> 2, bit 1 append -> 3
+        shl r8
+        shl r8
+        or r0, r8
         call fdnew
         call fdnum
         xset REQ
@@ -1244,12 +1393,24 @@ op_isdir:
 op_rofs:
         ldi r12, E_ROFS
         jmp error
+op_access:
+        ldi r12, E_ACCESS
+        jmp error
 
 ; close(fd)
 op_close:
         xset REQ
         ld r0, [x+R_FD]
         call fdmap
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, $11                    ; open and dirty: the entry first
+        cmpi r0, $11
+        jnz cl_clean
+        ld r5, [x+F_DRIVE]
+        call usedrive
+        call dirent_update
+cl_clean:
         call fdptr
         ldi r0, 0
         st r0, [x+F_FLAGS]
@@ -1468,3 +1629,1474 @@ rsec_past:
         fail E_END
 rsec_io:
         fail E_IO
+
+; ==============================================================================
+; WRITING
+; Every modification is written before the command completes: data, both FATs,
+; the directory entry, then FSInfo.  Descriptor flags: bit 2 write, bit 3
+; append, bit 4 the directory entry needs updating (after $75).
+
+; need_rw: programs may modify the file system? (else E_ROFS)
+need_rw:
+        hyp
+        jc nr_ok
+        xset G_RO
+        ld r0, [x+0]
+        cmpi r0, 0
+        jnz nr_ro
+nr_ok:
+        ret
+nr_ro:
+        ldi r12, E_ROFS
+        jmp error
+
+; drec: X = the record of drive R5
+drec:
+        mov r0, r5
+        dec r0
+        call drvaddr
+        xl l2
+        ret
+
+; ---- clusters ------------------------------------------------------------------
+; find_free: L0 = a free cluster, from the drive's hint on (E_NOSPC: none); the
+; hint and the free count move on
+find_free:
+        call drec
+        lld l3, [x+D_NCL]
+        lld l0, [x+D_HINT]
+        lcmpi l0, 2
+        jc ff_low
+        lcmp l0, l3
+        jc ff_start
+ff_low:
+        lldi l0, 2
+ff_start:
+        xset G_FSTART
+        lst l0, [x+0]
+ff_sector:
+        lmov l1, l0                     ; the FAT sector, X at the entry
+        lshr l1, 7
+        ladd l1, l6
+        sread l1
+        je io_error
+        ltob r0, l0, 0
+        andi r0, $7F
+        btol l1, r0
+        lshl l1, 2
+        laddi l1, SEC
+        xl l1
+ff_entry:
+        lld l2, [x+0]
+        lshl l2, 4                      ; (28 bits)
+        jz ff_found
+        laddi l0, 1
+        xaddi 4
+        ldi r1, 0
+        lcmp l0, l3
+        jnz ff_nowrap
+        lldi l0, 2
+        ldi r1, 1
+ff_nowrap:
+        lx l2
+        xset G_FSTART
+        lld l1, [x+0]
+        xl l2
+        lcmp l0, l1
+        jz ff_full
+        cmpi r1, 0
+        jnz ff_sector
+        ltob r0, l0, 0
+        andi r0, $7F
+        jz ff_sector
+        jmp ff_entry
+ff_found:
+        call drec
+        lmov l1, l0
+        laddi l1, 1
+        lst l1, [x+D_HINT]
+        lld l1, [x+D_FREE]
+        lmov l2, l1
+        laddi l2, 1                     ; (unknown: $FFFFFFFF)
+        jz ff_dirty
+        lsubi l1, 1
+        lst l1, [x+D_FREE]
+ff_dirty:
+        xset G_FSDIRTY
+        ldi r0, 1
+        st r0, [x+0]
+        ret
+ff_full:
+        ldi r12, E_NOSPC
+        jmp error
+
+; alloc: L1 = the cluster to link from (0: none) -> L0 = a new cluster, the
+; end of its chain
+alloc:
+        xset G_PREV
+        lst l1, [x+0]
+        call find_free
+        lldi l2, 0                      ; end of chain
+        lsubi l2, 1
+        lshr l2, 4
+        fatset l0, l2
+        je io_error
+        xset G_PREV
+        lld l1, [x+0]
+        lz l1
+        jz al_ret
+        fatset l1, l0
+        je io_error
+al_ret:
+        ret
+
+; free_chain: free the chain from L0 (< 2: nothing)
+free_chain:
+        lcmpi l0, 2
+        jc fch_ret
+        lmov l1, l0
+        fatnx l0
+        jz fch_last
+        jc fch_last                     ; (a broken chain: stop there)
+        call free_one
+        jmp free_chain
+fch_last:
+        call free_one
+fch_ret:
+        ret
+; free_one: free cluster L1
+free_one:
+        lldi l2, 0
+        fatset l1, l2
+        je io_error
+        call drec
+        lld l2, [x+D_FREE]
+        lmov l3, l2
+        laddi l3, 1
+        jz fo_dirty
+        laddi l2, 1
+        lst l2, [x+D_FREE]
+fo_dirty:
+        xset G_FSDIRTY
+        ldi r0, 1
+        st r0, [x+0]
+        ret
+
+; fsinfo_sync: the free count and hint into FSInfo, if they changed
+fsinfo_sync:
+        xset G_FSDIRTY
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz fs_ret
+        ldi r0, 0
+        st r0, [x+0]
+        call drec
+        lld l0, [x+D_FSINFO]
+        lz l0
+        jz fs_ret
+        lld l1, [x+D_FREE]
+        lld l3, [x+D_HINT]
+        sread l0
+        je io_error
+        xset SEC+488
+        lst l1, [x+0]
+        lst l3, [x+4]
+        swrite l0
+        je io_error
+fs_ret:
+        ret
+
+; zero_sec: SEC = 0
+zero_sec:
+        ldi r0, 0
+        yset SEC
+        ldi r1, 0
+        fill r1
+        fill r1
+        ret
+
+; zero_cluster: cluster L0 = 0 (SEC is left 0)
+zero_cluster:
+        call zero_sec
+        ldi r3, 0
+zc_loop:
+        call clus2lba
+        swrite l2
+        je io_error
+        inc r3
+        cmp r3, r11
+        jnz zc_loop
+        ret
+
+; ---- directory entries -----------------------------------------------------------
+; dw_flush: write back the directory walk's sector
+dw_flush:
+        call clus2lba
+        swrite l2
+        je io_error
+        ret
+
+; stamp: the time stamp into the entry at X: modified, accessed (R8 = 1: and
+; created)
+stamp:
+        lx l3
+        xset G_TIME
+        lld l2, [x+0]
+        xl l3
+        lz l2
+        jnz st_have
+        lldi l2, $5C2                   ; 2026-01-01 00:00 ($5C21 << 16)
+        lshl l2, 4
+        laddi l2, 1
+        lshl l2, 16
+st_have:
+        lstw l2, [x+22]                 ; modified
+        cmpi r8, 1
+        jnz st_noc
+        lstw l2, [x+14]                 ; created
+st_noc:
+        lshr l2, 16
+        lstw l2, [x+24]
+        lstw l2, [x+18]                 ; accessed
+        cmpi r8, 1
+        jnz st_ret
+        lstw l2, [x+16]
+st_ret:
+        ret
+
+; dir_free_run: R8 free entries in a row in directory L0 (0: root) -> G_RUN;
+; the directory grows (zeroed clusters) if it has to
+dir_free_run:
+        call dw_start
+        ldi r9, 0
+dfr_entry:
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz dfr_free
+        cmpi r0, $E5
+        jz dfr_free
+        ldi r9, 0
+        jmp dfr_next
+dfr_free:
+        cmpi r9, 0
+        jnz dfr_more
+        lx l1
+        xset G_RUN
+        lst l0, [x+0]
+        st r3, [x+4]
+        st r4, [x+5]
+        xl l1
+dfr_more:
+        inc r9
+        cmp r9, r8
+        jz dfr_ret
+dfr_next:
+        lmov l3, l0
+        call dw_next
+        jnz dfr_entry
+        lmov l1, l3                     ; the end: a new cluster
+        call alloc
+        call zero_cluster
+        ldi r3, 0
+        ldi r4, 0
+        call dw_load
+        jmp dfr_entry
+dfr_ret:
+        ret
+
+; dir_write_run: R8 entries from G_RUN: R8 - 1 long-name entries (UCS, checksum
+; R6), then ENT; G_DLBA/G_DOFF = where ENT went
+dir_write_run:
+        xset G_RUN
+        lld l0, [x+0]
+        ld r3, [x+4]
+        ld r4, [x+5]
+        call dw_load
+        ldi r9, 0
+dwr_entry:
+        mov r0, r8
+        dec r0
+        cmp r9, r0
+        jz dwr_short
+        sub r0, r9                      ; sequence: R8 - 1 - i (+ $40 first)
+        cmpi r9, 0
+        jnz dwr_seq
+        ori r0, $40
+dwr_seq:
+        mov r10, r0
+        lx l1
+        yl l1
+        xset UCS
+        lfnmake r10, r6
+        xl l1
+        inc r9
+        cmpi r4, 15
+        jnz dwr_nf
+        call dw_flush
+dwr_nf:
+        call dw_next
+        jmp dwr_entry
+dwr_short:
+        lx l1
+        yl l1
+        xset ENT
+        ldi r1, 32
+        copy r1
+        xl l1
+        call clus2lba
+        lx l1
+        landi l1, $1FF
+        xset G_DLBA
+        lst l2, [x+0]
+        lst l1, [x+4]
+        call dw_flush
+        ret
+
+; mark_run: the run in G_RUN deleted ($E5)
+mark_run:
+        xset G_RUN
+        lld l0, [x+0]
+        ld r3, [x+4]
+        ld r4, [x+5]
+        ld r8, [x+6]
+        call dw_load
+mr_loop:
+        ldi r0, $E5
+        st r0, [x+0]
+        dec r8
+        jz mr_end
+        cmpi r4, 15
+        jnz mr_nf
+        call dw_flush
+mr_nf:
+        call dw_next
+        jmp mr_loop
+mr_end:
+        call dw_flush
+        ret
+
+; dir_find11: R0 = 1 if directory L0 has an entry with the 8.3 name in ENT
+dir_find11:
+        call dw_start
+df_entry:
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz df_no
+        cmpi r0, $E5
+        jz df_next
+        ld r1, [x+11]
+        cmpi r1, $0F
+        jz df_next
+        lx l1
+        yset ENT
+        ncmp 11
+        xl l1
+        jz df_yes
+df_next:
+        call dw_next
+        jnz df_entry
+df_no:
+        ldi r0, 0
+        ret
+df_yes:
+        ldi r0, 1
+        ret
+
+; ---- names -----------------------------------------------------------------------
+; make_alias: the 8.3 name for NAME into ENT[0..10] -> R7 = 1 if a long name is
+; needed, R8 = 1 if the 8.3 name is NAME's own (no ~n)
+make_alias:
+        ldi r0, ' '
+        yset ENT
+        ldi r1, 11
+        fill r1
+        xset NAME                       ; R1 = the length, R9 = after the last '.'
+        ldi r1, 0
+        ldi r9, 0
+ma_dot:
+        ldx r0
+        jz ma_dot_done
+        inc r1
+        cmpi r0, '.'
+        jnz ma_dot
+        mov r9, r1
+        jmp ma_dot
+ma_dot_done:
+        cmpi r9, 1                      ; (".name": no extension)
+        jnz ma_d2
+        ldi r9, 0
+ma_d2:
+        ldi r7, 0
+        ldi r8, 1
+        mov r2, r1                      ; the base ends at R2
+        cmpi r9, 0
+        jz ma_b0
+        mov r2, r9
+        dec r2
+ma_b0:
+        xset NAME
+        yset ENT
+        ldi r10, 0
+        ldi r3, 0
+ma_base:
+        cmp r10, r2
+        jz ma_base_end
+        ldx r0
+        inc r10
+        call ma_char
+        cmpi r0, 0
+        jz ma_base
+        cmpi r3, 8
+        jz ma_blong
+        sty r0
+        inc r3
+        jmp ma_base
+ma_blong:
+        ldi r8, 0
+        ldi r7, 1
+        jmp ma_base
+ma_base_end:
+        cmpi r3, 0
+        jnz ma_base_ok
+        ldi r0, '_'
+        sty r0
+        inc r3
+        ldi r8, 0
+        ldi r7, 1
+ma_base_ok:
+        xset G_BASELEN
+        st r3, [x+0]
+        cmpi r9, 0
+        jz ma_ext_end
+        xset NAME
+        xadd r9
+        yset ENT+8
+        ldi r3, 0
+        mov r10, r9
+ma_ext:
+        cmp r10, r1
+        jz ma_ext_end
+        ldx r0
+        inc r10
+        call ma_char
+        cmpi r0, 0
+        jz ma_ext
+        cmpi r3, 3
+        jz ma_elong
+        sty r0
+        inc r3
+        jmp ma_ext
+ma_elong:
+        ldi r8, 0
+        ldi r7, 1
+        jmp ma_ext
+ma_ext_end:
+        cmpi r8, 0
+        jnz ma_ret
+        ldi r7, 1
+ma_ret:
+        ret
+
+; ma_char: R0 as an 8.3 character (0: left out); R7/R8 updated
+ma_char:
+        cmpi r0, 'a'
+        jc mc_upper
+        cmpi r0, 'z'+1
+        jnc mc_upper
+        subi r0, 32                     ; lower case: kept in the long name
+        ldi r7, 1
+        ret
+mc_upper:
+        cmpi r0, 'A'
+        jc mc_digit
+        cmpi r0, 'Z'+1
+        jc mc_ok
+mc_digit:
+        cmpi r0, '0'
+        jc mc_special
+        cmpi r0, '9'+1
+        jc mc_ok
+mc_special:
+        cmpi r0, '$'
+        jz mc_ok
+        cmpi r0, '%'
+        jz mc_ok
+        cmpi r0, $27                    ; '
+        jz mc_ok
+        cmpi r0, '-'
+        jz mc_ok
+        cmpi r0, '_'
+        jz mc_ok
+        cmpi r0, '@'
+        jz mc_ok
+        cmpi r0, '~'
+        jz mc_ok
+        cmpi r0, '!'
+        jz mc_ok
+        cmpi r0, '#'
+        jz mc_ok
+        cmpi r0, '&'
+        jz mc_ok
+        cmpi r0, '('
+        jz mc_ok
+        cmpi r0, ')'
+        jz mc_ok
+        ldi r8, 0                       ; not 8.3
+        ldi r7, 1
+        cmpi r0, ' '
+        jz mc_skip
+        cmpi r0, '.'
+        jz mc_skip
+        mov r1, r0                      ; UTF-8: one '_' per character
+        andi r1, $C0
+        cmpi r1, $80
+        jz mc_skip_r1
+        ldi r0, '_'
+        ret
+mc_skip_r1:
+        ldi r1, 0
+mc_skip:
+        ldi r0, 0
+mc_ok:
+        ret
+
+; ma_unique: ENT's base gets "~n", the first n not in directory G_PARDIR
+ma_unique:
+        ldi r9, 1
+mu_try:
+        ; the base: at most 8 - (2 or 3) characters, then ~n
+        xset G_BASELEN
+        ld r2, [x+0]
+        ldi r1, 6
+        cmpi r9, 10
+        jc mu_len
+        ldi r1, 5
+mu_len:
+        cmp r2, r1
+        jc mu_short
+        mov r2, r1
+mu_short:
+        yset ENT
+        yadd r2
+        ldi r0, '~'
+        sty r0
+        cmpi r9, 10
+        jc mu_units
+        mov r0, r9                      ; tens
+        ldi r1, '0'
+mu_tens:
+        cmpi r0, 10
+        jc mu_tens_done
+        subi r0, 10
+        inc r1
+        jmp mu_tens
+mu_tens_done:
+        sty r1
+        addi r0, '0'
+        sty r0
+        jmp mu_pad
+mu_units:
+        mov r0, r9
+        addi r0, '0'
+        sty r0
+mu_pad:
+        ldi r0, ' '
+mu_pad_loop:
+        ly l1                           ; up to ENT+8
+        lcmpi l1, ENT+8
+        jnc mu_check
+        sty r0
+        jmp mu_pad_loop
+mu_check:
+        xset G_PARDIR
+        lld l0, [x+0]
+        call dir_find11
+        cmpi r0, 0
+        jz mu_ret
+        inc r9
+        cmpi r9, 100
+        jnz mu_try
+        ldi r12, E_EXIST
+        jmp error
+mu_ret:
+        ret
+
+; name_check: NAME may be created (else E_BADREQ): not "." or "..", none of
+; " * / : < > ? \ | or control characters, not ending in ' ' or '.'
+name_check:
+        xset NAME
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz nc_bad
+        ldi r2, 0                       ; the last character
+nc_loop:
+        ldx r0
+        jz nc_end
+        mov r2, r0
+        cmpi r0, ' '
+        jc nc_bad
+        cmpi r0, '"'
+        jz nc_bad
+        cmpi r0, '*'
+        jz nc_bad
+        cmpi r0, '/'
+        jz nc_bad
+        cmpi r0, ':'
+        jz nc_bad
+        cmpi r0, '<'
+        jz nc_bad
+        cmpi r0, '>'
+        jz nc_bad
+        cmpi r0, '?'
+        jz nc_bad
+        cmpi r0, $5C                    ; backslash
+        jz nc_bad
+        cmpi r0, '|'
+        jz nc_bad
+        jmp nc_loop
+nc_end:
+        cmpi r2, ' '
+        jz nc_bad
+        cmpi r2, '.'
+        jz nc_bad
+        ret
+nc_bad:
+        ldi r12, E_BADREQ
+        jmp error
+
+; resolve_parent: the path at G_PBASE -> its directory (L3 cluster, also in
+; G_PARDIR; R5 the drive) and its last component in NAME (checked)
+resolve_parent:
+        xset G_PBASE
+        lldw l1, [x+0]
+        xl l1
+        ldi r1, 0                       ; R1 = the length, R2 = after the last '/'
+        ldi r2, 0
+rp_scan:
+        ldx r0
+        jz rp_end
+        inc r1
+        jz rp_long
+        cmpi r0, '/'
+        jnz rp_scan
+        mov r2, r1
+        jmp rp_scan
+rp_end:
+        cmpi r2, 0                      ; no '/': after "n:"
+        jnz rp_have
+        xl l1
+        ld r0, [x+1]
+        cmpi r0, ':'
+        jnz rp_have
+        ldi r2, 2
+rp_have:
+        cmp r2, r1
+        jz nc_bad                       ; (no name)
+        sub r1, r2                      ; R1 = the name's length
+        xl l1                           ; the directory: cut the path after R2
+        xadd r2
+        lx l2
+        ld r0, [x+0]
+        xset G_CUTC
+        st r0, [x+0]
+        lstw l2, [x+1]
+        st r1, [x+3]
+        xl l2
+        ldi r0, 0
+        st r0, [x+0]
+        call resolve                    ; (NAME is its scratch)
+        xset G_CUTC                     ; the path again; the name into NAME
+        ld r0, [x+0]
+        ld r3, [x+3]
+        lldw l2, [x+1]
+        xl l2
+        st r0, [x+0]
+        yset NAME
+        inc r3
+        copy r3
+        mov r0, r10
+        andi r0, $10
+        jz rv_notdir
+        xset G_PARDIR
+        lst l3, [x+0]
+        call name_check
+        ret
+rp_long:
+        ldi r12, E_LONG
+        jmp error
+
+; not_exists: NAME is not in directory G_PARDIR, hidden or not (else E_EXIST)
+not_exists:
+        xset G_ALLVIS
+        ldi r0, 1
+        st r0, [x+0]
+        xset G_PARDIR
+        lld l0, [x+0]
+        call dir_search
+        xset G_ALLVIS
+        mov r1, r0
+        ldi r0, 0
+        st r0, [x+0]
+        cmpi r1, 0
+        jnz ne_exists
+        ret
+ne_exists:
+        ldi r12, E_EXIST
+        jmp error
+
+; make_entry: NAME into directory G_PARDIR, ENT[11..31] as prepared: its
+; 8.3 name, the long name if one is needed
+make_entry:
+        call make_alias
+        cmpi r8, 0
+        jnz me_alias_ok
+        call ma_unique
+        ldi r7, 1
+me_alias_ok:
+        ldi r8, 1                       ; entries
+        cmpi r7, 0
+        jz me_place
+        xset NAME
+        yset UCS
+        ucs2
+        jc nc_bad
+        ldi r9, 0                       ; R9 = ceil(R0 / 13)
+me_div:
+        inc r9
+        cmpi r0, 14
+        jc me_div_done
+        subi r0, 13
+        jmp me_div
+me_div_done:
+        mov r8, r9
+        inc r8
+        xset ENT
+        lfnsum r6
+me_place:
+        xset G_PARDIR
+        lld l0, [x+0]
+        call dir_free_run
+        call dir_write_run
+        ret
+
+; ent_new: ENT[11..31] for a new entry: attributes R10, first cluster L0, size 0
+ent_new:
+        ldi r0, 0
+        yset ENT+11
+        ldi r1, 21
+        fill r1
+        xset ENT
+        st r10, [x+11]
+        lstw l0, [x+26]
+        lshr l0, 16
+        lstw l0, [x+20]
+        ldi r8, 1
+        call stamp
+        ret
+
+; busy: E_BUSY if a descriptor is open on the entry at G_DLBA/G_DOFF
+busy:
+        ldi r2, 0
+bz_loop:
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, 1
+        jz bz_next
+        lld l1, [x+F_DLBA]
+        lldw l2, [x+F_DOFF]
+        lx l0
+        xset G_DLBA
+        lld l3, [x+0]
+        lcmp l1, l3
+        jnz bz_next_x
+        lldw l3, [x+4]
+        lcmp l2, l3
+        jz bz_busy
+bz_next_x:
+        xl l0
+bz_next:
+        inc r2
+        cmpi r2, 10
+        jnz bz_loop
+        ret
+bz_busy:
+        ldi r12, E_BUSY
+        jmp error
+
+; dirent_update: descriptor R2's size and first cluster into its entry, the
+; archive bit and the time stamp set; its dirty flag cleared
+dirent_update:
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        andi r0, $EF
+        st r0, [x+F_FLAGS]
+        lld l0, [x+F_DLBA]
+        lld l3, [x+F_FIRST]
+        lld l2, [x+F_SIZE]
+        lldw l1, [x+F_DOFF]
+        sread l0
+        je io_error
+        laddi l1, SEC
+        xl l1
+        lst l2, [x+28]
+        lstw l3, [x+26]
+        lshr l3, 16
+        lstw l3, [x+20]
+        ld r0, [x+11]
+        ori r0, $20
+        st r0, [x+11]
+        ldi r8, 0
+        call stamp
+        swrite l0
+        je io_error
+        ret
+
+; ==============================================================================
+; hypervisor: policy (R_ARG0 bit 0: programs read-only), SYSTEM access for
+; programs (bit 0), the time stamp (R_ARG0 = FAT time | date << 16)
+op_policy:
+        lldi l1, G_RO
+        jmp op_hyp_flag
+op_sysaccess:
+        lldi l1, G_SYS
+op_hyp_flag:
+        hyp
+        jnc op_access
+        xset REQ
+        ld r0, [x+R_ARG0]
+        andi r0, 1
+        xl l1
+        st r0, [x+0]
+        jmp ok
+op_settime:
+        hyp
+        jnc op_access
+        xset REQ
+        lld l0, [x+R_ARG0]
+        xset G_TIME
+        lst l0, [x+0]
+        jmp ok
+
+; create(path; R_ARG0 attributes: read-only, hidden, system, archive; R_FLAGS
+; bit 7 the descriptor in R_FD) -> R_FD, open for writing
+op_create:
+        call need_rw
+        call resolve_parent
+        call not_exists
+        xset REQ
+        ld r10, [x+R_ARG0]
+        andi r10, $07
+        ori r10, $20
+        call sys_ok
+        lldi l0, 0
+        call ent_new
+        call make_entry
+        call fsinfo_sync
+        call fdalloc
+        lldi l3, 0
+        ldi r0, 5                       ; open, write
+        call fdnew
+        call fdnum
+        xset REQ
+        st r0, [x+R_FD]
+        jmp ok
+
+; sys_ok: attributes R10 with SYSTEM need the hypervisor or SYSTEM access
+sys_ok:
+        mov r0, r10
+        andi r0, $04
+        jz so_ok
+        hyp
+        jc so_ok
+        xset G_SYS
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz op_access
+so_ok:
+        ret
+
+; mkdir(path)
+op_mkdir:
+        call need_rw
+        call resolve_parent
+        call not_exists
+        lldi l1, 0                      ; its cluster, "." and ".."
+        call alloc
+        xset G_NEWCL
+        lst l0, [x+0]
+        call zero_cluster
+        ldi r0, ' '
+        yset SEC
+        ldi r1, 11
+        fill r1
+        yset SEC+32
+        ldi r1, 11
+        fill r1
+        ldi r0, '.'
+        xset SEC
+        st r0, [x+0]
+        st r0, [x+32]
+        st r0, [x+33]
+        ldi r0, $10
+        st r0, [x+11]
+        st r0, [x+43]
+        lmov l1, l0
+        lstw l1, [x+26]
+        lshr l1, 16
+        lstw l1, [x+20]
+        ldi r8, 1
+        call stamp
+        xset G_PARDIR
+        lld l1, [x+0]
+        xset SEC+32
+        lstw l1, [x+26]
+        lshr l1, 16
+        lstw l1, [x+20]
+        call stamp
+        ldi r3, 0
+        call clus2lba
+        swrite l2
+        je io_error
+        xset G_NEWCL                    ; its entry in the parent
+        lld l0, [x+0]
+        ldi r10, $10
+        call ent_new
+        call make_entry
+        call fsinfo_sync
+        jmp ok
+
+; delete(path): a file
+op_delete:
+        call need_rw
+        call resolve
+        cmpi r9, 0
+        jz op_isdir
+        mov r0, r10
+        andi r0, $10
+        jnz op_isdir
+        call busy
+        lmov l0, l3
+        call free_chain
+        call mark_run
+        call fsinfo_sync
+        jmp ok
+
+; rmdir(path): an empty directory, no one's current directory
+op_rmdir:
+        call need_rw
+        call resolve
+        cmpi r9, 0
+        jz op_access                    ; (the root)
+        mov r0, r10
+        andi r0, $10
+        jz rv_notdir
+        xset G_DIRCL
+        lst l3, [x+0]
+        ldi r2, 0                       ; a current directory, or open?
+rd_cwd:
+        btol l1, r2
+        lshl l1, 2
+        laddi l1, CWD
+        xl l1
+        lld l1, [x+0]
+        lcmp l1, l3
+        jz bz_busy
+        inc r2
+        cmpi r2, 8
+        jnz rd_cwd
+        call busy
+        lmov l0, l3                     ; empty?
+        call dw_start
+rme_entry:
+        ld r0, [x+0]
+        cmpi r0, 0
+        jz rme_empty
+        cmpi r0, $E5
+        jz rme_next
+        cmpi r0, '.'
+        jz rme_next                     ; ("." and "..": no name starts with '.' in 8.3)
+        ld r1, [x+11]
+        cmpi r1, $0F
+        jz rme_next
+        ldi r12, E_NOTEMPTY
+        jmp error
+rme_next:
+        call dw_next
+        jnz rme_entry
+rme_empty:
+        xset G_DIRCL
+        lld l0, [x+0]
+        call free_chain
+        call mark_run
+        call fsinfo_sync
+        jmp ok
+
+; rename(old path, new path after the old one's terminator): on one drive
+op_rename:
+        call need_rw
+        call resolve
+        cmpi r9, 0
+        jz op_access
+        call busy
+        xset G_RUN                      ; keep the old entry, its run, its drive
+        yset G_SAVRUN
+        ldi r1, 7
+        copy r1
+        st r5, [y+0]
+        xset ENT
+        yset G_SAVENT
+        ldi r1, 32
+        copy r1
+        xset G_PBASE                    ; the new path
+        lldw l1, [x+0]
+        xl l1
+rn_skip:
+        ldx r0
+        jnz rn_skip
+        lx l1
+        xset G_PBASE
+        lstw l1, [x+0]
+        call resolve_parent
+        xset G_SAVRUN+7
+        ld r0, [x+0]
+        cmp r0, r5
+        jnz bad_request                 ; (another drive)
+        call not_exists
+        xset G_SAVENT                   ; the entry, under its new name
+        yset ENT
+        ldi r1, 32
+        copy r1
+        call make_entry
+        xset G_SAVRUN                   ; the old one goes
+        yset G_RUN
+        ldi r1, 7
+        copy r1
+        call mark_run
+        xset G_SAVENT+11                ; a directory: ".." is the new parent
+        ld r0, [x+0]
+        andi r0, $10
+        jz rn_done
+        xset G_SAVENT
+        lldw l0, [x+20]
+        lshl l0, 16
+        lldw l1, [x+26]
+        lor l0, l1
+        ldi r3, 0
+        call clus2lba
+        sread l2
+        je io_error
+        xset G_PARDIR
+        lld l1, [x+0]
+        xset SEC+32
+        lstw l1, [x+26]
+        lshr l1, 16
+        lstw l1, [x+20]
+        swrite l2
+        je io_error
+rn_done:
+        call fsinfo_sync
+        jmp ok
+
+; setattr(path, R_ARG0: read-only, hidden, system, archive)
+op_setattr:
+        call need_rw
+        call resolve
+        cmpi r9, 0
+        jz op_access
+        xset REQ
+        ld r1, [x+R_ARG0]
+        andi r1, $27
+        mov r0, r10                     ; SYSTEM changing?
+        xor r0, r1
+        andi r0, $04
+        jz sa_ok
+        ldi r10, $04
+        call sys_ok
+sa_ok:
+        xset G_DLBA
+        lld l0, [x+0]
+        lldw l1, [x+4]
+        sread l0
+        je io_error
+        laddi l1, SEC
+        xl l1
+        ld r0, [x+11]
+        andi r0, $D8
+        or r0, r1
+        st r0, [x+11]
+        swrite l0
+        je io_error
+        jmp ok
+
+; truncate(fd, R_ARG0 length): shorter frees clusters; longer allocates them
+; (contiguous where it can) and fills with zeros
+op_truncate:
+        xset REQ
+        ld r0, [x+R_FD]
+        call fdget
+        call fd_writable
+        call on_error_update
+        xset REQ
+        lld l0, [x+R_ARG0]
+        xset G_LEN
+        lst l0, [x+0]
+        call fdptr
+        lld l1, [x+F_SIZE]
+        lcmp l0, l1
+        jc tr_shrink
+        jz tr_done
+        ; longer: from the old size, a sector at a time
+tr_grow:
+        call fdptr
+        lld l1, [x+F_SIZE]
+        xset G_LEN
+        lld l0, [x+0]
+        lcmp l1, l0
+        jnc tr_done
+        xset G_WPOS
+        lst l1, [x+0]
+        call fdptr
+        call locate_w                   ; L2 sector, R1/R9 offset
+        btol l1, r1
+        btol l3, r9
+        lshl l3, 8
+        lor l1, l3
+        lz l1
+        jz tr_whole
+        sread l2                        ; part of a sector: zeros after the offset
+        je io_error
+        lmov l3, l1
+        laddi l3, SEC
+        yl l3
+        ldi r0, 0
+tr_zero:
+        sty r0
+        ly l3
+        lcmpi l3, SEC+512
+        jnz tr_zero
+        jmp tr_write
+tr_whole:
+        lx l3
+        lmov l3, l2
+        call zero_sec
+        lmov l2, l3
+tr_write:
+        swrite l2
+        je io_error
+        call fdptr                      ; the size: to the end of this sector
+        lld l1, [x+F_SIZE]
+        lldi l3, 511
+        lor l1, l3
+        laddi l1, 1
+        xset G_LEN
+        lld l0, [x+0]
+        lcmp l1, l0
+        jc tr_size
+        lmov l1, l0
+tr_size:
+        call fdptr
+        lst l1, [x+F_SIZE]
+        jmp tr_grow
+tr_shrink:
+        ; clusters kept: ceil(length / cluster size)
+        lmov l3, l0
+        lldi l1, 1
+        lshl l1, 9
+        lshlr l1, r13
+        lsubi l1, 1
+        ladd l3, l1
+        lshr l3, 9
+        lshrr l3, r13
+        call fdptr
+        lld l0, [x+F_FIRST]
+        lz l3
+        jnz tr_keep
+        lldi l1, 0                      ; none: the whole chain goes
+        lst l1, [x+F_FIRST]
+        call free_chain
+        jmp tr_shrunk
+tr_keep:
+        lsubi l3, 1                     ; to the last cluster kept
+tr_walk:
+        lz l3
+        jz tr_cut
+        fatnx l0
+        jz tr_shrunk                    ; (shorter already)
+        lsubi l3, 1
+        jmp tr_walk
+tr_cut:
+        lmov l1, l0
+        fatnx l0                        ; the rest
+        jz tr_shrunk
+        lldi l2, 0
+        lsubi l2, 1
+        lshr l2, 4
+        fatset l1, l2
+        je io_error
+        call free_chain
+tr_shrunk:
+        call fdptr
+        xset G_LEN
+        lld l0, [x+0]
+        call fdptr
+        lst l0, [x+F_SIZE]
+        lld l0, [x+F_FIRST]
+        lst l0, [x+F_CUR]
+        lldi l0, 0
+        lst l0, [x+F_CIDX]
+tr_done:
+        call dirent_update
+        call fsinfo_sync
+        jmp ok
+
+; flush(fd): the directory entry, if it is out of date
+op_flush:
+        xset REQ
+        ld r0, [x+R_FD]
+        call fdget
+        ld r0, [x+F_FLAGS]
+        andi r0, $10
+        jz ok
+        call dirent_update
+        jmp ok
+
+; on_error_update: an error from here on still writes descriptor R2's entry
+on_error_update:
+        lx l1
+        xset G_ONERR
+        st r2, [x+0]
+        xl l1
+        ret
+
+; fd_writable: descriptor R2 (X) open for writing, and writing allowed
+fd_writable:
+        ld r0, [x+F_FLAGS]
+        andi r0, $0C
+        jz op_access
+        call need_rw
+        call fdptr
+        ret
+
+; locate_w: as locate, for writing: the chain grows as far as the position
+; G_WPOS needs -> L2 the sector, R1/R9 the offset (descriptor R2)
+locate_w:
+        call fdptr
+        lld l0, [x+F_FIRST]
+        lz l0
+        jnz lw_have
+        lldi l1, 0                      ; empty: its first cluster
+        call alloc
+        call fdptr
+        lst l0, [x+F_FIRST]
+        lst l0, [x+F_CUR]
+        lldi l1, 0
+        lst l1, [x+F_CIDX]
+lw_have:
+        xset G_WPOS
+        lld l3, [x+0]
+        lshr l3, 9
+        lshrr l3, r13
+        xset G_TGT
+        lst l3, [x+0]
+        call fdptr
+        lld l0, [x+F_CIDX]
+        lcmp l3, l0
+        jnc lw_from_cur
+        lld l0, [x+F_FIRST]
+        lldi l2, 0
+        jmp lw_walk
+lw_from_cur:
+        lmov l2, l0
+        lld l0, [x+F_CUR]
+lw_walk:
+        xset G_TGT
+        lld l3, [x+0]
+        lcmp l2, l3
+        jz lw_here
+        xset G_PREVC
+        lst l0, [x+0]
+        xset G_IDX
+        lst l2, [x+0]
+        fatnx l0
+        jz lw_extend
+        jc io_error                     ; (a broken chain)
+        xset G_IDX
+        lld l2, [x+0]
+        laddi l2, 1
+        jmp lw_walk
+lw_extend:
+        xset G_PREVC
+        lld l1, [x+0]
+        call alloc
+        xset G_IDX
+        lld l2, [x+0]
+        laddi l2, 1
+        jmp lw_walk
+lw_here:
+        call fdptr
+        lst l0, [x+F_CUR]
+        lst l2, [x+F_CIDX]
+        xset G_WPOS
+        lld l1, [x+0]
+        lmov l2, l1
+        lshr l2, 9
+        ltob r3, l2, 0
+        mov r0, r11
+        dec r0
+        and r3, r0
+        ltob r1, l1, 0
+        ltob r9, l1, 1
+        andi r9, 1
+        call clus2lba
+        ret
+
+; $72 write(fd = $D684, n = $D681-$D682 <= 512): the bytes at $E00 at the
+; position; $73 append: at the end
+cmd_append:
+        ldi r8, 1
+        jmp cw_go
+cmd_write:
+        ldi r8, 0
+cw_go:
+        arg l0
+        ltob r0, l0, 3
+        lshl l0, 16
+        lshr l0, 16
+        lldi l1, 512
+        lcmp l1, l0
+        jc cw_bad
+        xset G_WN
+        lst l0, [x+0]
+        call fdget
+        call fd_writable
+        call on_error_update
+        ld r0, [x+F_FLAGS]              ; appending (the command or the descriptor)
+        andi r0, $08
+        jz cw_where
+        ldi r8, 1
+cw_where:
+        cmpi r8, 0
+        jz cw_pos
+        lld l1, [x+F_SIZE]
+        lst l1, [x+F_POS]
+cw_pos:
+        lldi l0, 0
+        xset G_WDONE
+        lst l0, [x+0]
+cw_loop:
+        xset G_WN
+        lld l3, [x+0]
+        xset G_WDONE
+        lld l0, [x+0]
+        lcmp l0, l3
+        jz cw_done
+        call fdptr
+        lld l1, [x+F_POS]
+        xset G_WPOS
+        lst l1, [x+0]
+        call locate_w                   ; L2 sector, R1/R9 offset
+        lldi l0, 512                    ; chunk = min(512 - offset, n - done)
+        btol l1, r1
+        btol l3, r9
+        lshl l3, 8
+        lor l1, l3
+        lsub l0, l1
+        xset G_WN
+        lld l3, [x+0]
+        xset G_WDONE
+        lld l1, [x+0]
+        lsub l3, l1
+        lcmp l3, l0
+        jnc cw_chunk
+        lmov l0, l3
+cw_chunk:
+        lcmpi l0, 512                   ; a whole sector from $E00: straight out
+        jnz cw_rmw
+        dwrite l2
+        je io_error
+        jmp cw_advance
+cw_rmw:
+        sread l2
+        je io_error
+        btol l1, r1                     ; copy L0 bytes: $E00 + done -> SEC + offset
+        btol l3, r9
+        lshl l3, 8
+        lor l1, l3
+        laddi l1, SEC
+        yl l1
+        xset G_WDONE
+        lld l1, [x+0]
+        laddi l1, REQ
+        xl l1
+        lmov l3, l0
+cw_copy:
+        lz l3
+        jz cw_copied
+        ltob r1, l3, 1
+        cmpi r1, 0
+        jz cw_copy_last
+        ldi r1, 0
+        copy r1
+        lsubi l3, 256
+        jmp cw_copy
+cw_copy_last:
+        ltob r1, l3, 0
+        copy r1
+cw_copied:
+        swrite l2
+        je io_error
+cw_advance:
+        xset G_WDONE                    ; done, position, size
+        lld l1, [x+0]
+        ladd l1, l0
+        lst l1, [x+0]
+        call fdptr
+        lld l1, [x+F_POS]
+        ladd l1, l0
+        lst l1, [x+F_POS]
+        lld l3, [x+F_SIZE]
+        lcmp l3, l1
+        jnc cw_loop
+        lst l1, [x+F_SIZE]
+        jmp cw_loop
+cw_done:
+        call dirent_update
+        call fsinfo_sync
+        xset G_WN
+        lld l0, [x+0]
+        setarg l0
+        done
+cw_bad:
+        fail E_BADREQ
+
+; $75 write exactly 512 bytes from $E00 at file sector k ($D681-$D683) of fd
+; ($D684), inside the file; the entry is updated at flush / close
+cmd_writesector:
+        arg l0
+        ltob r0, l0, 3
+        lshl l0, 8
+        lshr l0, 8
+        lmov l3, l0
+        xset G_PATHP
+        lst l3, [x+0]
+        call fdget
+        call fd_writable
+        xset G_PATHP
+        lld l3, [x+0]
+        call fdptr
+        lmov l1, l3
+        lshl l1, 9
+        lmov l3, l1
+        laddi l3, 511
+        lld l2, [x+F_SIZE]
+        lcmp l3, l2
+        jnc rsec_past
+        call locate
+        jc rsec_past
+        dwrite l2
+        je rsec_io
+        call fdptr
+        ld r0, [x+F_FLAGS]
+        ori r0, $10
+        st r0, [x+F_FLAGS]
+        done

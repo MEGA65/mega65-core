@@ -437,6 +437,7 @@ architecture behavioural of sdcardio_native is
   -- the FAT32 engine
   signal fe_start, fe_started, fe_busy, fe_last : std_logic := '0';
   signal fe_reset      : std_logic;
+  signal fe_running    : std_logic;
   signal fe_cmd        : unsigned(7 downto 0) := (others => '0');
   signal fe_status     : unsigned(7 downto 0) := (others => '0');
   signal fe_status_r   : unsigned(7 downto 0) := (others => '0');
@@ -559,7 +560,9 @@ architecture behavioural of sdcardio_native is
 
                       Fat32Engine,                    -- 0x19
                       Fat32Read,                      -- 0x1A
-                      Fat32Reading                    -- 0x1B
+                      Fat32Reading,                   -- 0x1B
+                      Fat32Write,                     -- 0x1C
+                      Fat32Writing                    -- 0x1D
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -1025,6 +1028,9 @@ begin  -- behavioural
   -- controller and the native SD controller, with the same interface on
   -- both sides (sd_cache_lines = 0: only wires)
   fe_reset <= not reset;
+  -- (busy for the whole command, whichever card it is using meanwhile)
+  fe_running <= '1' when sd_state = Fat32Engine or sd_state = Fat32Read or sd_state = Fat32Reading
+                         or sd_state = Fat32Write or sd_state = Fat32Writing else '0';
   fat32 : if sd_fat32 generate
     engine0 : entity work.fat32_engine
       generic map (G_RD_LAT => 1)
@@ -1237,7 +1243,7 @@ begin  -- behavioural
   ui_error_flag <= '0' when ui_pending_init = '1' else
     ui_info(3) or ui_error(card_index(sd_interface_select_internal)) or (sdio_error and ui_owner);
   ui_fsm_flag <= ui_fsm_error(card_index(sd_interface_select_internal)) or (sdio_fsm_error and ui_owner);
-  ui_sdio_busy <= (sdio_busy and ui_owner) or qspi_busy;
+  ui_sdio_busy <= (sdio_busy and ui_owner) or qspi_busy or fe_running;
   ui_busy <= '1' when ui_reset(card_index(sd_interface_select_internal)) = '1' or ui_pending_init = '1'
     or ui_error_flag = '1' else
     sdcard_busy when ui_owner = '1' else (ui_info(1) and not ui_info(2)) or not ui_info(0);
@@ -1522,7 +1528,7 @@ begin  -- behavioural
            audio_mix_reg_int,audio_mix_rdata,pcm_right,audio_loopback,
            sectorbuffercs_fast,fastio_rdata,fastio_rdata_ram,f011_sector_fetch,
            sd_buffer_offset,nat_wr_offset,f011_buffer_disk_address,qspi_busy,
-           qspi_buf_raddr,f011_buffer_cpu_address,fe_raddr
+           qspi_buf_raddr,f011_buffer_cpu_address,fe_raddr,fe_sec_cpu
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -2185,7 +2191,14 @@ begin  -- behavioural
           else
             f011_buffer_read_address <= "111"&nat_wr_offset;
           end if;
-        when Fat32Engine|Fat32Read|Fat32Reading =>
+        when Fat32Writing =>
+          -- the native controller fetches the engine's sector
+          if fe_sec_cpu = '1' then
+            f011_buffer_read_address <= "111"&nat_wr_offset;
+          else
+            f011_buffer_read_address <= "100"&nat_wr_offset;
+          end if;
+        when Fat32Engine|Fat32Read|Fat32Reading|Fat32Write =>
           f011_buffer_read_address <= fe_raddr;
         when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -2211,7 +2224,7 @@ begin  -- behavioural
       end if;
       -- write data: the byte at the fetched offset, two cycles after the fetch
       -- (the address goes to the buffer's device read port, see above)
-      if sd_fill_mode='1' then
+      if sd_fill_mode='1' and sd_state /= Fat32Writing then
         nat_wr_data <= sd_fill_value;
       else
         nat_wr_data <= f011_buffer_rdata;
@@ -5137,12 +5150,11 @@ begin  -- behavioural
             sdio_busy <= '0';
             sd_state <= Idle;
           elsif fe_sec_req = '1' and fe_sec_done = '0' then
+            nat_slot <= fe_sec_slot;
             if fe_sec_write = '1' then
-              -- (writes come with the write policy: phase 3)
-              fe_sec_err <= '1';
-              fe_sec_done <= '1';
+              -- (the read-only policy is the firmware's: it refuses first)
+              sd_state <= Fat32Write;
             else
-              nat_slot <= fe_sec_slot;
               sd_state <= Fat32Read;
             end if;
           end if;
@@ -5191,6 +5203,43 @@ begin  -- behavioural
             fe_sec_err <= '1';
             fe_sec_done <= '1';
             sd_state <= Fat32Engine;
+          end if;
+
+        when Fat32Write =>
+          -- a sector of the engine's to the card: its slot ($800) or the
+          -- CPU's half ($E00)
+          sdio_busy <= '1';
+          sb_cpu_write_request <= sb_cpu_write_request;
+          if nat_quiet='1' and nat_cmd_ready='1' then
+            if nat_waiting='1' then
+              nat_cmd_code  <= x"5";                  -- C_STOP
+              nat_open_rd   <= '0';
+              nat_open_wr   <= '0';
+              nat_cmd_valid <= '1';
+              nat_quiet_cnt <= 3;
+            elsif nat_busy='0' then
+              nat_cmd_code  <= x"3";                  -- C_WRITE
+              nat_cmd_addr  <= fe_sec_lba;
+              nat_cmd_count <= x"0001";
+              nat_cmd_valid <= '1';
+              nat_quiet_cnt <= 3;
+              sd_state <= Fat32Writing;
+            end if;
+          end if;
+
+        when Fat32Writing =>
+          sdio_busy <= '1';
+          sb_cpu_write_request <= sb_cpu_write_request;
+          if nat_quiet='1' and nat_cmd_ready='1' then
+            if nat_error='1' then
+              fe_sec_err <= '1';
+              fe_sec_done <= '1';
+              sd_state <= Fat32Engine;
+            elsif nat_busy='0' then
+              fe_sec_err <= '0';
+              fe_sec_done <= '1';
+              sd_state <= Fat32Engine;
+            end if;
           end if;
 
         when QspiBusyArm =>

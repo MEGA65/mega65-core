@@ -14,7 +14,7 @@
 --
 -- One instruction takes 2 cycles (fetch, execute); memory, shifts and the
 -- microsequenced instructions (copy, fill, scmp, lfnput, fatnx, ...) take
--- longer.  The ROM is LUTs: 2K x 24 bits at most.
+-- longer.  The ROM is LUTs: 4K x 24 bits at most.
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -61,7 +61,7 @@ architecture rtl of fat32_engine is
 
   type t_r is array(0 to 15) of unsigned(7 downto 0);
   type t_l is array(0 to 7) of unsigned(31 downto 0);
-  type t_stack is array(0 to 7) of unsigned(10 downto 0);
+  type t_stack is array(0 to 7) of unsigned(11 downto 0);
 
   type t_state is (
     S_IDLE, S_FETCH, S_EXEC,
@@ -84,7 +84,7 @@ architecture rtl of fat32_engine is
   signal rd_next : t_state := S_IDLE;   -- where S_RD goes with the byte
   signal rd_cnt  : natural range 0 to G_RD_LAT := 0;
 
-  signal pc   : unsigned(10 downto 0) := (others => '0');
+  signal pc   : unsigned(11 downto 0) := (others => '0');
   signal ir   : std_logic_vector(23 downto 0) := (others => '0');
   signal r    : t_r := (others => (others => '0'));
   signal l    : t_l := (others => (others => '0'));
@@ -197,7 +197,7 @@ begin
     variable n8   : unsigned(7 downto 0);
     variable s13  : unsigned(31 downto 0);
     variable u13  : unsigned(31 downto 0);
-    variable a11  : unsigned(10 downto 0);
+    variable a12  : unsigned(11 downto 0);
     variable msel : std_logic;
     variable madr : unsigned(11 downto 0);
     variable t9   : unsigned(8 downto 0);
@@ -250,7 +250,7 @@ begin
       n8   := unsigned(ir(7 downto 0));
       u13  := resize(unsigned(ir(12 downto 0)), 32);
       s13  := unsigned(resize(signed(ir(12 downto 0)), 32));
-      a11  := unsigned(ir(10 downto 0));
+      a12  := unsigned(ir(11 downto 0));
       msel := ir(12);
       if msel = '0' then
         madr := x + resize(n8, 12);
@@ -442,20 +442,20 @@ begin
             when OP_XY    => x <= y; y <= x;
 
             -- control
-            when OP_JMP => pc <= a11;
-            when OP_JZ  => if zf = '1' then pc <= a11; end if;
-            when OP_JNZ => if zf = '0' then pc <= a11; end if;
-            when OP_JC  => if cf = '1' then pc <= a11; end if;
-            when OP_JNC => if cf = '0' then pc <= a11; end if;
-            when OP_JE  => if ef = '1' then pc <= a11; end if;
-            when OP_JNE => if ef = '0' then pc <= a11; end if;
+            when OP_JMP => pc <= a12;
+            when OP_JZ  => if zf = '1' then pc <= a12; end if;
+            when OP_JNZ => if zf = '0' then pc <= a12; end if;
+            when OP_JC  => if cf = '1' then pc <= a12; end if;
+            when OP_JNC => if cf = '0' then pc <= a12; end if;
+            when OP_JE  => if ef = '1' then pc <= a12; end if;
+            when OP_JNE => if ef = '0' then pc <= a12; end if;
             when OP_CALL =>
               if sp = 8 then
                 finish(x"FD");          -- (stack overflow)
               else
                 stack(sp) <= pc;
                 sp <= sp + 1;
-                pc <= a11;
+                pc <= a12;
               end if;
             when OP_RET =>
               if sp = 0 then
@@ -976,9 +976,10 @@ begin
           state <= S_FS_WR;
 
         when S_FS_WR =>
-          write_byte(ma, acc(7 downto 0));
+          -- the entry's bytes, low first (cnt 4 .. 1)
+          t9 := to_unsigned(4, 9) - cnt;
+          write_byte("100" & l(la)(6 downto 0) & t9(1 downto 0), acc(7 downto 0));
           acc <= x"00" & acc(31 downto 8);
-          ma  <= ma + 1;
           cnt <= cnt - 1;
           if cnt = 1 then
             sector('1', '0', fs_lba, S_FS_WWAIT);

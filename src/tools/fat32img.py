@@ -131,6 +131,17 @@ class Volume:
                 self.write_sector(self.cluster_lba(cl) + k, bytes(SECTOR))
         return got
 
+    def free_count(self):
+        """the free clusters, counted in the FAT"""
+        self.f.seek((self.start + self.fat_lba) * SECTOR)
+        fat = self.f.read(self.fatsz * SECTOR)
+        return sum(1 for c in range(2, self.nclusters)
+                   if struct.unpack_from("<I", fat, c * 4)[0] & 0x0FFFFFFF == 0)
+
+    def fsinfo_free(self):
+        """the free cluster count FSInfo claims"""
+        return struct.unpack_from("<I", self.read_sector(self.fsinfo), 488)[0]
+
     def sync_fsinfo(self):
         """FSInfo: the free cluster count and the next-free hint"""
         self.f.seek((self.start + self.fat_lba) * SECTOR)
@@ -347,10 +358,12 @@ class Image:
     def volume(self, i):
         return Volume(self.f, self.partitions[i][1])
 
-    def check(self):
-        """fsck.fat each partition (on a copy of its bytes)"""
-        for i in range(len(self.partitions)):
-            self.volume(i).sync_fsinfo()
+    def check(self, sync=True):
+        """fsck.fat each partition (on a copy of its bytes); sync: FSInfo
+        brought up to date first"""
+        if sync:
+            for i in range(len(self.partitions)):
+                self.volume(i).sync_fsinfo()
         self.f.flush()
         ok = True
         for _, start, size in self.partitions:

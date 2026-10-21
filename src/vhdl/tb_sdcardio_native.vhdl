@@ -913,6 +913,104 @@ begin
     wait_ready(5 ms);
     check_buffer(51, false, "read after the FAT32 engine");
 
+    -- writing through the engine: a FAT (both copies) and an empty root
+    -- directory first; then create /T.TXT, write 10 bytes, close, read back
+    for k in 0 to 2 loop
+      for i in 0 to 511 loop
+        poke(16#FFE00# + i, 0);
+      end loop;
+      if k < 2 then
+        for i in 0 to 11 loop                    -- clusters 0, 1, 2 (the root): used
+          poke(16#FFE00# + i, 16#FF#);
+        end loop;
+        poke(16#FFE03#, 16#0F#);
+        poke(16#FFE07#, 16#0F#);
+        poke(16#FFE0B#, 16#0F#);
+        poke(16#FFE00#, 16#F8#);
+        set_sector(10 + 4 * k);
+      else
+        set_sector(18);
+      end if;
+      poke(16#D3680#, 16#57#);
+      poke(16#D3680#, 16#03#);
+      wait_ready(5 ms);
+    end loop;
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 16#21#);                     -- create
+    poke(16#FFE05#, 0);
+    poke(16#FFE06#, 0);
+    poke(16#FFE10#, character'pos('/'));
+    poke(16#FFE11#, character'pos('T'));
+    poke(16#FFE12#, character'pos('.'));
+    poke(16#FFE13#, character'pos('T'));
+    poke(16#FFE14#, character'pos('X'));
+    poke(16#FFE15#, character'pos('T'));
+    poke(16#FFE16#, 0);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    peek(16#FFE03#, v);
+    check(v = 0, "FAT32 engine: create /T.TXT (" & integer'image(to_integer(v)) & ")");
+    peek(16#FFE04#, v);
+    h1 := to_integer(v);                         -- the descriptor
+    for i in 0 to 9 loop
+      poke(16#FFE00# + i, 48 + i);
+    end loop;
+    poke(16#D3681#, 10);
+    poke(16#D3682#, 0);
+    poke(16#D3683#, 0);
+    poke(16#D3684#, h1);
+    poke(16#D3680#, 16#72#);
+    wait_ready(20 ms);
+    peek(16#D3680#, v);
+    check(v(6) = '0', "FAT32 engine: write 10 bytes");
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 16#22#);                     -- close
+    poke(16#FFE04#, h1);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    poke(16#FFE03#, 16#20#);                     -- open (the path is still there)
+    poke(16#FFE05#, 0);
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    peek(16#FFE03#, v);
+    check(v = 0, "FAT32 engine: open /T.TXT");
+    peek(16#FFE04#, v);
+    h1 := to_integer(v);
+    poke(16#D3681#, 0);
+    poke(16#D3682#, 2);                          -- 512
+    poke(16#D3683#, 0);
+    poke(16#D3684#, h1);
+    poke(16#D3680#, 16#71#);
+    wait_ready(20 ms);
+    peek(16#D3681#, v);
+    check(v = 10, "FAT32 engine: read: 10 bytes (" & integer'image(to_integer(v)) & ")");
+    h0 := 0;
+    for i in 0 to 9 loop
+      peek(16#FFE00# + i, v);
+      if v /= 48 + i then h0 := h0 + 1; end if;
+    end loop;
+    check(h0 = 0, "FAT32 engine: read back what was written");
+    -- on the card: the root directory's entry, the FAT's chain
+    set_sector(18);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    peek(16#FFE00#, v);
+    check(v = character'pos('T'), "FAT32 engine: the entry on the card");
+    peek(16#FFE1C#, v);
+    check(v = 10, "FAT32 engine: its size on the card");
+    set_sector(14);                              -- the second FAT
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    peek(16#FFE0F#, v);
+    check(v = 16#0F#, "FAT32 engine: cluster 3 ends its chain, in the second FAT too");
+
     if fails = 0 then
       report "ALL TESTS PASSED";
     else

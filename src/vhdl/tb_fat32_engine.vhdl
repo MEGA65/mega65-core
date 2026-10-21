@@ -1,15 +1,17 @@
 --------------------------------------------------------------------------------
 -- tb_fat32_engine: replays a transcript of the instruction-set simulator
 -- (MEGA65/mega65-core#766) against fat32_engine, comparing the whole sector
--- buffer, the status and $D681-$D684 after every command.
+-- buffer, the status, $D681-$D684 and every sector written, after every
+-- command.
 --
---   python3 src/tools/test_fat32_engine.py --short --trace trace.txt
---   ghdl -r --std=08 tb_fat32_engine -gG_TRACE=trace.txt
+--   python3 src/tools/test_fat32_engine.py --short --rtl
+--   (or --trace trace.txt, then ghdl -r --std=08 tb_fat32_engine -gG_TRACE=trace.txt)
 --
 -- Transcript lines (hex):
---   S slot lba data       a sector the commands read (512 bytes)
+--   S slot lba data       a sector as the commands first read it (512 bytes)
 --   W addr bytes          the buffer before the next command
 --   C cmd arg hyp         a command
+--   V slot lba data       a sector it wrote (in order)
 --   E addr bytes          the buffer after it (the changes)
 --   R status arg steps    its result (steps: the simulator's instructions)
 --------------------------------------------------------------------------------
@@ -45,7 +47,9 @@ architecture tb of tb_fat32_engine is
   signal sec_lba : unsigned(31 downto 0);
   signal sec_done, sec_err : std_logic := '0';
 
-  constant MAXSEC : natural := 4096;
+  constant HBITS  : natural := 15;      -- the sector table: 32768 (hashed)
+  constant NSEC   : natural := 2 ** HBITS;
+  constant MAXW   : natural := 4096;    -- sectors written by one command
 
 begin
 
@@ -65,25 +69,32 @@ begin
 
   run : process
     type t_mem is array(0 to 4095) of natural range 0 to 255;
-    type t_secdata is array(0 to MAXSEC * 512 - 1) of natural range 0 to 255;
-    type t_seckey is array(0 to MAXSEC - 1) of unsigned(32 downto 0);
+    type t_secdata is array(0 to NSEC * 512 - 1) of natural range 0 to 255;
+    type t_seckey is array(0 to NSEC - 1) of unsigned(32 downto 0);
+    type t_used is array(0 to NSEC - 1) of boolean;
+    type t_wdata is array(0 to MAXW * 512 - 1) of natural range 0 to 255;
+    type t_wkey is array(0 to MAXW - 1) of unsigned(32 downto 0);
     type t_pipe is array(0 to 7) of natural range 0 to 255;
     variable mem, expect : t_mem := (others => 0);
     variable secdata : t_secdata;
     variable seckey  : t_seckey;
-    variable nsec    : natural := 0;
+    variable used    : t_used := (others => false);
+    variable nsecs   : natural := 0;
+    variable wdata   : t_wdata;
+    variable wkey    : t_wkey;
+    variable nw, nv  : natural := 0;
     variable pipe    : t_pipe := (others => 0);
     file f           : text;
     variable ln      : line;
     variable pos     : natural;
     variable kind    : character;
-    variable a, b, c, n : natural;
+    variable a, b, n : natural;
     variable v32     : unsigned(31 downto 0);
     variable fails, cmds : natural := 0;
-    variable cycles, total_cycles, total_steps : natural := 0;
+    variable cycles, total_cycles, total_steps, total_writes : natural := 0;
     variable sec_wait : natural := 0;
     variable key     : unsigned(32 downto 0);
-    variable found   : integer;
+    variable slotno  : integer;
     variable shown   : natural;
 
     function hexval(ch : character) return natural is
@@ -115,6 +126,31 @@ begin
       v := acc;
     end procedure;
 
+    -- the table slot of a sector (create: claim a free one), -1: none
+    procedure lookup(k : unsigned(32 downto 0); create : boolean; idx : out integer) is
+      variable h : natural;
+    begin
+      h := to_integer(k(HBITS - 1 downto 0) xor (k(32) & k(HBITS + 13 downto HBITS)));
+      for i in 0 to NSEC - 1 loop
+        if not used(h) then
+          if create then
+            used(h) := true;
+            seckey(h) := k;
+            nsecs := nsecs + 1;
+            idx := h;
+          else
+            idx := -1;
+          end if;
+          return;
+        elsif seckey(h) = k then
+          idx := h;
+          return;
+        end if;
+        h := (h + 1) mod NSEC;
+      end loop;
+      assert false report "sector table full" severity failure;
+    end procedure;
+
     -- one clock, with the memory and the card served
     procedure tick is
     begin
@@ -134,30 +170,33 @@ begin
           sec_wait := sec_wait + 1;
         else
           sec_wait := 0;
+          key := sec_slot & sec_lba;
+          sec_err <= '0';
           if sec_write = '1' then
-            report "unexpected sector write, LBA " & integer'image(to_integer(sec_lba))
-              severity error;
-            fails := fails + 1;
-            sec_err <= '1';
-          else
-            key := sec_slot & sec_lba;
-            found := -1;
-            for i in 0 to MAXSEC - 1 loop
-              exit when i = nsec;
-              if seckey(i) = key then
-                found := i;
-                exit;
+            -- kept for the V lines, and for later reads
+            assert nw < MAXW report "too many sector writes in one command" severity failure;
+            wkey(nw) := key;
+            lookup(key, true, slotno);
+            for k in 0 to 511 loop
+              if sec_cpu = '1' then
+                b := mem(16#E00# + k);
+              else
+                b := mem(16#800# + k);
               end if;
+              wdata(nw * 512 + k) := b;
+              secdata(slotno * 512 + k) := b;
             end loop;
-            if found < 0 then
+            nw := nw + 1;
+          else
+            lookup(key, false, slotno);
+            if slotno < 0 then
               sec_err <= '1';
             else
-              sec_err <= '0';
               for k in 0 to 511 loop
                 if sec_cpu = '1' then
-                  mem(16#E00# + k) := secdata(found * 512 + k);
+                  mem(16#E00# + k) := secdata(slotno * 512 + k);
                 else
-                  mem(16#800# + k) := secdata(found * 512 + k);
+                  mem(16#800# + k) := secdata(slotno * 512 + k);
                 end if;
               end loop;
             end if;
@@ -180,13 +219,11 @@ begin
           key(32) := v32(0);
           field(v32);
           key(31 downto 0) := v32;
-          assert nsec < MAXSEC report "too many sectors" severity failure;
-          seckey(nsec) := key;
+          lookup(key, true, slotno);
           skip_spaces;
           for k in 0 to 511 loop
-            secdata(nsec * 512 + k) := hexval(ln(pos + 2 * k)) * 16 + hexval(ln(pos + 2 * k + 1));
+            secdata(slotno * 512 + k) := hexval(ln(pos + 2 * k)) * 16 + hexval(ln(pos + 2 * k + 1));
           end loop;
-          nsec := nsec + 1;
         when 'W' | 'E' =>
           field(v32);
           a := to_integer(v32);
@@ -206,6 +243,8 @@ begin
           arg_in <= v32;
           field(v32);
           hyp <= v32(0);
+          nw := 0;
+          nv := 0;
           start <= '1';
           tick;
           start <= '0';
@@ -214,10 +253,46 @@ begin
           while busy = '1' loop
             tick;
             cycles := cycles + 1;
-            assert cycles < 50_000_000 report "command never ends" severity failure;
+            assert cycles < 200_000_000 report "command never ends" severity failure;
           end loop;
           cmds := cmds + 1;
+        when 'V' =>
+          field(v32);
+          key(32) := v32(0);
+          field(v32);
+          key(31 downto 0) := v32;
+          skip_spaces;
+          if nv >= nw then
+            report "command " & integer'image(cmds) & " ($" & to_hstring(cmd)
+              & "): a sector write missing, LBA $" & to_hstring(key(31 downto 0)) severity error;
+            fails := fails + 1;
+          elsif wkey(nv) /= key then
+            report "command " & integer'image(cmds) & " ($" & to_hstring(cmd) & "): write "
+              & integer'image(nv) & " to LBA $" & to_hstring(wkey(nv)(31 downto 0))
+              & ", expected $" & to_hstring(key(31 downto 0)) severity error;
+            fails := fails + 1;
+          else
+            shown := 0;
+            for k in 0 to 511 loop
+              if wdata(nv * 512 + k) /= hexval(ln(pos + 2 * k)) * 16 + hexval(ln(pos + 2 * k + 1)) then
+                shown := shown + 1;
+              end if;
+            end loop;
+            if shown /= 0 then
+              report "command " & integer'image(cmds) & " ($" & to_hstring(cmd) & "): write "
+                & integer'image(nv) & " to LBA $" & to_hstring(key(31 downto 0)) & ": "
+                & integer'image(shown) & " bytes differ" severity error;
+              fails := fails + 1;
+            end if;
+          end if;
+          nv := nv + 1;
         when 'R' =>
+          if nw /= nv then
+            report "command " & integer'image(cmds) & " ($" & to_hstring(cmd) & "): "
+              & integer'image(nw) & " sector writes, expected " & integer'image(nv) severity error;
+            fails := fails + 1;
+          end if;
+          total_writes := total_writes + nw;
           field(v32);
           if status /= v32(7 downto 0) then
             report "command " & integer'image(cmds) & " ($" & to_hstring(cmd) & "): status "
@@ -256,7 +331,8 @@ begin
           null;
       end case;
     end loop;
-    report integer'image(cmds) & " commands, " & integer'image(nsec) & " sectors, "
+    report integer'image(cmds) & " commands, " & integer'image(nsecs) & " sectors, "
+      & integer'image(total_writes) & " written, "
       & integer'image(total_cycles) & " cycles for " & integer'image(total_steps)
       & " simulator instructions";
     if fails = 0 then

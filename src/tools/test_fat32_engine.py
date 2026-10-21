@@ -34,7 +34,7 @@ class Engine:
         fat32sim.encode(prog)               # (it must fit the instruction word)
         self.m = fat32sim.Machine(prog, cards={1: image}, hypervisor=hypervisor)
 
-    def req(self, op, fd=0, flags=0, arg0=0, arg1=0, path=b""):
+    def req(self, op, fd=0, flags=0, arg0=0, arg1=0, path=b"", limit=5_000_000):
         """a $70 request -> (status, the response block)"""
         if isinstance(path, str):
             path = path.encode()
@@ -44,7 +44,7 @@ class Engine:
         blk[10:14] = struct.pack("<I", arg1)
         blk[16:16 + len(path)] = path
         self.m.buf[0xE00:0x1000] = blk
-        status, _ = self.m.command(0x70)
+        status, _ = self.m.command(0x70, limit=limit)
         return status, bytes(self.m.buf[0xE00:0x1000])
 
     def ok(self, *a, **k):
@@ -199,7 +199,9 @@ def tests(image, verbose, trace=None, short=False):
     st, _ = e.req(0x20, path="/MEGA65/HICKUP.M65")
     check("SYSTEM file closed to programs", st == E_NOENT, st)
     check("open a directory", e.req(0x20, path="/GAMES")[0] == E_ISDIR)
-    check("phase 1 is read-only", e.req(0x20, flags=1, path="/README.TXT")[0] == E_ROFS)
+    st, r = e.req(0x20, flags=1, path="/README.TXT")
+    check("open for writing", st == 0)
+    e.ok(0x22, fd=r[4])
 
     fd = e.ok(0x20, path="/README.TXT")[4]
     check("first descriptor is 0", fd == 0, fd)
@@ -277,6 +279,237 @@ def tests(image, verbose, trace=None, short=False):
           % (len(passed), e.m.steps, len(e.m.prog)))
 
 
+E_EXIST, E_NOTEMPTY, E_NOSPC, E_STALE, E_BUSY = 12, 13, 14, 16, 17
+
+
+def write_tests(image, verbose, trace=None):
+    """creating, writing, truncating, deleting, renaming, on a copy of the
+    image; fsck.fat (without fixing FSInfo first) after each part"""
+    work = tempfile.mkdtemp(prefix="fat32w")
+    copy = os.path.join(work, "w.img")
+    subprocess.run(["cp", "--sparse=always", image, copy], check=True)
+    e = Engine(copy)
+    if trace:
+        e.m.start_trace()
+    passed = []
+
+    def check(name, cond, detail=""):
+        if not cond:
+            raise AssertionError("%s %s" % (name, detail))
+        passed.append(name)
+        if verbose:
+            print("  ok", name, "(%d steps)" % e.m.last_steps)
+
+    def vol():
+        e.m.flush()
+        return fatimg().volume(0)
+
+    def fatimg():
+        e.m.flush()
+        return fat32img.Image(copy)
+
+    def fsck(name):
+        img = fatimg()
+        v = img.volume(0)
+        check(name + ": FSInfo free count right", v.fsinfo_free() == v.free_count(),
+              (v.fsinfo_free(), v.free_count()))
+        check(name + ": fsck.fat", img.check(sync=False))
+
+    def write(fd, data, cmd=0x72):
+        for i in range(0, len(data), 512):
+            chunk = data[i:i + 512]
+            e.m.buf[0xE00:0xE00 + len(chunk)] = chunk
+            st, n = e.m.command(cmd, arg=(fd << 24) | len(chunk))
+            assert st == 0 and n == len(chunk), ("write", st, n, e.m.line)
+
+    def readall(path):
+        fd = e.ok(0x20, path=path)[4]
+        out = b""
+        while True:
+            d = e.read(fd, 512)
+            if not d:
+                break
+            out += d
+        e.ok(0x22, fd=fd)
+        return out
+
+    e.ok(1)
+    # create, write, close
+    fd = e.ok(0x21, path="/NEW.TXT")[4]
+    check("create", fd == 0, fd)
+    write(fd, b"hello, world\n" * 10)
+    e.ok(0x22, fd=fd)
+    check("written", vol().read_file("/NEW.TXT") == b"hello, world\n" * 10)
+    check("exists", e.req(0x21, path="/NEW.TXT")[0] == E_EXIST)
+    check("exists (case)", e.req(0x21, path="/new.txt")[0] == E_EXIST)
+    check("exists (a SYSTEM file)", e.req(0x21, path="/MEGA65/HICKUP.M65")[0] == E_EXIST)
+    check("bad name", e.req(0x21, path="/A*B")[0] == E_BADREQ)
+    fsck("create")
+
+    # a long name, odd sizes, many clusters
+    data = bytes((i * 13 + 7) & 255 for i in range(70000))
+    fd = e.ok(0x21, path="/GAMES/A Long File Name.data")[4]
+    pos = 0
+    for size in [1, 511, 512, 100, 512, 700, 300] + [512] * 200:
+        if pos >= len(data):
+            break
+        write(fd, data[pos:pos + size])
+        pos += size
+    write(fd, data[pos:])
+    e.ok(0x22, fd=fd)
+    v = vol()
+    check("a long name, 70000 bytes", v.read_file("/GAMES/A Long File Name.data") == data)
+    shorts = [sh for l, sh, a, f, z in v.listdir(v.lookup("/GAMES")[1]) if l == "A Long File Name.data"]
+    check("its 8.3 alias", shorts == ["ALONGF~1.DAT"], shorts)
+    check("read back by the engine", readall("/GAMES/A Long File Name.data") == data)
+    fd = e.ok(0x21, path="/GAMES/A Long File Number Two.data")[4]
+    e.ok(0x22, fd=fd)
+    v = vol()
+    shorts = [sh for l, sh, a, f, z in v.listdir(v.lookup("/GAMES")[1]) if l == "A Long File Number Two.data"]
+    check("a second alias", shorts == ["ALONGF~2.DAT"], shorts)
+    fd = e.ok(0x21, path="/UNICODE/Ünïcödé ✓.txt")[4]
+    write(fd, b"x")
+    e.ok(0x22, fd=fd)
+    check("a UTF-8 name", "Ünïcödé ✓.txt" in [l for l, *_ in vol().listdir(vol().lookup("/UNICODE")[1])])
+    fsck("long names")
+
+    # overwrite, append, $75
+    fd = e.ok(0x20, flags=1, path="/NEW.TXT")[4]
+    e.ok(0x23, fd=fd, arg0=7)
+    write(fd, b"WORLD")
+    e.ok(0x22, fd=fd)
+    want = bytearray(b"hello, world\n" * 10)
+    want[7:12] = b"WORLD"
+    check("overwrite in the middle", vol().read_file("/NEW.TXT") == bytes(want))
+    fd = e.ok(0x20, flags=2, path="/NEW.TXT")[4]
+    write(fd, b"appended")
+    e.ok(0x22, fd=fd)
+    want += b"appended"
+    check("append", vol().read_file("/NEW.TXT") == bytes(want))
+    check("write to a read-only descriptor", (lambda fd: (e.m.command(0x72, arg=(fd << 24) | 1)[0],
+          e.ok(0x22, fd=fd))[0])(e.ok(0x20, path="/NEW.TXT")[4]) == E_ACCESS)
+    fd = e.ok(0x20, flags=1, path="/GAMES/A Long File Name.data")[4]
+    e.m.buf[0xE00:0x1000] = bytes([0xA5]) * 512
+    st, _ = e.m.command(0x75, arg=(fd << 24) | 3)
+    check("$75 write sector 3", st == 0)
+    st, _ = e.m.command(0x75, arg=(fd << 24) | 137)
+    check("$75 past the end", st == E_END)
+    e.ok(0x22, fd=fd)
+    data = data[:1536] + bytes([0xA5]) * 512 + data[2048:]
+    check("$75 written", vol().read_file("/GAMES/A Long File Name.data") == data)
+    fsck("overwrite")
+
+    # truncate
+    fd = e.ok(0x20, flags=1, path="/GAMES/A Long File Name.data")[4]
+    e.ok(0x28, fd=fd, arg0=5000)
+    check("truncate shorter", vol().read_file("/GAMES/A Long File Name.data") == data[:5000])
+    e.ok(0x28, fd=fd, arg0=20000)
+    check("truncate longer: zeros", vol().read_file("/GAMES/A Long File Name.data")
+          == data[:5000] + bytes(15000))
+    e.ok(0x28, fd=fd, arg0=0)
+    check("truncate to nothing", vol().read_file("/GAMES/A Long File Name.data") == b"")
+    e.ok(0x28, fd=fd, arg0=819200)
+    v = vol()
+    first = v.lookup("/GAMES/A Long File Name.data")[1]
+    chain = v.chain(first)
+    check("grown to 800 KB, contiguous", len(chain) == 200 and chain == list(range(chain[0], chain[0] + 200)),
+          (len(chain), chain[:3]))
+    e.ok(0x22, fd=fd)
+    fsck("truncate")
+
+    # directories
+    e.ok(0x14, path="/NEWDIR")
+    check("mkdir again", e.req(0x14, path="/NEWDIR")[0] == E_EXIST)
+    fd = e.ok(0x21, path="/NEWDIR/inside.txt")[4]
+    write(fd, b"inside")
+    e.ok(0x22, fd=fd)
+    for i in range(40):                     # (the directory grows: 512-byte clusters? no: 8 sectors)
+        e.ok(0x22, fd=e.ok(0x21, path="/NEWDIR/a rather long file name number %02d.txt" % i)[4])
+    check("rmdir, not empty", e.req(0x15, path="/NEWDIR")[0] == E_NOTEMPTY)
+    fsck("mkdir")
+    check("delete a directory", e.req(0x25, path="/NEWDIR")[0] == E_ISDIR)
+    fd = e.ok(0x20, path="/NEWDIR/inside.txt")[4]
+    check("delete an open file", e.req(0x25, path="/NEWDIR/inside.txt")[0] == E_BUSY)
+    e.ok(0x22, fd=fd)
+    e.ok(0x25, path="/NEWDIR/inside.txt")
+    for i in range(40):
+        e.ok(0x25, path="/NEWDIR/a rather long file name number %02d.txt" % i)
+    check("deleted", e.req(0x24, path="/NEWDIR/inside.txt")[0] == E_NOENT)
+    e.ok(0x12, path="/NEWDIR")
+    check("rmdir the current directory", e.req(0x15, path="/NEWDIR")[0] == E_BUSY)
+    e.ok(0x12, path="/")
+    e.ok(0x15, path="/NEWDIR")
+    check("rmdir", e.req(0x24, path="/NEWDIR")[0] == E_NOENT)
+    fsck("rmdir")
+
+    # rename
+    e.ok(0x26, path=b"/NEW.TXT\0/renamed file.txt")
+    check("rename", vol().read_file("/renamed file.txt") == bytes(want)
+          and e.req(0x24, path="/NEW.TXT")[0] == E_NOENT)
+    e.ok(0x14, path="/D1")
+    e.ok(0x14, path="/D1/D2")
+    e.ok(0x26, path=b"/renamed file.txt\0/D1/D2/moved.txt")
+    check("rename into a directory", vol().read_file("/D1/D2/moved.txt") == bytes(want))
+    e.ok(0x26, path=b"/D1/D2\0/GAMES/D2")
+    check("move a directory", vol().read_file("/GAMES/D2/moved.txt") == bytes(want))
+    e.ok(0x12, path="/GAMES/D2/..")
+    r = e.ok(0x13)
+    check("its .. follows", r[16:].split(b"\0")[0] == b"/GAMES", r[16:40])
+    e.ok(0x12, path="/")
+    check("rename onto a name", e.req(0x26, path=b"/README.TXT\0/GAMES/SHORT.PRG")[0] == E_EXIST)
+    fsck("rename")
+
+    # attributes, permissions
+    check("SYSTEM needs permission", e.req(0x27, arg0=0x04, path="/README.TXT")[0] == E_ACCESS)
+    e.ok(0x27, arg0=0x01, path="/README.TXT")
+    check("a read-only file", e.req(0x20, flags=1, path="/README.TXT")[0] == E_ACCESS)
+    e.ok(0x27, arg0=0x20, path="/README.TXT")
+    check("SYSTEM create needs permission", e.req(0x21, arg0=0x04, path="/S.SYS")[0] == E_ACCESS)
+    check("policy is the hypervisor's", e.req(4, arg0=1)[0] == E_ACCESS)
+    e.m.hypervisor = True
+    e.ok(4, arg0=1)
+    e.ok(0x27, arg0=0x24, path="/README.TXT")
+    e.ok(0x06, arg0=(0x5C55 << 16) | 0x6000)  # 2026-02-21 12:00
+    e.m.hypervisor = False
+    check("read-only policy", e.req(0x21, path="/X.TXT")[0] == E_ROFS
+          and e.req(0x20, flags=1, path="/GAMES/SHORT.PRG")[0] == E_ROFS)
+    check("SYSTEM set by the hypervisor", e.req(0x24, path="/README.TXT")[0] == E_NOENT)
+    e.m.hypervisor = True
+    e.ok(4, arg0=0)
+    e.ok(5, arg0=1)
+    e.m.hypervisor = False
+    check("SYSTEM access granted", e.req(0x24, path="/README.TXT")[0] == 0)
+    e.ok(0x27, arg0=0x20, path="/README.TXT")
+    fd = e.ok(0x21, path="/STAMPED.TXT")[4]
+    e.ok(0x22, fd=fd)
+    v = vol()
+    raw = [r for r, _, _ in v.dir_entries(v.root) if r[:11] == b"STAMPED TXT"][0]
+    check("the time stamp", struct.unpack_from("<HH", raw, 22) == (0x6000, 0x5C55), raw[22:26].hex())
+    fsck("attributes")
+
+    if trace:
+        e.m.write_trace(trace)
+        e.m.trace = None
+
+    # fill the second partition, then free it (not in the transcript: 80k sectors)
+    e.ok(3, arg0=2)
+    fd = e.ok(0x21, path="/BIG.BIN")[4]
+    v2 = fatimg().volume(1)
+    free = v2.free_count()
+    st = e.req(0x28, fd=fd, arg0=(free + 5) * 512, limit=200_000_000)[0]
+    check("no space", st == E_NOSPC, st)
+    e.ok(0x22, fd=fd)
+    img = fatimg()
+    check("no space: fsck.fat", img.check(sync=False))
+    check("no space: the entry has the clusters", img.volume(1).lookup("/BIG.BIN")[2] > 0)
+    e.ok(0x25, path="/BIG.BIN")
+    v2 = fatimg().volume(1)
+    check("freed again", v2.free_count() == free and v2.fsinfo_free() == free, (v2.free_count(), free))
+    e.ok(3, arg0=1)
+
+    print("write tests: %d checks passed, %d engine steps" % (len(passed), e.m.steps))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image")
@@ -293,8 +526,9 @@ def main():
     work = tempfile.mkdtemp(prefix="fat32rtl") if a.rtl else None
     trace = a.trace or (os.path.join(work, "trace.txt") if a.rtl else None)
     tests(image, a.verbose, trace, a.short)
+    write_tests(image, a.verbose, trace and trace + ".w")
     if a.rtl:
-        sys.exit(0 if rtl(trace, work) else 1)
+        sys.exit(0 if rtl(trace, work) and rtl(trace + ".w", work) else 1)
 
 
 def rtl(trace, work):

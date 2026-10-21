@@ -77,6 +77,8 @@ def parse_num(tok, equ):
     tok = tok.strip()
     if tok.lower() in equ:
         return equ[tok.lower()]
+    if len(tok) == 3 and tok[0] == tok[2] == "'":
+        return ord(tok[1])
     m = re.fullmatch(r"([^+\-]+)([+\-])(.+)", tok)
     if m and not tok.startswith(("$", "%", "-")):
         a, op, b = m.groups()
@@ -151,6 +153,8 @@ class Machine:
         self.prog = prog
         self.files = {s: open(p, "r+b") for s, p in cards.items()}
         self.buf = bytearray(4096)
+        self.buf[0:0x800] = bytes([0x99]) * 0x800   # (as the RAM model starts: the
+                                                    # firmware must not assume zeros)
         self.r = [0] * 16
         self.l = [0] * 8
         self.x = self.y = 0
@@ -190,6 +194,10 @@ class Machine:
             for line in self.trace:
                 f.write(line + "\n")
 
+    def flush(self):
+        for f in self.files.values():
+            f.flush()
+
     # --- the card ---
     def _sector(self, lba, data=None):
         f = self.files.get(self.slot)
@@ -202,10 +210,12 @@ class Machine:
             d = f.read(512)
             self.e = len(d) != 512
             if self.trace is not None and not self.e:
-                self.trace_sectors[(self.slot, lba)] = d
+                self.trace_sectors.setdefault((self.slot, lba), d)
             return d.ljust(512, b"\0")
         f.write(data)
         self.e = False
+        if self.trace is not None:
+            self.trace.append("V %d %08X %s" % (self.slot, lba, data.hex().upper()))
         return None
 
     # --- running a command ---
@@ -532,7 +542,7 @@ OPS = {name[3:]: fn for name, fn in globals().items() if name.startswith("op_")}
 # uses the low 3 bits of its field), immediates in the low bits:
 #   n8 [7:0]   s13/u13 [12:0] (L-register immediates: lldi/lcmpi/landi zero-
 #   extend, laddi/lsubi sign-extend)   n5 [4:0] (long shifts)   u12/s12 [11:0]
-#   (pointers)   k2 [1:0] (ltob)   a11 [10:0] (jumps)
+#   (pointers)   k2 [1:0] (ltob)   a12 [11:0] (jumps)
 #   memory operands: [12] 0 = X, 1 = Y; offset n8 [7:0]
 # Operand kinds: r/l take the next register field; anything else is the
 # immediate.
@@ -555,8 +565,8 @@ ENCODING = [
     ("xset", "n", "u12"), ("yset", "n", "u12"), ("xaddi", "n", "s12"), ("yaddi", "n", "s12"),
     ("xadd", "r", None), ("yadd", "r", None), ("xl", "l", None), ("yl", "l", None),
     ("lx", "l", None), ("ly", "l", None), ("xy", "", None),
-    ("jmp", "a", "a11"), ("jz", "a", "a11"), ("jnz", "a", "a11"), ("jc", "a", "a11"),
-    ("jnc", "a", "a11"), ("je", "a", "a11"), ("jne", "a", "a11"), ("call", "a", "a11"),
+    ("jmp", "a", "a12"), ("jz", "a", "a12"), ("jnz", "a", "a12"), ("jc", "a", "a12"),
+    ("jnc", "a", "a12"), ("je", "a", "a12"), ("jne", "a", "a12"), ("call", "a", "a12"),
     ("ret", "", None),
     ("slot", "r", None), ("sread", "l", None), ("swrite", "l", None), ("dread", "l", None),
     ("dwrite", "l", None), ("fatnx", "l", None), ("fatset", "ll", None),
@@ -594,7 +604,7 @@ def encode(prog):
             v = a[1]
             bits, signed = {"n8": (8, False), "u13": (13, False), "s13": (13, True),
                             "n5": (5, False), "u12": (12, False), "s12": (12, True),
-                            "k2": (2, False), "a11": (11, False)}[imm]
+                            "k2": (2, False), "a12": (12, False)}[imm]
             lo, hi = (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
             if kind == "n" and imm == "n8" and -128 <= v < 0:
                 v &= 0xFF                       # (byte immediates: either sign)
@@ -602,7 +612,7 @@ def encode(prog):
                 raise AsmError("line %d: %s: %d does not fit %s" % (lineno, op, v, imm))
             w |= v & ((1 << bits) - 1)
         out.append(w)
-    if len(out) > 2048:
+    if len(out) > 4096:
         raise AsmError("program too long: %d instructions" % len(out))
     return out
 
@@ -613,7 +623,7 @@ def decode_imm(op, w):
     if imm == "m":
         return w & 0xFF
     bits, signed = {"n8": (8, False), "u13": (13, False), "s13": (13, True), "n5": (5, False),
-                    "u12": (12, False), "s12": (12, True), "k2": (2, False), "a11": (11, False)}[imm]
+                    "u12": (12, False), "s12": (12, True), "k2": (2, False), "a12": (12, False)}[imm]
     v = w & ((1 << bits) - 1)
     return v - (1 << bits) if signed and v >> (bits - 1) else v
 
@@ -625,7 +635,7 @@ def vhdl_rom(prog, name="fat32_rom_pkg"):
              "library ieee;", "use ieee.std_logic_1164.all;", "",
              "package %s is" % name,
              "  constant FAT32_ROM_SIZE : natural := %d;" % len(words),
-             "  type t_fat32_rom is array(0 to 2047) of std_logic_vector(23 downto 0);",
+             "  type t_fat32_rom is array(0 to 4095) of std_logic_vector(23 downto 0);",
              "  constant FAT32_ROM : t_fat32_rom := ("]
     for i, (w, (op, args, lineno)) in enumerate(zip(words, prog)):
         lines.append('    %4d => x"%06X",  -- %s (line %d)' % (i, w, op, lineno))
