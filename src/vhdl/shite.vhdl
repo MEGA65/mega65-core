@@ -90,7 +90,7 @@ architecture rtl of shite is
     AG_START, AG_ARG, AG_NEXTARG, AG_RROW, AG_RROW2, AG_RROW3, AG_TW, AG_TW2, AG_VISITED,
     AG_LNEXT, AG_LREF, AG_LTAKE, AG_TAKE, AG_SUMR, AG_MMR, AG_FINISH, AG_AVGR, AG_RESULT,
     E_JUMP, E_JZ, E_PCT, E_PCT2,
-    SF_START, SF_ARG2, SF_INTDIV, SF_MODI, SF_MODI2, SF_MODI3, SF_MODF, SF_MODF2, SF_MODF3, SF_MODF4,
+    SF_START, SF_START2, SF_ARG2, SF_ARG2B, SF_INTDIV, SF_MODI, SF_MODI2, SF_MODI3, SF_MODF, SF_MODF2, SF_MODF3, SF_MODF4,
     SF_FLOOR, SF_DONE, SF_B2, SF_POWI, SF_POWI2, SF_POWF, SF_POWF2, SF_POWF3, SF_POWF4, SF_POWF5,
     SF_RNDI, SF_RNDI2, SF_RNDI3, SF_RNDF, SF_RF_MUL, SF_RF_SH, SF_RF_N, SF_RF_C2, SF_RF_DIV,
     SF_RN_SH, SF_RN_DIV, SF_RN_MUL, SF_RNDF4, SF_POWSQ, SF_SQRT, SQ_STEP,
@@ -108,7 +108,7 @@ architecture rtl of shite is
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
     B_TREE, B_TREE2, B_TREE3, B_TREE4, B_TREE5, B_TREE6, B_TREE7, B_RHDR, B_NEXT,
     -- the list RAM's read (one cycle)
-    L_WAIT,
+    L_WAIT, EST_WAIT, E_JZ2, E_BIN3, AG_ARG2,
     -- the codec units: a parameter block in, a job, its results out; their
     -- RAM requests served meanwhile (SJ_)
     X_P0, X_P8, X_P16, X_P24, X_D56, X_GO, X_RES, X_RES2, X_RES3,
@@ -237,6 +237,13 @@ architecture rtl of shite is
   type est_t is array (0 to 31) of unsigned(107 downto 0);  -- aux, kind, ref, k, value
   signal t_aux : unsigned(31 downto 0) := (others => '0');
   signal est : est_t;
+  attribute ram_style of est : signal is "block";
+  -- its ports: the write registered (the old top, pushed or flushed: lands
+  -- a cycle later), the read registered (est_ra, then EST_WAIT, then est_q)
+  signal est_we : std_logic := '0';
+  signal est_wa, est_ra : natural range 0 to 31 := 0;
+  signal est_wd, est_q : unsigned(107 downto 0) := (others => '0');
+  signal est_ret : state_t := S_IDLE;
   signal esp : natural range 0 to 32 := 0;
   -- a reference being looked up, and the value it gives
   signal q_row, q_col : unsigned(31 downto 0) := (others => '0');
@@ -668,6 +675,22 @@ begin
   done_t <= done_tr;
   g_write <= m_write; g_wd <= m_wd; g_be <= m_be;
 
+  -- RECALC's evaluation stack (below the top, which is in t_*): a simple
+  -- dual-port block RAM (two 72-bit wide RAMB36 halves), one write and one
+  -- read port, so no 108-bit multiplexer on either side.  A read is used
+  -- only through EST_WAIT, never as a write to its address lands (asserted)
+  process (clock)
+  begin
+    if rising_edge(clock) then
+      if est_we = '1' then
+        est(est_wa) <= est_wd;
+      end if;
+      est_q <= est(est_ra);
+      assert not (st = EST_WAIT and est_we = '1' and est_wa = est_ra)
+        report "SHITE: the stack RAM read where a write is landing" severity failure;
+    end if;
+  end process;
+
   -- REBALANCE_ROW's list: a simple dual-port block RAM, alone in its
   -- process (in the main one Vivado built it from LUT RAM, ram_style or
   -- not).  A read is used only through L_WAIT, never in the cycle after
@@ -698,9 +721,6 @@ begin
     -- expanded wherever it is called, and writing est there made each call
     -- a write port (est as 3456 flip-flops and a full-width multiplexer per
     -- call, too big for the device)
-    variable est_we : boolean;
-    variable est_wa : natural range 0 to 31;
-    variable est_wd : unsigned(107 downto 0);
     variable tws_we : boolean;                  -- (the same for the range walk's stack)
     variable tws_wa : natural range 0 to 31;
     variable tws_wd : unsigned(53 downto 0);
@@ -737,8 +757,7 @@ begin
         t_kind <= VK_E; t_v <= x"00000000000000" & E_STACK; esp <= 1; st <= E_STORE;
       else
         if esp > 0 then
-          est_we := true; est_wa := esp - 1;
-          est_wd := t_aux & t_kind & t_ref & t_k & t_v;
+          est_we <= '1';                      -- (the old top, to est(esp - 1))
         end if;
         t_kind <= k; t_v <= v; t_k <= fx; t_ref <= rf; t_aux <= ax;
         esp <= esp + 1;
@@ -762,7 +781,11 @@ begin
     end procedure;
   begin
     if rising_edge(clock) then
-      est_we := false; tws_we := false;
+      tws_we := false;
+      -- the stack RAM's write: always the top at esp - 1, when est_we
+      est_we <= '0';
+      est_wa <= (esp + 31) mod 32;
+      est_wd <= t_aux & t_kind & t_ref & t_k & t_v;
       -- (from clock162: registered before any use)
       s_r <= start_t; a_r <= g_ack_t; abt <= abort;
       mp_hr_base <= map_hr_base; mp_hr_size <= map_hr_size;
@@ -973,6 +996,9 @@ begin
         -- the list RAM's read: l_rd is valid in l_ret
         when L_WAIT =>
           st <= l_ret;
+        -- the stack RAM's read: est_q is valid in est_ret
+        when EST_WAIT =>
+          st <= est_ret;
 
         -- insertion sort by column (bits 63:48): list(0..l_i-1) is sorted
         when B_SORT =>
@@ -1301,6 +1327,7 @@ begin
                 vr_ret <= E_CELLS; st <= VR_START;
               when x"14" =>                       -- POW: as POWER(a, b)
                 ag_fid <= to_unsigned(29, 16); ag_argc <= to_unsigned(2, 16);
+                if esp > 0 then est_we <= '1'; end if;   -- (the top into the RAM: as CALL)
                 st <= AG_START;
               when x"17" =>                       -- CONCAT (not yet): two operands
                 if esp < 2 then e_abort(E_STACK);
@@ -1504,6 +1531,9 @@ begin
           vr_ret <= E_CALL2; st <= VR_START;
         when E_CALL2 =>
           ag_argc <= vl_n;
+          -- the top into the stack RAM too (at esp - 1), so the arguments
+          -- are all read from it (lands as AG_START runs, before any read)
+          if esp > 0 then est_we <= '1'; end if;
           st <= AG_START;
 
         -- JMP / JZ (IF): forward by imm(15:0)
@@ -1525,13 +1555,17 @@ begin
             end if;
             -- (the pop: the entry below to the top)
             if esp > 1 then
-              ent := est(esp - 2);
-              t_aux <= ent(107 downto 76); t_kind <= ent(75 downto 73); t_ref <= ent(72);
-              t_k <= ent(71 downto 64); t_v <= ent(63 downto 0);
+              est_ra <= esp - 2; est_ret <= E_JZ2; st <= EST_WAIT;
+            else
+              esp <= esp - 1;
+              st <= E_NEXT;
             end if;
-            esp <= esp - 1;
-            st <= E_NEXT;
           end if;
+        when E_JZ2 =>
+          t_aux <= est_q(107 downto 76); t_kind <= est_q(75 downto 73); t_ref <= est_q(72);
+          t_k <= est_q(71 downto 64); t_v <= est_q(63 downto 0);
+          esp <= esp - 1;
+          st <= E_NEXT;
         -- %: integers two more decimals of fixed point, else F64 / 100
         when E_PCT =>
           st <= E_NEXT;
@@ -1565,72 +1599,74 @@ begin
             or (ag_fid /= 13 and ag_fid /= 10 and ag_fid /= 29 and ag_argc /= 1) then
             acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE; st <= AG_RESULT;
           else
-            ent := est(ag_i);
-            if ag_argc = 1 then ent := t_aux & t_kind & t_ref & t_k & t_v; end if;
-            -- as a number: blank 0; text, ranges #VALUE!; past-the-limit fixed point #NUM!
-            ka := ent(75 downto 73); va := ent(63 downto 0); fa := ent(71 downto 64);
-            if ka = VK_Z then ka := VK_I; va := (others => '0'); fa := x"00"; end if;
-            sa_kind <= ka; sa_v <= va; sa_k <= fa;
-            st <= SF_DONE;
-            acc_kind <= VK_I; acc_k <= x"00";
-            if ka = VK_E then
-              acc_kind <= VK_E; acc_v <= va;
-            elsif ka /= VK_I and ka /= VK_F then
-              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
-            elsif ka = VK_I and bad_k(fa) then
-              acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
-            else
-              case ag_fid(4 downto 0) is
-                when "10000" =>                   -- NOT
-                  if (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then acc_v <= b64(true);
-                  else acc_v <= b64(false); end if;
-                when "00111" =>                   -- ABS
-                  if ka = VK_F then
-                    acc_kind <= VK_F; acc_v <= '0' & va(62 downto 0);
-                  elsif va = x"8000000000000000" then
-                    acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
-                  else
-                    acc_k <= fa;
-                    if va(63) = '1' then acc_v <= unsigned(-signed(va)); else acc_v <= va; end if;
-                  end if;
-                when "01011" =>                   -- SIGN
-                  if ka = VK_F and f_nan(va) then
-                    acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
-                  elsif (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then
-                    acc_v <= (others => '0');
-                  elsif va(63) = '1' then
-                    acc_v <= (others => '1');
-                  else
-                    acc_v <= b64(true);
-                  end if;
-                when "01000" | "01001" =>         -- INT, TRUNC
-                  if ka = VK_F then
-                    acc_kind <= VK_F;
-                    if ag_fid = 8 then acc_v <= f_floor(va); else acc_v <= f_trunc(va); end if;
-                  elsif fa(6 downto 0) = 0 then
-                    acc_v <= va;
-                  elsif fa(7) = '1' then          -- binary: a shift
-                    if ag_fid = 8 then
-                      acc_v <= unsigned(shift_right(signed(va), to_integer(fa(6 downto 0))));
-                    elsif va(63) = '1' then
-                      acc_v <= unsigned(-signed(shift_right(unsigned(-signed(va)), to_integer(fa(6 downto 0)))));
-                    else
-                      acc_v <= shift_right(va, to_integer(fa(6 downto 0)));
-                    end if;
-                  else                            -- decimal: |v| / 10^k
-                    if va(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(va));
-                    else dv_n <= x"0000000000000000" & va; end if;
-                    dv_d <= pw(fa(6 downto 0), '0');
-                    dv_raw <= true; dv_ret <= SF_INTDIV; st <= DV_START;
-                  end if;
-                when "01100" =>                   -- SQRT: as F64
-                  if ka = VK_I then cv_v <= va; cv_k <= fa; cv_ret <= SF_SQRT; cv_step <= 0; st <= CV_START;
-                  else fp_r <= va; st <= SF_SQRT; end if;
-                when others =>                    -- MOD, ROUND, POWER: the second argument
-                  st <= SF_ARG2;
-              end case;
-            end if;
+            est_ra <= ag_i; est_ret <= SF_START2; st <= EST_WAIT;
           end if;
+        when SF_START2 =>                       -- the argument (or the first of two)
+          ent := est_q;
+          -- as a number: blank 0; text, ranges #VALUE!; past-the-limit fixed point #NUM!
+          ka := ent(75 downto 73); va := ent(63 downto 0); fa := ent(71 downto 64);
+          if ka = VK_Z then ka := VK_I; va := (others => '0'); fa := x"00"; end if;
+          sa_kind <= ka; sa_v <= va; sa_k <= fa;
+          st <= SF_DONE;
+          acc_kind <= VK_I; acc_k <= x"00";
+          if ka = VK_E then
+            acc_kind <= VK_E; acc_v <= va;
+          elsif ka /= VK_I and ka /= VK_F then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_VALUE;
+          elsif ka = VK_I and bad_k(fa) then
+            acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+          else
+            case ag_fid(4 downto 0) is
+              when "10000" =>                   -- NOT
+                if (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then acc_v <= b64(true);
+                else acc_v <= b64(false); end if;
+              when "00111" =>                   -- ABS
+                if ka = VK_F then
+                  acc_kind <= VK_F; acc_v <= '0' & va(62 downto 0);
+                elsif va = x"8000000000000000" then
+                  acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+                else
+                  acc_k <= fa;
+                  if va(63) = '1' then acc_v <= unsigned(-signed(va)); else acc_v <= va; end if;
+                end if;
+              when "01011" =>                   -- SIGN
+                if ka = VK_F and f_nan(va) then
+                  acc_kind <= VK_E; acc_v <= x"00000000000000" & E_NUM;
+                elsif (ka = VK_I and va = 0) or (ka = VK_F and f_zero(va)) then
+                  acc_v <= (others => '0');
+                elsif va(63) = '1' then
+                  acc_v <= (others => '1');
+                else
+                  acc_v <= b64(true);
+                end if;
+              when "01000" | "01001" =>         -- INT, TRUNC
+                if ka = VK_F then
+                  acc_kind <= VK_F;
+                  if ag_fid = 8 then acc_v <= f_floor(va); else acc_v <= f_trunc(va); end if;
+                elsif fa(6 downto 0) = 0 then
+                  acc_v <= va;
+                elsif fa(7) = '1' then          -- binary: a shift
+                  if ag_fid = 8 then
+                    acc_v <= unsigned(shift_right(signed(va), to_integer(fa(6 downto 0))));
+                  elsif va(63) = '1' then
+                    acc_v <= unsigned(-signed(shift_right(unsigned(-signed(va)), to_integer(fa(6 downto 0)))));
+                  else
+                    acc_v <= shift_right(va, to_integer(fa(6 downto 0)));
+                  end if;
+                else                            -- decimal: |v| / 10^k
+                  if va(63) = '1' then dv_n <= x"0000000000000000" & unsigned(-signed(va));
+                  else dv_n <= x"0000000000000000" & va; end if;
+                  dv_d <= pw(fa(6 downto 0), '0');
+                  dv_raw <= true; dv_ret <= SF_INTDIV; st <= DV_START;
+                end if;
+              when "01100" =>                   -- SQRT: as F64
+                if ka = VK_I then cv_v <= va; cv_k <= fa; cv_ret <= SF_SQRT; cv_step <= 0; st <= CV_START;
+                else fp_r <= va; st <= SF_SQRT; end if;
+              when others =>                    -- MOD, ROUND, POWER: the second argument
+                st <= SF_ARG2;
+            end case;
+          end if;
+
         when SF_INTDIV =>                       -- INT rounds down, TRUNC toward zero
           st <= SF_DONE;
           if sa_v(63) = '0' then
@@ -1640,9 +1676,10 @@ begin
           else
             acc_v <= unsigned(-signed(dv_q(63 downto 0)));
           end if;
-        when SF_ARG2 =>                         -- MOD's b
-          if ag_i + 1 = esp - 1 then ent := t_aux & t_kind & t_ref & t_k & t_v;
-          else ent := est(ag_i + 1); end if;
+        when SF_ARG2 =>                         -- MOD's b (and ROUND's n, POWER's b)
+          est_ra <= ag_i + 1; est_ret <= SF_ARG2B; st <= EST_WAIT;
+        when SF_ARG2B =>
+          ent := est_q;
           kb := ent(75 downto 73); vb := ent(63 downto 0); fb := ent(71 downto 64);
           if kb = VK_Z then kb := VK_I; vb := (others => '0'); fb := x"00"; end if;
           sb_kind <= kb; sb_v <= vb; sb_k <= fb;
@@ -2004,28 +2041,30 @@ begin
           if ag_i = esp then
             st <= AG_FINISH;
           else
-            if ag_i = esp - 1 then ent := t_aux & t_kind & t_ref & t_k & t_v;
-            else ent := est(ag_i); end if;
-            case ent(75 downto 73) is
-              when VK_R =>
-                ag_row <= x"000" & ent(63 downto 44);
-                if ent(19 downto 0) < nrows(19 downto 0) or nrows(31 downto 20) /= 0 then
-                  ag_rlast <= x"000" & ent(19 downto 0);
-                else
-                  ag_rlast <= nrows - 1;
-                end if;
-                ag_c1 <= x"00" & ent(43 downto 20);
-                ag_c2 <= x"00" & ent(99 downto 76);
-                st <= AG_RROW;
-              when VK_L =>
-                pc <= ent(15 downto 0); ag_ln <= ent(31 downto 16);
-                st <= AG_LNEXT;
-              when others =>
-                vr_kind <= ent(75 downto 73); vr_v <= ent(63 downto 0); vr_k <= ent(71 downto 64);
-                ag_fromc <= ent(72) = '1';
-                tk_ret <= AG_NEXTARG; st <= AG_TAKE;
-            end case;
+            est_ra <= ag_i; est_ret <= AG_ARG2; st <= EST_WAIT;
           end if;
+        when AG_ARG2 =>                         -- argument ag_i
+          ent := est_q;
+          case ent(75 downto 73) is
+            when VK_R =>
+              ag_row <= x"000" & ent(63 downto 44);
+              if ent(19 downto 0) < nrows(19 downto 0) or nrows(31 downto 20) /= 0 then
+                ag_rlast <= x"000" & ent(19 downto 0);
+              else
+                ag_rlast <= nrows - 1;
+              end if;
+              ag_c1 <= x"00" & ent(43 downto 20);
+              ag_c2 <= x"00" & ent(99 downto 76);
+              st <= AG_RROW;
+            when VK_L =>
+              pc <= ent(15 downto 0); ag_ln <= ent(31 downto 16);
+              st <= AG_LNEXT;
+            when others =>
+              vr_kind <= ent(75 downto 73); vr_v <= ent(63 downto 0); vr_k <= ent(71 downto 64);
+              ag_fromc <= ent(72) = '1';
+              tk_ret <= AG_NEXTARG; st <= AG_TAKE;
+          end case;
+
         when AG_NEXTARG =>
           ag_i <= ag_i + 1;
           st <= AG_ARG;
@@ -2258,13 +2297,14 @@ begin
           if esp < 2 then
             e_abort(E_STACK);
           else
-            ent := est(esp - 2);
-            bo_ka <= ent(75 downto 73); bo_va <= ent(63 downto 0); bo_fa <= ent(71 downto 64);
-            bo_kb <= t_kind; bo_vb <= t_v; bo_fb <= t_k;
-            bo_op <= cur_op; bo_ret <= E_BINW;
-            esp <= esp - 1;
-            st <= BO_START;
+            est_ra <= esp - 2; est_ret <= E_BIN3; st <= EST_WAIT;
           end if;
+        when E_BIN3 =>                          -- a: the entry below the top
+          bo_ka <= est_q(75 downto 73); bo_va <= est_q(63 downto 0); bo_fa <= est_q(71 downto 64);
+          bo_kb <= t_kind; bo_vb <= t_v; bo_fb <= t_k;
+          bo_op <= cur_op; bo_ret <= E_BINW;
+          esp <= esp - 1;
+          st <= BO_START;
         when E_BINW =>
           t_kind <= br_kind; t_v <= br_v; t_k <= br_k; t_ref <= '0';
           st <= E_NEXT;
@@ -3027,9 +3067,6 @@ begin
           st <= S_IDLE;
       end case;
 
-      if est_we then
-        est(est_wa) <= est_wd;
-      end if;
       if tws_we then
         tws(tws_wa) <= tws_wd;
       end if;

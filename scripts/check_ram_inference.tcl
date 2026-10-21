@@ -19,7 +19,7 @@ set ram_checks {
   *ssnail0/core {bank0 bank1 bank2 bank3 ring_lo ring_hi csv outv
             qx0 qx1 qx2 qx3 dxs wf buf_in bufx bufy bufb
             kq_bs kq_sb0 kq_sb1 kq_sb2 kq_sb3}
-  *ssnail0/shite_gen.sh {est tws}
+  *ssnail0/shite_gen.sh {tws}
 }
 
 # A failed inference gives one flip-flop per bit (thousands); a handful can
@@ -50,10 +50,11 @@ foreach {inst arrays} $ram_checks {
 # to a block RAM's ports: xf as 4096 x 32 LUT RAM congested all of SSNAIL)
 # (coeff_word: the table ROM, read into it; a second read port could leave
 # it in LUTs)
-# (SHITE's list: REBALANCE_ROW's 1024 x 64 sort list, read registered)
+# (SHITE's list: REBALANCE_ROW's 1024 x 64 sort list; est: RECALC's
+# 32 x 108 evaluation stack; both read registered)
 set bram_checks {
   *ssnail0/core {xf coeff_word sarr}
-  *ssnail0/shite_gen.sh {list}
+  *ssnail0/shite_gen.sh {list est}
 }
 foreach {inst arrays} $bram_checks {
   foreach a $arrays {
