@@ -829,6 +829,90 @@ begin
     check(v = x"04", "card detect: change cleared");
     sd_cd_t(0) <= '1';
 
+    -- the FAT32 engine ($70): an MBR with one FAT32 partition at LBA 8 and
+    -- its boot sector, written to the card; rescan and the partition list
+    -- then go through the engine, the cache and the controller
+    for i in 0 to 511 loop
+      poke(16#FFE00# + i, 0);
+    end loop;
+    poke(16#FFE00# + 446 + 4, 16#0C#);           -- FAT32 (LBA)
+    poke(16#FFE00# + 446 + 8, 8);                -- at LBA 8
+    poke(16#FFE00# + 446 + 14, 1);               -- 65536 sectors
+    poke(16#FFE00# + 510, 16#55#);
+    poke(16#FFE00# + 511, 16#AA#);
+    set_sector(0);
+    poke(16#D3680#, 16#4D#);
+    poke(16#D3680#, 16#03#);
+    wait_ready(5 ms);
+    for i in 0 to 511 loop
+      poke(16#FFE00# + i, 0);
+    end loop;
+    poke(16#FFE00# + 12, 2);                     -- 512 bytes per sector
+    poke(16#FFE00# + 13, 1);                     -- 1 sector per cluster
+    poke(16#FFE00# + 14, 2);                     -- 2 reserved sectors
+    poke(16#FFE00# + 16, 2);                     -- 2 FATs
+    poke(16#FFE00# + 34, 1);                     -- 65536 sectors
+    poke(16#FFE00# + 36, 4);                     -- 4 sectors per FAT
+    poke(16#FFE00# + 44, 2);                     -- root directory: cluster 2
+    poke(16#FFE00# + 510, 16#55#);
+    poke(16#FFE00# + 511, 16#AA#);
+    set_sector(8);
+    poke(16#D3680#, 16#57#);
+    poke(16#D3680#, 16#03#);
+    wait_ready(5 ms);
+    -- rescan
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 1);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    peek(16#D3680#, v);
+    check(v(6) = '0', "FAT32 engine: rescan, no error");
+    peek(16#FFE03#, v);
+    check(v = 0, "FAT32 engine: rescan status 0");
+    peek(16#FFE06#, v);
+    check(v = 1, "FAT32 engine: one drive found (" & integer'image(to_integer(v)) & ")");
+    -- the partition list
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 2);
+    poke(16#D3680#, 16#70#);
+    wait_ready(5 ms);
+    peek(16#FFE10#, v);
+    check(v = 1, "FAT32 engine: partition list: drive 1");
+    peek(16#FFE11#, v);
+    check(v = 0, "FAT32 engine: partition list: slot 0");
+    peek(16#FFE12#, v);
+    check(v = 16#0C#, "FAT32 engine: partition list: type $0C");
+    peek(16#FFE14#, v);
+    check(v = 8, "FAT32 engine: partition list: LBA 8");
+    peek(16#FFE1C#, v);
+    h0 := to_integer(v);
+    peek(16#FFE1D#, v);
+    h0 := h0 + 256 * to_integer(v);
+    check(h0 = 65528, "FAT32 engine: partition list: 65528 clusters ("
+          & integer'image(h0) & ")");
+    -- a bad request: the error in $D680 and $D687
+    poke(16#FFE00#, 0);
+    poke(16#D3680#, 16#70#);
+    t0 := now;
+    loop                                     -- (an error keeps the legacy BUSY bit)
+      peek(16#D3680#, v);
+      exit when v(0) = '0';
+      assert now - t0 < 5 ms report "FAT32 engine: no end" severity failure;
+      wait for 1 us;
+    end loop;
+    check(v(6) = '1', "FAT32 engine: a bad request is an error");
+    peek(16#D3687#, v);
+    check(v = 10, "FAT32 engine: $D687 = 10 (bad request)");
+    -- an ordinary read afterwards
+    set_sector(51);
+    poke(16#D3680#, 16#02#);
+    wait_ready(5 ms);
+    check_buffer(51, false, "read after the FAT32 engine");
+
     if fails = 0 then
       report "ALL TESTS PASSED";
     else

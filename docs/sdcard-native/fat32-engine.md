@@ -229,6 +229,24 @@ too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
    `read`, `seek`, `close`, `stat`, `chdir`, `getcwd`, `$74`.
 2. **Engine RTL** running phase 1's firmware.  The sector slot in the sector
    buffer, mailbox sharing, GHDL tests against images.
+
+   **As built:** `src/vhdl/fat32_engine.vhdl`, with the firmware as a LUT
+   ROM package (`fat32_rom.vhdl`, generated: `python3 src/tools/fat32sim.py
+   src/fat32/engine.fs src/vhdl/fat32_rom.vhdl`).  In `sdcardio_native`
+   (generic `sd_fat32`, default on) commands `$70-$7F` start it in the
+   `Fat32Engine` state, where it has the sector buffer's device read port
+   and write port; the CPU's buffer writes wait.  Its sector reads are
+   ordinary controller reads: to its slot (`$800`) as metadata (through the
+   metadata cache), to `$E00` as data.  An open multi-sector transfer is
+   ended first.  Engine writes are refused until phase 3 brings the write
+   policy.  Engine slot 1 is controller slot 1 (`$C1`); check on hardware
+   that this is the external card.
+   - `test_fat32_engine.py --rtl` replays the simulator's transcript through
+     the RTL in GHDL, comparing the whole buffer after every command (also
+     the 1815-command full run).
+   - `tb_sdcardio_native` writes an MBR and boot sector to the card model
+     and runs rescan and the partition list through the real cache and
+     controller, plus a bad request (`$D687` = 10).
 3. **Writes:** `create`, `write`, `append`, `truncate`, `delete`, `mkdir`,
    `rmdir`, `rename`, `setattr`, `$75`.  Policies and the SYSTEM attribute.
 4. **Disk images on FDs 0/1** (run tables), and HYPPO integration.
@@ -241,7 +259,13 @@ too long, 12 exists, 13 not empty, 14 no space, 15 read-only.
    of the existing sector buffer.  (That space had been earmarked for
    FD2000/FD4000 sectors from real floppy drives, a much less compelling
    use than hardware FAT32.)
-2. **One `$70` with a request block** for everything but the data paths, as
-   proposed?  Or a code per operation, with arguments in registers?
-3. **Long filenames with non-ASCII characters:** list them with `?` as
-   proposed, or hide them?
+2. ~~One `$70` with a request block?~~ **Decided (2026-10-21):** `$70` for
+   most operations, plus quick commands for the disk-image descriptors:
+   `$76`/`$77` read the next sector of FD 0/1, `$78`/`$79` write it (no
+   request block; data at `$E00`).  Phase 4, with the run tables; they can
+   walk the chain before that.
+3. ~~Long filenames with non-ASCII characters?~~ **Decided (2026-10-21):**
+   rendered as UTF-8, so odd names survive.  The name buffer is 256 bytes,
+   so names are capped at 255 UTF-8 bytes (longer ones are reached by their
+   8.3 name); case-blind matching stays ASCII-only.  `LFNPUT` changes from
+   `?` replacement to UTF-8 encoding (phase 3).

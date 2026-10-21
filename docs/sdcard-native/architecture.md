@@ -106,6 +106,7 @@ The fork keeps the existing `$D680` interface and adds:
 | `$2F` | Read SD Status (speed classes/allocation/erase information), 64 bytes |
 | `$30` | Enable the selected card's reported-capacity limit (power-up default) |
 | `$31` | Disable that limit for explicit raw-card diagnostics |
+| `$70-$7F` | The hardware FAT32 engine ([fat32-engine.md](fat32-engine.md)); arguments and results in `$D681-$D684`, its status in `$D687` (generic `sd_fat32`) |
 
 - `$D686` (read) returns status flags and `$D687` (read) the low-level error
   code.

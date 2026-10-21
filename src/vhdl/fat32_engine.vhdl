@@ -120,6 +120,14 @@ architecture rtl of fat32_engine is
   type t_pos is array(0 to 12) of natural range 0 to 31;
   constant LFN_POS : t_pos := (1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30);
 
+  function b2l(b : boolean) return std_logic is
+  begin
+    if b then
+      return '1';
+    end if;
+    return '0';
+  end function;
+
   function upc(c : unsigned(7 downto 0)) return unsigned is
   begin
     if c >= 97 and c <= 122 then
@@ -244,7 +252,7 @@ begin
             -- bytes
             when OP_LDI =>
               r(ra) <= n8;
-              zf    <= '1' when n8 = 0 else '0';
+              zf <= b2l(n8 = 0);
             when OP_ADDI | OP_ADD | OP_SUBI | OP_SUB =>
               if opc = OP_ADDI or opc = OP_SUBI then
                 v8 := n8;
@@ -258,7 +266,7 @@ begin
               end if;
               r(ra) <= t9(7 downto 0);
               cf    <= t9(8);
-              zf    <= '1' when t9(7 downto 0) = 0 else '0';
+              zf <= b2l(t9(7 downto 0) = 0);
             when OP_ANDI | OP_ORI | OP_XORI | OP_AND | OP_OR | OP_XOR | OP_MOV =>
               if opc = OP_ANDI or opc = OP_ORI or opc = OP_XORI then
                 v8 := n8;
@@ -273,23 +281,23 @@ begin
                 v8 := r(ra) xor v8;
               end if;
               r(ra) <= v8;
-              zf    <= '1' when v8 = 0 else '0';
+              zf <= b2l(v8 = 0);
             when OP_CMPI | OP_CMP =>
               if opc = OP_CMPI then
                 v8 := n8;
               else
                 v8 := r(rb);
               end if;
-              zf <= '1' when r(ra) = v8 else '0';
-              cf <= '1' when r(ra) < v8 else '0';
+              zf <= b2l(r(ra) = v8);
+              cf <= b2l(r(ra) < v8);
             when OP_SHL =>
               r(ra) <= r(ra)(6 downto 0) & '0';
               cf    <= r(ra)(7);
-              zf    <= '1' when r(ra)(6 downto 0) = 0 else '0';
+              zf <= b2l(r(ra)(6 downto 0) = 0);
             when OP_SHR =>
               r(ra) <= '0' & r(ra)(7 downto 1);
               cf    <= r(ra)(0);
-              zf    <= '1' when r(ra)(7 downto 1) = 0 else '0';
+              zf <= b2l(r(ra)(7 downto 1) = 0);
             when OP_INC | OP_DEC =>
               if opc = OP_INC then
                 v8 := r(ra) + 1;
@@ -297,7 +305,7 @@ begin
                 v8 := r(ra) - 1;
               end if;
               r(ra) <= v8;
-              zf    <= '1' when v8 = 0 else '0';
+              zf <= b2l(v8 = 0);
             when OP_LD =>
               read_byte(madr, S_LD);
             when OP_LDX =>
@@ -320,7 +328,7 @@ begin
                 when others   => v32 := resize(r(rb), 32);
               end case;
               l(la) <= v32;
-              zf    <= '1' when v32 = 0 else '0';
+              zf <= b2l(v32 = 0);
             when OP_LADD | OP_LADDI | OP_LSUB | OP_LSUBI =>
               if opc = OP_LADD or opc = OP_LSUB then
                 v32 := l(lb);
@@ -334,17 +342,17 @@ begin
               end if;
               l(la) <= t33(31 downto 0);
               cf    <= t33(32);
-              zf    <= '1' when t33(31 downto 0) = 0 else '0';
+              zf <= b2l(t33(31 downto 0) = 0);
             when OP_LCMP | OP_LCMPI =>
               if opc = OP_LCMP then
                 v32 := l(lb);
               else
                 v32 := u13;
               end if;
-              zf <= '1' when l(la) = v32 else '0';
-              cf <= '1' when l(la) < v32 else '0';
+              zf <= b2l(l(la) = v32);
+              cf <= b2l(l(la) < v32);
             when OP_LZ =>
-              zf <= '1' when l(la) = 0 else '0';
+              zf <= b2l(l(la) = 0);
             when OP_LSHL | OP_LSHR | OP_LSHLR | OP_LSHRR =>
               if opc = OP_LSHL or opc = OP_LSHR then
                 cnt <= resize(unsigned(ir(4 downto 0)), 9);
@@ -379,7 +387,7 @@ begin
                 when others => v8 := l(lb)(31 downto 24);
               end case;
               r(ra) <= v8;
-              zf    <= '1' when v8 = 0 else '0';
+              zf <= b2l(v8 = 0);
 
             -- pointers
             when OP_XSET  => x <= unsigned(ir(11 downto 0));
@@ -483,7 +491,7 @@ begin
 
         when S_LD =>
           r(ra) <= byte;
-          zf    <= '1' when byte = 0 else '0';
+          zf <= b2l(byte = 0);
           state <= S_FETCH;
 
         when S_LLD =>
@@ -503,7 +511,7 @@ begin
               when others => v32(31 downto 24) := byte;
             end case;
             l(la) <= v32;
-            zf    <= '1' when v32 = 0 else '0';
+            zf <= b2l(v32 = 0);
             state <= S_FETCH;
           else
             cnt <= cnt - 1;
@@ -522,7 +530,7 @@ begin
 
         when S_SHIFT =>
           if cnt = 0 then
-            zf    <= '1' when l(la) = 0 else '0';
+            zf <= b2l(l(la) = 0);
             state <= S_FETCH;
           else
             if opc = OP_LSHL or opc = OP_LSHLR then
@@ -640,8 +648,8 @@ begin
           if cnt = 1 then
             v32(31 downto 28) := "0000";
             l(la) <= v32;
-            zf <= '1' when v32 >= x"0FFFFFF8" else '0';
-            cf <= '1' when v32 = 0 or v32 = 1 or v32 = x"0FFFFFF7" else '0';
+            zf <= b2l(v32 >= x"0FFFFFF8");
+            cf <= b2l(v32 = 0 or v32 = 1 or v32 = x"0FFFFFF7");
             state <= S_FETCH;
           else
             cnt <= cnt - 1;

@@ -1188,5 +1188,179 @@ rep("""--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,"
 --     clears).  A change invalidates that slot's cached sectors.
 --   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""")
 
+# --- the FAT32 engine (#766): $70-$7F ------------------------------------------
+rep("""    sd_meta_sectors : natural := 16;
+""", """    sd_meta_sectors : natural := 16;
+    -- the hardware FAT32 engine ($70-$7F; no BRAM: it uses $000-$9FF of the
+    -- sector buffer)
+    sd_fat32 : boolean := true;
+""")
+rep("""                      NativeCommandWait               -- 0x18
+                      );""", """                      NativeCommandWait,              -- 0x18
+
+                      Fat32Engine,                    -- 0x19
+                      Fat32Read,                      -- 0x1A
+                      Fat32Reading                    -- 0x1B
+                      );""")
+rep("""  signal nat_meta        : std_logic := '0';""", """  -- the FAT32 engine
+  signal fe_start, fe_started, fe_busy, fe_last : std_logic := '0';
+  signal fe_reset      : std_logic;
+  signal fe_cmd        : unsigned(7 downto 0) := (others => '0');
+  signal fe_status     : unsigned(7 downto 0) := (others => '0');
+  signal fe_status_r   : unsigned(7 downto 0) := (others => '0');
+  signal fe_arg        : unsigned(31 downto 0) := (others => '0');
+  signal fe_raddr      : unsigned(11 downto 0) := (others => '0');
+  signal fe_waddr      : unsigned(11 downto 0) := (others => '0');
+  signal fe_wdata      : unsigned(7 downto 0) := (others => '0');
+  signal fe_we         : std_logic := '0';
+  signal fe_sec_req, fe_sec_write, fe_sec_cpu, fe_sec_slot : std_logic := '0';
+  signal fe_sec_lba    : unsigned(31 downto 0) := (others => '0');
+  signal fe_sec_done, fe_sec_err : std_logic := '0';
+  signal nat_meta        : std_logic := '0';""")
+# the engine, next to the cache
+rep("""  card_detect : process (clock)""", """  fe_reset <= not reset;
+  fat32 : if sd_fat32 generate
+    engine0 : entity work.fat32_engine
+      generic map (G_RD_LAT => 1)
+      port map (
+        clock => clock, reset => fe_reset,
+        start => fe_start, cmd => fe_cmd, arg_in => sd_sector,
+        hypervisor => hypervisor_mode,
+        busy => fe_busy, status => fe_status, arg_out => fe_arg,
+        mem_raddr => fe_raddr, mem_rdata => f011_buffer_rdata,
+        mem_we => fe_we, mem_waddr => fe_waddr, mem_wdata => fe_wdata,
+        sec_req => fe_sec_req, sec_write => fe_sec_write, sec_cpu => fe_sec_cpu,
+        sec_slot => fe_sec_slot, sec_lba => fe_sec_lba,
+        sec_done => fe_sec_done, sec_err => fe_sec_err);
+  end generate;
+
+  card_detect : process (clock)""")
+# the buffer's device read port is the engine's while it runs
+rep("""        when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
+          f011_buffer_read_address <= "110"&f011_buffer_disk_address;""", """        when Fat32Engine|Fat32Read|Fat32Reading =>
+          f011_buffer_read_address <= fe_raddr;
+        when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
+          f011_buffer_read_address <= "110"&f011_buffer_disk_address;""")
+rep("""           qspi_buf_raddr,f011_buffer_cpu_address
+           ) is""", """           qspi_buf_raddr,f011_buffer_cpu_address,fe_raddr
+           ) is""")
+# $D687: the engine's status after one of its commands
+rep("""  ui_errcode <= (others => '0') when ui_pending_init = '1' else""",
+    """  ui_errcode <= fe_status_r when fe_last = '1' else
+    (others => '0') when ui_pending_init = '1' else""")
+rep("""              if sdio_busy = '0' and fastio_wdata /= x"C0" and fastio_wdata /= x"C1" then
+                nat_slot <= sd_interface_select_internal;""", """              if sdio_busy = '0' and fastio_wdata /= x"C0" and fastio_wdata /= x"C1" then
+                fe_last <= '0';
+                nat_slot <= sd_interface_select_internal;""")
+rep("""                when x"28" =>
+                  -- Sector cache statistics""", """                when x"70" | x"71" | x"72" | x"73" | x"74" | x"75" | x"76" | x"77"
+                  | x"78" | x"79" | x"7A" | x"7B" | x"7C" | x"7D" | x"7E" | x"7F" =>
+                  -- The FAT32 engine (docs/sdcard-native/fat32-engine.md):
+                  -- $70 a request block at $E00, $71 read, $74 read a file
+                  -- sector, ...  Arguments in $D681-$D684, which hold its
+                  -- results afterwards; status in $D687.
+                  if sdio_busy='1' or not sd_fat32 then
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else
+                    fe_start <= '1';
+                    fe_started <= '0';
+                    fe_cmd <= fastio_wdata;
+                    sd_state <= Fat32Engine;
+                    sdio_busy <= '1';
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                  end if;
+
+                when x"28" =>
+                  -- Sector cache statistics""")
+rep("""      nat_cmd_valid <= '0';
+      cd_clear <= '0';""", """      nat_cmd_valid <= '0';
+      cd_clear <= '0';
+      fe_start <= '0';""")
+rep("""        when QspiBusyArm =>""", """        when Fat32Engine =>
+          -- the engine has the sector buffer (the CPU's writes wait)
+          sdio_busy <= '1';
+          sb_cpu_write_request <= sb_cpu_write_request;
+          f011_buffer_write <= fe_we;
+          f011_buffer_write_address <= fe_waddr;
+          f011_buffer_wdata <= fe_wdata;
+          fe_sec_done <= '0';
+          fe_started <= '1';
+          if fe_started = '1' and fe_busy = '0' then
+            sd_sector <= fe_arg;
+            fe_status_r <= fe_status;
+            fe_last <= '1';
+            if fe_status /= x"00" then
+              sdio_error <= '1';
+            end if;
+            nat_slot <= sd_interface_select_internal;
+            sdio_busy <= '0';
+            sd_state <= Idle;
+          elsif fe_sec_req = '1' and fe_sec_done = '0' then
+            if fe_sec_write = '1' then
+              -- (writes come with the write policy: phase 3)
+              fe_sec_err <= '1';
+              fe_sec_done <= '1';
+            else
+              nat_slot <= fe_sec_slot;
+              sd_state <= Fat32Read;
+            end if;
+          end if;
+
+        when Fat32Read =>
+          -- a sector for the engine: its slot ($800) as metadata (the
+          -- metadata cache), the CPU's half ($E00) as data
+          sdio_busy <= '1';
+          sb_cpu_write_request <= sb_cpu_write_request;
+          if nat_quiet='1' and nat_cmd_ready='1' then
+            if nat_waiting='1' then
+              -- an open transfer: end it first
+              nat_cmd_code  <= x"5";                  -- C_STOP
+              nat_open_rd   <= '0';
+              nat_open_wr   <= '0';
+              nat_cmd_valid <= '1';
+              nat_quiet_cnt <= 3;
+            elsif nat_busy='0' then
+              nat_cmd_code  <= x"2";                  -- C_READ
+              nat_cmd_addr  <= fe_sec_lba;
+              nat_cmd_arg   <= (not fe_sec_cpu) & "000000000000000";
+              nat_cmd_count <= x"0001";
+              nat_cmd_valid <= '1';
+              nat_quiet_cnt <= 3;
+              sd_state <= Fat32Reading;
+            end if;
+          end if;
+
+        when Fat32Reading =>
+          sdio_busy <= '1';
+          sb_cpu_write_request <= sb_cpu_write_request;
+          if nat_rd_valid='1' then
+            if fe_sec_cpu = '1' then
+              f011_buffer_write_address <= "111"&nat_rd_offset;
+            else
+              f011_buffer_write_address <= "100"&nat_rd_offset;
+            end if;
+            f011_buffer_wdata <= nat_rd_data;
+            f011_buffer_write <= '1';
+          end if;
+          if nat_rd_good='1' then
+            fe_sec_err <= '0';
+            fe_sec_done <= '1';
+            sd_state <= Fat32Engine;
+          elsif nat_quiet='1' and nat_cmd_ready='1' and nat_error='1' then
+            fe_sec_err <= '1';
+            fe_sec_done <= '1';
+            sd_state <= Fat32Engine;
+          end if;
+
+        when QspiBusyArm =>""")
+rep("""--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""",
+    """--   * $70-$7F: the hardware FAT32 engine (sd_fat32; see
+--     docs/sdcard-native/fat32-engine.md).  $D687 is its status after one of
+--     its commands.
+--   * $D686 (read): bit 0 card ready, 1 native 4-bit bus, 2 high speed,""")
+
+
 open(dst, 'w').write(s)
 print("ok")

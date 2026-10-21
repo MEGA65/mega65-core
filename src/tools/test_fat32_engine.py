@@ -2,15 +2,18 @@
 """Tests of the FAT32 engine firmware (src/fat32/engine.fs) on the instruction
 set simulator, against the fat32img test image (MEGA65/mega65-core#766).
 
-    python3 src/tools/test_fat32_engine.py [--image test.img] [-v]
+    python3 src/tools/test_fat32_engine.py [--image test.img] [-v] [--rtl [--short]]
 
 The image is built if it does not exist (needs sfdisk, mkfs.fat, fsck.fat).
 Every result is checked against fat32img's own reading of the image.
+--rtl then replays the run's transcript through fat32_engine.vhdl in GHDL
+(tb_fat32_engine), which must match the simulator exactly.
 """
 
 import argparse
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 
@@ -247,13 +250,46 @@ def main():
     ap.add_argument("-v", "--verbose", action="store_true")
     ap.add_argument("--trace", help="write a transcript for tb_fat32_engine.vhdl")
     ap.add_argument("--short", action="store_true", help="read 64 sectors, not the whole file")
+    ap.add_argument("--rtl", action="store_true", help="replay the run through fat32_engine.vhdl (GHDL)")
     a = ap.parse_args()
     if a.image and os.path.exists(a.image):
         image = a.image
     else:
         image = a.image or os.path.join(tempfile.mkdtemp(prefix="fat32eng"), "test.img")
         fat32img.standard_image(image).close()
-    tests(image, a.verbose, a.trace, a.short)
+    work = tempfile.mkdtemp(prefix="fat32rtl") if a.rtl else None
+    trace = a.trace or (os.path.join(work, "trace.txt") if a.rtl else None)
+    tests(image, a.verbose, trace, a.short)
+    if a.rtl:
+        sys.exit(0 if rtl(trace, work) else 1)
+
+
+def rtl(trace, work):
+    vhdl = os.path.join(HERE, "..", "vhdl")
+    files = [os.path.join(vhdl, f) for f in ("fat32_rom.vhdl", "fat32_engine.vhdl", "tb_fat32_engine.vhdl")]
+    # (the ROM must be the current firmware)
+    prog = fat32sim.assemble(open(FIRMWARE).read())
+    if open(files[0]).read() != fat32sim.vhdl_rom(prog):
+        print("fat32_rom.vhdl is stale: python3 src/tools/fat32sim.py src/fat32/engine.fs src/vhdl/fat32_rom.vhdl")
+        return False
+    ok = True
+    for cmd in (["ghdl", "-a", "--std=08", "-fsynopsys"] + files,
+                ["ghdl", "-e", "--std=08", "-fsynopsys", "tb_fat32_engine"]):
+        p = subprocess.run(cmd, cwd=work, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if p.returncode:
+            print(p.stdout)
+            return False
+    for lat in (1, 2):
+        p = subprocess.run(["ghdl", "-r", "--std=08", "-fsynopsys", "tb_fat32_engine",
+                            "-gG_TRACE=" + trace, "-gG_RD_LAT=%d" % lat],
+                           cwd=work, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        lines = [l.split("): ")[-1] for l in p.stdout.splitlines() if "):" in l]
+        good = "ALL FAT32 ENGINE TESTS PASSED" in p.stdout and "(report error)" not in p.stdout
+        print("RTL, read latency %d: %s" % (lat, "pass" if good else "FAIL"))
+        for l in (lines if not good else lines[-2:-1]):
+            print("  " + l)
+        ok = ok and good
+    return ok
 
 
 if __name__ == "__main__":
