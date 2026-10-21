@@ -20,10 +20,20 @@ if {[string equal -nocase [file extension $source_path] ".dcp"]} {
 }
 puts "Design [current_design] / Part [get_property PART [current_design]]"
 
+# The whole design first, so these exist even if the instance is not found
+report_utilization -file [file join $outdir full_design_utilization.rpt]
+report_utilization -hierarchical -hierarchical_depth 6 \
+    -file [file join $outdir full_design_hierarchy.rpt]
+
 # Prefer exact instance path when passed. Match RTL module name otherwise,
 # including synthesized ORIG_REF_NAME. Don't accidentally merge instances.
 if {$instance_path ne ""} {
-    set matches [get_cells -hierarchical -quiet $instance_path]
+    # a full path (with /) is looked up as it stands: -hierarchical matches
+    # each level's own name, so a path with / would never match there
+    set matches [get_cells -quiet $instance_path]
+    if {[llength $matches] == 0} {
+        set matches [get_cells -hierarchical -quiet $instance_path]
+    }
 } else {
     set matches [get_cells -hierarchical -quiet -filter "ORIG_REF_NAME == $module_name"]
     if {[llength $matches] == 0} {
@@ -45,9 +55,6 @@ puts "Selected instance: $root_path ([get_property REF_NAME $root])"
 report_utilization -cells $root -file [file join $outdir module_utilization.rpt]
 report_utilization -cells $root -hierarchical -hierarchical_depth 5 \
     -file [file join $outdir module_hierarchy.rpt]
-report_utilization -file [file join $outdir full_design_utilization.rpt]
-report_utilization -hierarchical -hierarchical_depth 4 \
-    -file [file join $outdir full_design_hierarchy.rpt]
 report_control_sets -cells $root -file [file join $outdir module_control_sets.rpt]
 report_control_sets -cells $root -verbose -file [file join $outdir module_control_sets_verbose.rpt]
 # report_ram_utilization can be sizable, so generate both a text report and CSV.
