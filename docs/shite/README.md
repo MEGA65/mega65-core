@@ -24,16 +24,18 @@ ordinary attic RAM interface.
 
 ## 1. Build options and dispatch
 
-SHITE's commands are SSNAIL instructions.  SSNAIL's shell (its registers at
-`$FFD7500`, job control, instruction fetch and decode, the scalar and
-control instructions, COPY and SYNC) dispatches them to the SHITE unit and
-waits for it, so SHITE has no registers of its own, and a SSNAIL program can
-run a whole recalculation loop on its own (RECALC leaves the changed count
-in a register: BNE back while it is not zero).
+SHITE is one of the LUMP clients of the command dispatcher (historically
+SSNAIL's shell, `ssnail.vhdl`): its registers at `$FFD7500`, job control,
+instruction fetch and decode, the scalar and control instructions, COPY and
+SYNC.  The dispatcher hands each instruction to the unit that owns its
+opcode: SHITE ($40-$4F), the vector units, SSNAIL's language model units.
+So SHITE has no registers of its own, and a job can run a whole
+recalculation loop on its own (RECALC leaves the changed count in a
+register: BNE back while it is not zero).
 
-While SHITE runs an instruction the rest of SSNAIL is idle, so SHITE's
-memory accesses go through SSNAIL's LUMP ports by a plain multiplexer:
-there is no arbitration.
+While SHITE runs an instruction the dispatcher and its other units are
+idle, so SHITE's memory accesses go through the dispatcher's LUMP ports by
+a plain multiplexer: there is no arbitration.
 
 Generics on `ssnail_top` (set from `iomapper.vhdl`) choose the units:
 `has_llm` (SSNAIL's LLM units), `has_vec` (only the vector element ops,
