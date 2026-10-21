@@ -694,6 +694,16 @@ begin
     variable va, vb : unsigned(63 downto 0);
     variable sum : unsigned(64 downto 0);
     variable ent : unsigned(107 downto 0);
+    -- the stack RAM's one write, made at the end of the cycle: push() is
+    -- expanded wherever it is called, and writing est there made each call
+    -- a write port (est as 3456 flip-flops and a full-width multiplexer per
+    -- call, too big for the device)
+    variable est_we : boolean;
+    variable est_wa : natural range 0 to 31;
+    variable est_wd : unsigned(107 downto 0);
+    variable tws_we : boolean;                  -- (the same for the range walk's stack)
+    variable tws_wa : natural range 0 to 31;
+    variable tws_wd : unsigned(53 downto 0);
     variable lt, eq : boolean;
     variable fa, fb : unsigned(7 downto 0);
     variable kk : unsigned(6 downto 0);
@@ -727,7 +737,8 @@ begin
         t_kind <= VK_E; t_v <= x"00000000000000" & E_STACK; esp <= 1; st <= E_STORE;
       else
         if esp > 0 then
-          est(esp - 1) <= t_aux & t_kind & t_ref & t_k & t_v;
+          est_we := true; est_wa := esp - 1;
+          est_wd := t_aux & t_kind & t_ref & t_k & t_v;
         end if;
         t_kind <= k; t_v <= v; t_k <= fx; t_ref <= rf; t_aux <= ax;
         esp <= esp + 1;
@@ -751,6 +762,7 @@ begin
     end procedure;
   begin
     if rising_edge(clock) then
+      est_we := false; tws_we := false;
       -- (from clock162: registered before any use)
       s_r <= start_t; a_r <= g_ack_t; abt <= abort;
       mp_hr_base <= map_hr_base; mp_hr_size <= map_hr_size;
@@ -2064,7 +2076,8 @@ begin
             end if;
           end if;
         when AG_TW2 =>                          -- a node: kept, then its left (if needed)
-          tws(tw_sp) <= tw_d & m_rd(63 downto 52) & m_rd(23 downto 0) & tw_cur;
+          tws_we := true; tws_wa := tw_sp;                 -- (tw_sp < 32 here)
+          tws_wd := tw_d & m_rd(63 downto 52) & m_rd(23 downto 0) & tw_cur;
           tw_sp <= tw_sp + 1;
           if resize(m_rd(23 downto 0), 32) > ag_c1 then
             tw_cur <= m_rd(51 downto 40); tw_d <= tw_d + 1;
@@ -3013,6 +3026,13 @@ begin
         when others =>
           st <= S_IDLE;
       end case;
+
+      if est_we then
+        est(est_wa) <= est_wd;
+      end if;
+      if tws_we then
+        tws(tws_wa) <= tws_wd;
+      end if;
     end if;
   end process;
 
