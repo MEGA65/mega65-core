@@ -559,6 +559,9 @@ Proposed codes, all taking parameters or returning values via `$D681-$D684`:
 
 ## 3. FAT32 engine (later)
 
+The design proposal (MCU, memory layout, `$70-$7F` commands, rules, testing)
+is in [fat32-engine.md](fat32-engine.md).
+
 - **An 8-bit microcoded sequencer, per the MEGA65 architecture rule** (nothing
   like an ARM core).  It lives inside the upper controller and issues sector
   requests through the cache's request port.
