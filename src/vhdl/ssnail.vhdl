@@ -1753,6 +1753,9 @@ architecture shell of ssnail is
 
   -- Return path pipeline stage (the one-stage port mux)
   signal rvalid_r : std_logic := '0';
+  -- (30 loads, every read wait among them: one copy across the die from
+  -- the state register's enable missed clock162 by 0.15 ns)
+  attribute max_fanout of rvalid_r : signal is 8;
   signal rdata_r  : unsigned(15 downto 0) := x"0000";
   signal rerror_r : std_logic := '0';
 

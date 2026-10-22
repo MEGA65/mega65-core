@@ -62,8 +62,8 @@ end ssnail_fpu;
 
 architecture multicycle of ssnail_fpu is
 
-  type state_t is (S_IDLE, S_I2FN, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT,
-                   S_DN1, S_DN2, S_ROUND, S_PACK, S_INT1,
+  type state_t is (S_IDLE, S_I2FN, S_ALIGN, S_ADD, S_MUL, S_MULZ, S_LZC, S_SHIFT, S_SHIFT2,
+                   S_DN1, S_DN2, S_ROUND, S_ROUND2, S_PACK, S_INT1,
                    S_DNORM, S_DNORM2, S_DIV, S_SQNORM, S_SQNORM1, S_SQNORM2, S_SQRT);
   signal state : state_t := S_IDLE;
 
@@ -94,6 +94,12 @@ architecture multicycle of ssnail_fpu is
   signal mul_p : unsigned(47 downto 0) := (others => '0');
   -- Rounding, first stage: rounded significand and exponent field
   signal rd_keep : unsigned(24 downto 0) := (others => '0');
+  -- the normalising shift in two steps (by 8s, then 0-7): one 48-bit shift
+  -- by 0-46 did not meet clock162; sh_next: where S_SHIFT2 goes
+  signal sh_next : state_t := S_ROUND;
+  -- S_ROUND's parts for S_ROUND2: the kept bits, round bit, sticky, exponent
+  signal rd_k0 : unsigned(24 downto 0) := (others => '0');
+  signal rd_rb, rd_st : std_logic := '0';
   signal rd_ef   : integer range -4096 to 4095 := 0;
   -- ... and, for S_PACK: rd_ef + 1, rd_ef = 0, rm = 0, and overflow of the
   -- exponent field with and without the carry-out of rounding
@@ -688,17 +694,28 @@ begin
             rm <= '0' & rm(47 downto 2) & (rm(1) or rm(0));
             efield := re + 1;
           elsif lz_pos >= 0 then
-            rm <= shift_left(rm, lz_k);
+            rm <= shift_left(rm, (lz_k / 8) * 8);   -- (the rest in S_SHIFT2)
             efield := re - lz_k;
           else
             efield := re;
           end if;
           re <= efield;
           if efield < emin and lz_pos >= 0 then
+            sh_next <= S_DN1;
+          else
+            sh_next <= S_ROUND;
+          end if;
+          if lz_pos >= 0 and lz_pos /= 47 then
+            state <= S_SHIFT2;
+          elsif efield < emin and lz_pos >= 0 then
             state <= S_DN1;
           else
             state <= S_ROUND;
           end if;
+
+        when S_SHIFT2 =>
+          rm <= shift_left(rm, lz_k mod 8);
+          state <= sh_next;
 
         when S_DN1 =>
           -- Subnormal: the right shift that brings the exponent up to emin
@@ -733,6 +750,8 @@ begin
         when S_ROUND =>
           -- Round to nearest even: the rounded significand and its exponent
           -- field (S_PACK handles carry-out, overflow and the special cases)
+          -- (the kept bits, round bit and sticky here; the increment and
+          -- the comparisons in S_ROUND2: in one cycle they missed clock162)
           if to_f16 = '0' then
             keep := '0' & rm(46 downto 23);
             rbit := rm(22);
@@ -746,7 +765,13 @@ begin
             if rm(34 downto 0) /= 0 then stk := '1'; end if;
             if rm(46) = '1' then efield := re - 127 + 15; else efield := 0; end if;
           end if;
-          up := rbit and (stk or keep(0));
+          rd_k0 <= keep; rd_rb <= rbit; rd_st <= stk; rd_ef <= efield;
+          state <= S_ROUND2;
+
+        when S_ROUND2 =>
+          keep := rd_k0;
+          efield := rd_ef;
+          up := rd_rb and (rd_st or keep(0));
           if up = '1' then keep := keep + 1; end if;
           rd_keep <= keep;
           rd_ef <= efield;
