@@ -688,6 +688,9 @@ architecture rtl of sdcard_native is
   signal op_more     : std_logic := '0';
   signal op_fin      : std_logic := '0';
   signal blk_settle  : unsigned(1 downto 0) := (others => '0');
+  -- an SPI read block's first CRC byte matched (so the second byte's check
+  -- is 8 bits, not a 16-bit compare in front of the state logic)
+  signal d_crc_hi    : std_logic := '0';
   -- the sample tagged n carries the card's bit of cycle n + lag: the sample
   -- point is lag whole SD clocks late (worked out at every clock change)
   signal lag         : unsigned(4 downto 0) := (others => '0');
@@ -2636,13 +2639,15 @@ begin
         -- fetch the block's data, then the start bit (Nwr: 2 cycles after the
         -- response at least)
         when N_WR_WAIT =>
-          if op_done = op_granted and op_closed = '1' then
+          if blk_settle /= 0 then
+            null;                       -- (op_more / op_fin follow)
+          elsif op_fin = '1' then
             -- all written: CMD12 ends the multi-block write
             run       <= '1';
             e_wait    <= '0';
             op_stop12 <= '1';
             do_cmd(12, x"00000000", R_R1B, N_WR_NEXT);
-          elsif op_done = op_granted then
+          elsif op_more = '0' then
             run <= '0';
             if rf_empty_e = '1' then
               e_wait <= '1';
@@ -2748,6 +2753,7 @@ begin
             st        <= S_DISPATCH;
           else
             op_done <= op_done + 1;
+            blk_settle <= "11";
             op_try  <= 0;
             w_reqd  <= '0';
             c_end   <= c_earliest;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
@@ -2996,11 +3002,16 @@ begin
                 end if;
               else
                 d_crcrx(15 downto 0) <= d_crcrx(7 downto 0) & sp_byte;
+                if sp_byte = d_crc(15 downto 8) then
+                  d_crc_hi <= '1';
+                else
+                  d_crc_hi <= '0';
+                end if;
               end if;
               d_idx <= d_idx + 1;
               if d_idx = 513 then
                 d_act <= '0';
-                if (d_crcrx(7 downto 0) & sp_byte) /= d_crc(15 downto 0) then
+                if d_crc_hi = '0' or sp_byte /= d_crc(7 downto 0) then
                   if d_discard = '0' then
                     rpush("11", x"00");
                   end if;
@@ -3094,7 +3105,9 @@ begin
         -- fetch the data, then the token (at least one FF before it)
         when P_WR_WAIT =>
           sp_tx_next <= x"FF";
-          if op_done = op_granted and op_closed = '1' then
+          if blk_settle /= 0 then
+            null;                       -- (op_more / op_fin follow)
+          elsif op_fin = '1' then
             run    <= '1';
             e_wait <= '0';
             sp_cnt <= 0;
@@ -3104,7 +3117,7 @@ begin
               sp_ok <= '1';
               st    <= P_FIN;
             end if;
-          elsif op_done = op_granted then
+          elsif op_more = '0' then
             run <= '0';
             if rf_empty_e = '1' then
               e_wait <= '1';
@@ -3185,6 +3198,7 @@ begin
             elsif sp_byte /= x"00" then
               -- programmed
               op_done <= op_done + 1;
+              blk_settle <= "11";
               op_try  <= 0;
               w_reqd  <= '0';
               if op_multi = '1' then
