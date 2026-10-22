@@ -680,6 +680,14 @@ architecture rtl of sdcard_native is
   -- compare is not in front of the state logic; op_done changes once a block,
   -- and a close seen a cycle late is caught between blocks)
   signal rd_last     : std_logic := '0';
+  -- between the blocks of a read, from one cycle's op_done, op_granted and
+  -- op_closed (registered, as rd_last): another block is granted / all are
+  -- done and the read is closed.  blk_settle holds the paused-between-blocks
+  -- decision off for the cycles after a block, a grant or a stop, until
+  -- these have followed.
+  signal op_more     : std_logic := '0';
+  signal op_fin      : std_logic := '0';
+  signal blk_settle  : unsigned(1 downto 0) := (others => '0');
   -- the sample tagged n carries the card's bit of cycle n + lag: the sample
   -- point is lag whole SD clocks late (worked out at every clock change)
   signal lag         : unsigned(4 downto 0) := (others => '0');
@@ -691,7 +699,9 @@ architecture rtl of sdcard_native is
   signal w_reqd      : std_logic := '0';     -- this block's data was requested
   signal w_under     : std_logic := '0';     -- FIFO ran dry: send a bad CRC
   signal w_avail     : unsigned(5 downto 0);
-  signal w_ready     : std_logic;            -- head is of this fetch, enough queued
+  signal w_ready     : std_logic := '0';     -- head is of this fetch, enough queued
+                                             -- (registered: used once w_reqd_d is set)
+  signal w_reqd_d    : std_logic := '0';     -- w_reqd a cycle ago
   signal t_idx       : unsigned(10 downto 0) := (others => '0');
   signal t_byte      : std_logic_vector(7 downto 0) := (others => '0');
   signal t_crc       : std_logic_vector(63 downto 0) := (others => '0');
@@ -885,7 +895,7 @@ begin
 
   wf_head <= wfifo(to_integer(wf_rp(4 downto 0)));
   w_avail <= wf_wp_e - wf_rp;
-  w_ready <= '1' when wf_head(8) = w_seq and w_avail >= WPF else '0';
+
 
   fifos : process (clock162)
   begin
@@ -910,6 +920,11 @@ begin
       wf_wpg_s0 <= wf_wpg;
       wf_wpg_s1 <= wf_wpg_s0;
       wf_wp_e   <= gray2bin(wf_wpg_s1);
+      if wf_head(8) = w_seq and w_avail >= WPF then
+        w_ready <= '1';
+      else
+        w_ready <= '0';
+      end if;
       wf_rpg    <= bin2gray(wf_rp);
     end if;
   end process fifos;
@@ -1340,6 +1355,17 @@ begin
       else
         rd_last <= '0';
       end if;
+      if op_done /= op_granted then
+        op_more <= '1';
+        op_fin  <= '0';
+      else
+        op_more <= '0';
+        op_fin  <= op_closed;
+      end if;
+      if blk_settle /= 0 then
+        blk_settle <= blk_settle - 1;
+      end if;
+      w_reqd_d <= w_reqd;
 
       -- timeout: tmo_z says tmo has reached 0 (a register, so that the 28-bit
       -- compare is not in front of the state logic)
@@ -1592,10 +1618,12 @@ begin
               granting   := true;
             end if;
           end if;
+          blk_settle <= "11";           -- (op_more / op_fin follow)
           e_ack <= e_seen;
           cmd_pend <= '0';
         elsif e_code = C_STOP then
           op_closed <= '1';
+          blk_settle <= "11";
           e_ack     <= e_seen;
           cmd_pend <= '0';
         elsif e_code = C_NOP then
@@ -2547,6 +2575,7 @@ begin
                 st <= N_INIT;            -- istep 14
               else
                 op_done <= op_done + 1;
+                blk_settle <= "11";
                 if op_multi = '0' then
                   st <= S_DISPATCH;
                 elsif rd_last = '1' then
@@ -2560,11 +2589,11 @@ begin
               end if;
             end if;
           elsif d_act = '0' and d_arm = '1' and stop_en = '1' and cg_frz = '1'
-            and at_stop = '1' then
+            and at_stop = '1' and blk_settle = 0 then
             -- paused between blocks: go on once the next block is granted
-            if op_done /= op_granted then
+            if op_more = '1' then
               stop_en <= '0';
-            elsif op_closed = '1' then
+            elsif op_fin = '1' then
               d_arm <= '0';
               st    <= N_RD_STOP;
             elsif rf_empty_e = '1' then
@@ -2623,7 +2652,7 @@ begin
             w_blk  <= op_done;
             w_reqd <= '1';
             e_wait <= '0';
-          elsif w_ready = '1' then
+          elsif w_ready = '1' and w_reqd_d = '1' then
             run <= '1';
             if tick = '1' and wr_gap_ok = '1' then
               dat_oe_nx <= "1111";
@@ -2990,6 +3019,7 @@ begin
                   else
                     rpush("10", x"00");
                     op_done <= op_done + 1;
+                    blk_settle <= "11";
                     if op_multi = '0' or rd_last = '1' then
                       st <= P_RD_END;
                     end if;
@@ -2997,11 +3027,12 @@ begin
                 end if;
               end if;
             end if;
-          elsif d_act = '0' and stop_en = '1' and cg_frz = '1' and at_stop = '1' then
+          elsif d_act = '0' and stop_en = '1' and cg_frz = '1' and at_stop = '1'
+            and blk_settle = 0 then
             -- paused between blocks: go on once the next block is granted
-            if op_done /= op_granted then
+            if op_more = '1' then
               stop_en <= '0';
-            elsif op_closed = '1' then
+            elsif op_fin = '1' then
               sp_ok <= '1';
               st    <= P_RD_END;
             elsif rf_empty_e = '1' then
@@ -3083,7 +3114,7 @@ begin
             w_blk  <= op_done;
             w_reqd <= '1';
             e_wait <= '0';
-          elsif w_ready = '1' then
+          elsif w_ready = '1' and w_reqd_d = '1' then
             run <= '1';
             if sp_ld = '1' then
               if op_multi = '1' then
