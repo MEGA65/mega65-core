@@ -179,6 +179,10 @@ def tests(image, verbose, trace=None, short=False):
     e.ok(0x12, path="Arcade Classics")
     r = e.ok(0x13)
     check("getcwd with a long name", r[16:].split(b"\0")[0] == b"/GAMES/Arcade Classics", r[16:48])
+    check("getcwd gives the drive", u32(r, 6) == 1, u32(r, 6))
+    r = e.ok(0x24, path="space invaders deluxe.D81")
+    check("stat gives the long name", entry(r)[0] == "Space Invaders Deluxe.d81"
+          and entry(r)[1] == "SPACEI~1.D81", entry(r))
     e.ok(0x12, path="../..")
     r = e.ok(0x13)
     check("getcwd at the root", r[16:].split(b"\0")[0] == b"/", r[16:40])
@@ -189,6 +193,7 @@ def tests(image, verbose, trace=None, short=False):
     r = e.ok(0x24, path="2:/SECOND.TXT")
     check("drive prefix", entry(r)[3] == 17, entry(r))
     e.ok(3, arg0=2)
+    check("getcwd gives the current drive", u32(e.ok(0x13), 6) == 2)
     r = e.ok(0x24, path="SECOND.TXT")
     check("setdrive", entry(r)[3] == 17, entry(r))
     e.ok(3, arg0=1)
@@ -521,10 +526,40 @@ def write_tests(image, verbose, trace=None):
     check("rename onto a name", e.req(0x26, path=b"/README.TXT\0/GAMES/SHORT.PRG")[0] == E_EXIST)
     fsck("rename")
 
+    # with other descriptors open (a directory, a file being written): the
+    # busy check must not lose the target's first cluster
+    e.ok(0x14, path="/BUSY")
+    for n in (1, 5000, 9000):
+        fd = e.ok(0x21, path="/BUSY/f%d.bin" % n)[4]
+        write(fd, bytes([n & 0xFF]) * n)
+        e.ok(0x22, fd=fd)
+    e.ok(0x14, path="/BUSY/SUB")
+    dfd = e.ok(0x10, path="/BUSY")[4]
+    wfd = e.ok(0x21, path="/BUSY/writer.bin")[4]
+    write(wfd, b"w" * 3000)
+    e.ok(0x25, path="/BUSY/f5000.bin")
+    e.ok(0x15, path="/BUSY/SUB")
+    ofd = e.ok(0x20, flags=1, path="/BUSY/f9000.bin")[4]
+    e.ok(0x23, fd=ofd, arg0=100)
+    write(ofd, b"X" * 600)
+    e.ok(0x22, fd=ofd)
+    e.ok(0x22, fd=wfd)
+    e.ok(0x22, fd=dfd)
+    want = bytearray(bytes([9000 & 0xFF]) * 9000)
+    want[100:700] = b"X" * 600
+    check("open for writing beside another writer", vol().read_file("/BUSY/f9000.bin") == bytes(want))
+    check("the others intact", vol().read_file("/BUSY/f1.bin") == b"\x01"
+          and vol().read_file("/BUSY/writer.bin") == b"w" * 3000)
+    fsck("delete, rmdir and open beside open descriptors")
+    for n in ("f1.bin", "f9000.bin", "writer.bin"):
+        e.ok(0x25, path="/BUSY/" + n)
+    e.ok(0x15, path="/BUSY")
+
     # attributes, permissions
     check("SYSTEM needs permission", e.req(0x27, arg0=0x04, path="/README.TXT")[0] == E_ACCESS)
     e.ok(0x27, arg0=0x01, path="/README.TXT")
     check("a read-only file", e.req(0x20, flags=1, path="/README.TXT")[0] == E_ACCESS)
+    check("a read-only file is not deleted", e.req(0x25, path="/README.TXT")[0] == E_ACCESS)
     e.ok(0x27, arg0=0x20, path="/README.TXT")
     check("SYSTEM create needs permission", e.req(0x21, arg0=0x04, path="/S.SYS")[0] == E_ACCESS)
     check("policy is the hypervisor's", e.req(4, arg0=1)[0] == E_ACCESS)

@@ -1212,6 +1212,8 @@ op_getcwd:
         xset REQ
         ld r5, [x+R_ARG0]
         call usedrive
+        xset REQ                        ; arg0 = the drive (bytes 1-3 are 0)
+        st r5, [x+R_ARG0]
         btol l2, r5
         laddi l2, -1
         lshl l2, 2
@@ -1356,6 +1358,16 @@ op_stat:
         jz st_root
         xset ENT
         call entry_out
+        xset G_RUN+6                    ; a long name (the lookup left it in LFN)?
+        ld r0, [x+0]
+        cmpi r0, 2
+        jc st_short
+        xset LFN
+        yset REQ+R_DATA+32
+        ldi r1, 0
+        copy r1
+        jmp ok
+st_short:
         xset SHORT
         yset REQ+R_DATA+32
         ldi r1, 16
@@ -2417,6 +2429,7 @@ ent_new:
         ret
 
 ; busy: E_BUSY if a descriptor is open on the entry at G_DLBA/G_DOFF
+; (R0, R2, L0-L2 change: the callers keep resolve's L3, R5, R10)
 busy:
         ldi r6, 1
 ; busy_mask: as busy, counting only descriptors with a flag of R6 (open for
@@ -2429,17 +2442,17 @@ bz_loop:
         and r0, r6
         jz bz_next
         lld l1, [x+F_DLBA]
-        lldw l2, [x+F_DOFF]
         lx l0
         xset G_DLBA
-        lld l3, [x+0]
-        lcmp l1, l3
-        jnz bz_next_x
-        lldw l3, [x+4]
-        lcmp l2, l3
-        jz bz_busy
-bz_next_x:
+        lld l2, [x+0]
         xl l0
+        lcmp l1, l2
+        jnz bz_next
+        lldw l1, [x+F_DOFF]
+        xset G_DLBA
+        lldw l2, [x+4]
+        lcmp l1, l2
+        jz bz_busy
 bz_next:
         inc r2
         cmpi r2, 10
@@ -2600,6 +2613,9 @@ op_delete:
         mov r0, r10
         andi r0, $10
         jnz op_isdir
+        mov r0, r10                     ; read-only: clear it first
+        andi r0, $01
+        jnz op_access
         call busy
         lmov l0, l3
         call free_chain

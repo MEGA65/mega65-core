@@ -871,6 +871,15 @@ $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65_DEP
 	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s
 
+# the hardware FAT32 engine's shell and self-test (docs/sdcard-native/f3dos.md)
+$(TESTDIR)/f3dos.prg:       $(TESTDIR)/f3dos.c $(TESTDIR)/f3lib.c $(TESTDIR)/f3lib.h $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) -t c64 -O -Os -o $@ --mapfile $*.map $(TESTDIR)/f3dos.c $(TESTDIR)/f3lib.c
+
+$(TESTDIR)/f3test.prg:      $(TESTDIR)/f3test.c $(TESTDIR)/f3lib.c $(TESTDIR)/f3lib.h $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) -t c64 -O -Os -o $@ --mapfile $*.map $(TESTDIR)/f3test.c $(TESTDIR)/f3lib.c
+
 $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 

@@ -103,7 +103,7 @@ add (`LSHL` by log2 of the sectors per cluster, which is stored at mount).
 VHDL ROM output comes with the engine RTL), and its docstring is the
 instruction reference.  `src/tools/test_fat32_engine.py` runs
 `src/fat32/engine.fs` against the `fat32img.py` fixture and checks every
-result against `fat32img`'s own reading of the image (57 read checks, 61
+result against `fat32img`'s own reading of the image (60 read checks, 98
 write checks).
 
 ## 4. Memory layout
@@ -175,15 +175,15 @@ the response, byte 3 is the status (0, or an error code below).
 | `$10` | `opendir` | path | fd |
 | `$11` | `readdir` | fd | entry (below), or error 8 at the end |
 | `$12` | `chdir` | path | |
-| `$13` | `getcwd` | arg0 = drive (0 the current) | the path from +16 (found by walking up `..`) |
+| `$13` | `getcwd` | arg0 = drive (0 the current) | the path from +16 (found by walking up `..`); arg0 = the drive |
 | `$14` | `mkdir` | path | |
 | `$15` | `rmdir` | path (empty, nobody's current directory, not open) | |
 | `$20` | `open` | path; flags bit 0 write, bit 1 append, bit 7 use fd | fd |
 | `$21` | `create` | path; arg0 attributes (read-only, hidden, system; archive is set); flags bit 7 use fd | fd, open for writing |
-| `$22` | `close` | fd (writes the entry if `$75` left it out of date) | |
+| `$22` | `close` | fd (writes the entry if `$75` left it out of date; closing a closed one is not an error) | |
 | `$23` | `seek` | fd, arg0 offset, flags 0 start / 1 position / 2 end | arg0 = new position |
-| `$24` | `stat` | path | entry |
-| `$25` | `delete` | path (a file, not open) | |
+| `$24` | `stat` | path | entry (long name included) |
+| `$25` | `delete` | path (a file, not open, not read-only) | |
 | `$26` | `rename` | the old path, then the new one after its terminator (one drive; directories move too, `..` follows) | |
 | `$27` | `setattr` | path, arg0 (read-only, hidden, system, archive) | |
 | `$28` | `truncate` | fd, arg0 length (shorter frees; longer allocates from the file's end on, so contiguously where it can, and fills with zeros) | |
@@ -255,7 +255,7 @@ the entry copy, the name buffers (path component and long name, UTF-8),
 the UCS-2 buffer at `$580`, the write side's working state at `$788`, and
 "F3" at `$7FE`.  Without "F3" (power on) the engine clears the area first.
 
-**Firmware size:** about 2810 instructions, so the ROM is 4K x 24 (12-bit
+**Firmware size:** about 2820 instructions, so the ROM is 4K x 24 (12-bit
 jump addresses) in LUTs.
 
 `$70` operations:
@@ -307,7 +307,12 @@ jump addresses) in LUTs.
    (`mdir`, `mcopy`, `fsck.fat` after writes).
 2. **GHDL:** the card model is given a backing image file.  The engine RTL
    runs the same tests, through the real cache and controller.
-3. **HYPPO / hardware:** `hyppotest` cases, then real cards.
+3. **Programs:** [f3dos and f3test](f3dos.md), a shell and a self-checking
+   test in C.  On a PC they run against the simulator
+   (`src/tools/test_f3dos.py`).  On the MEGA65 they check the engine
+   against raw sector reads and the FAT walked independently, and against
+   a tree of files written by a PC.
+4. **HYPPO / hardware:** `hyppotest` cases, then real cards.
 
 ## 8. Phases
 
@@ -352,7 +357,7 @@ jump addresses) in LUTs.
      card was selected when it asked, which breaks once the engine or Hyppo
      moves between the cards.
 
-   `test_fat32_engine.py`: 93 write checks, among them the quick commands, mountimage,
+   `test_fat32_engine.py`: 98 write checks, among them the quick commands, mountimage,
    thaw within a session (a file deleted meanwhile goes stale, the rest
    carry on), and thaw with the card moved to the internal slot and another
    card in the external one.  `tb_sdcardio_native`: a quick read, the
