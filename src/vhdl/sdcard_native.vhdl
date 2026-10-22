@@ -384,6 +384,9 @@ architecture rtl of sdcard_native is
   signal rf_rpg_s0  : unsigned(5 downto 0) := (others => '0');   -- engine
   signal rf_rpg_s1  : unsigned(5 downto 0) := (others => '0');
   signal rf_empty_e : std_logic := '1';                          -- engine view
+  -- room for one more push (at most 24 in the FIFO; registered, and pushes
+  -- are at least two cycles apart, hence 23)
+  signal rf_room    : std_logic := '1';
   attribute ASYNC_REG of rf_wpg_s0 : signal is "TRUE";
   attribute ASYNC_REG of rf_wpg_s1 : signal is "TRUE";
   attribute ASYNC_REG of rf_rpg_s0 : signal is "TRUE";
@@ -673,6 +676,10 @@ architecture rtl of sdcard_native is
   signal d_end_tag   : unsigned(15 downto 0) := (others => '0');
   signal hs_byte     : std_logic_vector(7 downto 0) := (others => '0');  -- CMD6 status byte 16
   signal rd_next_ok  : std_logic := '0';     -- block op_done+1 may follow op_done
+  -- block op_done is the last of a closed read (registered: the 16-bit
+  -- compare is not in front of the state logic; op_done changes once a block,
+  -- and a close seen a cycle late is caught between blocks)
+  signal rd_last     : std_logic := '0';
   -- the sample tagged n carries the card's bit of cycle n + lag: the sample
   -- point is lag whole SD clocks late (worked out at every clock change)
   signal lag         : unsigned(4 downto 0) := (others => '0');
@@ -894,6 +901,11 @@ begin
         rf_empty_e <= '1';
       else
         rf_empty_e <= '0';
+      end if;
+      if rf_wp - gray2bin(rf_rpg_s1) < 23 then
+        rf_room <= '1';
+      else
+        rf_room <= '0';
       end if;
       wf_wpg_s0 <= wf_wpg;
       wf_wpg_s1 <= wf_wpg_s0;
@@ -1322,6 +1334,11 @@ begin
         rd_next_ok <= '1';
       else
         rd_next_ok <= '0';
+      end if;
+      if op_done + 1 = op_granted and op_closed = '1' then
+        rd_last <= '1';
+      else
+        rd_last <= '0';
       end if;
 
       -- timeout: tmo_z says tmo has reached 0 (a register, so that the 28-bit
@@ -2214,7 +2231,7 @@ begin
           run <= '0';
           -- Serialise native R2 and pad short payloads. Bound the FIFO's
           -- occupancy; the engine clock is faster than the consumer.
-          if rf_we = '0' and rf_wp - gray2bin(rf_rpg_s1) < 24 then
+          if rf_we = '0' and rf_room = '1' then
             if mode_native = '1' and info_kind < 2 and info_pos < 16 then
               rpush("00", r_long(127 downto 120));
               r_long <= r_long(119 downto 0) & x"00";
@@ -2224,7 +2241,7 @@ begin
           end if;
 
         when I_GOOD =>
-          if rf_we = '0' and rf_wp - gray2bin(rf_rpg_s1) < 24 then
+          if rf_we = '0' and rf_room = '1' then
             rpush("10", x"00"); op_done <= to_unsigned(1, 16); st <= S_FINISH;
           end if;
 
@@ -2532,7 +2549,7 @@ begin
                 op_done <= op_done + 1;
                 if op_multi = '0' then
                   st <= S_DISPATCH;
-                elsif op_done + 1 = op_granted and op_closed = '1' then
+                elsif rd_last = '1' then
                   st <= N_RD_STOP;
                 else
                   -- scan on from the end bit (if the clock stops after it, it
@@ -2973,7 +2990,7 @@ begin
                   else
                     rpush("10", x"00");
                     op_done <= op_done + 1;
-                    if op_multi = '0' or (op_done + 1 = op_granted and op_closed = '1') then
+                    if op_multi = '0' or rd_last = '1' then
                       st <= P_RD_END;
                     end if;
                   end if;
