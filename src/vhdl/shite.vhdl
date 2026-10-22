@@ -106,7 +106,7 @@ architecture rtl of shite is
     -- REBALANCE_ROW
     B_ROW, B_ROW2, B_HDR0, B_HDR1, B_HCHK, B_WALK, B_WALK2,
     B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
-    B_TREE, B_TREE2, B_TREE3, B_TREE4, B_TREE5, B_TREE6, B_TREE7, B_RHDR, B_NEXT,
+    B_TREE, B_TREE1, B_TREE2, B_TREE3, B_TREE4, B_TREE5, B_TREE6, B_TREE7, B_RHDR, B_NEXT,
     -- the list RAM's read (one cycle)
     L_WAIT, EST_WAIT, E_JZ2, E_BIN3, AG_ARG2,
     -- the codec units: a parameter block in, a job, its results out; their
@@ -176,10 +176,7 @@ architecture rtl of shite is
   signal l_key, l_cur : unsigned(63 downto 0) := (others => '0');
   signal g_left, g_right, g_root : unsigned(15 downto 0) := (others => '0');
   signal first_node : boolean := false;
-  -- the tree builder's stack of ranges lo..hi
-  type stk_t is array (0 to 31) of unsigned(21 downto 0);
-  signal stk : stk_t;
-  signal sp : natural range 0 to 32 := 0;
+  -- the tree builder: the node (l_i), its range lo..hi and middle
   signal t_lo, t_hi, t_mid : integer range -1 to max_row_cells := 0;
 
   -- ---------------------------------------------------------------------
@@ -715,7 +712,7 @@ begin
     variable mb : unsigned(7 downto 0);
     variable w : unsigned(15 downto 0);
     variable e : unsigned(63 downto 0);
-    variable lo, hi, md : integer;
+    variable md : integer;
     variable ad : unsigned(27 downto 0);
     variable ka, kb : unsigned(2 downto 0);
     variable va, vb : unsigned(63 downto 0);
@@ -1008,7 +1005,6 @@ begin
         -- insertion sort by column (bits 63:48): list(0..l_i-1) is sorted
         when B_SORT =>
           if l_i >= l_n then
-            sp <= 0;
             st <= B_TREE;
           else
             l_ra <= l_i; l_ret <= B_SORT1; st <= L_WAIT;
@@ -1038,46 +1034,41 @@ begin
           l_i <= l_i + 1;
           st <= B_SORT;
 
-        -- the tree: ranges from the stack; each node's children are the
-        -- middles of its two halves, so its header is written at once
+        -- the tree: each node l_i in turn, no stack.  The node at the middle
+        -- of lo..hi has the middles of its two halves as its children, so a
+        -- node's header needs only its range, found by descending from the
+        -- root (0..l_n-1) as a search for l_i would: a cycle per level, at
+        -- most 11, against a node's three list reads and one memory write
         when B_TREE =>
           g_root <= (others => '0');
-          first_node <= true;
+          l_i <= 0;
           if l_n = 0 then
             st <= B_RHDR;
           else
-            stk(0) <= to_unsigned(0, 11) & to_unsigned(l_n - 1, 11);
-            sp <= 1;
-            st <= B_TREE2;
+            st <= B_TREE1;
           end if;
-        when B_TREE2 =>
-          if sp = 0 then
+        when B_TREE1 =>
+          if l_i >= l_n then
             st <= B_RHDR;
           elsif abt = '1' then
             fault(ERR_ABORTED);
           else
-            lo := to_integer(stk(sp - 1)(21 downto 11));
-            hi := to_integer(stk(sp - 1)(10 downto 0));
-            md := mid_of(lo, hi);
-            t_lo <= lo; t_hi <= hi; t_mid <= md;
-            -- the halves onto the stack in its place (right first: left pops first)
-            if md + 1 <= hi and lo <= md - 1 then
-              stk(sp - 1) <= to_unsigned(md + 1, 11) & to_unsigned(hi, 11);
-              stk(sp) <= to_unsigned(lo, 11) & to_unsigned(md - 1, 11);
-              sp <= sp + 1;
-            elsif md + 1 <= hi then
-              stk(sp - 1) <= to_unsigned(md + 1, 11) & to_unsigned(hi, 11);
-            elsif lo <= md - 1 then
-              stk(sp - 1) <= to_unsigned(lo, 11) & to_unsigned(md - 1, 11);
-            else
-              sp <= sp - 1;
-            end if;
+            t_lo <= 0; t_hi <= l_n - 1;
+            first_node <= true;
+            st <= B_TREE2;
+          end if;
+        when B_TREE2 =>                         -- one level down towards l_i
+          md := mid_of(t_lo, t_hi);
+          if l_i = md then
+            t_mid <= md;
             l_ra <= md; l_ret <= B_TREE3; st <= L_WAIT;
+          else
+            first_node <= false;                -- (not the root)
+            if l_i < md then t_hi <= md - 1; else t_lo <= md + 1; end if;
           end if;
         when B_TREE3 =>                         -- the node
           l_cur <= l_rd;
           if first_node then g_root <= l_rd(39 downto 24); end if;
-          first_node <= false;
           g_left <= (others => '0'); g_right <= (others => '0');
           if t_lo <= t_mid - 1 then
             l_ra <= mid_of(t_lo, t_mid - 1); l_ret <= B_TREE4; st <= L_WAIT;
@@ -1099,7 +1090,8 @@ begin
         when B_TREE7 =>                         -- the node's header
           mem_write(blk + (l_cur(39 downto 24) & "0000"),
                     g_right(11 downto 0) & g_left(11 downto 0) & l_cur(23 downto 8) & l_cur(63 downto 40),
-                    "11111111", B_TREE2);
+                    "11111111", B_TREE1);
+          l_i <= l_i + 1;
 
         when B_RHDR =>
           -- the cell count (bytes 6-7)
