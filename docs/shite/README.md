@@ -12,10 +12,10 @@ Status: specification, draft 2: the canonical description.  It merges
 [discussion record](formula-codec-discussion.md), kept as history).
 Implemented so far (section 12): the build structure (section 1),
 REBALANCE_ROW, FIND_CELL, RECALC (all but the transcendental, text and
-lookup functions), and through the codec units FORMAT_CELLS, COMPILE,
-DECOMPILE, RENDER and PARSE (the number literal); in hardware, and $40-$42
-in the reference model `SSNAIL/shite.py`.  Planned: the sheet table's
-references (3.6, 10), MOVE_CELLS and CELLS_MOVED (6).
+lookup functions), MOVE_CELLS and CELLS_MOVED, and through the codec units
+FORMAT_CELLS, COMPILE, DECOMPILE, RENDER and PARSE (the number literal); in
+hardware, and $40-$42, $48 and $49 in the reference model
+`SSNAIL/shite.py`.  Planned: the sheet table's references (3.6, 10).
 
 Design goals, in order: correct and deterministic results; small area
 (iterative units, shared datapaths: several million simple cell updates per
@@ -232,8 +232,8 @@ sheet's own cell `A1` is its first row and column.
 RECALC, FORMAT_CELLS and the rest know nothing of sheets: they work on
 physical rows and columns.  So nothing stops a relative reference that
 is copied far enough from reaching into another sheet's rectangle; COMPILE
-checks references against the sheets when it compiles, MOVE_CELLS and
-CELLS_MOVED when they rewrite them (6).
+checks references against the sheets when it compiles; MOVE_CELLS and
+CELLS_MOVED move physical cells, the sheets unknown to them (6).
 
 ## 4. Values and arithmetic
 
@@ -505,8 +505,8 @@ block ends the job with SSNAIL error ERR_FORMAT, the row in the descriptor.
 | $45 | DECOMPILE | X parameter block (section 10) | R[a] = text length, or 0 |
 | $46 | RENDER | X parameter block (section 10) | R[a] bits 3-0: the colour chosen (normal or negative), bits 15-8: the renderer's error (0: none) |
 | $47 | PARSE | X parameter block (section 10) | R[a] = the kind found (0: not a number) |
-| $48 | MOVE_CELLS | X parameter block (planned) | R[a] = cells moved |
-| $49 | CELLS_MOVED | X parameter block (planned) | R[a] = formulas changed |
+| $48 | MOVE_CELLS | X parameter block | R[a] = cells moved |
+| $49 | CELLS_MOVED | X parameter block | R[a] = formulas changed |
 
 ### RECALC
 
@@ -648,56 +648,98 @@ implements FORMAT_CELLS itself, walking the rectangle (as RECALC's ranges do), t
 each cell's value and format, calling that operation, and handling CHANGED
 and the colours.  20 000 to 200 000 cells a second is plenty.
 
-### MOVE_CELLS and CELLS_MOVED (planned)
+### MOVE_CELLS and CELLS_MOVED
 
-Moving a rectangle of cells, as a spreadsheet's cut and paste does: the
-cells go to the new place, and every reference to them follows them.  Two
-instructions, so that a program can do the first alone (moving the cells
-of a sheet kept apart, say), and the second over several regions:
+Moving a rectangle of cells, as a spreadsheet's cut and paste, or inserting
+or deleting rows or columns: the cells go to the new place, and the
+references to them follow them.
 
-- **MOVE_CELLS** moves the cells of the source rectangle so that its top
-  left corner is at the destination, and rewrites the references in the
-  moved formulas: a reference to a cell inside the source rectangle
-  follows it (a relative one keeps its offset, an absolute one moves with
-  the cell); one to a cell outside keeps its target (a relative one gets a
-  new offset, an absolute one is unchanged).  Cells already in the
-  destination rectangle and not themselves moved are deleted.  The result
-  is as if every cell moved at once, so the rectangles may overlap.
-- **CELLS_MOVED** then rewrites the references in all other formulas of
-  the given rows: a reference to a cell of the old rectangle follows it
-  to the new one; one to a deleted cell becomes a deleted reference
-  (5.3, `#REF!`).  A range (RECT) follows only when both its corners are in
-  the old rectangle; otherwise each corner is a reference on its own.
-  A HOSTCALL's result cell follows as a reference does.
+- **MOVE_CELLS** moves the cells of the source rectangle S so that its top
+  left corner is at the destination, to D (S's image there).  Cells already
+  in D and not themselves in S are deleted; the result is as if every cell
+  moved at once, so S and D may overlap.  A cell whose new place is off the
+  sheet is dropped.  It then fixes the references (below) of the moved
+  formulas, of the other formulas in the rows it rebuilt, and of the
+  formulas in the rows to fix (offsets 28-32).
+- **CELLS_MOVED** is the second half alone, for a move the program made
+  itself (the cells copied, their bytecode as it was): it fixes the
+  references of the formulas in the rows to fix, taking a formula now in D
+  to have come from the same place in S.
 
-Both set CHANGED on the cells they move or change.  A reference that
-grows (an offset that no longer fits the short form) changes a cell's
-length, so both build new row blocks for the rows they change, from a
-heap the program gives them (the parameter block: its start, its end;
-SHITE returns the new start), and update the row table.  The old blocks
-are the program's to reuse.  A heap too small ends the instruction with
-ERR_FORMAT and the sheet unchanged.
+A reference is fixed by its target, worked out from where the formula was:
 
-Parameter block (64 bytes, 16-byte aligned; CELLS_MOVED uses the same):
+- in S: it follows its cell (a relative one gets the offset from the
+  formula's new place, an absolute one the cell's new row and column);
+  a cell dropped off the sheet makes it a deleted reference (5.3, `#REF!`).
+- in D but not S (a cell overwritten): a deleted reference.
+- anywhere else: the same target, written relative to the formula's new
+  place.
+
+Each reference keeps its form and size (short or long; a deleted one stays
+deleted), so bytecode never moves and no jump changes.  A range is its two
+corners, each fixed on its own: inserting a row inside SUM(A1:A10) gives
+SUM(A1:A11); deleting row 1 of A1:A10 makes the range #REF!.  A reference
+that no longer fits its form (a short one more than 16383 rows or 8191
+columns from its formula, or absolute past row 32767 or column 16383)
+refuses the whole instruction: why 3 below, and the formula's row and
+column.  Within a sheet of up to 16384 rows by 8192 columns this cannot
+happen; COMPILE uses the long form for anything further.
+
+Both instructions check everything before changing anything, so a refused
+or malformed one (ERR_FORMAT) leaves the sheet as it was:
+
+- **MOVE_CELLS**: checks the formulas of the rows to fix; builds every row
+  of S and D afresh in the heap (its own cells but those in S or D, in
+  memory order, then those moving in from S, each with CHANGED set, and its
+  tree as REBALANCE_ROW builds it; no spare granules; an empty row a
+  header alone); then points the row table at the new blocks (an empty row:
+  $FFFFFFFF), and rewrites the rows to fix.  The old blocks, and the heap
+  below its new start, are the program's to reuse.
+- **CELLS_MOVED**: checks the formulas of the rows to fix, then rewrites
+  them in place.
+
+A formula whose bytecode changes gets CHANGED.  The walk over a formula
+stops at END, at the end of its bytecode, or at a byte that is not an
+opcode (the rest, malformed, is left as it is).  Neither instruction knows
+of the sheet table (3.6): they work on physical cells, so a move between
+the user's sheets is a move like any other.
+
+Parameter block (64 bytes, 16-byte aligned; CELLS_MOVED uses the same,
+without the heap):
 
 | Offset | Size | Field |
 |---|---|---|
 | 0 | 4 | the sheet descriptor |
 | 4 | 4 | source: first row |
 | 8 | 4 | source: first column |
-| 12 | 4 | source: last row |
-| 16 | 4 | source: last column |
-| 20 | 4 | destination: first row |
-| 24 | 4 | destination: first column |
-| 28 | 4 | CELLS_MOVED: first row of the formulas to fix |
-| 32 | 4 | CELLS_MOVED: last row of the formulas to fix |
-| 36 | 4 | heap start (16-byte aligned); result: the new start |
-| 40 | 4 | heap end |
-| 44 | 4 | result: references that would leave the sheet, made deleted references |
-| 48 | 16 | reserved, 0 |
+| 12 | 4 | source: last row ($FFFFFFFF: to the sheet's last; clipped to it) |
+| 16 | 4 | source: last column (likewise) |
+| 20 | 4 | destination: first row (bits 19-0) |
+| 24 | 4 | destination: first column (bits 23-0) |
+| 28 | 4 | first row of the formulas to fix |
+| 32 | 4 | last row of the formulas to fix ($FFFFFFFF: all) |
+| 36 | 4 | MOVE_CELLS: the heap's start (16-byte aligned); result: its new start |
+| 40 | 4 | MOVE_CELLS: the heap's end; result (bytes 44-47): references made deleted |
+| 48 | 4 | result: why it was refused (ERR_FORMAT): 0 a malformed row block (the row in the descriptor, as ever), 1 the heap too small, 2 a row's cells past 4096 granules, 3 a reference that does not fit its form |
+| 52 | 4 | result: the row (why 1-3) |
+| 56 | 4 | result: the column (why 3: with the row, the formula) |
+| 60 | 4 | reserved, 0 |
 
-A reference that would fall outside the physical sheet after the move is
-made a deleted reference and counted (offset 44).
+Bytes 48-55 are zeroed first.  A source with its first row past its last
+(after clipping), or its first column past its last, moves nothing.
+
+Typical uses (rows 0-based, the sheet's last row L, last column C):
+
+| To | Source | Destination |
+|---|---|---|
+| insert a row at r | r, 0, L, C | r + 1, 0 |
+| delete row r | r + 1, 0, L, C (row r: overwritten) | r, 0 |
+| insert a column at c | 0, c, L, C | 0, c + 1 |
+| cut and paste | the block | the new top left |
+
+The last row (or column) moves off the sheet when inserting, so keep it
+empty.  Each is one instruction; fix every row (28-32: 0, $FFFFFFFF) unless
+the program knows which rows can refer to the moved cells.
 
 ## 7. Recalculation and cycles
 
@@ -895,7 +937,10 @@ and GHDL benches that run the same sheets on the hardware and compare
 memory: `tb_shite_step1` REBALANCE_ROW and FIND_CELL; `step2` RECALC with
 integers, rounds, regions and change lists; `step3` fixed point; `step4`
 F64 (about 480 formulas: specials, rounding, the subnormal boundary,
-conversions); `step5` ranges, cell lists, aggregates and host calls.
+conversions); `step5` ranges, cell lists, aggregates and host calls;
+`step9` MOVE_CELLS and CELLS_MOVED (and moves refused, the sheet
+unchanged).  `SSNAIL/tests/test_shite_move.py` checks what a move means in
+the model: after inserting a row every formula has its value, and so on.
 
 ## 12. Phases
 
@@ -914,8 +959,8 @@ conversions); `step5` ranges, cell lists, aggregates and host calls.
 6. **Done, mostly**: the codec (section 10: COMPILE, DECOMPILE, RENDER,
    PARSE's literal; `tb_shite_step8`).  To come: PARSE's front end, the
    15-digit general cap, the fast number path, sheet references.
-7. **Moving cells**: MOVE_CELLS, CELLS_MOVED (section 6), and deleted
-   references (5.3).
+7. **Done**: moving cells: MOVE_CELLS, CELLS_MOVED (section 6), and deleted
+   references (5.3) (`tb_shite_step9`).
 
 A function the hardware does not have yet is #NAME? (a sheet still
 recalculates, with that cell an error).
@@ -924,6 +969,9 @@ recalculates, with that cell an error).
 
 - Text: ASCII in cells (as above), or PETSCII?
 - Named ranges: not in this version.
-- MOVE_CELLS / CELLS_MOVED: whether CELLS_MOVED should take a list of
-  moves, so that inserting a row (every row below moves) is one call.
+- MOVE_CELLS / CELLS_MOVED: several moves at once (a list, applied as one),
+  which sorting rows would want; one rectangle covers inserting and
+  deleting rows and columns.  And whether a range should shrink when a row
+  at its end is deleted (as other spreadsheets do), rather than become
+  #REF!.
 - An exact stable-cycle check (section 7).

@@ -103,5 +103,6 @@ For the codec side, when the items above are done:
    `#REF!` back as one; COMPILE must not produce that encoding for a real
    cell (use the long form for such an offset).
 
-The execution unit evaluates a deleted reference as #REF!, and will
-produce them in MOVE_CELLS / CELLS_MOVED (README 6, planned).
+The execution unit evaluates a deleted reference as #REF!, and produces
+them in MOVE_CELLS / CELLS_MOVED (README 6) for references to cells
+overwritten or moved off the sheet.

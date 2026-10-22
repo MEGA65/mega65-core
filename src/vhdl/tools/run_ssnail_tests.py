@@ -45,6 +45,7 @@ Testbenches:
     tb_shite_step6    SHITE RECALC: IF, %, AND OR NOT, PRODUCT, COUNTA, ABS SIGN INT TRUNC MOD
     tb_shite_step7    SHITE RECALC: SQRT, POW / POWER, ROUND
     tb_shite_step8    SHITE's codec units through SSNAIL: COMPILE, DECOMPILE, RENDER, PARSE, FORMAT_CELLS
+    tb_shite_step9    SHITE MOVE_CELLS, CELLS_MOVED (and moves that fail, the sheet unchanged)
     tb_ssnail_perf    GEMV v2 results and speed (fails if more than 25% slower)
     tb_ssnail_perf_f16  float GEMV (F16) results and speed
     tb_ssnail_perf_attn ATTN results and speed
@@ -202,6 +203,12 @@ BENCHES = {
                         "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
                         "ssnail_top.vhdl", "shite8_pkg.vhdl", "tb_shite_step8.vhdl"],
                        "tb_shite_step8", [["-gllm=false"]], r"TB_SHITE_STEP8: ALL PASSED"),
+    "tb_shite_step9": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
+                        "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl",
+                        "shite_codec_pkg.vhdl", "shite_number_pkg.vhdl", "shite_number_integer.vhdl",
+                        "shite_number_text.vhdl", "shite_formula_codec.vhdl", "shite_cell_text.vhdl", "shite.vhdl", "shite_bridge.vhdl",
+                        "ssnail_top.vhdl", "shite9_pkg.vhdl", "tb_shite_step9.vhdl"],
+                       "tb_shite_step9", [["-gllm=false"]], r"TB_SHITE_STEP9: ALL PASSED"),
     "tb_ssnail_step5": (["sdram_controller.vhdl", "sdram4_model.vhdl", "sdram4_compat.vhdl", "ssnail_fpu.vhdl",
                          "ssnail_fpipe.vhdl", "ssnail_tables_pkg.vhdl", "ssnail.vhdl", "step5_pkg.vhdl",
                          "tb_ssnail_step5.vhdl"],
@@ -273,6 +280,7 @@ GENERATED = {
     "shite6_pkg.vhdl": ("gen_shite6.py", True),
     "shite7_pkg.vhdl": ("gen_shite7.py", True),
     "shite8_pkg.vhdl": ("gen_shite8.py", True),
+    "shite9_pkg.vhdl": ("gen_shite9.py", True),
     "step6_pkg.vhdl": ("gen_step6.py", True),
     "step7_pkg.vhdl": ("gen_step7.py", True),
     "perf_pkg.vhdl": ("gen_perf.py", True),
