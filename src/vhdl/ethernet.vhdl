@@ -73,6 +73,8 @@ entity ethernet is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : in unsigned(19 downto 0);
+    -- (one clock earlier than fastio_addr: the RX buffers' block RAM read)
+    fastio_addr_fast : in unsigned(19 downto 0);
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
@@ -229,6 +231,8 @@ architecture behavioural of ethernet is
   signal rxbuffer_wdata : unsigned(7 downto 0) := x"00";
 
   signal rxbuffer_readaddress : integer range 0 to 2047;
+  type rx_rdata_t is array (0 to num_buffers - 1) of unsigned(7 downto 0);
+  signal rx_rdata : rx_rdata_t;
   signal eth_rx_buffer_inuse : unsigned((num_buffers-1) downto 0) := (others => '0');
   -- CPU RX buff ID must start one behind Ethernet side.
   -- 1. Eth side writes to buffer n, while CPU is on n-1.
@@ -430,20 +434,29 @@ begin  -- behavioural
   -- We could use _sync, in which case we just need to make sure that we
   -- have the right number of waitstates in the CPU.
   rxbuffers: for i in 0 to (num_buffers-1) generate
-    rxbuffer0: entity work.ram8x2048
-      generic map (
-        id => i
-        )
+    -- (block RAM: read registered, from fastio_addr_fast; rx_rdata(i) is
+    -- the byte at fastio_addr, put on the bus below)
+    rxbuffer0: entity work.ram8x2048_sync
       port map (
       clkw => clock50mhz,
       clkr => clock,
-      cs => rxbuffer_cs(i),
       w => rxbuffer_write(i),
       write_address => rxbuffer_writeaddress_l,
       wdata => rxbuffer_wdata_l,
       address => rxbuffer_readaddress,
-      rdata => fastio_rdata);
+      rdata => rx_rdata(i));
   end generate;
+
+  -- The CPU's RX buffer onto the FastIO bus (one driver, not one per buffer)
+  process(rxbuffer_cs, rx_rdata) is
+  begin
+    fastio_rdata <= (others => 'Z');
+    for i in 0 to num_buffers - 1 loop
+      if rxbuffer_cs(i) = '1' then
+        fastio_rdata <= rx_rdata(i);
+      end if;
+    end loop;
+  end process;
 
   txbuffer0: entity work.ram8x2048 generic map ( id => 1000 ) port map (
     clkr => clock50mhz,
@@ -524,9 +537,9 @@ begin  -- behavioural
     );
 
   -- Look after CPU side of mapping of RX buffer
-  process(fastio_addr,fastio_read,rxbuffer_cs_vector) is
+  process(fastio_addr,fastio_addr_fast,fastio_read,rxbuffer_cs_vector) is
   begin    
-    rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
+    rxbuffer_readaddress <= to_integer(fastio_addr_fast(10 downto 0));
     if fastio_read='1' and (
       (fastio_addr(19 downto 11)&"000" = x"DE8")
       or (fastio_addr(19 downto 11)&"000" = x"D28")

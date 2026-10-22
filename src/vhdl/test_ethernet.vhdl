@@ -95,6 +95,10 @@ begin
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr => fastio_addr,
+    -- (the RX buffers read from the early address, one clock before the
+    -- CPU's: this bench gives none, so an RX buffer read sees the previous
+    -- address)
+    fastio_addr_fast => fastio_addr,
     fastio_write => fastio_write,
     fastio_read => fastio_read,
     fastio_wdata => fastio_wdata,

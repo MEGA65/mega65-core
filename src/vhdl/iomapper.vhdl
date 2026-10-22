@@ -1269,6 +1269,7 @@ begin
         eth_keycode => eth_scancode,
 
         fastio_addr => unsigned(address),
+        fastio_addr_fast => unsigned(addr_fast),
         fastio_write => w,
         fastio_read => r,
         std_logic_vector(fastio_rdata) => data_o,
