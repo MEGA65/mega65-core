@@ -1756,6 +1756,11 @@ architecture shell of ssnail is
   -- (30 loads, every read wait among them: one copy across the die from
   -- the state register's enable missed clock162 by 0.15 ns)
   attribute max_fanout of rvalid_r : signal is 8;
+  -- cop_own: SHITE has the memory ports.  It selects every port signal in
+  -- ssnail_top (141 loads, out to the SDRAM controller's pblock: its one
+  -- copy missed clock162 by 0.36 ns)
+  signal cop_own_i : std_logic := '0';
+  attribute max_fanout of cop_own_i : signal is 16;
   signal rdata_r  : unsigned(15 downto 0) := x"0000";
   signal rerror_r : std_logic := '0';
 
@@ -1860,6 +1865,7 @@ architecture shell of ssnail is
   end function;
 
 begin
+  cop_own <= cop_own_i;
 
   output_buffer0 : entity work.ssnail_output_buffer
     port map (
@@ -3071,12 +3077,12 @@ begin
           -- never reached)
           if has_cop and out_z and hr_valid_i = '0' and sd_valid_i = '0' then
             cop_start <= '1';
-            cop_own <= '1';
+            cop_own_i <= '1';
             go(C_COP_WAIT);
           end if;
         when C_COP_WAIT =>
           if cop_done = '1' then
-            cop_own <= '0';
+            cop_own_i <= '0';
             if cop_err /= ERR_NONE then
               err <= cop_err;
               go(C_END);
