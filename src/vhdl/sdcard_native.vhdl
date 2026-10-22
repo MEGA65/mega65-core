@@ -2560,7 +2560,7 @@ begin
               end if;
             end if;
           elsif d_act = '0' and d_arm = '1' and stop_en = '1' and cg_frz = '1'
-            and rcnt = stop_at then
+            and at_stop = '1' then
             -- paused between blocks: go on once the next block is granted
             if op_done /= op_granted then
               stop_en <= '0';
@@ -2997,7 +2997,7 @@ begin
                 end if;
               end if;
             end if;
-          elsif d_act = '0' and stop_en = '1' and cg_frz = '1' and rcnt = stop_at then
+          elsif d_act = '0' and stop_en = '1' and cg_frz = '1' and at_stop = '1' then
             -- paused between blocks: go on once the next block is granted
             if op_done /= op_granted then
               stop_en <= '0';
