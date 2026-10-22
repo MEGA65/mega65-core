@@ -126,6 +126,7 @@ const char *f3_strerror(uint8_t e);
 uint8_t sd_select(uint8_t slot);
 uint8_t sd_read(uint32_t sector);
 void sd_cache(uint8_t on);
+void sd_init_both(void);              /* $2B: initialise both cards */
 
 /* time, in tenths of a second */
 uint32_t ticks(void);

@@ -58,6 +58,8 @@ INSTRUCTIONS (r = R register, l = L register, n = number, lbl = label)
   cmd r                     r = the $D680 command
   arg l    setarg l         l = $D681-$D684 / set them
   hyp                       C = hypervisor mode
+  media r                   r = the cards changed (card detect) since the
+                            last command: bit 0 internal, bit 1 external
   done     fail n  failr r  end the command: success / error n / error in r
 
   .equ NAME value   labels end with ':'   ';' comments   numbers: 12, $1F, %101
@@ -162,6 +164,8 @@ class Machine:
         self.stack = []
         self.slot = 0
         self.hypervisor = hypervisor
+        self.media = 0                      # cards changed, for the next command
+        self.media_r = 0                    #   (and as this command saw them)
         self.arg = 0
         self.cmdcode = 0
         self.steps = 0
@@ -224,10 +228,11 @@ class Machine:
         if hypervisor is not None:
             self.hypervisor = hypervisor
         self.cmdcode, self.arg = code, arg
+        self.media_r, self.media = self.media, 0
         if self.trace is not None:
             for a, d in self._runs(self._shadow, self.buf):
                 self.trace.append("W %03X %s" % (a, d.hex().upper()))
-            self.trace.append("C %02X %08X %d" % (code, arg, int(self.hypervisor)))
+            self.trace.append("C %02X %08X %d %d" % (code, arg, int(self.hypervisor), self.media_r))
             before = bytes(self.buf)
         self.pc = 0
         self.stack = []
@@ -530,6 +535,7 @@ def op_cmd(m, d): m.r[d[1]] = m.cmdcode
 def op_arg(m, d): m.l[d[1]] = m.arg
 def op_setarg(m, s): m.arg = m.l[s[1]]
 def op_hyp(m): m.c = m.hypervisor
+def op_media(m, d): m.r[d[1]] = m.media_r; _flags8(m, m.media_r)
 def op_done(m): m.result = 0
 def op_fail(m, n): m.result = n[1]
 def op_failr(m, s): m.result = m.r[s[1]] or 0xFF
@@ -575,6 +581,7 @@ ENCODING = [
     ("copy", "r", None), ("fill", "r", None),
     ("cmd", "r", None), ("arg", "l", None), ("setarg", "l", None), ("hyp", "", None),
     ("done", "", None), ("fail", "n", "n8"), ("failr", "r", None),
+    ("media", "r", None),
 ]
 OPCODE = {name: i for i, (name, _, _) in enumerate(ENCODING)}
 assert len(OPCODE) <= 128 and set(OPCODE) == set(OPS), set(OPS) ^ set(OPCODE)

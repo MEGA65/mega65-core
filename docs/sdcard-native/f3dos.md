@@ -32,7 +32,7 @@ letter, and may be quoted to hold spaces: `cd "Arcade Classics"`.
 
 | Command | |
 |---|---|
-| `DRIVES`, `RESCAN` | List the partitions; scan the cards again |
+| `DRIVES`, `RESCAN` | List the partitions; initialise both cards (`$2B`) and scan them again (needed after putting a card in; open files on a card that was pulled are stale) |
 | `C:` .. `J:` | Change the current drive |
 | `CD [dir]` | Change directory; on its own, show where you are |
 | `DIR [spec]` | List a directory (`*` and `?` in the last part) |

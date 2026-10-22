@@ -57,7 +57,7 @@ def serve(machine, rfd, wfd):
                     machine.buf[0xE00:0x1000] = d
             else:
                 machine._sector(arg, bytes(machine.buf[0xE00:0x1000]))
-        elif code in (0x25, 0x26):
+        elif code in (0x25, 0x26, 0x2B):
             pass
         else:
             status = 10

@@ -6,9 +6,12 @@ Status: native 4-bit and SPI reads, the data cache/read-ahead and Hyppo boot
 work on hardware with `30f3f7e15`. The two persistent card sessions and
 parallel initialisation described below are tested in simulation; FPGA
 resource/timing results and hardware confirmation are pending. Sequential
-read-ahead across lines and the separate metadata cache (§2.3, §2.4) are
-built and simulated (2026-10-21), not yet tried on hardware. The hardware
-FAT32 engine is designed ([fat32-engine.md](fat32-engine.md)), not built.
+read-ahead across lines, the separate metadata cache (§2.3, §2.4) and card
+detect are built and simulated (2026-10-21), not yet tried on hardware.
+The hardware FAT32 engine ([fat32-engine.md](fat32-engine.md)) is built,
+reading and writing, and tested against the simulator and in RTL; Hyppo
+does not use it yet. [hardware-tests.md](hardware-tests.md) is the plan
+for trying all of it on a board.
 
 ## 1. Where things stand
 

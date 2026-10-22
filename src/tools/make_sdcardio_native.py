@@ -1135,6 +1135,7 @@ rep("""  signal diag_index : unsigned(3 downto 0) := (others => '0');""",
   signal cd_boot    : unsigned(17 downto 0) := (others => '0');
   signal cd_changed : std_logic_vector(1 downto 0) := "00";
   signal cd_pulse   : std_logic_vector(1 downto 0) := "00";
+  signal fe_media   : std_logic_vector(1 downto 0) := "00";
   signal cd_clear   : std_logic := '0';
   type t_cd_cnt is array (0 to 1) of unsigned(15 downto 0);
   signal cd_cnt     : t_cd_cnt := (others => (others => '0'));""")
@@ -1195,6 +1196,13 @@ rep("""  cache0: entity work.sd_cache""", """  card_detect : process (clock)
       if cd_clear = '1' then
         cd_changed <= "00";
       end if;
+      -- for the FAT32 engine, which thaws at its next command: the bits it
+      -- takes as it starts are cleared (a change in the same cycle stays)
+      if fe_start = '1' then
+        fe_media <= cd_pulse;
+      else
+        fe_media <= fe_media or cd_pulse;
+      end if;
     end if;
   end process card_detect;
 
@@ -1249,7 +1257,7 @@ rep("""  card_detect : process (clock)""", """  fe_reset <= not reset;
       port map (
         clock => clock, reset => fe_reset,
         start => fe_start, cmd => fe_cmd, arg_in => sd_sector,
-        hypervisor => hypervisor_mode,
+        hypervisor => hypervisor_mode, media => fe_media,
         busy => fe_busy, status => fe_status, arg_out => fe_arg,
         mem_raddr => fe_raddr, mem_rdata => f011_buffer_rdata,
         mem_we => fe_we, mem_waddr => fe_waddr, mem_wdata => fe_wdata,

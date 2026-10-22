@@ -33,6 +33,7 @@ TESTS = os.path.join(HERE, "..", "tests")
 
 SESSION = r"""
 drives
+rescan
 dir
 cd games
 dir *.prg
@@ -82,6 +83,7 @@ exit
 EXPECT = [
     "C: ext card, at 2048, 300 mb, 4 kb clusters",
     "D: ext card, at 616448, 40 mb, 512 b clusters",
+    "2 drive(s)\n",
     "README.TXT",
     "      768 --- SHORT.PRG",
     "1 file(s), 768 b, 0 dir(s)",

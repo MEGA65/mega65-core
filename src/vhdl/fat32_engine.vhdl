@@ -35,6 +35,7 @@ entity fat32_engine is
     cmd        : in  unsigned(7 downto 0);
     arg_in     : in  unsigned(31 downto 0);
     hypervisor : in  std_logic;
+    media      : in  std_logic_vector(1 downto 0);  -- cards changed (the media instruction)
     busy       : out std_logic;
     status     : out unsigned(7 downto 0);   -- 0: done; else the error
     arg_out    : out unsigned(31 downto 0);  -- $D681-$D684 afterwards
@@ -97,6 +98,7 @@ architecture rtl of fat32_engine is
   signal cmd_r : unsigned(7 downto 0) := (others => '0');
   signal arg_r : unsigned(31 downto 0) := (others => '0');
   signal hyp_r : std_logic := '0';
+  signal media_r : unsigned(1 downto 0) := "00";
   signal busy_r : std_logic := '0';
   signal status_r : unsigned(7 downto 0) := (others => '0');
 
@@ -265,6 +267,7 @@ begin
             cmd_r    <= cmd;
             arg_r    <= arg_in;
             hyp_r    <= hypervisor;
+            media_r  <= unsigned(media);
             busy_r   <= '1';
             status_r <= (others => '0');
             pc       <= (others => '0');
@@ -528,6 +531,8 @@ begin
             when OP_ARG    => l(la) <= arg_r;
             when OP_SETARG => arg_r <= l(la);
             when OP_HYP    => cf <= hyp_r;
+            when OP_MEDIA  => r(ra) <= "000000" & media_r;
+                              zf <= b2l(media_r = 0);
             when OP_DONE   => finish(x"00");
             when OP_FAIL   => finish(n8);
             when OP_FAILR =>

@@ -1087,6 +1087,64 @@ begin
     wait_ready(5 ms);
     check_buffer(40, true, "read-only policy: the hypervisor's sector written");
 
+    -- a card change (card detect) reaches the engine: its next command
+    -- thaws first.  The volume's serial number is changed on the card, so
+    -- the descriptor is stale after the change, and only then.  (First the
+    -- earlier card-detect test's last change, still pending after its
+    -- debounce: the k = 0 round below consumes it before the serial
+    -- number changes.)
+    wait for 2500 us;
+    for k in 0 to 2 loop
+      if k = 1 then
+        set_sector(8);
+        poke(16#D3680#, 16#02#);
+        wait_ready(5 ms);
+        poke(16#FFE00# + 67, 16#5A#);
+        set_sector(8);
+        poke(16#D3680#, 16#57#);
+        poke(16#D3680#, 16#03#);
+        wait_ready(5 ms);
+      elsif k = 2 then
+        sd_cd_t(0) <= '0';
+        wait for 2500 us;
+      end if;
+      poke(16#FFE00#, character'pos('F'));
+      poke(16#FFE01#, character'pos('3'));
+      poke(16#FFE02#, 1);
+      poke(16#FFE03#, 16#23#);                   -- seek to 0
+      poke(16#FFE04#, h1);
+      poke(16#FFE05#, 0);
+      for i in 6 to 9 loop
+        poke(16#FFE00# + i, 0);
+      end loop;
+      poke(16#D3680#, 16#70#);
+      t0 := now;
+      loop
+        peek(16#D3680#, v);
+        exit when v(0) = '0';
+        assert now - t0 < 20 ms report "card change: no end" severity failure;
+        wait for 1 us;
+      end loop;
+      peek(16#D3687#, v);
+      if k < 2 then
+        check(v = 0, "card change: before it, the descriptor works ("
+              & integer'image(to_integer(v)) & ")");
+      else
+        check(v = 16, "card change: then the descriptor is stale ("
+              & integer'image(to_integer(v)) & ")");
+      end if;
+    end loop;
+    sd_cd_t(0) <= '1';
+    poke(16#FFE00#, character'pos('F'));
+    poke(16#FFE01#, character'pos('3'));
+    poke(16#FFE02#, 1);
+    poke(16#FFE03#, 16#22#);                     -- close it
+    poke(16#FFE04#, h1);
+    poke(16#D3680#, 16#70#);
+    wait_ready(20 ms);
+    peek(16#D3687#, v);
+    check(v = 0, "card change: the stale descriptor closes");
+
     -- each disk image is on the card selected when its start was set
     poke(16#D3680#, 16#C1#);
     poke(16#D368C#, 0);

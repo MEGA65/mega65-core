@@ -771,12 +771,22 @@ static void t_errors(void)
 static void t_again(void)
 {
   uint8_t k;
+  int16_t fd;
   uint32_t n = 2 * csize + 7;
   begin("again: rescan, cache off");
   for (k = 0; k < 2; k++) {
     sd_cache(k);
     fatbuf_lba = 0xFFFFFFFFUL;
+    /* a file open across the rescan reads on (its volume is found again) */
+    fd = f3_open("size300000.bin", 0);
+    CHECK(fd >= 0 && f3_read(fd, 512) == 512, "open before the rescan", fd);
     CHECK(!f3_op(OP_RESCAN, 0, 0, 0, 0), "rescan", 0);
+    CHECK(f3_res1 == 0, "rescan: nothing stale", f3_res1);
+    if (fd >= 0) {
+      CHECK(f3_read(fd, 512) == 512 && pat_check(buf, 512, 512, 11) < 0,
+            "a file open across the rescan reads on", 0);
+      f3_close(fd);
+    }
     f3_op(OP_SETDRIVE, 0, 0, (cg - g) + 1, 0);
     CHECK(!f3_simple(OP_CHDIR, DIRNAME), "chdir after the rescan", 0);
     sprintf(pa, "size%lu.bin", (unsigned long)n);

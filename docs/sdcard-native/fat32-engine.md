@@ -103,7 +103,7 @@ add (`LSHL` by log2 of the sectors per cluster, which is stored at mount).
 VHDL ROM output comes with the engine RTL), and its docstring is the
 instruction reference.  `src/tools/test_fat32_engine.py` runs
 `src/fat32/engine.fs` against the `fat32img.py` fixture and checks every
-result against `fat32img`'s own reading of the image (60 read checks, 98
+result against `fat32img`'s own reading of the image (60 read checks, 112
 write checks).
 
 ## 4. Memory layout
@@ -164,7 +164,7 @@ the response, byte 3 is the status (0, or an error code below).
 
 | Op | Operation | In | Out |
 |---|---|---|---|
-| `$01` | `rescan` | | arg0 = drives found |
+| `$01` | `rescan` (as a thaw: open descriptors follow their volumes, or go stale) | | arg0 = drives found, arg1 = descriptors made stale (as thaw's arg0) |
 | `$02` | `getpartitionlist` | | arg0 = n; 16 bytes each from +16: drive, slot, type, log2 sectors per cluster, partition LBA, size, clusters |
 | `$03` | `setdrive` | arg0 = drive | |
 | `$04` | `policy` (hypervisor) | arg0 bit 0: programs may not modify the file system | |
@@ -227,6 +227,17 @@ open files are not stored, and none are needed.  The thaw returns which
 descriptors went stale.  A hypervisor that opened H0/H1 before the restore
 loses them: they come back as the frozen program's.
 
+**The same, without the freezer:** `rescan` does exactly this (so an open
+file never ends up on another volume that took its drive number), and so
+does any command after a card was removed or inserted.  The controller
+keeps a bit per slot, set when that slot's card-detect switch changes
+(debounced), and hands both to the engine as a command starts (the `media`
+instruction), clearing them.  If any is set, the engine thaws before doing
+the command.  A card that was pulled is not initialised when it comes back,
+so its drives are gone and its descriptors stale, even if it is the same
+card: it reappears after the card is initialised (`$2B`) and rescanned.
+The other card's drives and descriptors carry on.
+
 An entry (from +16): attributes, 3 bytes 0, size (4), first cluster (4),
 time and date (4), the 8.3 name as text (13, 0-terminated), and from +48
 the long name (UTF-8; or the 8.3 name), 0-terminated.
@@ -255,8 +266,11 @@ the entry copy, the name buffers (path component and long name, UTF-8),
 the UCS-2 buffer at `$580`, the write side's working state at `$788`, and
 "F3" at `$7FE`.  Without "F3" (power on) the engine clears the area first.
 
-**Firmware size:** about 2820 instructions, so the ROM is 4K x 24 (12-bit
-jump addresses) in LUTs.
+**Firmware size:** about 2830 instructions, so the ROM is 4K x 24 (12-bit
+jump addresses).  It was meant for LUTs, but since the instruction register
+is a registered read of it, Vivado puts it in block RAM (seen in the
+mega65r6 build of `821401d48`: `ir_reg_0` is a RAMB; 4K x 24 needs about 3
+RAMB36).
 
 `$70` operations:
 
@@ -290,8 +304,8 @@ jump addresses) in LUTs.
   (size, time, archive) are written before the command completes.
 - **Stale descriptors:** a thaw marks a descriptor stale when its file or
   directory is no longer where it was; it then fails until closed.  Drive
-  numbers follow the volume, never silently another one.  (Card removal
-  does not yet mark descriptors stale.)
+  numbers follow the volume, never silently another one.  A rescan, or a
+  card removed or inserted, does the same (above).
 - **One writer per file** (busy otherwise); readers are not limited.
 - **Names:** UTF-8, at most 255 bytes per component (longer long names are
   listed cut short with an ellipsis, and open by that form).  Matching
@@ -357,13 +371,16 @@ jump addresses) in LUTs.
      card was selected when it asked, which breaks once the engine or Hyppo
      moves between the cards.
 
-   `test_fat32_engine.py`: 98 write checks, among them the quick commands, mountimage,
+   `test_fat32_engine.py`: 112 write checks, among them the quick commands, mountimage,
    thaw within a session (a file deleted meanwhile goes stale, the rest
-   carry on), and thaw with the card moved to the internal slot and another
-   card in the external one.  `tb_sdcardio_native`: a quick read, the
-   policy gate (refused for a program, `$D687` = `$0F`; the hypervisor's
-   write and, with the policy off, a program's go ahead) and the image
-   slots.
+   carry on), thaw with the card moved to the internal slot and another
+   card in the external one, and card removal (stale until closed, the
+   drives back once the card is, a change of the other slot harmless).
+   `tb_sdcardio_native`: a quick read, the policy gate (refused for a
+   program, `$D687` = `$0F`; the hypervisor's write and, with the policy
+   off, a program's go ahead), the image slots, and a card-detect change
+   reaching the engine (a volume whose serial number changed makes the
+   descriptor stale only after the change).
 
    - `mountimage` (`$08`): checks that an open file is one run of
      clusters and gives its start sector, size and card.  Open for writing,

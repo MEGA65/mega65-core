@@ -10,7 +10,7 @@
 -- Transcript lines (hex):
 --   S slot lba data       a sector as the commands first read it (512 bytes)
 --   W addr bytes          the buffer before the next command
---   C cmd arg hyp         a command
+--   C cmd arg hyp media   a command (media: the cards changed)
 --   V slot lba data       a sector it wrote (in order)
 --   E addr bytes          the buffer after it (the changes)
 --   R status arg steps    its result (steps: the simulator's instructions)
@@ -35,6 +35,7 @@ architecture tb of tb_fat32_engine is
   signal done  : boolean := false;
 
   signal start, hyp : std_logic := '0';
+  signal media : std_logic_vector(1 downto 0) := "00";
   signal cmd    : unsigned(7 downto 0) := (others => '0');
   signal arg_in : unsigned(31 downto 0) := (others => '0');
   signal busy   : std_logic;
@@ -59,7 +60,7 @@ begin
     generic map (G_RD_LAT => G_RD_LAT)
     port map (
       clock => clock, reset => '0',
-      start => start, cmd => cmd, arg_in => arg_in, hypervisor => hyp,
+      start => start, cmd => cmd, arg_in => arg_in, hypervisor => hyp, media => media,
       busy => busy, status => status, arg_out => arg_out,
       mem_raddr => mem_raddr, mem_rdata => mem_rdata, mem_we => mem_we,
       mem_waddr => mem_waddr, mem_wdata => mem_wdata,
@@ -243,6 +244,8 @@ begin
           arg_in <= v32;
           field(v32);
           hyp <= v32(0);
+          field(v32);
+          media <= std_logic_vector(v32(1 downto 0));
           nw := 0;
           nv := 0;
           start <= '1';

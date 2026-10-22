@@ -143,6 +143,10 @@ warm:
         xset G_ALLVIS                   ; (an error may have left it set)
         ldi r0, 0
         st r0, [x+0]
+        media r0                        ; a card removed or inserted since the
+        jz wm_cmd                       ; last command: its drives found again
+        call thaw                       ; (or gone) and its descriptors stale
+wm_cmd:
         cmd r0
         cmpi r0, $70
         jz request
@@ -265,11 +269,20 @@ error2:
 ; ==============================================================================
 ; rescan: the MBRs of the external card (slot 1), then the internal (slot 0);
 ; up to 4 FAT32 partitions each become drives 1.. (8 at most)
+; (as a thaw: descriptors and current directories follow their volumes, or go
+; stale) -> arg0 the drives found, arg1 the descriptors made stale (as thaw's
+; arg0)
 op_rescan:
-        call rescan
+        call thaw
+        xset G_NDRV
+        ld r0, [x+0]
+        btol l0, r0
         xset REQ
-        btol l0, r5
         lst l0, [x+R_ARG0]
+        xset T_STALE
+        lldw l0, [x+0]
+        xset REQ
+        lst l0, [x+R_ARG1]
         jmp ok
 
 ; rescan: the drive table built again (current directories: the roots) -> R5
@@ -3234,7 +3247,9 @@ quick_arg:
         ret
 
 ; ==============================================================================
-; $07 thaw (hypervisor), after the freezer has put $000-$7FF back: the cards
+; $07 thaw (hypervisor), after the freezer has put $000-$7FF back.  The same
+; (the subroutine thaw) follows a rescan ($01), and any command after a card
+; was removed or inserted (the media instruction).  The cards
 ; are scanned again, each drive is found again by its volume (serial number,
 ; partition start and size: the card may have been changed, or its partitions
 ; found in another order), then every open descriptor is checked against the
@@ -3251,6 +3266,21 @@ quick_arg:
 op_thaw:
         hyp
         jnc op_access
+        call thaw
+        xset T_STALE
+        lldw l0, [x+0]
+        xset REQ
+        lst l0, [x+R_ARG0]
+        xset G_NDRV
+        ld r0, [x+0]
+        btol l0, r0
+        xset REQ
+        lst l0, [x+R_ARG1]
+        jmp ok
+
+; thaw: as above; the mask of descriptors made stale in T_STALE (2).  R0-R10,
+; L0-L3 change
+thaw:
         xset DRV
         yset T_DRV
         ldi r1, 0
@@ -3387,16 +3417,7 @@ th_next:
         inc r2
         cmpi r2, 10
         jnz th_fd
-        xset T_STALE
-        lldw l0, [x+0]
-        xset REQ
-        lst l0, [x+R_ARG0]
-        xset G_NDRV
-        ld r0, [x+0]
-        btol l0, r0
-        xset REQ
-        lst l0, [x+R_ARG1]
-        jmp ok
+        ret
 
 ; th_find: frozen drive R6 (1..8) -> R5 the drive its volume is now (0: gone).
 ; The same number first, then any.

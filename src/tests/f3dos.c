@@ -261,10 +261,19 @@ static void cmd_drives(void)
   }
 }
 
+/* both cards initialised again (a card just put in is not, until then),
+   then the engine's rescan: open files follow their volumes, or go stale */
 static void cmd_rescan(void)
 {
-  if (!report(f3_op(OP_RESCAN, 0, 0, 0, 0)))
-    printf("%lu drive(s)\n", (unsigned long)f3_res0);
+  uint8_t i, n;
+  sd_init_both();
+  if (report(f3_op(OP_RESCAN, 0, 0, 0, 0)))
+    return;
+  printf("%lu drive(s)", (unsigned long)f3_res0);
+  for (i = n = 0; i < 10; i++)
+    if (f3_res1 & (1 << i)) n++;
+  if (n) printf(", %u open file(s) now stale", n);
+  printf("\n");
 }
 
 static void cmd_setdrive(uint8_t d)

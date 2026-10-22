@@ -629,6 +629,19 @@ def write_tests(image, verbose, trace=None):
     e.ok(0x12, path="/")
     fsck("thaw")
 
+    # a card change reported by card detect, the same card back (and, here,
+    # still initialised): the next command thaws first, and everything is found
+    # again; so is it by a rescan
+    fa = e.ok(0x20, path="/GAMES/SHORT.PRG")[4]
+    e.read(fa, 10)
+    e.m.media = 2
+    check("card change, the same card: reads on", e.read(fa, 20) == short_prg[10:30])
+    r = e.ok(1)
+    check("rescan: 2 drives, nothing stale", (u32(r, 6), u32(r, 10)) == (2, 0),
+          (u32(r, 6), u32(r, 10)))
+    check("rescan: reads on", e.read(fa, 20) == short_prg[30:50])
+    e.ok(0x22, fd=fa)
+
     if trace:
         e.m.write_trace(trace)
         e.m.trace = None
@@ -664,6 +677,37 @@ def write_tests(image, verbose, trace=None):
     e.m.flush()
     e.m.files = {1: open(copy, "r+b")}
     e.ok(1)
+
+    # card removal: the next command (whatever it is) finds the drives gone, and
+    # the card's descriptors stale, also once a card (even the same one) is back
+    e.ok(0x12, path="/GAMES")
+    fa = e.ok(0x20, path="SHORT.PRG")[4]
+    e.read(fa, 10)
+    e.m.hypervisor = True
+    e.ok(0x20, fd=0, flags=0x80, path="/README.TXT")
+    e.m.hypervisor = False
+    e.m.media = 1                           # the other (empty) slot changed
+    check("a change of the other card leaves this one alone", e.read(fa, 20) == short_prg[10:30])
+    e.m.flush()
+    e.m.files = {}
+    e.m.media = 2
+    check("card removed: its file is stale", e.m.command(0x71, arg=(fa << 24) | 1)[0] == E_STALE)
+    check("card removed: no drives", u32(e.ok(1), 6) == 0)
+    check("card removed: no file", e.req(0x24, path="/README.TXT")[0] == E_NODRV)
+    e.m.files = {1: open(copy, "r+b")}
+    e.m.media = 2
+    check("card back: found without a rescan", e.req(0x24, path="/README.TXT")[0] == 0)
+    check("card back: the file stays stale", e.m.command(0x71, arg=(fa << 24) | 1)[0] == E_STALE)
+    e.m.hypervisor = True
+    check("card back: H0 stays stale", e.m.command(0x71, arg=1)[0] == E_STALE)
+    e.ok(0x22, fd=0)
+    e.m.hypervisor = False
+    check("card back: the current directory is the root", e.ok(0x13)[16:18] == b"/\0")
+    e.ok(0x22, fd=fa)
+    fa = e.ok(0x20, path="/GAMES/SHORT.PRG")[4]
+    check("card back: opened again, it reads", e.read(fa, 20) == short_prg[:20])
+    e.ok(0x22, fd=fa)
+    fsck("card removal")
 
     # fill the second partition, then free it (not in the transcript: 80k sectors)
     e.ok(3, arg0=2)

@@ -102,6 +102,11 @@ void sd_cache(uint8_t on)
   bridge(on ? 0x25 : 0x26, 0);
 }
 
+void sd_init_both(void)
+{
+  bridge(0x2B, 0);
+}
+
 uint32_t ticks(void)
 {
   return (uint32_t)(clock() / (CLOCKS_PER_SEC / 10));
@@ -179,6 +184,11 @@ uint8_t sd_read(uint32_t sector)
 void sd_cache(uint8_t on)
 {
   f3_cmd(on ? 0x25 : 0x26, 0);
+}
+
+void sd_init_both(void)
+{
+  f3_cmd(0x2B, 0);
 }
 
 /* CIA 1 time of day, in tenths of a second (it runs from power-on) */
