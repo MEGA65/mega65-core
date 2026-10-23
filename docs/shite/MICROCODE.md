@@ -24,21 +24,16 @@ core at 22,400 LUTs:
 The rows overlap, so they don't add up to the total.
 
 The engine has one register file and one ALU, and the microcode lives in
-block RAM.  Instructions move to it a family at a time.  Until all of them
-have moved, `shite.vhdl`'s state machine runs the rest and serves the
-engine's memory requests.
-
-| Instruction | Run by |
-|---|---|
-| $41-$49: REBALANCE_ROW, FIND_CELL, FORMAT_CELLS, COMPILE, DECOMPILE, RENDER, PARSE, MOVE_CELLS, CELLS_MOVED | microcode |
-| $40 RECALC | the state machine (for now) |
+block RAM.  Every instruction ($40-$49) is microcode now.  `shite.vhdl` keeps
+the engine, the codec units, and a small state machine that serves the
+engine's memory requests and its jobs on the units.
 
 ## The engine
 
 The engine runs on sclock (40.5 MHz).  Each cycle it reads its registers,
 uses the ALU, picks its branch and addresses the ROM for the next micro-op.
 
-- **ROM**: 2048 × 72 bits of block RAM, read on the clock edge.  Its next
+- **ROM**: 4096 × 72 bits of block RAM, read on the clock edge.  Its next
   address is chosen combinationally from the op in hand.
 - **Registers**: 128 × 64 bits of LUT RAM, with two asynchronous read ports
   and one write port.
@@ -55,7 +50,8 @@ uses the ALU, picks its branch and addresses the ROM for the next micro-op.
   - SSNAIL's abort.
 
   Ops can also call and return (16 deep), jump through a table
-  (`target + result`), and jump to an address in a register.  `SETSP`
+  (`target + result`), and jump to an address in a register.  RECALC's
+  evaluator leaves an aborted formula the same way.  `SETSP`
   backs out of calls: the byte reader, past a formula's end, goes straight
   to the formula's end, wherever it was called from.
 - **Memory**: one 8-byte group per request.
@@ -76,9 +72,17 @@ uses the ALU, picks its branch and addresses the ROM for the next micro-op.
   memory requests, then acknowledges.  The engine forgets its kept group
   after a job, since the unit may have written it.  The port numbers are
   the `P_` and `I_` names in `shite_ucode.asm`, decoded in `shite.vhdl`.
-- **Data RAM**: 2048 × 64 bits of block RAM, addressed by `ra + imm`.  A
-  load takes two cycles and a store one.  REBALANCE_ROW (and MOVE_CELLS'
-  tree for each row it builds) keeps its list of cells there.
+- **Multiplier and divider**: `MUL` gives a 64 × 64 product's low half
+  (`MOVX MULHI` the high), unsigned, a bit a cycle; `DIV` divides `DIVHI:ra`
+  (`OUT #32` sets DIVHI) by rb, restoring, a bit a cycle (`MOVX DIVQH`, the
+  quotient's high half; `MOVX DIVR`, the remainder).  The state machine's
+  were the same speed.
+- **Data RAM**: 2048 × 64 bits of block RAM, addressed by `ra + imm`, its
+  first contents from `.data`.  A load takes two cycles and a store one.
+  REBALANCE_ROW (and MOVE_CELLS' tree for each row it builds) keeps its
+  list of cells in words 0-1023 and its tree's queue after it; RECALC its
+  evaluation stack from 1024, the range walk's stack from 1088, and the
+  powers of ten from 1152.
 
 ## Micro-op format (72 bits)
 
@@ -90,8 +94,8 @@ uses the ALU, picks its branch and addresses the ROM for the next micro-op.
 | 51-45 | rb |
 | 44 | B is the immediate (else rb) |
 | 43-40 | condition |
-| 39-29 | branch target |
-| 28-0 | immediate (sign-extended): an offset, a field's position (bits 5-0) and width (bits 13-8, 0 meaning 64), or a MOVX source |
+| 39-28 | branch target |
+| 27-0 | immediate (sign-extended): an offset, a field's position (bits 5-0) and width (bits 13-8, 0 meaning 64), or a MOVX source |
 
 Constants wider than the immediate live in `.const` registers.
 
@@ -104,8 +108,9 @@ Constants wider than the immediate live in `.const` registers.
 | 11 INS | rb with ra's low w bits put at lo | |
 | 12 HI | B's low 32 bits, then ra's low 32 bits | |
 | 13 SETSP | none | the call stack's depth set to ra (from MOVX SP) |
-| 14 MOVX | the instruction's OP, RA, RB, RC, RD, RZ or X, or the call stack's depth (SP) | |
-| 16-19 LDB, LDH, LDL, LDQ | 1, 2, 4 or 8 bytes at `ra + rb × s + imm`, zero-extended | must not cross an 8-byte group; s is 1, 4, 8 or 16 (imm bits 28-27), the offset 27 bits |
+| 14 MOVX | the instruction's OP, RA, RB, RC, RD, RZ or X; the call stack's depth (SP); MULHI, DIVQH, DIVR | |
+| 15 CLZ | ra's leading zeros (64 if ra is 0) | |
+| 16-19 LDB, LDH, LDL, LDQ | 1, 2, 4 or 8 bytes at `ra + rb × s + imm`, zero-extended | must not cross an 8-byte group; s is 1, 4, 8 or 16 (imm bits 27-26), the offset 26 bits |
 | 20-23 STB, STH, STL, STQ | rb's low 1, 2, 4 or 8 bytes stored at `ra + imm` | must not cross an 8-byte group |
 | 24 LDD, 25 STD | the data RAM at `ra + imm` (LDD: indexed, as a load) | STD stores rb |
 | 26 RES | none | the instruction's result is ra's low 32 bits |
@@ -113,6 +118,7 @@ Constants wider than the immediate live in `.const` registers.
 | 28 OUT | none | a codec job's input (port imm) set to ra |
 | 29 IN | a codec unit's result (port imm) | |
 | 30 JOB | none | runs a job on unit imm (0 the formula codec, 1 the renderer, 2 PARSE's converter) |
+| 31 MUL, 32 DIV | the product's low half, the quotient's | 64 and 128 cycles |
 
 | Condition | Taken when |
 |---|---|
@@ -141,6 +147,8 @@ the package and fails if the committed one differs.
 .reg  a, b, c                ; registers by name (from r1 up)
 .const M32 = 0xFFFFFFFF      ; a register holding this from the start (from r127 down)
 .scope / .endscope           ; registers named between are freed at the end
+.alias b = a                 ; another name for a register
+.data 1152 = 1               ; the data RAM's word 1152 starts as 1
 label:
       op operands [| cond [target]]
 ```
@@ -164,6 +172,16 @@ Pseudo-ops:
 
 Any op can carry a condition: `add row, row, #1 | jmp b_row`.
 
+## Checking it without a simulator
+
+`tools/shite_usim.py` models the engine op by op in Python (the micro-ops'
+results, not their cycles; the codec units not at all).
+`tools/shite_ucheck.py gen_shiteN.py` runs a bench's program with every
+SHITE instruction also run on that model from the same memory, and stops
+at the first one whose memory, result or error differs from the reference
+model's.  `--trace N` prints instruction N's micro-ops.  It takes seconds
+where the VHDL bench takes minutes.
+
 ## Moving the rest
 
 Instructions move a family at a time, each step passing the whole bench
@@ -175,31 +193,62 @@ suite:
    state machine's REBALANCE, MOVE and list RAM are gone).
 3. FORMAT_CELLS and the codec jobs (COMPILE, DECOMPILE, RENDER, PARSE)
    (done; the codec units stay hardware).
-4. RECALC: the walk, the evaluator, the functions and the aggregates.  The
-   engine gains a multiplier and divider, and F64 help: count leading
-   zeros, and possibly normalise and round.
+4. RECALC: the walk, the evaluator, the functions and the aggregates
+   (done; the engine gained the multiplier, the divider and CLZ, and
+   normalises and rounds F64 in microcode).
 
-At the end `shite.vhdl` keeps only the memory crossing, the codec units and
-the engine.
+`shite.vhdl` now keeps only the memory crossing, the codec units and the
+engine.
 
 ## Size and speed
 
-Yosys `synth_xilinx`, LUTs (the engine's register file is another 88 RAM64M):
+Yosys `synth_xilinx`, LUTs (the engine's register file is another 88 RAM64M;
+the codec units, separate, not counted):
 
 | | SHITE | engine |
 |---|---|---|
 | all state machine | 22,442 | |
 | REBALANCE, FIND_CELL, MOVE in microcode | 17,790 | 2,950 |
 | and FORMAT_CELLS, the codec jobs | 16,359 | 3,047 |
+| everything (the state machine only memory and the units' jobs) | 690 | 3,701 |
+
+The engine uses 12 RAMB36: 8 for the ROM, 4 for the data RAM.
 
 Microcode runs an op per cycle where the state machine did several things
-in a state, so the instructions moved are slower.  On the benches,
-simulated:
+in a state, so the instructions are slower, about twice.  On the benches
+(simulated, each including about 0.2 ms of set-up):
 
 | | state machine | microcode |
 |---|---|---|
-| `tb_shite_step1` (REBALANCE_ROW, 64 FIND_CELLs) | 340 µs | 474 µs |
+| `tb_shite_step1` (REBALANCE_ROW, 64 FIND_CELLs) | 340 µs | 476 µs |
+| `tb_shite_step2` (RECALC, integers) | 0.71 ms | 1.49 ms |
+| `tb_shite_step4` (RECALC, F64 and functions) | 2.71 ms | 4.90 ms |
+| `tb_shite_step7` (RECALC, SQRT, POWER) | 6.86 ms | 8.61 ms |
+| `tb_shite_step8` (the codec jobs, FORMAT_CELLS) | 1.86 ms | 1.90 ms |
 | `tb_shite_step9` (six moves, a CELLS_MOVED) | 4.01 ms | 8.23 ms |
 
-MOVE's time is mostly micro-ops (its byte-by-byte walk of each formula),
-not memory.
+The time is mostly micro-ops, not memory: RECALC's is spread evenly over
+the evaluator (dispatch, operands, the stack, the binary operators, F64);
+MOVE's is its byte-by-byte walk of each formula.  The benches' timeouts are
+ten times what they were.
+
+## Tests
+
+The VHDL benches (`tools/run_ssnail_tests.py`) run every instruction
+against the reference model.  Besides them:
+
+- `tools/shite_ucheck.py gen_shiteN.py`: a bench's program on the
+  microcode model (seconds, not minutes), instruction by instruction.
+- `tools/shite_ufuzz.py --sheets N`: RECALC on random sheets and formulas
+  (every operator, function and aggregate, fixed points at and past their
+  limits, F64 at its edges, references off the sheet, IF, rounds with BEGIN
+  and END), the model against the microcode.  It found one difference the
+  benches had not: a blank result stored into a cell whose fixed point is
+  past its limits, #NUM! in the model, (I64, 0) in the state machine; the
+  microcode follows the model.
+- Mutants of the microcode (a check removed, a constant changed): those of
+  REBALANCE_ROW, FIND_CELL, MOVE and the codec jobs caught by the benches
+  but two (a RENDER error's code in R[a], the renderer's upper-case flag:
+  both passed straight through); RECALC's 16 caught by the benches or the
+  fuzzer but two: SQRT's sticky bit, and F64 addition's for exponents more
+  than 64 apart (rounding ties, not met by random values).

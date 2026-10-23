@@ -1,7 +1,7 @@
 -- SHITE's microcode engine (docs/shite/MICROCODE.md)
 --
--- One micro-op a cycle from a ROM in block RAM (shite_ucode_pkg, made by
--- tools/shite_uasm.py from shite_ucode.asm).  128 registers of 64 bits in
+-- One micro-op a cycle from a ROM in block RAM (4096 x 72, shite_ucode_pkg,
+-- made by tools/shite_uasm.py from shite_ucode.asm).  128 registers of 64 bits in
 -- LUT RAM, with two read ports; r0 reads 0, and some start with constants.
 -- One ALU; a branch on that same op's result; call and return (16 deep);
 -- a jump to a register.  Memory is one 8-byte group at a time, through
@@ -11,7 +11,10 @@
 -- Loads can be indexed: ra + rb x 1, 4, 8 or 16 + offset.  A data RAM
 -- (2048 x 64, block RAM) holds lists and tables.  The codec units are
 -- reached through ports: OUT sets a job's input, IN reads a result, JOB
--- runs one (shite's state machine serves its memory meanwhile).
+-- runs one (shite's state machine serves its memory meanwhile).  A
+-- multiplier (64 x 64 to 128, unsigned, a bit a cycle), a divider (128 /
+-- 64, restoring, a bit a cycle) and a square root (of 128 bits, restoring,
+-- a bit a cycle), as the state machine had.
 --
 -- Runs on sclock (40.5 MHz on the boards).  The register read, the ALU, the
 -- branch's choice and the ROM's next address are one cycle.
@@ -58,15 +61,15 @@ architecture rtl of shite_useq is
 
   -- the micro-op's fields (docs/shite/MICROCODE.md)
   signal ir : std_logic_vector(71 downto 0) := (others => '0');
-  signal upc : unsigned(10 downto 0) := (others => '0');
+  signal upc : unsigned(11 downto 0) := (others => '0');
   alias f_op : std_logic_vector(5 downto 0) is ir(71 downto 66);
   alias f_rd : std_logic_vector(6 downto 0) is ir(65 downto 59);
   alias f_ra : std_logic_vector(6 downto 0) is ir(58 downto 52);
   alias f_rb : std_logic_vector(6 downto 0) is ir(51 downto 45);
   alias f_bimm : std_logic is ir(44);
   alias f_cond : std_logic_vector(3 downto 0) is ir(43 downto 40);
-  alias f_target : std_logic_vector(10 downto 0) is ir(39 downto 29);
-  alias f_imm : std_logic_vector(28 downto 0) is ir(28 downto 0);
+  alias f_target : std_logic_vector(11 downto 0) is ir(39 downto 28);
+  alias f_imm : std_logic_vector(27 downto 0) is ir(27 downto 0);
 
   signal rf : uc_regs_t := UC_REGS_INIT;
   -- (LUT RAM: its read asynchronous)
@@ -74,11 +77,11 @@ architecture rtl of shite_useq is
   attribute ram_style of rf : signal is "distributed";
   signal va, vb, imm : unsigned(63 downto 0);
 
-  type stack_t is array (0 to 15) of unsigned(10 downto 0);
+  type stack_t is array (0 to 15) of unsigned(11 downto 0);
   signal stk : stack_t := (others => (others => '0'));
   signal sp : unsigned(3 downto 0) := (others => '0');
 
-  signal dm : uc_data_t := (others => (others => '0'));
+  signal dm : uc_data_t := UC_DATA_INIT;
   attribute ram_style of dm : signal is "block";
   signal dm_q : unsigned(63 downto 0) := (others => '0');
   signal dm_a : natural range 0 to UC_DATA_WORDS - 1;
@@ -98,7 +101,19 @@ architecture rtl of shite_useq is
   -- the cycle's decisions
   signal res : unsigned(63 downto 0);
   signal adv : std_logic;                         -- the op completes this cycle
-  signal nxt : unsigned(10 downto 0);
+  signal nxt : unsigned(11 downto 0);
+
+  -- the multiplier: mu_hi:mu_lo += mu_a x (mu_b's low bit), shifted; the
+  -- divider: dv_r:dv_n shifted, dv_d subtracted where it fits (dv_n
+  -- becomes the quotient); the steps to go (0: idle)
+  signal mu_a, mu_b, mu_lo, dv_d : unsigned(63 downto 0) := (others => '0');
+  signal mu_hi : unsigned(63 downto 0) := (others => '0');
+  signal dv_n : unsigned(127 downto 0) := (others => '0');
+  signal dv_r : unsigned(65 downto 0) := (others => '0');   -- (SQRT: 66 bits)
+  signal sq_root : unsigned(63 downto 0) := (others => '0');
+  signal dvh : unsigned(63 downto 0) := (others => '0');       -- (the dividend's high half: OUT #32)
+  signal steps : natural range 0 to 129 := 0;
+  signal busy : std_logic := '0';
   signal maddr : unsigned(27 downto 0);
 
   -- bits 0..n-1 set (n 0-64; past 64: all): a thermometer, not a shifter
@@ -126,20 +141,20 @@ begin
   va <= rf(to_integer(unsigned(f_ra)));
   vb <= rf(to_integer(unsigned(f_rb)));
   imm <= unsigned(resize(signed(f_imm), 64));
-  -- the address: ra + imm; a load's ra + rb x 1/4/8/16 + imm (bits 26-0;
-  -- 28-27 the scale)
+  -- the address: ra + imm; a load's ra + rb x 1/4/8/16 + imm (bits 25-0;
+  -- 27-26 the scale)
   process (ir, va, vb, imm)
     variable ix : unsigned(27 downto 0);
   begin
     case to_integer(unsigned(f_op)) is
       when UOP_LDB | UOP_LDH | UOP_LDL | UOP_LDQ | UOP_LDD =>
-        case f_imm(28 downto 27) is
+        case f_imm(27 downto 26) is
           when "00" => ix := vb(27 downto 0);
           when "01" => ix := vb(25 downto 0) & "00";
           when "10" => ix := vb(24 downto 0) & "000";
           when others => ix := vb(23 downto 0) & "0000";
         end case;
-        maddr <= va(27 downto 0) + ix + unsigned(resize(signed(f_imm(26 downto 0)), 28));
+        maddr <= va(27 downto 0) + ix + unsigned(resize(signed(f_imm(25 downto 0)), 28));
       when others =>
         maddr <= va(27 downto 0) + imm(27 downto 0);
     end case;
@@ -147,10 +162,12 @@ begin
 
   x_sel <= unsigned(f_imm(5 downto 0));
   x_wd <= va;
-  x_we <= '1' when run = '1' and start = '0' and to_integer(unsigned(f_op)) = UOP_OUT else '0';
+  x_we <= '1' when run = '1' and start = '0' and to_integer(unsigned(f_op)) = UOP_OUT
+          and f_imm(5) = '0' else '0';
 
   process (ir, upc, va, vb, imm, maddr, i_op, i_a, i_b, i_c, i_d, i_z, i_x, c_valid, c_tag,
-           c_data, m_rd, dm_q, pend, lw, dwait, ack_t, ack_seen, run, start, abt, stk, sp, x_in)
+           c_data, m_rd, dm_q, pend, lw, dwait, ack_t, ack_seen, run, start, abt, stk, sp, x_in,
+           mu_lo, mu_hi, dv_n, dv_r, sq_root, busy, steps)
     variable b, alu, sh, m, mm, gx, rs, ls : unsigned(63 downto 0);
     variable free : boolean;
     variable sum, rs65 : unsigned(64 downto 0);
@@ -216,8 +233,20 @@ begin
           when 5 => alu := resize(i_z, 64);
           when 6 => alu := resize(i_x, 64);
           when 7 => alu := resize(sp, 64);
+          when 8 => alu := mu_hi;                     -- MULHI
+          when 9 => alu := dv_n(127 downto 64);       -- DIVQH
+          when 10 => alu := dv_r(63 downto 0);        -- DIVR (SQRT: the remainder's low 64 bits)
+          when 11 => alu := resize(dv_r(65 downto 64), 64);   -- SQRH: its top 2
           when others => alu := (others => '0');
         end case;
+      when UOP_CLZ =>
+        alu := to_unsigned(64, 64);
+        for i in 0 to 63 loop
+          if va(i) = '1' then alu := to_unsigned(63 - i, 64); end if;
+        end loop;
+      when UOP_MUL => alu := mu_lo;
+      when UOP_DIV => alu := dv_n(63 downto 0);
+      when UOP_SQRT => alu := sq_root;
       when UOP_IN => alu := x_in;
       when others => alu := (others => '0');
     end case;
@@ -250,6 +279,8 @@ begin
         done_v := free;
       when UOP_LDD =>
         done_v := dwait = '1';
+      when UOP_MUL | UOP_DIV | UOP_SQRT =>
+        done_v := busy = '1' and steps = 0;
       when others =>
         done_v := true;
     end case;
@@ -278,7 +309,7 @@ begin
     elsif to_integer(unsigned(f_cond)) = UC_RET then
       nxt <= stk(to_integer(sp - 1));
     elsif to_integer(unsigned(f_cond)) = UC_JTAB then
-      nxt <= unsigned(f_target) + alu(10 downto 0);
+      nxt <= unsigned(f_target) + alu(11 downto 0);
     elsif take then
       nxt <= unsigned(f_target);
     else
@@ -288,6 +319,59 @@ begin
 
   -- the data RAM: one port, its address ra + imm
   dm_a <= to_integer(maddr(10 downto 0)) mod UC_DATA_WORDS;
+  -- (the multiplier and divider)
+  process (clock)
+    variable sum : unsigned(64 downto 0);
+    variable t, q : unsigned(65 downto 0);
+  begin
+    if rising_edge(clock) then
+      if start = '1' then
+        busy <= '0'; steps <= 0;
+      elsif run = '1' and busy = '0' and (to_integer(unsigned(f_op)) = UOP_MUL) then
+        mu_a <= va; mu_b <= vb; mu_hi <= (others => '0'); mu_lo <= (others => '0');
+        busy <= '1'; steps <= 64;
+      elsif run = '1' and busy = '0' and (to_integer(unsigned(f_op)) = UOP_DIV) then
+        dv_n <= dvh & va; dv_d <= vb; dv_r <= (others => '0');
+        busy <= '1'; steps <= 128;
+      elsif run = '1' and busy = '0' and (to_integer(unsigned(f_op)) = UOP_SQRT) then
+        dv_n <= dvh & va; dv_r <= (others => '0'); sq_root <= (others => '0');
+        busy <= '1'; steps <= 64;
+      elsif busy = '1' and steps /= 0 then
+        steps <= steps - 1;
+        if to_integer(unsigned(f_op)) = UOP_MUL then
+          if mu_b(0) = '1' then sum := ('0' & mu_hi) + ('0' & mu_a); else sum := '0' & mu_hi; end if;
+          mu_hi <= sum(64 downto 1);
+          mu_lo <= sum(0) & mu_lo(63 downto 1);
+          mu_b <= '0' & mu_b(63 downto 1);
+        elsif to_integer(unsigned(f_op)) = UOP_SQRT then
+          -- a root bit: the remainder (its low 64 bits) and the next two of
+          -- the radicand, against root:01
+          t := dv_r(63 downto 0) & dv_n(127 downto 126);
+          q := "00" & sq_root(61 downto 0) & "01";
+          q(65 downto 64) := sq_root(63 downto 62);
+          if t >= q then
+            dv_r <= t - q; sq_root <= sq_root(62 downto 0) & '1';
+          else
+            dv_r <= t; sq_root <= sq_root(62 downto 0) & '0';
+          end if;
+          dv_n <= dv_n(125 downto 0) & "00";
+        else
+          sum := dv_r(63 downto 0) & dv_n(127);
+          if sum >= ('0' & dv_d) then
+            dv_r <= '0' & (sum - ('0' & dv_d)); dv_n <= dv_n(126 downto 0) & '1';
+          else
+            dv_r <= '0' & sum; dv_n <= dv_n(126 downto 0) & '0';
+          end if;
+        end if;
+      elsif busy = '1' and adv = '1' then
+        busy <= '0';
+      end if;
+      if run = '1' and adv = '1' and to_integer(unsigned(f_op)) = UOP_OUT and to_integer(unsigned(f_imm(5 downto 0))) = 32 then
+        dvh <= va;
+      end if;
+    end if;
+  end process;
+
   dm_we <= '1' when run = '1' and to_integer(unsigned(f_op)) = UOP_STD else '0';
   process (clock)
   begin

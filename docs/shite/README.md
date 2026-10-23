@@ -774,11 +774,14 @@ interrupt are SSNAIL's.
 
 ## 9. Hardware outline (area first)
 
-- **Sequencer**: one state machine, like SSNAIL's units, issuing LUMP
-  reads and writes and driving the datapaths below.
-- **Arithmetic**: an iterative F64 unit (add, multiply, divide, square
-  root, conversions), a 64-bit integer unit (add, compare, multiply through
-  DSPs over several cycles, divide by the same iterative divider), and a
+- **Sequencer**: a microcode engine (`shite_useq`, `shite_ucode.asm`;
+  docs/shite/MICROCODE.md): one 64-bit ALU, 128 registers, the microcode in
+  block RAM, memory one 8-byte group at a time.  Every instruction is
+  microcode; a state machine of its own was five times the size.
+- **Arithmetic**: F64 in microcode on the engine's ALU (add, multiply,
+  divide, square root, conversions), with its iterative multiplier, divider
+  and square root (a bit a cycle); integers the same.  Planned: multiply
+  through DSPs over several cycles, and a
   CORDIC unit (shift and add: SIN, COS, TAN, ATAN, ASIN, ACOS; EXP and LN in
   hyperbolic mode), which is small and precise enough for F64.  SSNAIL's
   FPU is F32 and pipelined for streaming; SHITE has its own small F64 unit

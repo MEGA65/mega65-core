@@ -224,7 +224,7 @@ begin
     procedure wait_done(name : string; expect_err : integer; expect_pc : integer) is
       variable v, e, p0, p1 : unsigned(7 downto 0);
     begin
-      for i in 1 to 400000 loop
+      for i in 1 to 4000000 loop                -- (microcode: slower than the state machine was)
         peek(4, v);
         if v(0) = '0' then
           peek(5, e); peek(12, p0); peek(13, p1);

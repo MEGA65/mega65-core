@@ -18,11 +18,13 @@ The source, a line at a time (';' to the end of the line is a comment):
     .const NAME = expr        a register holding expr from the start (r127 down)
     .scope / .endscope        the registers named between: freed at the end
                               (for routines never running at once)
+    .data addr = expr         the data RAM's word addr holds expr from the start
+    .alias name = reg         another name for a register (in its scope)
     label:                    (may share its line with an op)
     op operands [| cond [target]]
 
 Registers: r0-r127, the names given, _ (r0: reads 0, writes lost).
-Immediates: #expr (29 bits, sign-extended; labels are addresses in
+Immediates: #expr (28 bits, sign-extended; labels are addresses in
 expressions).  Memory: [reg], [reg+expr], [reg-expr].  The ops and the
 pseudo-ops are below (Asm.op)."""
 import argparse
@@ -30,17 +32,17 @@ import os
 import re
 import sys
 
-ROM_WORDS = 2048
+ROM_WORDS = 4096
 DATA_WORDS = 2048
 NREGS = 128
-IMM_BITS = 29
+IMM_BITS = 28
 
 OPS = dict(ADD=0, SUB=1, AND=2, OR=3, XOR=4, ANDN=5, SHL=6, SHR=7, SAR=8, EXT=9, EXTS=10,
-           INS=11, HI=12, SETSP=13, MOVX=14, LDB=16, LDH=17, LDL=18, LDQ=19, STB=20, STH=21, STL=22,
-           STQ=23, LDD=24, STD=25, RES=26, END=27, OUT=28, IN=29, JOB=30)
+           INS=11, HI=12, SETSP=13, MOVX=14, CLZ=15, LDB=16, LDH=17, LDL=18, LDQ=19, STB=20, STH=21, STL=22,
+           STQ=23, LDD=24, STD=25, RES=26, END=27, OUT=28, IN=29, JOB=30, MUL=31, DIV=32, SQRT=33)
 CONDS = dict(NONE=0, JMP=1, CALL=2, RET=3, JTAB=4, Z=5, NZ=6, UGE=7, ULT=8, LT=9, GE=10,
              MI=11, PL=12, ABT=13, NABT=14)
-MOVX_SRC = dict(OP=0, RA=1, RB=2, RC=3, RD=4, RZ=5, X=6, SP=7)
+MOVX_SRC = dict(OP=0, RA=1, RB=2, RC=3, RD=4, RZ=5, X=6, SP=7, MULHI=8, DIVQH=9, DIVR=10, SQRH=11)
 ALU3 = ("ADD", "SUB", "AND", "OR", "XOR", "ANDN", "SHL", "SHR", "SAR", "HI")
 LOADS = ("LDB", "LDH", "LDL", "LDQ", "LDD")
 STORES = ("STB", "STH", "STL", "STQ", "STD")
@@ -66,7 +68,7 @@ class Word:
             t = labels[self.target]
         imm = self.imm & ((1 << IMM_BITS) - 1)
         return ((self.op << 66) | (self.rd << 59) | (self.ra << 52) | (self.rb << 45)
-                | (self.bimm << 44) | (self.cond << 40) | (t << 29) | imm)
+                | (self.bimm << 44) | (self.cond << 40) | (t << 28) | imm)
 
 
 class Asm:
@@ -80,6 +82,7 @@ class Asm:
         self.line = 0
         self.scopes = []
         self.all_labels = {}
+        self.data = {}
 
     def err(self, msg):
         raise AsmError(f"line {self.line}: {msg}")
@@ -123,7 +126,7 @@ class Asm:
 
     def mem(self, w, s, index=False):
         """[ra], [ra +- off]; a load also [ra + rb + off], [ra + rb*N + off]
-        (N 1, 4, 8, 16: imm bits 28-27, the offset 27 bits)."""
+        (N 1, 4, 8, 16: imm bits 27-26, the offset 26 bits)."""
         s = s.strip()
         if not (s.startswith("[") and s.endswith("]")):
             self.err(f"not a memory operand: {s!r}")
@@ -148,9 +151,9 @@ class Asm:
         if scale is None and not index:
             w.imm = self.imm32(off)
         else:
-            if not -(1 << 26) <= off < (1 << 26):
-                self.err(f"offset {off:#x} past 27 bits")
-            w.imm = (off & ((1 << 27) - 1)) | ((scale or 0) << 27)
+            if not -(1 << 25) <= off < (1 << 25):
+                self.err(f"offset {off:#x} past 26 bits")
+            w.imm = (off & ((1 << 26) - 1)) | ((scale or 0) << 26)
 
     def emit(self, w):
         if len(self.words) >= ROM_WORDS:
@@ -219,7 +222,16 @@ class Asm:
             nargs(2)
             w.op, w.rb = OPS[mn], self.reg(a[1])
             self.mem(w, a[0])
-        elif mn == "OUT":            # out #port, ra: a codec job's input
+        elif mn == "SQRT":           # sqrt rd, ra: rd = the root of DIVHI:ra (128 bits); DIVR, SQRH the remainder
+            nargs(2)
+            w.op, w.rd, w.ra = OPS[mn], self.reg(a[0]), self.reg(a[1])
+        elif mn == "CLZ":            # clz rd, ra: ra's leading zeros (64: ra 0)
+            nargs(2)
+            w.op, w.rd, w.ra = OPS[mn], self.reg(a[0]), self.reg(a[1])
+        elif mn in ("MUL", "DIV"):   # mul rd, ra, rb: rd = (ra x rb)'s low 64 bits, MULHI the high;
+            nargs(3)                 # div rd, ra, rb: rd = (DIVHI:ra) / rb, DIVQH the quotient's high, DIVR
+            w.op, w.rd, w.ra, w.rb = OPS[mn], self.reg(a[0]), self.reg(a[1]), self.reg(a[2])
+        elif mn == "OUT":            # out #port, ra: a codec job's input (32: DIVHI)
             nargs(2)
             w.op, w.imm, w.ra = OPS[mn], self.value(a[0]) & 63, self.reg(a[1])
         elif mn == "IN":             # in rd, #port: a codec unit's result
@@ -268,10 +280,10 @@ class Asm:
         elif mn == "BABT":
             nargs(1)
             branch("ABT", a[0])
-        elif mn in ("BZ", "BNZ"):
+        elif mn in ("BZ", "BNZ", "BMI", "BPL"):   # on zero, nonzero, bit 63 set, clear
             nargs(2)
             w.op, w.ra = OPS["OR"], self.reg(a[0])
-            branch("Z" if mn == "BZ" else "NZ", a[1])
+            branch(dict(BZ="Z", BNZ="NZ", BMI="MI", BPL="PL")[mn], a[1])
         elif mn in ("BEQ", "BNE", "BLTU", "BGEU", "BGTU", "BLEU", "BLT", "BGE", "BGT", "BLE"):
             nargs(3)
             x, y, tgt = a
@@ -326,6 +338,18 @@ class Asm:
             if d == ".equ":
                 n, _, e = rest.partition("=")
                 self.equ[n.strip()] = self.value(e)
+            elif d == ".alias":
+                n, _, e = rest.partition("=")
+                n = n.strip()
+                if n in self.regs:
+                    self.err(f"register {n} again")
+                self.regs[n] = self.reg(e)
+            elif d == ".data":
+                n, _, e = rest.partition("=")
+                at = self.value(n)
+                if not 0 <= at < DATA_WORDS:
+                    self.err(f"data address {at} past the data RAM")
+                self.data[at] = self.value(e) & ((1 << 64) - 1)
             elif d == ".scope":
                 self.scopes.append((self.next_reg, set(self.regs)))
             elif d == ".endscope":
@@ -412,6 +436,10 @@ def package(asm, code, name):
     names = {v: k for k, v in asm.regs.items()}
     for r, v in sorted(asm.reg_init.items()):
         o.append(f'    {r} => x"{v:016X}",  -- {names[r]}')
+    o.append("    others => (others => '0'));")
+    o.append("  constant UC_DATA_INIT : uc_data_t := (")
+    for a, v in sorted(asm.data.items()):
+        o.append(f'    {a} => x"{v:016X}",')
     o.append("    others => (others => '0'));")
     o.append("end package;")
     return "\n".join(o) + "\n"
