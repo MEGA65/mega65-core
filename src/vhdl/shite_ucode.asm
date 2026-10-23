@@ -52,6 +52,7 @@
 .equ P_CE_CAP    = 19
 .equ P_SF_SOURCE = 20
 .equ P_SF_LEN    = 21
+.equ P_CE_ASCII  = 22           ; (the renderer: ASCII out, not screen codes)
 .equ I_CO_ERROR  = 0
 .equ I_CO_RLEN   = 1
 .equ I_CO_EPOS   = 2
@@ -929,6 +930,8 @@ cx_render:
         out     #P_CE_CAP, t0
         ext     t0, xp0, 63, 1
         out     #P_CE_UPPER, t0
+        ext     t0, xp0, 62, 1
+        out     #P_CE_ASCII, t0
         out     #P_CE_VALUE, xp8
         ext     t0, xp8, 0, 28
         out     #P_CE_TEXT, t0
@@ -988,6 +991,8 @@ xd_1:   out     #P_CO_DSEP, t1          | ret
 ; FORMAT_CELLS ($43) (section 6): rows r1..r2, columns c1..c2 (widths from
 ; the list), each field rendered (RENDER's unit), colours, CHANGED
 .reg line, cline, col, foff, coff, w, ckind, cval, cfmt, ctlen, ctext, chg, numfmt, hdr
+.reg nsel, sv
+.equ SEL = 0                    ; the selections in the data RAM (2 words each)
 format_cells:
         movx    xb, X
         call    x_params
@@ -999,7 +1004,21 @@ format_cells:
         ldl     ncols, [desc+12]
         ldq     t0, [desc+56]
         call    x_dsep
-        ext     row, xp0, 32, 32
+        li      nsel, #0                ; the selection list (bytes 44-47; 0: none):
+        ext     t0, xp40, 32, 28        ; its count, then 16 bytes each, into the
+        bz      t0, fc_s0               ; data RAM
+        ldb     nsel, [t0]
+        li      j, #0
+fc_sl:  bgeu    j, nsel, fc_s0
+        shl     t1, j, #4
+        add     t1, t1, t0
+        shl     t3, j, #1
+        ldq     t2, [t1+16]
+        std     [t3+SEL], t2
+        ldq     t2, [t1+24]
+        std     [t3+SEL+1], t2
+        add     j, j, #1                | jmp fc_sl
+fc_s0:  ext     row, xp0, 32, 32
         ext     line, xp24, 0, 28
         ext     cline, xp32, 0, 28
         li      ctext, #0
@@ -1103,6 +1122,8 @@ fc_render:                              ; one field (char size 2: into scratch, 
         out     #P_CE_CAP, w
         ext     t0, xp24, 58, 1
         out     #P_CE_UPPER, t0
+        ext     t0, xp24, 59, 1
+        out     #P_CE_ASCII, t0
         ext     t0, xp40, 0, 28
         out     #P_CE_SCRATCH, t0
         ext     t1, xp24, 48, 2
@@ -1136,8 +1157,27 @@ fc_colr:                                ; the colour plane: one byte a character
         in      t2, #I_CE_COLOUR
         bz      numfmt, fc_cl1
         bz      ckind, fc_cl1
-        bnz     cfmt, fc_cl2
+        bnz     cfmt, fc_sel
 fc_cl1: ext     t2, xp32, 48, 8
+fc_sel: li      j, #0                   ; each selection holding the cell, in order:
+fc_se1: bgeu    j, nsel, fc_cl2         ; its colour, or ORed in
+        shl     t3, j, #1
+        ldd     sv, [t3+SEL]            ; rows: first (31-0), last (63-32)
+        ext     t0, sv, 0, 32
+        bltu    row, t0, fc_se9
+        ext     t0, sv, 32, 32
+        bgtu    row, t0, fc_se9
+        ldd     sv, [t3+SEL+1]          ; columns: first (15-0), last (31-16); the
+        ext     t0, sv, 0, 16           ; colour (39-32), the mode (bit 40: OR)
+        bltu    col, t0, fc_se9
+        ext     t0, sv, 16, 16
+        bgtu    col, t0, fc_se9
+        ext     t0, sv, 32, 8
+        ext     t1, sv, 40, 1
+        bnz     t1, fc_se2
+        mov     t2, t0                  | jmp fc_se9
+fc_se2: or      t2, t2, t0
+fc_se9: add     j, j, #1                | jmp fc_se1
 fc_cl2: bgeu    i, w, fc_clr
         add     t1, cline, coff
         add     t1, t1, i

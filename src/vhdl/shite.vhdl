@@ -125,6 +125,8 @@ architecture rtl of shite is
   signal ce_tlen, ce_cap : unsigned(15 downto 0) := (others => '0');
   signal ce_width : codec_byte := (others => '0');
   signal ce_upper : std_logic := '0';
+  signal ce_ascii : std_logic := '0';
+  signal ce_screen : std_logic;
   -- the shared number converter: its job from the codec, the renderer or
   -- the execution unit itself (PARSE)
   signal nu_start, nu_format, nu_negative, nu_kind, nu_display : std_logic;
@@ -166,6 +168,7 @@ architecture rtl of shite is
   signal sj_seen_done : boolean := false;
 
 begin
+  ce_screen <= not ce_ascii;
 
   -- The microcode engine
   useq : entity work.shite_useq
@@ -223,7 +226,7 @@ begin
       text_source => ce_text, scratch => ce_scratch, destination => ce_dest,
       text_length => ce_tlen, capacity => ce_cap,
       width => ce_width, decimal_separator => co_dsep,
-      screen_codes => '1', upper_case => ce_upper,
+      screen_codes => ce_screen, upper_case => ce_upper,
       busy => ce_busy, done => ce_done, error => ce_error, result_length => ce_rlen,
       colour => ce_colour,
       ram_valid => ce_rv, ram_write => ce_rw, ram_address => ce_ra, ram_wdata => ce_wd,
@@ -344,6 +347,7 @@ begin
           when 19 => ce_cap <= u_xwd(15 downto 0);
           when 20 => sf_source <= u_xwd(27 downto 0);
           when 21 => sf_len <= u_xwd(15 downto 0);
+          when 22 => ce_ascii <= u_xwd(0);
           when others => null;
         end case;
       end if;

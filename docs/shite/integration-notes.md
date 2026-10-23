@@ -106,3 +106,25 @@ For the codec side, when the items above are done:
 The execution unit evaluates a deleted reference as #REF!, and produces
 them in MOVE_CELLS / CELLS_MOVED (README 6) for references to cells
 overwritten or moved off the sheet.
+
+## Added 2026-10-24 (README 6: FORMAT_CELLS)
+
+FORMAT_CELLS now has an ASCII flag (byte 31 bit 3; RENDER byte 7 bit 6:
+the renderer's `screen_codes` input, low) and a selection list (bytes
+44-47): rectangles with a colour each, ORed in or replacing, applied in
+list order (the execution unit's microcode; no codec change).
+
+For the codec side (proposed, the user's idea; not yet in the README):
+
+8. **DECOMPILE's reference spans.**  An option (e.g. a flag in its block,
+   and an output address and capacity) for DECOMPILE to also write, for each
+   reference or range it prints, in text order: the first character's
+   offset and the length in the text (2 + 2 bytes), and the rectangle it
+   names (first row, last row: 4 + 4; first column, last column: 2 + 2),
+   with a count first.  An editing client then colours each reference in the
+   edit line by its index and passes the same rectangles, with the same
+   colours, as FORMAT_CELLS' selection list (entry k: selection k), so a
+   formula's references light up on the sheet in matching colours.  The
+   layout of a rectangle is chosen to match a selection entry's bytes 0-11.
+   A cell list (CELLS) would give one span per cell; a deleted reference
+   (#REF!) none, or a span with an empty rectangle.

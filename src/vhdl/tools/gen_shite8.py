@@ -133,6 +133,17 @@ for kind, k, w, val, f, text, *d in renders:
     dst += 16
     blk += 32
 
+# RENDER with ASCII out (byte 7 bit 6): the prefix (a screen code) as ASCII too
+f = bytes([0, 0, 0, 0x10, 1, 0, 0, 0])               # prefix: screen code 1 ("a")
+m.write(blk, struct.pack("<IBBBB", desc, 4, 0, 6, 1 | 0x40) + struct.pack("<q", 42) + f +
+        struct.pack("<II", dst, SCRATCH))
+A(I.RENDER, 1, x=blk)
+store_result(0)
+final[dst - B:dst - B + 6] = b"   a42"
+mask[dst - B:dst - B + 6] = b"\1" * 6
+dst += 16
+blk += 32
+
 # --- PARSE --------------------------------------------------------------------------
 parses = [("19.99", 4, 1999, 2), ("1.5E3", 3, struct.unpack("<q", struct.pack("<d", 1500.0))[0], 0),
           ("-42", 4, -42, 0), ("abc", 0, 0, 0)]
@@ -168,6 +179,25 @@ for blk_flags, lines in ((0, (line0, line1)),):
         final[a - B:a - B + len(text)] = bytes([0x0E]) * len(text)
         mask[a - B:a - B + len(text)] = b"\1" * len(text)
     blk += 48
+# again: ASCII out (flags bit 3), and a selection list (bytes 44-47): A1:A2 its
+# colour $07, then B1:D1 $20 ORed in (C hidden: no field; D1 blank: its default
+# colour and the $20)
+FD3, FC3, SELL = B + 0x6C00, B + 0x6E00, B + 0x7600
+m.write(SELL, bytes([2]) + bytes(15) +
+        struct.pack("<IIHHBBH", 0, 1, 0, 0, 0x07, 0, 0) +
+        struct.pack("<IIHHBBH", 0, 0, 1, 3, 0x20, 1, 0))
+m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD3, 40, 1, 8,
+                         FC3, 40, 0x0E, 0, SCRATCH, SELL))
+A(I.FORMATCELLS, x=blk)
+for r, (text, colours) in enumerate(((line0, [0x07] * 7 + [0x2E] * 11),
+                                     (line1, [0x07] * 7 + [0x0E] * 11))):
+    a = FD3 + 40 * r
+    final[a - B:a - B + len(text)] = text.encode("ascii")
+    mask[a - B:a - B + len(text)] = b"\1" * len(text)
+    a = FC3 + 40 * r
+    final[a - B:a - B + len(text)] = bytes(colours)
+    mask[a - B:a - B + len(text)] = b"\1" * len(text)
+blk += 48
 # again: 16-bit characters, only cells with CHANGED (A2), CHANGED cleared
 FD2, FC2 = B + 0x6800, B + 0x6A00
 m.write(FD2 + 80, b"\xAA" * 14)                # (A2's field: each high byte must be written 0)

@@ -563,18 +563,37 @@ Renders a rectangle of cells as screen text.  Parameter block (48 bytes,
 | 24 | 4 | destination |
 | 28 | 2 | destination stride (bytes per screen line) |
 | 30 | 1 | character size: 1 (screen codes) or 2 (16-bit characters: the screen code, then 0) |
-| 31 | 1 | flags: bit 0 only cells with CHANGED; bit 1 clear CHANGED on the cells rendered; bit 2 the upper-case character set |
+| 31 | 1 | flags: bit 0 only cells with CHANGED; bit 1 clear CHANGED on the cells rendered; bit 2 the upper-case character set; bit 3 ASCII (characters as they are, for an ASCII font) |
 | 32 | 4 | colour destination (0: none): one byte per character, the colour |
 | 36 | 2 | colour stride |
 | 38 | 1 | default colour (cells without a format, and blank fields) |
 | 39 | 1 | reserved, 0 |
 | 40 | 4 | scratch: 1 KB of attic RAM (RENDER's 512 bytes, then a field for 16-bit characters) |
-| 44 | 4 | reserved, 0 |
+| 44 | 4 | selections (0: none): a list, 16-byte aligned (below) |
 
 Row r is screen line r - first row; within a line the columns follow one
 another, each its width.  Every field is exactly its width: the rendered
 text aligned and padded with spaces.  With flag bit 0, the fields of cells
 without CHANGED (and of missing cells) are left as they are.
+
+**Selections** (a colour destination needed): highlighted rectangles, such
+as the cursor's cell or a formula's references while it is edited.  The
+list: byte 0 the count n (0-255), bytes 1-15 reserved, then n entries of
+16 bytes:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | first row |
+| 4 | 4 | last row |
+| 8 | 2 | first column |
+| 10 | 2 | last column |
+| 12 | 1 | colour |
+| 13 | 1 | mode: bit 0 OR the colour in (e.g. the VIC-III reverse attribute, $20), else it replaces the colour |
+| 14 | 2 | reserved, 0 |
+
+Each field, a blank one included, takes its colour as above; then every
+entry whose rectangle holds the field's cell applies, in list order (so a
+later entry wins, or adds its bits).  Entry k is selection number k.
 
 The destination is in attic RAM: the VIC-IV shows screens from chip RAM,
 so the CPU copies the rendered area there with DMA (an attic to chip RAM
@@ -631,7 +650,9 @@ fits.  Style 5 (text) is general, aligned left by default.
 Format byte 3 bit 3 (leading zeros) is reserved in this version: no
 effect.  The prefix and suffix characters (bytes 4, 5) are screen codes.
 
-**Characters.**  Text is ASCII and written as screen codes: `@` 0, `A`-`Z`
+**Characters.**  With flag bit 3 (ASCII), text is written as it is, and
+the format's prefix and suffix characters are converted from screen codes
+to ASCII.  Otherwise text is ASCII and written as screen codes: `@` 0, `A`-`Z`
 65-90 and `a`-`z` 1-26 (with flag bit 2, the upper-case set: both 1-26),
 `[` 27, `]` 29, `^` 30, space to `?` (32-63) unchanged, `_` 100, `|` 93,
 `` ` `` 39, `{` 27, `}` 29, `~` 30, `\` 77, anything else `?` (63).
@@ -890,7 +911,7 @@ aligned):
 | 4 | 1 | the value's kind: 0 blank, 1 text, 3 F64, 4 I64, 6 error (3.4's codes) |
 | 5 | 1 | its fixed point (I64; as a format's byte 2) |
 | 6 | 1 | width |
-| 7 | 1 | character size (1 or 2, as FORMAT_CELLS); bit 7: the upper-case set |
+| 7 | 1 | character size (1 or 2, as FORMAT_CELLS); bit 6: ASCII (as FORMAT_CELLS' flag bit 3); bit 7: the upper-case set |
 | 8 | 8 | the value (I64, F64, or the error code); for text: its address (4) and length (2) |
 | 16 | 8 | the format (3.5; all zero: the default) |
 | 24 | 4 | destination |
