@@ -4,11 +4,14 @@
 -- the reference model SSNAIL/shite.py).  SSNAIL hands over its LUMP ports
 -- for the length of an instruction (ssnail_top multiplexes them).
 --
--- RECALC ($40), REBALANCE_ROW ($41), FIND_CELL ($42), and through the codec
--- units (shite_formula_codec, shite_cell_text and the shared
--- shite_number_text) FORMAT_CELLS ($43), COMPILE ($44), DECOMPILE ($45),
--- RENDER ($46), PARSE ($47).
--- Memory is reached one 8-byte group at a time (no cache yet).
+-- REBALANCE_ROW ($41), FIND_CELL ($42), MOVE_CELLS ($48) and CELLS_MOVED
+-- ($49) are microcode (shite_useq, shite_ucode.asm; docs/shite/MICROCODE.md),
+-- this state machine serving its memory.  The rest are still the state
+-- machine's: RECALC ($40), and through the codec units (shite_formula_codec,
+-- shite_cell_text and the shared shite_number_text) FORMAT_CELLS ($43),
+-- COMPILE ($44), DECOMPILE ($45), RENDER ($46), PARSE ($47).  They move to
+-- the microcode a family at a time.
+-- Memory is reached one 8-byte group at a time.
 --
 -- Runs on sclock (40.5 MHz on the boards): shite_bridge (clock162) takes SSNAIL's coprocessor
 -- port and issues the LUMP commands, the events crossing as toggles
@@ -21,10 +24,6 @@ use work.lumptypes.all;
 use work.shite_codec_pkg.all;
 
 entity shite is
-  generic (
-    -- Most cells REBALANCE_ROW sorts in one row (its list RAM)
-    max_row_cells : natural := 1024
-    );
   port (
     clock : in std_logic;                 -- sclock
     -- from SSNAIL's coprocessor port, through shite_bridge: held from
@@ -71,12 +70,14 @@ architecture rtl of shite is
 
   type state_t is (
     S_IDLE, S_FINISH, S_FAULT, S_FAULT2,
+    -- the microcode engine running the instruction (U_MACK: its memory)
+    U_RUN, U_MACK,
     -- memory primitives: one 8-byte group
     M_DEC, M_ISSUE, M_WAIT,
     -- the descriptor (both instructions)
     D_RD0, D_RD1, D_CHK,
-    -- FIND_CELL, and the cell lookup it shares with RECALC's references
-    F_DONE, LK_START, LK_ROW, LK_HDR, LK_HDR2, LK_CELL, LK_CELL2,
+    -- the cell lookup (RECALC's references)
+    LK_START, LK_ROW, LK_HDR, LK_HDR2, LK_CELL, LK_CELL2,
     -- RECALC: the descriptor's counters, rows, cells
     RC_D16, RC_D24, RC_D32, RC_D40, RC_D48,
     RC_ROW, RC_ROW2, RC_HDR0, RC_HDR1, RC_HCHK, RC_WALK, RC_WALK2, RC_RCHG,
@@ -103,37 +104,28 @@ architecture rtl of shite is
     CV_START, CV_I2F, CV_SCALE, CV_DIV,
     FP_START, FA_ALIGN, FA_SHIFT, FA_SUM, FM_PROD, FD_QUOT,
     FN_NORM, FN_DEN, FN_RND, FN_PACK,
-    -- REBALANCE_ROW
-    B_ROW, B_ROW2, B_HDR0, B_HDR1, B_HCHK, B_WALK, B_WALK2,
-    B_SORT, B_SORT1, B_SORT2, B_SORT3, B_SORT4,
-    B_TREE, B_TREE1, B_TREE2, B_TREE3, B_TREE4, B_TREE5, B_TREE6, B_TREE7, B_RHDR, B_NEXT,
-    -- the list RAM's read (one cycle)
-    L_WAIT, EST_WAIT, E_JZ2, E_BIN3, AG_ARG2,
+    -- the stack RAM's read (one cycle)
+    EST_WAIT, E_JZ2, E_BIN3, AG_ARG2,
     -- the codec units: a parameter block in, a job, its results out; their
     -- RAM requests served meanwhile (SJ_)
     X_P0, X_P8, X_P16, X_P24, X_D56, X_GO, X_RES, X_RES2, X_RES3,
     SJ_WAIT, SJ_DONE, SJ_GAP,
     -- FORMAT_CELLS
     FC_P32, FC_P40, FC_D0, FC_D8, FC_D56, FC_ROWS, FC_COLS, FC_WID, FC_CELLS, FC_H, FC_G8, FC_G16, FC_G24,
-    FC_WFILL, FC_RENDER, FC_DONE1, FC_EXP, FC_EFILL, FC_EXP2, FC_COLR, FC_CLR, FC_NEXT,
-    -- MOVE_CELLS, CELLS_MOVED: the parameter block, the passes over the
-    -- formulas in place (MW_), the moved rows' new blocks (MB_), the row
-    -- table (MC_), a formula's references (FX_), a block opened (WB_)
-    MV_P32, MV_P40, MV_P48, MV_START, MV_STAGE, MV_RES, MV_RES2, MV_RES3,
-    MV_FAIL, MV_FAIL2, MV_FAIL3,
-    MW_ROW, MW_ROW2, MW_CELL, MW_CELL2, MW_CELL3,
-    MB_START, MB_ROW, MB_ROW2, MB_CELL, MB_CELL2, MB_PUT, MB_CP, MB_CP1, MB_CP2,
-    MB_NEXTC, MB_EOB, MB_ROWDONE,
-    MC_START, MC_LOOP, MC_2,
-    WB_H0, WB_H1,
-    FX_START, FX_LEN, FX_NEXT, FX_OP, FX_STR, FX_HOST, FX_CALL, FX_REF, FX_MAP, FX_ENC,
-    FX_WB, FX_WB2, FX_END
+    FC_WFILL, FC_RENDER, FC_DONE1, FC_EXP, FC_EFILL, FC_EXP2, FC_COLR, FC_CLR, FC_NEXT
     );
-  signal st, mem_ret, l_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
+  signal st, mem_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
   signal sj_ret : state_t := S_IDLE;
   signal fp_ret, fn_ret, cv_ret, bo_ret : state_t := S_IDLE;
   signal vl_ret, rf_ret, vr_ret, tk_ret : state_t := S_IDLE;
-  signal b_ret, w_ret, fx_ret : state_t := S_IDLE;
+
+  -- the microcode engine (shite_useq): its start, end, memory
+  signal u_start, u_done, u_wr, u_req_t, u_req_seen, u_ack_t, u_mwrite : std_logic := '0';
+  signal u_err : unsigned(7 downto 0);
+  signal u_res : unsigned(31 downto 0);
+  signal u_maddr : unsigned(27 downto 0);
+  signal u_mwd : unsigned(63 downto 0);
+  signal u_mbe : std_logic_vector(7 downto 0);
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -162,66 +154,9 @@ architecture rtl of shite is
 
   -- row walk
   signal row : unsigned(31 downto 0) := (others => '0');
-  signal rlast : unsigned(31 downto 0) := (others => '0');
   signal blk : unsigned(27 downto 0) := (others => '0');
   signal rh0, rh1 : unsigned(63 downto 0) := (others => '0');  -- the row header
   signal g, gfree : unsigned(15 downto 0) := (others => '0');
-  signal col : unsigned(23 downto 0) := (others => '0');
-
-  -- REBALANCE's list: per cell, column (63:40), granule (39:24), the
-  -- header's bytes 3-4 (kind and flags, length: 23:8).  One write port
-  -- and one registered read port (block RAM)
-  type list_t is array (0 to max_row_cells - 1) of unsigned(63 downto 0);
-  signal list : list_t;
-  -- (64 Kbit: block RAM, written at one address per cycle, read registered
-  -- into l_rd.  Left to itself Vivado made it LUT RAM, 5686 cells)
-  attribute ram_style : string;
-  attribute ram_style of list : signal is "block";
-  signal l_ra : natural range 0 to max_row_cells - 1 := 0;
-  signal l_rd : unsigned(63 downto 0) := (others => '0');
-  -- its write port, registered: the write lands a cycle after the state
-  -- that asks for it (no read needs it sooner: see the RAM's process)
-  signal l_we : std_logic := '0';
-  signal l_wa : natural range 0 to max_row_cells - 1 := 0;
-  signal l_wd : unsigned(63 downto 0) := (others => '0');
-  signal l_n : natural range 0 to max_row_cells := 0;
-  signal l_i, l_j : natural range 0 to max_row_cells := 0;
-  signal l_key, l_cur : unsigned(63 downto 0) := (others => '0');
-  signal g_left, g_right, g_root : unsigned(15 downto 0) := (others => '0');
-  signal first_node : boolean := false;
-  -- the tree builder: the node (l_i), its range lo..hi and middle
-  signal t_lo, t_hi, t_mid : integer range -1 to max_row_cells := 0;
-
-  -- MOVE_CELLS, CELLS_MOVED: the source S (clipped to the sheet) and its
-  -- image D (mv_dr.., mv_dc..), the rows to fix, the heap
-  signal mv_sr1, mv_sc1, mv_sr2, mv_sc2, mv_dr, mv_dc, mv_dr2, mv_dc2 : unsigned(31 downto 0) := (others => '0');
-  signal mv_empty : boolean := true;
-  signal mv_fr2, mv_hs, mv_he, mv_hp, mv_hb, mv_p : unsigned(31 downto 0) := (others => '0');
-  signal mv_g : unsigned(15 downto 0) := (others => '0');   -- granules of the block being built
-  signal mv_inc : boolean := false;                         -- its cells moving in (else staying)
-  signal mv_write : boolean := false;                       -- (else checking: nothing written)
-  signal mv_moved, mv_deleted, mv_changed : unsigned(31 downto 0) := (others => '0');
-  signal mv_why : unsigned(31 downto 0) := (others => '0');
-  signal mv_wrow, mv_wcol : unsigned(31 downto 0) := (others => '0');
-  -- a row block walked: its row, address, first free granule, the cell
-  signal w_row : unsigned(31 downto 0) := (others => '0');
-  signal w_blk : unsigned(27 downto 0) := (others => '0');
-  signal w_len, w_free, w_g : unsigned(15 downto 0) := (others => '0');
-  signal w_n : unsigned(7 downto 0) := (others => '0');
-  -- a cell copied into the new block: its header, the 8-byte words
-  signal cp_hdr : unsigned(63 downto 0) := (others => '0');
-  signal cp_src, cp_dst : unsigned(27 downto 0) := (others => '0');
-  signal cp_i : unsigned(8 downto 0) := (others => '0');
-  -- a formula's references (at cell): read relative to where it was
-  -- (fx_po), written relative to where it is (fx_pn)
-  signal fx_mode : boolean := false;           -- (the byte reader ends at FX_END)
-  signal fx_por, fx_poc, fx_pnr, fx_pnc, fx_tr, fx_tc : unsigned(31 downto 0) := (others => '0');
-  signal fx_kf : unsigned(7 downto 0) := (others => '0');   -- the header's kind and flags
-  signal fx_ch, fx_short, fx_gone : boolean := false;
-  signal fx_ra, fx_ca : std_logic := '0';
-  signal fx_pos : unsigned(15 downto 0) := (others => '0');
-  signal fx_nb : unsigned(47 downto 0) := (others => '0');  -- the new bytes, from the top
-  signal fx_wi, fx_wn : unsigned(2 downto 0) := (others => '0');
 
   -- ---------------------------------------------------------------------
   -- RECALC
@@ -240,10 +175,6 @@ architecture rtl of shite is
   constant K_I32   : unsigned(3 downto 0) := x"5";
   constant K_ERROR : unsigned(3 downto 0) := x"6";
   constant K_UNCOMPILED : unsigned(3 downto 0) := x"7";
-  -- why a move failed (ERR_FORMAT, the parameter block's byte 48)
-  constant MV_HEAP    : natural := 1;          -- the heap too small
-  constant MV_LONGROW : natural := 2;          -- a row's cells past 4096 granules
-  constant MV_FAR     : natural := 3;          -- a reference past its form
   -- formula errors
   constant E_DIV0 : unsigned(7 downto 0) := x"01";
   constant E_VALUE : unsigned(7 downto 0) := x"02";
@@ -286,6 +217,7 @@ architecture rtl of shite is
   type est_t is array (0 to 31) of unsigned(107 downto 0);  -- aux, kind, ref, k, value
   signal t_aux : unsigned(31 downto 0) := (others => '0');
   signal est : est_t;
+  attribute ram_style : string;
   attribute ram_style of est : signal is "block";
   -- its ports: the write registered (the old top, pushed or flushed: lands
   -- a cycle later), the read registered (est_ra, then EST_WAIT, then est_q)
@@ -637,12 +569,17 @@ architecture rtl of shite is
   signal fw_buf : unsigned(63 downto 0) := (others => '0');
   signal fw_valid : boolean := false;
 
-  function mid_of(lo, hi : integer) return integer is
-  begin
-    return (lo + hi) / 2;
-  end function;
-
 begin
+
+  -- The microcode engine: REBALANCE_ROW, FIND_CELL, MOVE_CELLS, CELLS_MOVED so far
+  useq : entity work.shite_useq
+    port map (
+      clock => clock, start => u_start,
+      i_op => r_op, i_a => r_a, i_b => r_b, i_c => r_c, i_d => r_d, i_z => r_z, i_x => desc,
+      abort => abt,
+      done => u_done, err => u_err, wr => u_wr, result => u_res,
+      req_t => u_req_t, m_write => u_mwrite, m_addr => u_maddr, m_wd => u_mwd, m_be => u_mbe,
+      ack_t => u_ack_t, m_rd => m_rd);
 
   -- The codec units (their RAM through the adapter below, SJ_)
   codec : entity work.shite_formula_codec
@@ -740,22 +677,6 @@ begin
     end if;
   end process;
 
-  -- REBALANCE_ROW's list: a simple dual-port block RAM, alone in its
-  -- process (in the main one Vivado built it from LUT RAM, ram_style or
-  -- not).  A read is used only through L_WAIT, never in the cycle after
-  -- its address was written (the write is still landing then: asserted)
-  process (clock)
-  begin
-    if rising_edge(clock) then
-      if l_we = '1' then
-        list(l_wa) <= l_wd;
-      end if;
-      l_rd <= list(l_ra);
-      assert not (st = L_WAIT and l_we = '1' and l_wa = l_ra)
-        report "SHITE: the list RAM read where a write is landing" severity failure;
-    end if;
-  end process;
-
   process (clock)
     variable mb : unsigned(7 downto 0);
     variable w : unsigned(15 downto 0);
@@ -832,33 +753,6 @@ begin
     begin
       fb_ret <= nxt; st <= BF;
     end procedure;
-    -- MOVE_CELLS, CELLS_MOVED
-    impure function in_s(r, c : unsigned(31 downto 0)) return boolean is
-    begin
-      return not mv_empty and r >= mv_sr1 and r <= mv_sr2 and c >= mv_sc1 and c <= mv_sc2;
-    end function;
-    impure function in_d(r, c : unsigned(31 downto 0)) return boolean is
-    begin
-      return not mv_empty and r >= mv_dr and r <= mv_dr2 and c >= mv_dc and c <= mv_dc2;
-    end function;
-    -- a row MOVE_CELLS builds afresh: one of S's, or of D's on the sheet
-    impure function rebuilt(r : unsigned(31 downto 0)) return boolean is
-    begin
-      return not mv_empty and ((r >= mv_sr1 and r <= mv_sr2) or (r >= mv_dr and r <= mv_dr2 and r < nrows));
-    end function;
-    procedure mv_fail(why : natural; r, c : unsigned(31 downto 0)) is
-    begin
-      mv_why <= to_unsigned(why, 32); mv_wrow <= r; mv_wcol <= c; st <= MV_FAIL;
-    end procedure;
-    -- k bytecode bytes skipped (past the end: the formula is done)
-    procedure fx_skip(k : unsigned(15 downto 0)) is
-    begin
-      if resize(pc, 17) + resize(k, 17) >= resize(bclen, 17) then
-        st <= FX_END;
-      else
-        pc <= pc + k; st <= FX_NEXT;
-      end if;
-    end procedure;
   begin
     if rising_edge(clock) then
       tws_we := false;
@@ -884,7 +778,7 @@ begin
         m_ok <= '0';
       end if;
 
-      l_we <= '0';                        -- (the list RAM's write port)
+      u_start <= '0';
 
       -- the codec units: one-cycle pulses, and their jobs' ends latched
       co_start <= '0'; ce_start <= '0'; nu_start_self <= '0';
@@ -901,13 +795,31 @@ begin
             s_seen <= s_r;
             err <= ERR_NONE; wr <= '0'; cnt_loaded <= false;
             r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
-            if op = x"43" or op = x"44" or op = x"45" or op = x"46" or op = x"47"
-              or op = x"48" or op = x"49" then
+            if op = x"41" or op = x"42" or op = x"48" or op = x"49" then
+              u_start <= '1'; st <= U_RUN;          -- (the microcode's)
+            elsif op = x"43" or op = x"44" or op = x"45" or op = x"46" or op = x"47" then
               xblk <= x; mem_read(x, X_P0);         -- (X: a parameter block)
             else
               mem_read(x, D_RD0);
             end if;
           end if;
+
+        -- the microcode engine: its memory requests, its end
+        when U_RUN =>
+          if u_req_t /= u_req_seen then
+            u_req_seen <= u_req_t;
+            if u_mwrite = '1' then
+              mem_write(u_maddr, u_mwd, u_mbe, U_MACK);
+            else
+              mem_read(u_maddr, U_MACK);
+            end if;
+          elsif u_done = '1' then
+            err <= u_err; wr <= u_wr;
+            if u_wr = '1' then result <= u_res; end if;
+            st <= S_FINISH;
+          end if;
+        when U_MACK =>
+          u_ack_t <= not u_ack_t; st <= U_RUN;
 
         when S_FINISH =>
           done_tr <= not done_tr;
@@ -951,7 +863,7 @@ begin
         -- The descriptor: magic and row table, then the rows
         when D_RD0 =>
           if m_rd(31 downto 0) /= x"31544853" then         -- "SHT1"
-            format_fault(x"FFFFFFFF");
+            fault(ERR_FORMAT);                      -- (not a descriptor: nothing written)
           else
             rowtab <= m_rd(59 downto 32);
             mem_read(desc + 8, D_RD1);
@@ -963,15 +875,8 @@ begin
         when D_CHK =>
           if abt = '1' then
             fault(ERR_ABORTED);
-          elsif r_op = x"42" then                   -- FIND_CELL
-            q_row <= r_a; q_col <= r_b; lk_ret <= F_DONE; st <= LK_START;
           elsif r_op = x"40" then                   -- RECALC
             mem_read(desc + 16, RC_D16);
-          elsif r_op = x"41" then                   -- REBALANCE_ROW
-            row <= r_a; rlast <= r_b; b_ret <= B_ROW;
-            st <= B_ROW;
-          elsif r_op = x"48" or r_op = x"49" then   -- MOVE_CELLS, CELLS_MOVED
-            st <= MV_START;
           else
             fault(ERR_OPCODE);
           end if;
@@ -1015,583 +920,9 @@ begin
           if abt = '1' then fault(ERR_ABORTED);
           else st <= LK_HDR2; end if;
 
-        -- FIND_CELL
-        when F_DONE =>
-          result <= x"0" & q_addr; wr <= '1'; st <= S_FINISH;
-
-        -- --------------------------------------------------------------
-        -- REBALANCE_ROW, rows row..rlast
-        when B_ROW =>
-          if row > rlast or row >= nrows then
-            st <= S_FINISH;
-          elsif abt = '1' then
-            fault(ERR_ABORTED);
-          else
-            mem_read(rowtab + (row(25 downto 0) & "00"), B_ROW2);
-          end if;
-        when B_ROW2 =>
-          if row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
-          else e := x"00000000" & m_rd(63 downto 32); end if;
-          if e(31 downto 0) = x"FFFFFFFF" then
-            row <= row + 1;
-            st <= B_ROW;
-          else
-            blk <= e(27 downto 0);
-            mem_read(e(27 downto 0), B_HDR0);
-          end if;
-        when B_HDR0 =>
-          rh0 <= m_rd;
-          mem_read(blk + 8, B_HDR1);
-        when B_HDR1 =>
-          rh1 <= m_rd;
-          st <= B_HCHK;
-        when B_HCHK =>
-          -- row number, first free granule within the block (<= 4096)
-          if rh0(31 downto 0) /= row or rh1(31 downto 16) = 0 or rh1(31 downto 16) > rh0(47 downto 32)
-            or rh0(47 downto 32) > 4096 then
-            format_fault(row);
-          else
-            gfree <= rh1(31 downto 16);
-            g <= to_unsigned(1, 16);
-            l_n <= 0;
-            st <= B_WALK;
-          end if;
-        when B_WALK =>
-          if g >= gfree then
-            l_i <= 1;
-            st <= B_SORT;
-          else
-            mem_read(blk + (g & "0000"), B_WALK2);
-          end if;
-        when B_WALK2 =>
-          if m_rd(39 downto 32) = 0 or resize(g, 17) + resize(m_rd(39 downto 32), 17) > resize(gfree, 17) then
-            format_fault(row);
-          elsif m_rd(27 downto 24) /= K_FREE and l_n = max_row_cells then
-            format_fault(row);                  -- (more cells than the list holds)
-          else
-            if m_rd(27 downto 24) /= K_FREE then
-              l_we <= '1'; l_wa <= l_n; l_wd <= m_rd(23 downto 0) & g & m_rd(39 downto 24) & x"00";
-              l_n <= l_n + 1;
-            end if;
-            g <= g + m_rd(39 downto 32);
-            st <= B_WALK;
-          end if;
-
-        -- the list RAM's read: l_rd is valid in l_ret
-        when L_WAIT =>
-          st <= l_ret;
         -- the stack RAM's read: est_q is valid in est_ret
         when EST_WAIT =>
           st <= est_ret;
-
-        -- insertion sort by column (bits 63:48): list(0..l_i-1) is sorted
-        when B_SORT =>
-          if l_i >= l_n then
-            st <= B_TREE;
-          else
-            l_ra <= l_i; l_ret <= B_SORT1; st <= L_WAIT;
-          end if;
-        when B_SORT1 =>
-          l_key <= l_rd;
-          l_j <= l_i;
-          st <= B_SORT2;
-        when B_SORT2 =>                         -- compare with list(l_j - 1)
-          if l_j = 0 then
-            st <= B_SORT4;
-          else
-            l_ra <= l_j - 1; l_ret <= B_SORT3; st <= L_WAIT;
-          end if;
-        when B_SORT3 =>
-          if l_rd(63 downto 40) = l_key(63 downto 40) then
-            format_fault(row);                  -- two cells in one column
-          elsif l_rd(63 downto 40) > l_key(63 downto 40) then
-            l_we <= '1'; l_wa <= l_j; l_wd <= l_rd;
-            l_j <= l_j - 1;
-            st <= B_SORT2;
-          else
-            st <= B_SORT4;
-          end if;
-        when B_SORT4 =>
-          l_we <= '1'; l_wa <= l_j; l_wd <= l_key;
-          l_i <= l_i + 1;
-          st <= B_SORT;
-
-        -- the tree: each node l_i in turn, no stack.  The node at the middle
-        -- of lo..hi has the middles of its two halves as its children, so a
-        -- node's header needs only its range, found by descending from the
-        -- root (0..l_n-1) as a search for l_i would: a cycle per level, at
-        -- most 11, against a node's three list reads and one memory write
-        when B_TREE =>
-          g_root <= (others => '0');
-          l_i <= 0;
-          if l_n = 0 then
-            st <= B_RHDR;
-          else
-            st <= B_TREE1;
-          end if;
-        when B_TREE1 =>
-          if l_i >= l_n then
-            st <= B_RHDR;
-          elsif abt = '1' then
-            fault(ERR_ABORTED);
-          else
-            t_lo <= 0; t_hi <= l_n - 1;
-            first_node <= true;
-            st <= B_TREE2;
-          end if;
-        when B_TREE2 =>                         -- one level down towards l_i
-          md := mid_of(t_lo, t_hi);
-          if l_i = md then
-            t_mid <= md;
-            l_ra <= md; l_ret <= B_TREE3; st <= L_WAIT;
-          else
-            first_node <= false;                -- (not the root)
-            if l_i < md then t_hi <= md - 1; else t_lo <= md + 1; end if;
-          end if;
-        when B_TREE3 =>                         -- the node
-          l_cur <= l_rd;
-          if first_node then g_root <= l_rd(39 downto 24); end if;
-          g_left <= (others => '0'); g_right <= (others => '0');
-          if t_lo <= t_mid - 1 then
-            l_ra <= mid_of(t_lo, t_mid - 1); l_ret <= B_TREE4; st <= L_WAIT;
-          else
-            st <= B_TREE5;
-          end if;
-        when B_TREE4 =>                         -- its left child
-          g_left <= l_rd(39 downto 24);
-          st <= B_TREE5;
-        when B_TREE5 =>
-          if t_mid + 1 <= t_hi then
-            l_ra <= mid_of(t_mid + 1, t_hi); l_ret <= B_TREE6; st <= L_WAIT;
-          else
-            st <= B_TREE7;
-          end if;
-        when B_TREE6 =>                         -- its right child
-          g_right <= l_rd(39 downto 24);
-          st <= B_TREE7;
-        when B_TREE7 =>                         -- the node's header
-          mem_write(blk + (l_cur(39 downto 24) & "0000"),
-                    g_right(11 downto 0) & g_left(11 downto 0) & l_cur(23 downto 8) & l_cur(63 downto 40),
-                    "11111111", B_TREE1);
-          l_i <= l_i + 1;
-
-        when B_RHDR =>
-          -- the cell count (bytes 6-7)
-          mem_write(blk, to_unsigned(l_n, 16) & rh0(47 downto 0), "11111111", B_NEXT);
-        when B_NEXT =>
-          -- the root (bytes 8-9), the stale flag (bytes 14-15) cleared
-          mem_write(blk + 8, rh1(63 downto 49) & '0' & rh1(47 downto 16) & g_root, "11111111", b_ret);
-          row <= row + 1;
-
-        -- --------------------------------------------------------------
-        -- MOVE_CELLS ($48), CELLS_MOVED ($49).  The parameter block's
-        -- first 32 bytes are in xp0..xp24: the descriptor, the source
-        -- rectangle, the destination, the first row to fix
-        when MV_P32 =>
-          mv_fr2 <= m_rd(31 downto 0); mv_hs <= m_rd(63 downto 32);
-          mem_read(xblk + 40, MV_P40);
-        when MV_P40 =>
-          mv_he <= m_rd(31 downto 0);
-          -- (why a move failed, and its row: 0 unless it does)
-          mem_write(xblk + 48, (others => '0'), "11111111", MV_P48);
-        when MV_P48 =>
-          mem_read(desc, D_RD0);
-        when MV_START =>
-          -- S clipped to the sheet; D its image at the destination
-          if xp8(63 downto 32) < nrows then rr := xp8(63 downto 32); else rr := nrows - 1; end if;
-          if xp16(31 downto 0) < ncols then cc := xp16(31 downto 0); else cc := ncols - 1; end if;
-          mv_sr1 <= xp0(63 downto 32); mv_sc1 <= xp8(31 downto 0);
-          mv_sr2 <= rr; mv_sc2 <= cc;
-          mv_empty <= xp0(63 downto 32) > rr or xp8(31 downto 0) > cc;
-          mv_dr <= x"000" & xp16(51 downto 32); mv_dc <= x"00" & xp24(23 downto 0);
-          mv_dr2 <= (x"000" & xp16(51 downto 32)) + rr - xp0(63 downto 32);
-          mv_dc2 <= (x"00" & xp24(23 downto 0)) + cc - xp8(31 downto 0);
-          mv_moved <= (others => '0'); mv_deleted <= (others => '0'); mv_changed <= (others => '0');
-          mv_hp <= mv_hs;
-          -- first the formulas to fix, checked (nothing written)
-          row <= xp24(63 downto 32); mv_write <= false;
-          st <= MW_ROW;
-        when MV_STAGE =>                        -- a pass over the formulas done
-          if mv_write then
-            st <= MV_RES;
-          elsif r_op = x"48" then               -- checked: the moved rows' blocks
-            st <= MB_START;
-          else                                  -- checked: now rewritten
-            row <= xp24(63 downto 32); mv_write <= true;
-            st <= MW_ROW;
-          end if;
-        when MV_RES =>                          -- the heap's new start, the deleted count
-          if r_op = x"48" then
-            mem_write(xblk + 32, mv_hp & x"00000000", "11110000", MV_RES2);
-          else
-            st <= MV_RES2;
-          end if;
-        when MV_RES2 =>
-          mem_write(xblk + 40, mv_deleted & x"00000000", "11110000", MV_RES3);
-        when MV_RES3 =>
-          if r_op = x"48" then result <= mv_moved; else result <= mv_changed; end if;
-          wr <= '1';
-          st <= S_FINISH;
-        -- a move that cannot be done (the sheet as it was): why, where
-        when MV_FAIL =>
-          mem_write(xblk + 48, mv_wrow & mv_why, "11111111", MV_FAIL2);
-        when MV_FAIL2 =>
-          mem_write(xblk + 56, x"00000000" & mv_wcol, "00001111", MV_FAIL3);
-        when MV_FAIL3 =>
-          fault(ERR_FORMAT);
-
-        -- a row block opened (w_blk, for row w_row): w_free, w_g = 1, w_ret
-        when WB_H0 =>
-          if m_rd(31 downto 0) /= w_row then
-            format_fault(w_row);
-          else
-            w_len <= m_rd(47 downto 32);
-            mem_read(w_blk + 8, WB_H1);
-          end if;
-        when WB_H1 =>
-          if m_rd(31 downto 16) = 0 or m_rd(31 downto 16) > w_len or w_len > 4096 then
-            format_fault(w_row);
-          else
-            w_free <= m_rd(31 downto 16); w_g <= to_unsigned(1, 16);
-            st <= w_ret;
-          end if;
-
-        -- the formulas of rows row..mv_fr2, in place (MOVE_CELLS: but the
-        -- rows it builds afresh).  CELLS_MOVED: a formula in D was moved
-        -- there, from S
-        when MW_ROW =>
-          if row > mv_fr2 or row >= nrows then
-            st <= MV_STAGE;
-          elsif abt = '1' then
-            fault(ERR_ABORTED);
-          elsif r_op = x"48" and rebuilt(row) then
-            row <= row + 1;
-          else
-            mem_read(rowtab + (row(25 downto 0) & "00"), MW_ROW2);
-          end if;
-        when MW_ROW2 =>
-          if row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
-          else e := x"00000000" & m_rd(63 downto 32); end if;
-          if e(31 downto 0) = x"FFFFFFFF" then
-            row <= row + 1;
-            st <= MW_ROW;
-          else
-            w_blk <= e(27 downto 0); w_row <= row; w_ret <= MW_CELL;
-            mem_read(e(27 downto 0), WB_H0);
-          end if;
-        when MW_CELL =>
-          if w_g >= w_free then
-            row <= row + 1;
-            st <= MW_ROW;
-          else
-            mem_read(w_blk + (w_g & "0000"), MW_CELL2);
-          end if;
-        when MW_CELL2 =>
-          w_n <= m_rd(39 downto 32);
-          cc := x"00" & m_rd(23 downto 0);
-          if m_rd(39 downto 32) = 0 or resize(w_g, 17) + resize(m_rd(39 downto 32), 17) > resize(w_free, 17) then
-            format_fault(w_row);
-          elsif m_rd(27 downto 24) = K_FORMULA then
-            cell <= w_blk + (w_g & "0000"); fx_kf <= m_rd(31 downto 24);
-            fx_pnr <= row; fx_pnc <= cc;
-            if r_op = x"49" and in_d(row, cc) then
-              fx_por <= row - mv_dr + mv_sr1; fx_poc <= cc - mv_dc + mv_sc1;
-            else
-              fx_por <= row; fx_poc <= cc;
-            end if;
-            fx_ret <= MW_CELL3;
-            st <= FX_START;
-          else
-            st <= MW_CELL3;
-          end if;
-        when MW_CELL3 =>
-          w_g <= w_g + w_n;
-          st <= MW_CELL;
-
-        -- MOVE_CELLS: each row of S or D built afresh in the heap (mv_hp):
-        -- its own cells but those in S or D, then those moving in from S,
-        -- then its tree (REBALANCE_ROW's).  Nothing of the sheet changes
-        when MB_START =>
-          mv_write <= true;
-          if mv_empty then
-            st <= MC_START;
-          else
-            if mv_dr < nrows then               -- (D has rows on the sheet)
-              if mv_dr < mv_sr1 then row <= mv_dr; else row <= mv_sr1; end if;
-              if mv_dr2 < nrows then rr := mv_dr2; else rr := nrows - 1; end if;
-              if rr > mv_sr2 then rlast <= rr; else rlast <= mv_sr2; end if;
-            else
-              row <= mv_sr1; rlast <= mv_sr2;
-            end if;
-            st <= MB_ROW;
-          end if;
-        when MB_ROW =>
-          if row > rlast then
-            st <= MC_START;
-          elsif not rebuilt(row) then
-            row <= row + 1;
-          elsif abt = '1' then
-            fault(ERR_ABORTED);
-          elsif mv_hp + 16 > mv_he then
-            mv_fail(MV_HEAP, row, x"00000000");
-          else
-            mv_hb <= mv_hp; mv_g <= to_unsigned(1, 16); mv_inc <= false; w_row <= row;
-            mem_read(rowtab + (row(25 downto 0) & "00"), MB_ROW2);
-          end if;
-        when MB_ROW2 =>                         -- row w_row's block
-          if w_row(0) = '0' then e := x"00000000" & m_rd(31 downto 0);
-          else e := x"00000000" & m_rd(63 downto 32); end if;
-          if e(31 downto 0) = x"FFFFFFFF" then
-            st <= MB_EOB;
-          else
-            w_blk <= e(27 downto 0); w_ret <= MB_CELL;
-            mem_read(e(27 downto 0), WB_H0);
-          end if;
-        when MB_CELL =>
-          if w_g >= w_free then
-            st <= MB_EOB;
-          else
-            mem_read(w_blk + (w_g & "0000"), MB_CELL2);
-          end if;
-        when MB_CELL2 =>
-          w_n <= m_rd(39 downto 32);
-          cc := x"00" & m_rd(23 downto 0);
-          nc := cc - mv_sc1 + mv_dc;
-          if m_rd(39 downto 32) = 0 or resize(w_g, 17) + resize(m_rd(39 downto 32), 17) > resize(w_free, 17) then
-            format_fault(w_row);
-          elsif m_rd(27 downto 24) = K_FREE then
-            st <= MB_NEXTC;
-          elsif not mv_inc then                 -- staying, unless in S or D
-            if in_s(row, cc) or in_d(row, cc) then
-              st <= MB_NEXTC;
-            else
-              cp_hdr <= m_rd;
-              fx_por <= row; fx_poc <= cc; fx_pnr <= row; fx_pnc <= cc;
-              st <= MB_PUT;
-            end if;
-          elsif cc < mv_sc1 or cc > mv_sc2 or nc >= ncols then
-            st <= MB_NEXTC;                     -- (not in S; or moved off the sheet: dropped)
-          else                                  -- moving in: its column, CHANGED
-            cp_hdr <= x"000000" & m_rd(39 downto 32) & (m_rd(31 downto 24) or x"10") & nc(23 downto 0);
-            fx_por <= w_row; fx_poc <= cc; fx_pnr <= row; fx_pnc <= nc;
-            mv_moved <= mv_moved + 1;
-            st <= MB_PUT;
-          end if;
-        when MB_PUT =>                          -- room for it: then copied, word by word
-          if resize(mv_g, 17) + resize(w_n, 17) > 4096 then
-            mv_fail(MV_LONGROW, row, x"00000000");
-          elsif mv_hb + ((mv_g + resize(w_n, 16)) & "0000") > mv_he then
-            mv_fail(MV_HEAP, row, x"00000000");
-          else
-            cp_src <= w_blk + (w_g & "0000"); cp_dst <= mv_hb(27 downto 0) + (mv_g & "0000");
-            cp_i <= (others => '0');
-            st <= MB_CP;
-          end if;
-        when MB_CP =>
-          if cp_i = (w_n & '0') then
-            mv_g <= mv_g + resize(w_n, 16);
-            if cp_hdr(27 downto 24) = K_FORMULA then
-              cell <= cp_dst; fx_kf <= cp_hdr(31 downto 24); fx_ret <= MB_NEXTC;
-              st <= FX_START;
-            else
-              st <= MB_NEXTC;
-            end if;
-          elsif cp_i = 0 then
-            mem_write(cp_dst, cp_hdr, "11111111", MB_CP2);
-          else
-            mem_read(cp_src + (cp_i & "000"), MB_CP1);
-          end if;
-        when MB_CP1 =>
-          mem_write(cp_dst + (cp_i & "000"), m_rd, "11111111", MB_CP2);
-        when MB_CP2 =>
-          cp_i <= cp_i + 1;
-          st <= MB_CP;
-        when MB_NEXTC =>
-          w_g <= w_g + resize(w_n, 16);
-          st <= MB_CELL;
-        when MB_EOB =>                          -- a block walked: the cells moving in next
-          if not mv_inc and row >= mv_dr and row <= mv_dr2 then
-            mv_inc <= true;
-            rr := row - mv_dr + mv_sr1;
-            w_row <= rr;
-            mem_read(rowtab + (rr(25 downto 0) & "00"), MB_ROW2);
-          else                                  -- or the header, and the tree
-            blk <= mv_hb(27 downto 0);
-            rh0 <= x"0000" & mv_g & row;
-            rh1 <= x"00000000" & mv_g & x"0000";
-            gfree <= mv_g; g <= to_unsigned(1, 16); l_n <= 0;
-            b_ret <= MB_ROWDONE;
-            st <= B_WALK;
-          end if;
-        when MB_ROWDONE =>                      -- (B_NEXT: row + 1)
-          mv_hp <= mv_hb + (mv_g & "0000");
-          st <= MB_ROW;
-
-        -- the row table: each new block, in heap order (none: an empty row)
-        when MC_START =>
-          mv_p <= mv_hs;
-          st <= MC_LOOP;
-        when MC_LOOP =>
-          if mv_p >= mv_hp then
-            row <= xp24(63 downto 32);          -- the other formulas, rewritten
-            st <= MW_ROW;
-          else
-            mem_read(mv_p(27 downto 0), MC_2);
-          end if;
-        when MC_2 =>
-          if m_rd(63 downto 48) /= 0 then rr := mv_p; else rr := x"FFFFFFFF"; end if;
-          if m_rd(0) = '0' then bev := "00001111"; else bev := "11110000"; end if;
-          mem_write(rowtab + (m_rd(25 downto 0) & "00"), rr & rr, bev, MC_LOOP);
-          mv_p <= mv_p + (m_rd(47 downto 32) & "0000");
-
-        -- --------------------------------------------------------------
-        -- A formula's references (the FORMULA cell at cell), for the move:
-        -- each read relative to fx_po and written relative to fx_pn, in its
-        -- own form; past the bytecode, or a byte not an opcode: done.
-        -- Then fx_ret
-        when FX_START =>
-          fx_mode <= true; bf_valid <= false; fx_ch <= false;
-          mem_read(cell + 24, FX_LEN);
-        when FX_LEN =>
-          bclen <= m_rd(31 downto 16); pc <= (others => '0');
-          st <= FX_NEXT;
-        when FX_NEXT =>
-          if pc >= bclen then
-            st <= FX_END;
-          else
-            fetch(FX_OP);
-          end if;
-        when FX_OP =>
-          if bf_byte(7) = '1' then                -- a short reference
-            fx_pos <= pc - 1; fx_short <= true;
-            imm <= x"00000000000000" & bf_byte; fb_i <= x"1"; fb_n <= x"4"; fb_be <= true;
-            imm_ret <= FX_REF; st <= E_IMM;
-          else
-            case bf_byte is
-              when x"00" =>                       -- END
-                st <= FX_END;
-              when x"01" | x"06" => fx_skip(x"0001");   -- I8, FIX
-              when x"02" => fx_skip(x"0004");           -- I32
-              when x"03" | x"04" => fx_skip(x"0008");   -- I64, F64
-              when x"0A" | x"0B" => fx_skip(x"0002");   -- JZ, JMP
-              when x"05" =>                       -- STR: its text skipped
-                vr_ret <= FX_STR; st <= VR_START;
-              when x"07" =>                       -- REF: the long form
-                fx_pos <= pc; fx_short <= false;
-                imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
-                imm_ret <= FX_REF; st <= E_IMM;
-              when x"09" =>                       -- HOSTCALL: the text, then the cell
-                vr_ret <= FX_HOST; st <= VR_START;
-              when x"0C" =>                       -- CALL: two counts
-                vr_ret <= FX_CALL; st <= VR_START;
-              when x"0D" =>                       -- CELLS: its references follow as items
-                vr_ret <= FX_NEXT; st <= VR_START;
-              when x"08" | x"10" | x"11" | x"12" | x"13" | x"14" | x"15" | x"16" | x"17"
-                 | x"18" | x"19" | x"1A" | x"1B" | x"1C" | x"1D" =>
-                st <= FX_NEXT;                    -- (RECT: two references follow)
-              when others =>
-                st <= FX_END;
-            end case;
-          end if;
-        when FX_STR =>
-          fx_skip(vl_n);
-        when FX_HOST =>
-          if resize(pc, 17) + resize(vl_n, 17) + 6 > resize(bclen, 17) then
-            st <= FX_END;
-          else
-            pc <= pc + vl_n; fx_pos <= pc + vl_n; fx_short <= false;
-            imm <= (others => '0'); fb_i <= x"0"; fb_n <= x"6"; fb_be <= true;
-            imm_ret <= FX_REF; st <= E_IMM;
-          end if;
-        when FX_CALL =>
-          vr_ret <= FX_NEXT; st <= VR_START;
-        when FX_REF =>                          -- its target, absolute (deleted: left)
-          if fx_short then
-            if imm(30) = '1' then rr := resize(imm(29 downto 15), 32);
-            else rr := (fx_por + sext15(imm(29 downto 15))) and x"000FFFFF"; end if;
-            if imm(14) = '1' then cc := resize(imm(13 downto 0), 32);
-            else cc := (fx_poc + sext14(imm(13 downto 0))) and x"00FFFFFF"; end if;
-            fx_ra <= imm(30); fx_ca <= imm(14);
-            if imm(31 downto 0) = x"A0002000" then st <= FX_NEXT; else st <= FX_MAP; end if;
-          else
-            if imm(47) = '1' then rr := resize(imm(43 downto 24), 32);
-            else rr := (fx_por + resize(imm(43 downto 24), 32)) and x"000FFFFF"; end if;
-            if imm(46) = '1' then cc := resize(imm(23 downto 0), 32);
-            else cc := (fx_poc + resize(imm(23 downto 0), 32)) and x"00FFFFFF"; end if;
-            fx_ra <= imm(47); fx_ca <= imm(46);
-            if imm(47 downto 0) = x"080000800000" then st <= FX_NEXT; else st <= FX_MAP; end if;
-          end if;
-          fx_tr <= rr; fx_tc <= cc;
-        when FX_MAP =>                          -- to S: follows it; to D but not S: gone
-          if in_s(fx_tr, fx_tc) then
-            rr := fx_tr - mv_sr1 + mv_dr; cc := fx_tc - mv_sc1 + mv_dc;
-            fx_tr <= rr; fx_tc <= cc;
-            fx_gone <= rr >= nrows or cc >= ncols;
-          else
-            fx_gone <= in_d(fx_tr, fx_tc);
-          end if;
-          st <= FX_ENC;
-        when FX_ENC =>                          -- in its form again, relative to fx_pn
-          ro := (fx_tr - fx_pnr) and x"000FFFFF";
-          co := (fx_tc - fx_pnc) and x"00FFFFFF";
-          if fx_short then
-            if fx_ra = '1' then rr := fx_tr; fits := fx_tr < 32768;
-            else rr := ro; fits := ro < 16#4000# or ro >= 16#FC000#; end if;
-            if fx_ca = '1' then cc := fx_tc; fits := fits and fx_tc < 16384;
-            else cc := co; fits := fits and (co < 16#2000# or co >= 16#FFE000#); end if;
-            nb := x"0000" & '1' & fx_ra & rr(14 downto 0) & fx_ca & cc(13 downto 0);
-            fits := fits and nb(31 downto 0) /= x"A0002000";
-            if fx_gone then nb := x"0000A0002000"; fits := true; end if;
-            fx_nb <= nb(31 downto 0) & x"0000"; fx_wn <= "100";
-            eq := nb(31 downto 0) = imm(31 downto 0);
-          else
-            if fx_ra = '1' then rr := fx_tr; else rr := ro; end if;
-            if fx_ca = '1' then cc := fx_tc; else cc := co; end if;
-            nb := fx_ra & fx_ca & "00" & rr(19 downto 0) & cc(23 downto 0);
-            fits := nb /= x"080000800000";
-            if fx_gone then nb := x"080000800000"; fits := true; end if;
-            fx_nb <= nb; fx_wn <= "110";
-            eq := nb = imm(47 downto 0);
-          end if;
-          if not fits then
-            mv_fail(MV_FAR, fx_pnr, fx_pnc);
-          elsif eq then
-            st <= FX_NEXT;
-          else
-            fx_ch <= true;
-            if mv_write then
-              if fx_gone then mv_deleted <= mv_deleted + 1; end if;
-              fx_wi <= (others => '0');
-              st <= FX_WB;
-            else
-              st <= FX_NEXT;
-            end if;
-          end if;
-        when FX_WB =>                           -- its bytes, one at a time
-          if fx_wi = fx_wn then
-            bf_valid <= false;
-            st <= FX_NEXT;
-          else
-            ad := cell + 32 + fx_pos + fx_wi;
-            bev := (others => '0'); bev(to_integer(ad(2 downto 0))) := '1';
-            mem_write(ad, fx_nb(47 downto 40) & fx_nb(47 downto 40) & fx_nb(47 downto 40) & fx_nb(47 downto 40)
-                      & fx_nb(47 downto 40) & fx_nb(47 downto 40) & fx_nb(47 downto 40) & fx_nb(47 downto 40),
-                      bev, FX_WB2);
-          end if;
-        when FX_WB2 =>
-          fx_nb <= fx_nb(39 downto 0) & x"00";
-          fx_wi <= fx_wi + 1;
-          st <= FX_WB;
-        when FX_END =>                          -- changed: CHANGED (header byte 3)
-          fx_mode <= false;
-          if mv_write and fx_ch then
-            mv_changed <= mv_changed + 1;
-            mem_write(cell, (fx_kf or x"10") & (fx_kf or x"10") & (fx_kf or x"10") & (fx_kf or x"10")
-                      & (fx_kf or x"10") & (fx_kf or x"10") & (fx_kf or x"10") & (fx_kf or x"10"),
-                      "00001000", fx_ret);
-          else
-            st <= fx_ret;
-          end if;
 
         -- --------------------------------------------------------------
         -- RECALC: the descriptor's counters
@@ -1747,7 +1078,7 @@ begin
         -- The byte reader: bytecode byte pc of the cell (at cell + 32)
         when BF =>
           if pc >= bclen then
-            if fx_mode then st <= FX_END; else e_abort(E_STACK); end if;
+            e_abort(E_STACK);
           else
             ad := cell + 32 + pc;
             if bf_valid and ad(27 downto 3) = bf_tag then
@@ -3280,7 +2611,6 @@ begin
         when X_P24 =>
           xp24 <= m_rd;
           if r_op = x"43" then mem_read(xblk + 32, FC_P32);   -- (FORMAT_CELLS: 48 bytes)
-          elsif r_op = x"48" or r_op = x"49" then mem_read(xblk + 32, MV_P32);   -- (the moves: 48)
           else mem_read(desc + 56, X_D56); end if;
         when X_D56 =>                           -- names, separators (0: "." and ",")
           co_names <= m_rd(27 downto 0);
@@ -3354,7 +2684,7 @@ begin
           xp40 <= m_rd; mem_read(desc, FC_D0);
         when FC_D0 =>                           -- the descriptor: magic, row table
           if m_rd(31 downto 0) /= x"31544853" then
-            format_fault(x"FFFFFFFF");
+            fault(ERR_FORMAT);                      -- (not a descriptor: nothing written)
           else
             rowtab <= m_rd(59 downto 32); mem_read(desc + 8, FC_D8);
           end if;

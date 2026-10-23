@@ -91,7 +91,7 @@ of one.
 | 40 | 4 | formulas whose result is an error, this round |
 | 44 | 1 | flags: bit 0 the change list overflowed this round, bit 1 this round's changes equal the previous round's |
 | 45 | 3 | reserved, 0 |
-| 48 | 4 | the row of a malformed row block (with ERR_FORMAT; $FFFFFFFF: the descriptor) |
+| 48 | 4 | the row of a malformed row block (with ERR_FORMAT; with a wrong magic nothing is written: the memory may not be a descriptor) |
 | 52 | 4 | changed cells in the previous round |
 | 56 | 4 | codec: function name table address (section 10) |
 | 60 | 1 | codec: decimal separator (ASCII, e.g. `.`) |
