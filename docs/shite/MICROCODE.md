@@ -30,8 +30,8 @@ engine's memory requests.
 
 | Instruction | Run by |
 |---|---|
-| $41 REBALANCE_ROW, $42 FIND_CELL, $48 MOVE_CELLS, $49 CELLS_MOVED | microcode |
-| all others | the state machine (for now) |
+| $41-$49: REBALANCE_ROW, FIND_CELL, FORMAT_CELLS, COMPILE, DECOMPILE, RENDER, PARSE, MOVE_CELLS, CELLS_MOVED | microcode |
+| $40 RECALC | the state machine (for now) |
 
 ## The engine
 
@@ -64,9 +64,18 @@ uses the ALU, picks its branch and addresses the ROM for the next micro-op.
     acknowledges (`ack_t` toggles).
   - The engine keeps the last group it read.  A load from that group takes
     one cycle, and a store into it updates it.
-  - Stores write through to memory.
+  - Stores write through to memory and don't wait: the engine goes on, and
+    the next memory request, job or END waits for the store's acknowledge.
+  - A load's address can be indexed: `ra + rb × 1, 4, 8 or 16 + offset`.
   - A memory fault (an address outside the map, or a read error) ends the
     instruction in the state machine, as before.
+- **The codec units** (`shite_formula_codec`, `shite_cell_text`,
+  `shite_number_text`) are reached through ports.  `OUT #port, ra` sets one
+  of a job's inputs, `IN rd, #port` reads one of a unit's results, and
+  `JOB #unit` runs a job: the state machine starts the unit and serves its
+  memory requests, then acknowledges.  The engine forgets its kept group
+  after a job, since the unit may have written it.  The port numbers are
+  the `P_` and `I_` names in `shite_ucode.asm`, decoded in `shite.vhdl`.
 - **Data RAM**: 2048 × 64 bits of block RAM, addressed by `ra + imm`.  A
   load takes two cycles and a store one.  REBALANCE_ROW (and MOVE_CELLS'
   tree for each row it builds) keeps its list of cells there.
@@ -96,11 +105,14 @@ Constants wider than the immediate live in `.const` registers.
 | 12 HI | B's low 32 bits, then ra's low 32 bits | |
 | 13 SETSP | none | the call stack's depth set to ra (from MOVX SP) |
 | 14 MOVX | the instruction's OP, RA, RB, RC, RD, RZ or X, or the call stack's depth (SP) | |
-| 16-19 LDB, LDH, LDL, LDQ | 1, 2, 4 or 8 bytes at `ra + imm`, zero-extended | must not cross an 8-byte group |
+| 16-19 LDB, LDH, LDL, LDQ | 1, 2, 4 or 8 bytes at `ra + rb × s + imm`, zero-extended | must not cross an 8-byte group; s is 1, 4, 8 or 16 (imm bits 28-27), the offset 27 bits |
 | 20-23 STB, STH, STL, STQ | rb's low 1, 2, 4 or 8 bytes stored at `ra + imm` | must not cross an 8-byte group |
-| 24 LDD, 25 STD | the data RAM at `ra + imm` | STD stores rb |
+| 24 LDD, 25 STD | the data RAM at `ra + imm` (LDD: indexed, as a load) | STD stores rb |
 | 26 RES | none | the instruction's result is ra's low 32 bits |
 | 27 END | none | ends the instruction with error code imm |
+| 28 OUT | none | a codec job's input (port imm) set to ra |
+| 29 IN | a codec unit's result (port imm) | |
+| 30 JOB | none | runs a job on unit imm (0 the formula codec, 1 the renderer, 2 PARSE's converter) |
 
 | Condition | Taken when |
 |---|---|
@@ -143,6 +155,7 @@ Pseudo-ops:
 | Pseudo-op | Meaning |
 |---|---|
 | `nop`, `mov`, `li` | the usual |
+| `ldq rd, [ra + rb*16 + 8]` | an indexed load |
 | `jmp`, `call`, `ret` | branch, call, return |
 | `jtab reg, table` | jump to table + reg |
 | `jr reg` | jump to the address in reg |
@@ -160,11 +173,33 @@ suite:
    refusals).
 2. MOVE_CELLS and CELLS_MOVED, sharing REBALANCE's tree builder (done; the
    state machine's REBALANCE, MOVE and list RAM are gone).
-3. FORMAT_CELLS and the codec jobs (COMPILE, DECOMPILE, RENDER, PARSE).
-   The codec units stay hardware.
+3. FORMAT_CELLS and the codec jobs (COMPILE, DECOMPILE, RENDER, PARSE)
+   (done; the codec units stay hardware).
 4. RECALC: the walk, the evaluator, the functions and the aggregates.  The
    engine gains a multiplier and divider, and F64 help: count leading
    zeros, and possibly normalise and round.
 
 At the end `shite.vhdl` keeps only the memory crossing, the codec units and
 the engine.
+
+## Size and speed
+
+Yosys `synth_xilinx`, LUTs (the engine's register file is another 88 RAM64M):
+
+| | SHITE | engine |
+|---|---|---|
+| all state machine | 22,442 | |
+| REBALANCE, FIND_CELL, MOVE in microcode | 17,790 | 2,950 |
+| and FORMAT_CELLS, the codec jobs | 16,359 | 3,047 |
+
+Microcode runs an op per cycle where the state machine did several things
+in a state, so the instructions moved are slower.  On the benches,
+simulated:
+
+| | state machine | microcode |
+|---|---|---|
+| `tb_shite_step1` (REBALANCE_ROW, 64 FIND_CELLs) | 340 µs | 474 µs |
+| `tb_shite_step9` (six moves, a CELLS_MOVED) | 4.01 ms | 8.23 ms |
+
+MOVE's time is mostly micro-ops (its byte-by-byte walk of each formula),
+not memory.

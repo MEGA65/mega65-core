@@ -6,8 +6,12 @@
 -- One ALU; a branch on that same op's result; call and return (16 deep);
 -- a jump to a register.  Memory is one 8-byte group at a time, through
 -- shite's memory states: a request and an acknowledge, as toggles.  The
--- last group read is kept, so loads from it take one cycle.  A data RAM
--- (2048 x 64, block RAM) holds lists and tables.
+-- last group read is kept, so loads from it take one cycle; a store goes
+-- on without waiting (the next request, a job or the end waits for it).
+-- Loads can be indexed: ra + rb x 1, 4, 8 or 16 + offset.  A data RAM
+-- (2048 x 64, block RAM) holds lists and tables.  The codec units are
+-- reached through ports: OUT sets a job's input, IN reads a result, JOB
+-- runs one (shite's state machine serves its memory meanwhile).
 --
 -- Runs on sclock (40.5 MHz on the boards).  The register read, the ALU, the
 -- branch's choice and the ROM's next address are one cycle.
@@ -34,12 +38,19 @@ entity shite_useq is
     -- memory: a request (req_t changes) held until ack_t changes; m_rd
     -- holds the group read from then until the next request
     req_t   : out std_logic := '0';
+    m_job   : out std_logic := '0';            -- (a codec job: unit m_addr(1:0))
     m_write : out std_logic := '0';
     m_addr  : out unsigned(27 downto 0) := (others => '0');
     m_wd    : out unsigned(63 downto 0) := (others => '0');
     m_be    : out std_logic_vector(7 downto 0) := (others => '0');
     ack_t   : in std_logic;
-    m_rd    : in unsigned(63 downto 0)
+    m_rd    : in unsigned(63 downto 0);
+    -- the codec units' ports: x_sel names one (for OUT, x_we with x_wd; for
+    -- IN, x_in its value, read the same cycle)
+    x_we  : out std_logic;
+    x_sel : out unsigned(5 downto 0);
+    x_wd  : out unsigned(63 downto 0);
+    x_in  : in unsigned(63 downto 0)
     );
 end shite_useq;
 
@@ -74,7 +85,9 @@ architecture rtl of shite_useq is
   signal dm_we : std_logic;
 
   signal run : std_logic := '0';
-  signal mwait, dwait : std_logic := '0';
+  signal dwait : std_logic := '0';
+  -- a request outstanding (pend); it being this op's load or job (lw)
+  signal pend, lw : std_logic := '0';
   signal ack_seen, req_r : std_logic := '0';
   -- the last group read (or written over it)
   signal c_valid : std_logic := '0';
@@ -113,11 +126,33 @@ begin
   va <= rf(to_integer(unsigned(f_ra)));
   vb <= rf(to_integer(unsigned(f_rb)));
   imm <= unsigned(resize(signed(f_imm), 64));
-  maddr <= resize(va + imm, 28);
+  -- the address: ra + imm; a load's ra + rb x 1/4/8/16 + imm (bits 26-0;
+  -- 28-27 the scale)
+  process (ir, va, vb, imm)
+    variable ix : unsigned(27 downto 0);
+  begin
+    case to_integer(unsigned(f_op)) is
+      when UOP_LDB | UOP_LDH | UOP_LDL | UOP_LDQ | UOP_LDD =>
+        case f_imm(28 downto 27) is
+          when "00" => ix := vb(27 downto 0);
+          when "01" => ix := vb(25 downto 0) & "00";
+          when "10" => ix := vb(24 downto 0) & "000";
+          when others => ix := vb(23 downto 0) & "0000";
+        end case;
+        maddr <= va(27 downto 0) + ix + unsigned(resize(signed(f_imm(26 downto 0)), 28));
+      when others =>
+        maddr <= va(27 downto 0) + imm(27 downto 0);
+    end case;
+  end process;
+
+  x_sel <= unsigned(f_imm(5 downto 0));
+  x_wd <= va;
+  x_we <= '1' when run = '1' and start = '0' and to_integer(unsigned(f_op)) = UOP_OUT else '0';
 
   process (ir, upc, va, vb, imm, maddr, i_op, i_a, i_b, i_c, i_d, i_z, i_x, c_valid, c_tag,
-           c_data, m_rd, dm_q, mwait, dwait, ack_t, ack_seen, run, start, abt, stk, sp)
+           c_data, m_rd, dm_q, pend, lw, dwait, ack_t, ack_seen, run, start, abt, stk, sp, x_in)
     variable b, alu, sh, m, mm, gx, rs, ls : unsigned(63 downto 0);
+    variable free : boolean;
     variable sum, rs65 : unsigned(64 downto 0);
     variable lo, ramt, lamt : unsigned(5 downto 0);
     variable wf : unsigned(6 downto 0);
@@ -183,6 +218,7 @@ begin
           when 7 => alu := resize(sp, 64);
           when others => alu := (others => '0');
         end case;
+      when UOP_IN => alu := x_in;
       when others => alu := (others => '0');
     end case;
 
@@ -201,13 +237,17 @@ begin
     end case;
     res <= alu;
 
-    -- done this cycle?  Memory: a load from the group kept, or the
-    -- acknowledge; the data RAM: its read's second cycle
+    -- done this cycle?  A load: from the group kept, or its acknowledge; a
+    -- store, the end: once nothing is outstanding (a store's request made
+    -- then); a job: its acknowledge; the data RAM: its read's second cycle
+    free := pend = '0' or ack_t /= ack_seen;
     case op is
       when UOP_LDB | UOP_LDH | UOP_LDL | UOP_LDQ =>
-        done_v := hit or (mwait = '1' and ack_t /= ack_seen);
-      when UOP_STB | UOP_STH | UOP_STL | UOP_STQ =>
-        done_v := mwait = '1' and ack_t /= ack_seen;
+        done_v := hit or (lw = '1' and ack_t /= ack_seen);
+      when UOP_JOB =>
+        done_v := lw = '1' and ack_t /= ack_seen;
+      when UOP_STB | UOP_STH | UOP_STL | UOP_STQ | UOP_END =>
+        done_v := free;
       when UOP_LDD =>
         done_v := dwait = '1';
       when others =>
@@ -292,31 +332,45 @@ begin
       op := to_integer(unsigned(f_op));
       o := to_integer(maddr(2 downto 0));
       if start = '1' then
-        run <= '1'; mwait <= '0'; dwait <= '0'; sp <= (others => '0');
+        run <= '1'; pend <= '0'; lw <= '0'; dwait <= '0'; sp <= (others => '0');
         c_valid <= '0'; ack_seen <= ack_t;
         err <= (others => '0'); wr <= '0';
       elsif run = '1' then
-        -- memory: the request, once; the acknowledge
+        -- memory: an acknowledge seen; a request made (once, when nothing
+        -- is outstanding)
+        if pend = '1' and ack_t /= ack_seen then
+          ack_seen <= ack_t; pend <= '0';
+        end if;
         case op is
           when UOP_LDB | UOP_LDH | UOP_LDL | UOP_LDQ | UOP_STB | UOP_STH | UOP_STL | UOP_STQ =>
-            if mwait = '0' and adv = '0' then
+            if lw = '1' then
+              if adv = '1' then                  -- (a load's group, kept)
+                lw <= '0';
+                c_valid <= '1'; c_tag <= maddr(27 downto 3); c_data <= m_rd;
+              end if;
+            elsif (pend = '0' or ack_t /= ack_seen) and (f_op(2) = '1' or not (c_valid = '1' and c_tag = maddr(27 downto 3))) then
               be := shift_left(bytes_of(f_op), o);
               d := shift_left(vb, o * 8);
               m_addr <= maddr(27 downto 3) & "000";
               m_write <= f_op(2);                -- (STx: 20-23)
+              m_job <= '0';
               m_wd <= d; m_be <= std_logic_vector(be);
-              req_r <= not req_r; mwait <= '1';
-              if f_op(2) = '1' and c_tag = maddr(27 downto 3) then
+              req_r <= not req_r; pend <= '1';
+              if f_op(2) = '0' then
+                lw <= '1';
+              elsif c_tag = maddr(27 downto 3) then
                 -- (the group kept: written over)
                 for i in 0 to 7 loop
                   if be(i) = '1' then c_data(i * 8 + 7 downto i * 8) <= d(i * 8 + 7 downto i * 8); end if;
                 end loop;
               end if;
-            elsif mwait = '1' and adv = '1' then
-              mwait <= '0'; ack_seen <= ack_t;
-              if f_op(2) = '0' then
-                c_valid <= '1'; c_tag <= maddr(27 downto 3); c_data <= m_rd;
-              end if;
+            end if;
+          when UOP_JOB =>                        -- (the units write memory: forget the group)
+            if lw = '1' then
+              if adv = '1' then lw <= '0'; c_valid <= '0'; end if;
+            elsif pend = '0' or ack_t /= ack_seen then
+              m_addr <= resize(unsigned(f_imm(1 downto 0)), 28); m_job <= '1';
+              req_r <= not req_r; pend <= '1'; lw <= '1';
             end if;
           when UOP_LDD =>
             dwait <= not dwait;

@@ -4,13 +4,12 @@
 -- the reference model SSNAIL/shite.py).  SSNAIL hands over its LUMP ports
 -- for the length of an instruction (ssnail_top multiplexes them).
 --
--- REBALANCE_ROW ($41), FIND_CELL ($42), MOVE_CELLS ($48) and CELLS_MOVED
--- ($49) are microcode (shite_useq, shite_ucode.asm; docs/shite/MICROCODE.md),
--- this state machine serving its memory.  The rest are still the state
--- machine's: RECALC ($40), and through the codec units (shite_formula_codec,
--- shite_cell_text and the shared shite_number_text) FORMAT_CELLS ($43),
--- COMPILE ($44), DECOMPILE ($45), RENDER ($46), PARSE ($47).  They move to
--- the microcode a family at a time.
+-- REBALANCE_ROW ($41), FIND_CELL ($42), FORMAT_CELLS ($43), COMPILE ($44),
+-- DECOMPILE ($45), RENDER ($46), PARSE ($47), MOVE_CELLS ($48) and
+-- CELLS_MOVED ($49) are microcode (shite_useq, shite_ucode.asm;
+-- docs/shite/MICROCODE.md), this state machine serving its memory and its
+-- jobs on the codec units (shite_formula_codec, shite_cell_text and the
+-- shared shite_number_text).  RECALC ($40) is still the state machine's.
 -- Memory is reached one 8-byte group at a time.
 --
 -- Runs on sclock (40.5 MHz on the boards): shite_bridge (clock162) takes SSNAIL's coprocessor
@@ -106,13 +105,8 @@ architecture rtl of shite is
     FN_NORM, FN_DEN, FN_RND, FN_PACK,
     -- the stack RAM's read (one cycle)
     EST_WAIT, E_JZ2, E_BIN3, AG_ARG2,
-    -- the codec units: a parameter block in, a job, its results out; their
-    -- RAM requests served meanwhile (SJ_)
-    X_P0, X_P8, X_P16, X_P24, X_D56, X_GO, X_RES, X_RES2, X_RES3,
-    SJ_WAIT, SJ_DONE, SJ_GAP,
-    -- FORMAT_CELLS
-    FC_P32, FC_P40, FC_D0, FC_D8, FC_D56, FC_ROWS, FC_COLS, FC_WID, FC_CELLS, FC_H, FC_G8, FC_G16, FC_G24,
-    FC_WFILL, FC_RENDER, FC_DONE1, FC_EXP, FC_EFILL, FC_EXP2, FC_COLR, FC_CLR, FC_NEXT
+    -- a job on a codec unit (the microcode's), its RAM requests served
+    SJ_WAIT, SJ_DONE, SJ_GAP
     );
   signal st, mem_ret, lk_ret, fb_ret, imm_ret, cw_ret, mu_ret, dv_ret : state_t := S_IDLE;
   signal sj_ret : state_t := S_IDLE;
@@ -126,6 +120,9 @@ architecture rtl of shite is
   signal u_maddr : unsigned(27 downto 0);
   signal u_mwd : unsigned(63 downto 0);
   signal u_mbe : std_logic_vector(7 downto 0);
+  signal u_mjob, u_xwe : std_logic;
+  signal u_xsel : unsigned(5 downto 0);
+  signal u_xwd, u_xin : unsigned(63 downto 0);
 
   -- the instruction
   signal r_op : unsigned(7 downto 0) := (others => '0');
@@ -550,36 +547,34 @@ architecture rtl of shite is
   signal sj_mode : boolean := false;                -- memory faults go to the unit
   signal sj_fault : boolean := false;
   signal sj_seen_done : boolean := false;
-  signal xblk : unsigned(27 downto 0) := (others => '0'); -- the parameter block
-  signal xp0, xp8, xp16, xp24 : unsigned(63 downto 0) := (others => '0');
-  -- FORMAT_CELLS
-  signal xp32, xp40 : unsigned(63 downto 0) := (others => '0');
-  signal fc_row, fc_col : unsigned(31 downto 0) := (others => '0');
-  signal fc_line, fc_cline : unsigned(27 downto 0) := (others => '0');   -- this row's lines
-  signal fc_x, fc_cx : unsigned(15 downto 0) := (others => '0');         -- the field's offsets
-  signal fc_w : unsigned(7 downto 0) := (others => '0');
-  signal fc_hdr : unsigned(63 downto 0) := (others => '0');
-  signal fc_cell : unsigned(27 downto 0) := (others => '0');
-  signal fc_changed, fc_numfmt : boolean := false;
-  signal fc_i : unsigned(8 downto 0) := (others => '0');
-  signal fc_tag : unsigned(24 downto 0) := (others => '0');               -- a buffered group
-  signal fc_buf : unsigned(63 downto 0) := (others => '0');
-  signal fc_bvalid : boolean := false;
-  signal fw_tag : unsigned(24 downto 0) := (others => '0');               -- the width list's group
-  signal fw_buf : unsigned(63 downto 0) := (others => '0');
-  signal fw_valid : boolean := false;
 
 begin
 
-  -- The microcode engine: REBALANCE_ROW, FIND_CELL, MOVE_CELLS, CELLS_MOVED so far
+  -- The microcode engine: every instruction but RECALC so far
   useq : entity work.shite_useq
     port map (
       clock => clock, start => u_start,
       i_op => r_op, i_a => r_a, i_b => r_b, i_c => r_c, i_d => r_d, i_z => r_z, i_x => desc,
       abort => abt,
       done => u_done, err => u_err, wr => u_wr, result => u_res,
-      req_t => u_req_t, m_write => u_mwrite, m_addr => u_maddr, m_wd => u_mwd, m_be => u_mbe,
-      ack_t => u_ack_t, m_rd => m_rd);
+      req_t => u_req_t, m_job => u_mjob, m_write => u_mwrite, m_addr => u_maddr, m_wd => u_mwd,
+      m_be => u_mbe, ack_t => u_ack_t, m_rd => m_rd,
+      x_we => u_xwe, x_sel => u_xsel, x_wd => u_xwd, x_in => u_xin);
+
+  -- its reads of the codec units' results (IN; the ports' numbers are the
+  -- microcode's I_ names)
+  with to_integer(u_xsel) select u_xin <=
+    resize(co_error, 64) when 0,
+    resize(co_rlen, 64) when 1,
+    resize(co_epos, 64) when 2,
+    resize(co_hosts, 64) when 3,
+    resize(ce_error, 64) when 4,
+    resize(ce_colour, 64) when 5,
+    resize(nu_error, 64) when 6,
+    nu_rvalue when 7,
+    (63 downto 1 => '0') & nu_rkind when 8,
+    resize(nu_rscale, 64) when 9,
+    (others => '0') when others;
 
   -- The codec units (their RAM through the adapter below, SJ_)
   codec : entity work.shite_formula_codec
@@ -788,6 +783,33 @@ begin
         sj_seen_done <= true;
       end if;
       x_unit_abort <= abt;
+      if u_xwe = '1' then
+        case to_integer(u_xsel) is
+          when 0 => co_source <= u_xwd(27 downto 0);
+          when 1 => co_len <= u_xwd(15 downto 0);
+          when 2 => co_cap <= u_xwd(15 downto 0);
+          when 3 => co_row <= u_xwd(19 downto 0);
+          when 4 => co_col <= u_xwd(23 downto 0);
+          when 5 => co_dest <= u_xwd(27 downto 0);
+          when 6 => co_decompile <= u_xwd(0);
+          when 7 => co_names <= u_xwd(27 downto 0);
+          when 8 => co_dsep <= u_xwd(7 downto 0);
+          when 9 => co_asep <= u_xwd(7 downto 0);
+          when 10 => ce_kind <= u_xwd(3 downto 0);
+          when 11 => ce_format <= u_xwd;
+          when 12 => ce_width <= u_xwd(7 downto 0);
+          when 13 => ce_upper <= u_xwd(0);
+          when 14 => ce_value <= u_xwd;
+          when 15 => ce_text <= u_xwd(27 downto 0);
+          when 16 => ce_tlen <= u_xwd(15 downto 0);
+          when 17 => ce_dest <= u_xwd(27 downto 0);
+          when 18 => ce_scratch <= u_xwd(27 downto 0);
+          when 19 => ce_cap <= u_xwd(15 downto 0);
+          when 20 => sf_source <= u_xwd(27 downto 0);
+          when 21 => sf_len <= u_xwd(15 downto 0);
+          when others => null;
+        end case;
+      end if;
 
       case st is
         when S_IDLE =>
@@ -795,12 +817,11 @@ begin
             s_seen <= s_r;
             err <= ERR_NONE; wr <= '0'; cnt_loaded <= false;
             r_op <= op; r_a <= ra; r_b <= rb; r_c <= rc; r_d <= rd; r_z <= z; desc <= x;
-            if op = x"41" or op = x"42" or op = x"48" or op = x"49" then
-              u_start <= '1'; st <= U_RUN;          -- (the microcode's)
-            elsif op = x"43" or op = x"44" or op = x"45" or op = x"46" or op = x"47" then
-              xblk <= x; mem_read(x, X_P0);         -- (X: a parameter block)
-            else
+            if op = x"40" then
               mem_read(x, D_RD0);
+            else
+              u_start <= '1'; st <= U_RUN;          -- (the microcode's)
+              u_req_seen <= u_req_t;
             end if;
           end if;
 
@@ -808,10 +829,18 @@ begin
         when U_RUN =>
           if u_req_t /= u_req_seen then
             u_req_seen <= u_req_t;
-            if u_mwrite = '1' then
-              mem_write(u_maddr, u_mwd, u_mbe, U_MACK);
+            if u_mjob = '1' then                    -- a job on unit u_maddr(1:0)
+              sj_seen_done <= false; sj_mode <= true; sj_ret <= U_MACK;
+              st <= SJ_WAIT;
+              case u_maddr(1 downto 0) is
+                when "00" => x_job <= "00"; nu_client <= "00"; co_start <= '1';
+                when "01" => x_job <= "01"; nu_client <= "01"; ce_start <= '1';
+                when others => x_job <= "10"; nu_client <= "10"; nu_start_self <= '1';
+              end case;
+            elsif u_mwrite = '1' then
+              mem_write(u_maddr, u_mwd, u_mbe, U_RUN);
             else
-              mem_read(u_maddr, U_MACK);
+              mem_read(u_maddr, U_RUN);
             end if;
           elsif u_done = '1' then
             err <= u_err; wr <= u_wr;
@@ -819,6 +848,7 @@ begin
             st <= S_FINISH;
           end if;
         when U_MACK =>
+          sj_mode <= false;
           u_ack_t <= not u_ack_t; st <= U_RUN;
 
         when S_FINISH =>
@@ -856,6 +886,7 @@ begin
             else
               m_rd <= g_rd_r;
               st <= mem_ret;
+              if mem_ret = U_RUN then u_ack_t <= not u_ack_t; end if;   -- (the engine's)
             end if;
           end if;
 
@@ -2596,263 +2627,6 @@ begin
             d44(0) <= '1';
             st <= E_NEXTCELL;
           end if;
-
-        -- --------------------------------------------------------------
-        -- COMPILE, DECOMPILE, RENDER, PARSE (section 10): the parameter
-        -- block (32 bytes) and the descriptor's codec settings, the job on
-        -- its unit, the results back
-        when X_P0 =>
-          xp0 <= m_rd; desc <= m_rd(27 downto 0);
-          mem_read(xblk + 8, X_P8);
-        when X_P8 =>
-          xp8 <= m_rd; mem_read(xblk + 16, X_P16);
-        when X_P16 =>
-          xp16 <= m_rd; mem_read(xblk + 24, X_P24);
-        when X_P24 =>
-          xp24 <= m_rd;
-          if r_op = x"43" then mem_read(xblk + 32, FC_P32);   -- (FORMAT_CELLS: 48 bytes)
-          else mem_read(desc + 56, X_D56); end if;
-        when X_D56 =>                           -- names, separators (0: "." and ",")
-          co_names <= m_rd(27 downto 0);
-          if m_rd(39 downto 32) = 0 then co_dsep <= x"2E"; else co_dsep <= m_rd(39 downto 32); end if;
-          if m_rd(47 downto 40) = 0 then co_asep <= x"2C"; else co_asep <= m_rd(47 downto 40); end if;
-          st <= X_GO;
-        when X_GO =>
-          sj_seen_done <= false; sj_mode <= true; sj_ret <= X_RES;
-          st <= SJ_WAIT;
-          case r_op is
-            when x"44" | x"45" =>                 -- COMPILE / DECOMPILE
-              co_source <= xp0(59 downto 32); co_len <= xp8(15 downto 0); co_cap <= xp8(31 downto 16);
-              co_row <= xp8(51 downto 32); co_col <= xp16(23 downto 0); co_dest <= xp16(59 downto 32);
-              co_decompile <= r_op(0);
-              x_job <= "00"; nu_client <= "00"; co_start <= '1';
-            when x"46" =>                         -- RENDER
-              ce_kind <= xp0(35 downto 32);
-              ce_format <= xp16(63 downto 24) & xp0(47 downto 40) & xp16(15 downto 0);   -- (byte 2: the block's fixed point)
-              ce_width <= xp0(55 downto 48); ce_upper <= xp0(63);
-              ce_value <= xp8; ce_text <= xp8(27 downto 0); ce_tlen <= xp8(47 downto 32);
-              ce_dest <= xp24(27 downto 0); ce_scratch <= xp24(59 downto 32);
-              ce_cap <= x"00" & xp0(55 downto 48);
-              x_job <= "01"; nu_client <= "01"; ce_start <= '1';
-            when others =>                        -- PARSE: the literal (the front end: to come)
-              sf_source <= xp0(59 downto 32); sf_len <= xp8(15 downto 0);
-              x_job <= "10"; nu_client <= "10"; nu_start_self <= '1';
-          end case;
-        when X_RES =>
-          sj_mode <= false;
-          wr <= '1';
-          case r_op is
-            when x"44" | x"45" =>                 -- length, error, host calls, position (bytes 24-29)
-              if co_error = CODEC_OK then result <= x"0000" & co_rlen; else result <= (others => '0'); end if;
-              mem_write(xblk + 24, x"0000" & co_epos & co_hosts & co_error & co_rlen, "11111111", X_RES2);
-            when x"46" =>                         -- R[a]: the colour; a renderer error in bits 15-8
-              result <= x"0000" & ce_error & x"0" & ce_colour;
-              st <= X_RES2;
-            when others =>                        -- PARSE: the value (bytes 16-23), then its kind
-              if nu_error /= CODEC_OK then
-                result <= (others => '0');
-                mem_write(xblk + 16, (others => '0'), "11111111", X_RES3);
-              else
-                if nu_rkind = '1' then result <= x"00000003"; else result <= x"00000004"; end if;
-                mem_write(xblk + 16, nu_rvalue, "11111111", X_RES3);
-              end if;
-          end case;
-        when X_RES3 =>                          -- PARSE: kind, fixed point, style, prefix (24-27)
-          if nu_error /= CODEC_OK then
-            mem_write(xblk + 24, (others => '0'), "11111111", X_RES2);
-          elsif nu_rkind = '1' then
-            mem_write(xblk + 24, x"00000000" & x"0000" & nu_rscale & x"03", "11111111", X_RES2);
-          else
-            mem_write(xblk + 24, x"00000000" & x"0000" & nu_rscale & x"04", "11111111", X_RES2);
-          end if;
-        when X_RES2 =>                          -- a unit's memory fault or abort ends the job
-          if (r_op /= x"46" and r_op /= x"47" and co_error = CODEC_MEMORY)
-            or (r_op = x"46" and ce_error = CODEC_MEMORY) or (r_op = x"47" and nu_error = CODEC_MEMORY) then
-            err <= ERR_ADDRESS;
-          elsif (r_op /= x"46" and r_op /= x"47" and co_error = CODEC_ABORTED)
-            or (r_op = x"46" and ce_error = CODEC_ABORTED) or (r_op = x"47" and nu_error = CODEC_ABORTED) then
-            err <= ERR_ABORTED;
-          end if;
-          st <= S_FINISH;
-
-        -- --------------------------------------------------------------
-        -- FORMAT_CELLS (section 6): rows r1..r2, columns c1..c2 (widths from
-        -- the list), each field rendered (RENDER's unit), colours, CHANGED
-        when FC_P32 =>
-          xp32 <= m_rd; mem_read(xblk + 40, FC_P40);
-        when FC_P40 =>
-          xp40 <= m_rd; mem_read(desc, FC_D0);
-        when FC_D0 =>                           -- the descriptor: magic, row table
-          if m_rd(31 downto 0) /= x"31544853" then
-            fault(ERR_FORMAT);                      -- (not a descriptor: nothing written)
-          else
-            rowtab <= m_rd(59 downto 32); mem_read(desc + 8, FC_D8);
-          end if;
-        when FC_D8 =>
-          nrows <= m_rd(31 downto 0); ncols <= m_rd(63 downto 32);
-          mem_read(desc + 56, FC_D56);
-        when FC_D56 =>
-          if m_rd(39 downto 32) = 0 then co_dsep <= x"2E"; else co_dsep <= m_rd(39 downto 32); end if;
-          fc_row <= xp0(63 downto 32);
-          fc_line <= xp24(27 downto 0); fc_cline <= xp32(27 downto 0);
-          fc_bvalid <= false; fw_valid <= false;
-          st <= FC_ROWS;
-        when FC_ROWS =>
-          if fc_row > xp8(31 downto 0) or fc_row >= nrows then
-            st <= S_FINISH;
-          elsif abt = '1' then
-            fault(ERR_ABORTED);
-          else
-            fc_col <= xp8(63 downto 32); fc_x <= (others => '0'); fc_cx <= (others => '0');
-            st <= FC_COLS;
-          end if;
-        when FC_COLS =>                          -- the column's width (a byte of the list)
-          if fc_col > xp16(31 downto 0) then
-            fc_row <= fc_row + 1;
-            fc_line <= fc_line + xp24(47 downto 32); fc_cline <= fc_cline + xp32(47 downto 32);
-            st <= FC_ROWS;
-          else
-            ad := xp16(59 downto 32) + resize(fc_col - xp8(63 downto 32), 28);
-            if fw_valid and ad(27 downto 3) = fw_tag then
-              fc_w <= fw_buf(to_integer(ad(2 downto 0)) * 8 + 7 downto to_integer(ad(2 downto 0)) * 8);
-              st <= FC_WID;
-            else
-              fw_tag <= ad(27 downto 3);
-              mem_read(ad, FC_WFILL);
-            end if;
-          end if;
-        when FC_WFILL =>
-          fw_buf <= m_rd; fw_valid <= true;
-          st <= FC_COLS;
-        when FC_WID =>
-          if fc_w = 0 then
-            fc_col <= fc_col + 1; st <= FC_COLS;   -- (a hidden column)
-          else
-            q_row <= fc_row; q_col <= fc_col; lk_ret <= FC_CELLS; st <= LK_START;
-          end if;
-        when FC_CELLS =>                         -- the cell (none: blank)
-          fc_cell <= q_addr;
-          ce_kind <= x"0"; ce_value <= (others => '0'); ce_format <= (others => '0');
-          ce_tlen <= (others => '0'); fc_changed <= false; fc_numfmt <= false;
-          if q_col >= ncols or q_addr = 0 then
-            if xp24(56) = '1' then st <= FC_NEXT; else st <= FC_RENDER; end if;
-          else
-            mem_read(q_addr, FC_H);
-          end if;
-        when FC_H =>                            -- its header: kind, CHANGED
-          fc_hdr <= m_rd;
-          fc_changed <= m_rd(28) = '1';
-          if xp24(56) = '1' and m_rd(28) = '0' then
-            st <= FC_NEXT;                        -- (only cells with CHANGED)
-          else
-            mem_read(fc_cell + 8, FC_G8);
-          end if;
-        when FC_G8 =>                           -- +8: a format, a value, or an error code
-          case fc_hdr(27 downto 24) is
-            when K_EMPTY =>
-              ce_kind <= x"0"; ce_format <= m_rd; st <= FC_RENDER;
-            when K_ERROR =>
-              ce_kind <= x"6"; ce_value <= m_rd; st <= FC_RENDER;
-            when K_F64 | K_I64 | K_I32 =>
-              ce_kind <= fc_hdr(27 downto 24); ce_value <= m_rd;
-              if fc_hdr(30) = '1' then mem_read(fc_cell + 16, FC_G16); else st <= FC_RENDER; end if;
-            when others =>                        -- TEXT, FORMULA, UNCOMPILED: the format, then +16
-              ce_format <= m_rd; mem_read(fc_cell + 16, FC_G16);
-          end case;
-        when FC_G16 =>
-          case fc_hdr(27 downto 24) is
-            when K_F64 | K_I64 | K_I32 =>         -- its format
-              ce_format <= m_rd; fc_numfmt <= true; st <= FC_RENDER;
-            when K_TEXT =>                        -- length (16-17), text at +18
-              ce_kind <= x"1"; ce_tlen <= m_rd(15 downto 0); ce_text <= fc_cell + 18; st <= FC_RENDER;
-            when K_UNCOMPILED =>                  -- length (20-21), text at +24
-              ce_kind <= x"7"; ce_tlen <= m_rd(47 downto 32); ce_text <= fc_cell + 24; st <= FC_RENDER;
-            when others =>                        -- FORMULA: the result (16-23), then its kind (24)
-              ce_value <= m_rd; mem_read(fc_cell + 24, FC_G24);
-          end case;
-        when FC_G24 =>
-          st <= FC_RENDER;
-          fc_numfmt <= true;
-          case m_rd(3 downto 0) is
-            when K_F64 | K_I64 | K_I32 => ce_kind <= m_rd(3 downto 0);
-            when K_ERROR => ce_kind <= x"6"; fc_numfmt <= false;
-            when K_TEXT =>                        -- its text: after the bytecode
-              ce_kind <= x"1"; ce_tlen <= ce_value(15 downto 0); fc_numfmt <= false;
-              ce_text <= fc_cell + 32 + resize(m_rd(31 downto 16), 28);
-            when others => ce_kind <= x"0"; fc_numfmt <= false;
-          end case;
-        when FC_RENDER =>                       -- one field (char size 2: into scratch, then expanded)
-          ce_width <= fc_w; ce_cap <= x"00" & fc_w; ce_upper <= xp24(58);
-          ce_scratch <= xp40(27 downto 0);
-          if xp24(49 downto 48) = "10" then
-            ce_dest <= xp40(27 downto 0) + 512;
-          else
-            ce_dest <= fc_line + resize(fc_x, 28);
-          end if;
-          x_job <= "01"; nu_client <= "01"; ce_start <= '1';
-          sj_seen_done <= false; sj_mode <= true; sj_ret <= FC_DONE1;
-          st <= SJ_WAIT;
-        when FC_DONE1 =>
-          sj_mode <= false;
-          if ce_error = CODEC_MEMORY then err <= ERR_ADDRESS; st <= S_FINISH;
-          elsif ce_error = CODEC_ABORTED then err <= ERR_ABORTED; st <= S_FINISH;
-          elsif xp24(49 downto 48) = "10" then
-            fc_i <= (others => '0'); fc_bvalid <= false; st <= FC_EXP;
-          else
-            fc_i <= (others => '0'); st <= FC_COLR;
-          end if;
-        when FC_EXP =>                          -- 16-bit characters: the code, then 0
-          if fc_i = resize(fc_w, 9) then
-            fc_i <= (others => '0'); fc_bvalid <= false; st <= FC_COLR;
-          else
-            ad := xp40(27 downto 0) + 512 + resize(fc_i, 28);
-            if fc_bvalid and ad(27 downto 3) = fc_tag then
-              e := (others => '0');
-              e(7 downto 0) := fc_buf(to_integer(ad(2 downto 0)) * 8 + 7 downto to_integer(ad(2 downto 0)) * 8);
-              ad := fc_line + resize(fc_x, 28) + resize(fc_i & '0', 28);
-              -- (the two bytes at ad: within one group, ad being even)
-              mem_write(ad, shift_left(e, to_integer(ad(2 downto 0)) * 8),
-                        std_logic_vector(shift_left(unsigned'(x"03"), to_integer(ad(2 downto 0)))), FC_EXP2);
-            else
-              fc_tag <= ad(27 downto 3);
-              mem_read(ad, FC_EFILL);
-            end if;
-          end if;
-        when FC_EFILL =>
-          fc_buf <= m_rd; fc_bvalid <= true;
-          st <= FC_EXP;
-        when FC_EXP2 =>
-          fc_i <= fc_i + 1;
-          st <= FC_EXP;
-        when FC_COLR =>                         -- the colour plane: one byte a character
-          if xp32(27 downto 0) = 0 or fc_i = resize(fc_w, 9) then
-            st <= FC_CLR;
-          else
-            ad := fc_cline + resize(fc_cx, 28) + resize(fc_i, 28);
-            e := (others => '0');
-            if fc_numfmt and ce_kind /= x"0" and ce_format /= 0 then
-              e(7 downto 0) := x"0" & ce_colour;
-            else
-              e(7 downto 0) := xp32(55 downto 48);
-            end if;
-            fc_i <= fc_i + 1;
-            mem_write(ad, shift_left(e, to_integer(ad(2 downto 0)) * 8),
-                      std_logic_vector(shift_left(unsigned'(x"01"), to_integer(ad(2 downto 0)))), FC_COLR);
-          end if;
-        when FC_CLR =>                          -- CHANGED cleared (flags bit 1)
-          if xp24(57) = '1' and fc_changed then
-            e := (others => '0');
-            e(31 downto 24) := fc_hdr(31 downto 29) & '0' & fc_hdr(27 downto 24);
-            mem_write(fc_cell, e, "00001000", FC_NEXT);
-          else
-            st <= FC_NEXT;
-          end if;
-        when FC_NEXT =>
-          if xp24(49 downto 48) = "10" then fc_x <= fc_x + (fc_w & '0'); else fc_x <= fc_x + fc_w; end if;
-          fc_cx <= fc_cx + fc_w;
-          fc_col <= fc_col + 1;
-          fc_bvalid <= false;
-          st <= FC_COLS;
 
         -- --------------------------------------------------------------
         -- The units' RAM: whichever holds ram_valid (one at a time) gets one

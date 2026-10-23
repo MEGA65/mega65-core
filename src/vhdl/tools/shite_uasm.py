@@ -37,7 +37,7 @@ IMM_BITS = 29
 
 OPS = dict(ADD=0, SUB=1, AND=2, OR=3, XOR=4, ANDN=5, SHL=6, SHR=7, SAR=8, EXT=9, EXTS=10,
            INS=11, HI=12, SETSP=13, MOVX=14, LDB=16, LDH=17, LDL=18, LDQ=19, STB=20, STH=21, STL=22,
-           STQ=23, LDD=24, STD=25, RES=26, END=27)
+           STQ=23, LDD=24, STD=25, RES=26, END=27, OUT=28, IN=29, JOB=30)
 CONDS = dict(NONE=0, JMP=1, CALL=2, RET=3, JTAB=4, Z=5, NZ=6, UGE=7, ULT=8, LT=9, GE=10,
              MI=11, PL=12, ABT=13, NABT=14)
 MOVX_SRC = dict(OP=0, RA=1, RB=2, RC=3, RD=4, RZ=5, X=6, SP=7)
@@ -119,14 +119,38 @@ class Asm:
         else:
             w.rb = self.reg(s)
 
-    def mem(self, w, s):
-        m = re.fullmatch(r"\[\s*([A-Za-z_]\w*)\s*(?:([+-])(.*))?\]", s.strip())
-        if not m:
+    SCALES = {1: 0, 4: 1, 8: 2, 16: 3}
+
+    def mem(self, w, s, index=False):
+        """[ra], [ra +- off]; a load also [ra + rb + off], [ra + rb*N + off]
+        (N 1, 4, 8, 16: imm bits 28-27, the offset 27 bits)."""
+        s = s.strip()
+        if not (s.startswith("[") and s.endswith("]")):
             self.err(f"not a memory operand: {s!r}")
-        w.ra = self.reg(m.group(1))
-        if m.group(2):
-            v = self.value(m.group(3))
-            w.imm = self.imm32(v if m.group(2) == "+" else -v)
+        terms = re.findall(r"([+-]?)\s*([^+-]+)", s[1:-1])
+        if not terms or terms[0][0] or not self.is_reg(terms[0][1]):
+            self.err(f"not a memory operand: {s!r}")
+        w.ra = self.reg(terms[0][1])
+        rest = terms[1:]
+        scale = None
+        if rest:
+            sign, t = rest[0]
+            m = re.fullmatch(r"([A-Za-z_]\w*)\s*(?:\*\s*(\d+))?", t.strip())
+            if sign == "+" and m and self.is_reg(m.group(1)):
+                if not index:
+                    self.err(f"only a load is indexed: {s!r}")
+                n = int(m.group(2) or 1)
+                if n not in self.SCALES:
+                    self.err(f"scale {n}: 1, 4, 8 or 16")
+                w.rb, scale = self.reg(m.group(1)), self.SCALES[n]
+                rest = rest[1:]
+        off = self.value("".join(sg + t for sg, t in rest)) if rest else 0
+        if scale is None and not index:
+            w.imm = self.imm32(off)
+        else:
+            if not -(1 << 26) <= off < (1 << 26):
+                self.err(f"offset {off:#x} past 27 bits")
+            w.imm = (off & ((1 << 27) - 1)) | ((scale or 0) << 27)
 
     def emit(self, w):
         if len(self.words) >= ROM_WORDS:
@@ -190,11 +214,20 @@ class Asm:
         elif mn in LOADS:
             nargs(2)
             w.op, w.rd = OPS[mn], self.reg(a[0])
-            self.mem(w, a[1])
+            self.mem(w, a[1], index=True)
         elif mn in STORES:
             nargs(2)
             w.op, w.rb = OPS[mn], self.reg(a[1])
             self.mem(w, a[0])
+        elif mn == "OUT":            # out #port, ra: a codec job's input
+            nargs(2)
+            w.op, w.imm, w.ra = OPS[mn], self.value(a[0]) & 63, self.reg(a[1])
+        elif mn == "IN":             # in rd, #port: a codec unit's result
+            nargs(2)
+            w.op, w.rd, w.imm = OPS[mn], self.reg(a[0]), self.value(a[1]) & 63
+        elif mn == "JOB":            # job #unit: run it (0 codec, 1 renderer, 2 PARSE)
+            nargs(1)
+            w.op, w.imm = OPS[mn], self.value(a[0]) & 3
         elif mn == "SETSP":
             nargs(1)
             w.op, w.ra = OPS[mn], self.reg(a[0])

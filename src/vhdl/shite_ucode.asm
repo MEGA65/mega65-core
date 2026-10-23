@@ -8,6 +8,7 @@
 
 .equ ERR_NONE    = 0x00
 .equ ERR_OPCODE  = 0x01
+.equ ERR_ADDRESS = 0x02
 .equ ERR_ABORTED = 0x05
 .equ ERR_FORMAT  = 0x06
 .equ K_FORMULA   = 2
@@ -17,6 +18,52 @@
 .equ MV_HEAP     = 1            ; why a move failed: the heap too small,
 .equ MV_LONGROW  = 2            ; a row's cells past 4096 granules,
 .equ MV_FAR      = 3            ; a reference past its form
+.equ K_EMPTY     = 0
+.equ K_TEXT      = 1
+.equ K_F64       = 3
+.equ K_I32       = 5
+.equ K_ERROR     = 6
+.equ K_UNCOMPILED = 7
+
+; the codec units (shite.vhdl): job #unit, its inputs (out #P_), its
+; results (in #I_)
+.equ U_CODEC     = 0            ; COMPILE, DECOMPILE (shite_formula_codec)
+.equ U_RENDER    = 1            ; RENDER, FORMAT_CELLS (shite_cell_text)
+.equ U_PARSE     = 2            ; PARSE (shite_number_text)
+.equ P_CO_SOURCE = 0
+.equ P_CO_LEN    = 1
+.equ P_CO_CAP    = 2
+.equ P_CO_ROW    = 3
+.equ P_CO_COL    = 4
+.equ P_CO_DEST   = 5
+.equ P_CO_DECOMPILE = 6
+.equ P_CO_NAMES  = 7
+.equ P_CO_DSEP   = 8            ; (the renderer's and PARSE's too)
+.equ P_CO_ASEP   = 9
+.equ P_CE_KIND   = 10
+.equ P_CE_FORMAT = 11
+.equ P_CE_WIDTH  = 12
+.equ P_CE_UPPER  = 13
+.equ P_CE_VALUE  = 14
+.equ P_CE_TEXT   = 15
+.equ P_CE_TLEN   = 16
+.equ P_CE_DEST   = 17
+.equ P_CE_SCRATCH = 18
+.equ P_CE_CAP    = 19
+.equ P_SF_SOURCE = 20
+.equ P_SF_LEN    = 21
+.equ I_CO_ERROR  = 0
+.equ I_CO_RLEN   = 1
+.equ I_CO_EPOS   = 2
+.equ I_CO_HOSTS  = 3
+.equ I_CE_ERROR  = 4
+.equ I_CE_COLOUR = 5
+.equ I_NU_ERROR  = 6
+.equ I_NU_RVALUE = 7
+.equ I_NU_RKIND  = 8
+.equ I_NU_RSCALE = 9
+.equ CODEC_MEMORY = 0x0A
+.equ CODEC_ABORTED = 0x0B
 
 .const M32    = 0xFFFFFFFF
 .const MAGIC  = 0x31544853      ; "SHT1"
@@ -42,11 +89,11 @@ start:
 optab:  jmp     bad_op          ; $40 RECALC
         jmp     rebalance       ; $41 REBALANCE_ROW
         jmp     find_cell       ; $42 FIND_CELL
-        jmp     bad_op          ; $43
-        jmp     bad_op          ; $44
-        jmp     bad_op          ; $45
-        jmp     bad_op          ; $46
-        jmp     bad_op          ; $47
+        jmp     format_cells    ; $43 FORMAT_CELLS
+        jmp     codec           ; $44 COMPILE
+        jmp     codec           ; $45 DECOMPILE
+        jmp     codec           ; $46 RENDER
+        jmp     codec           ; $47 PARSE
         jmp     move            ; $48 MOVE_CELLS
         jmp     move            ; $49 CELLS_MOVED
         jmp     bad_op          ; $4A
@@ -83,9 +130,7 @@ desc_bad:                               ; (not a descriptor: nothing written)
 ; t0 = row t0's entry in the row table (a block, or $FFFFFFFF: none)
 row_entry:
         ext     t0, t0, 0, 26
-        shl     t0, t0, #2
-        add     t0, rowtab, t0
-        ldl     t0, [t0]                | ret
+        ldl     t0, [rowtab+t0*4]       | ret
 
 ; The row block at t0, for row bad: blk, its header (rh0, rh1), its first
 ; free granule (gfree).  The row number, and gfree within the block (<=
@@ -105,17 +150,15 @@ open_block:
 ; The cell at granule g: cg its header, len its length (checked: not 0,
 ; within gfree)
 cell_at:
-        shl     t0, g, #4
-        add     t0, blk, t0
-        ldq     cg, [t0]
+        ldq     cg, [blk+g*16]
         ext     len, cg, 32, 8          | z format_fault
         add     t1, g, len
         bltu    gfree, t1, format_fault
         ret
 
 ; ----------------------------------------------------------------------
-; FIND_CELL ($42): RA, RB a row and column; the cell's address, 0 if none
-.scope
+; FIND_CELL ($42): RA, RB a row and column; the cell's address, 0 if none.
+; (lookup's registers not in a scope: FORMAT_CELLS calls it)
 .reg qr, qc, qa, lg, lh
 find_cell:
         movx    desc, X
@@ -135,25 +178,22 @@ lookup:
         call    row_entry
         beq     t0, M32, lk_ret
         ext     blk, t0, 0, 28
-        ldh     lg, [blk+8]             ; the root (bytes 8-9)
+        ldh     lg, [blk+8]             | z lk_ret      ; the root (bytes 8-9)
 lk_loop:
-        bz      lg, lk_ret
-        shl     t0, lg, #4
-        add     t0, blk, t0
-        ext     t0, t0, 0, 28
-        ldq     lh, [t0]
+        ldq     lh, [blk+lg*16]         | abt aborted
         ext     t1, lh, 0, 24           ; its column
         beq     qc, t1, lk_found
         bltu    qc, t1, lk_left
-        ext     lg, lh, 52, 12          | abt aborted
-        jmp     lk_loop
+        ext     lg, lh, 52, 12          | nz lk_loop    ; right
+        ret
 lk_left:
-        ext     lg, lh, 40, 12          | abt aborted
-        jmp     lk_loop
+        ext     lg, lh, 40, 12          | nz lk_loop    ; left
+        ret
 lk_found:
-        mov     qa, t0
+        shl     t0, lg, #4
+        add     t0, blk, t0
+        ext     qa, t0, 0, 28
 lk_ret: ret
-.endscope
 
 ; ----------------------------------------------------------------------
 ; REBALANCE_ROW ($41): rows RA..RB (those with a block)
@@ -182,7 +222,7 @@ b_done: end     #ERR_NONE
 ; descending from 0..n-1 as a search would.  Then the block's header: the
 ; cell count, the root, the stale flag cleared
 ; (its registers not in a scope: MOVE_CELLS calls it)
-.reg ln, i, j, key, lo, hi, md, first, root, gl, gr
+.reg ln, i, j, key, lo, hi, md, root, gl, gr
 rb_block:
         li      g, #1
         li      ln, #0
@@ -220,40 +260,46 @@ b_sort4:
         std     [j], key
         add     i, i, #1                | jmp b_sort
 
-        ; the tree: each node i in turn
+        ; the tree: the ranges lo..hi in a queue (lo | hi << 16, in the
+        ; data RAM after the list), from 0..n-1; each one's middle a node
 b_tree: li      root, #0
-        li      i, #0
-b_tree1:
-        bgeu    i, ln, b_rhdr
-        babt    aborted
-        li      lo, #0
+        bz      ln, b_rhdr
         sub     hi, ln, #1
-        li      first, #1
-b_tree2:                                ; one level down towards i
-        add     t0, lo, hi
-        shr     md, t0, #1
-        beq     i, md, b_node
-        li      first, #0
-        bltu    i, md, b_tleft
-        add     lo, md, #1              | jmp b_tree2
-b_tleft:
-        sub     hi, md, #1              | jmp b_tree2
-b_node: ldd     key, [md]
-        bz      first, b_node1
-        ext     root, key, 24, 16
-b_node1:
+        shr     md, hi, #1
+        ldd     key, [md]
+        ext     root, key, 24, 16       ; (the root: the middle of 0..n-1)
+        shl     t0, hi, #16
+        li      i, #LIST_MAX            ; (the queue's head,
+        li      j, #LIST_MAX            ; and tail)
+        std     [j], t0
+        add     j, j, #1
+b_tree1:
+        bgeu    i, j, b_rhdr
+        ldd     t0, [i]                 | abt aborted
+        add     i, i, #1
+        ext     lo, t0, 0, 16
+        ext     hi, t0, 16, 16
+        add     md, lo, hi
+        shr     md, md, #1
+        ldd     key, [md]
         li      gl, #0
         li      gr, #0
         bgeu    lo, md, b_node2         ; its left child: the middle of lo..md-1
-        add     t0, lo, md
-        sub     t0, t0, #1
+        sub     t1, md, #1
+        ins     t0, t1, lo, 16, 16
+        std     [j], t0
+        add     j, j, #1
+        add     t0, lo, t1
         shr     t0, t0, #1
         ldd     t1, [t0]
         ext     gl, t1, 24, 16
 b_node2:
         bgeu    md, hi, b_node3         ; its right: of md+1..hi
-        add     t0, md, hi
-        add     t0, t0, #1
+        add     t1, md, #1
+        ins     t0, hi, t1, 16, 16
+        std     [j], t0
+        add     j, j, #1
+        add     t0, t1, hi
         shr     t0, t0, #1
         ldd     t1, [t0]
         ext     gr, t1, 24, 16
@@ -266,8 +312,7 @@ b_node3:                                ; the node's header
         ext     t1, key, 24, 16
         shl     t1, t1, #4
         add     t1, blk, t1
-        stq     [t1], t0
-        add     i, i, #1                | jmp b_tree1
+        stq     [t1], t0                | jmp b_tree1
 
         ; the cell count (bytes 6-7); the root (bytes 8-9), the stale flag
         ; (bit 0 of byte 14) cleared
@@ -281,8 +326,7 @@ b_rhdr: ins     t0, ln, rh0, 48, 16
 ; The byte reader: by = bytecode byte pc of the cell, pc + 1.  Past the
 ; end (pc >= bclen): to bx_end, the calls since bx_sp undone
 fetch:  bgeu    pc, bclen, f_end
-        add     t0, cell, pc
-        ldb     by, [t0+32]
+        ldb     by, [cell+pc+32]
         add     pc, pc, #1              | ret
 f_end:  setsp   bx_sp
         jr      bx_end
@@ -531,15 +575,15 @@ mb_put: add     t0, mg, len             ; room for it: then copied, word by word
         add     cpdst, hb, t0
         ext     cpdst, cpdst, 0, 28
         stq     [cpdst], cphdr
-        li      cpi, #1
+        add     cpi, cpdst, #8          ; (the copy's pointers)
+        add     t3, cpsrc, #8
         shl     cpn, len, #1
-mb_cp:  bgeu    cpi, cpn, mb_cpd
-        shl     t0, cpi, #3
-        add     t1, cpsrc, t0
-        ldq     t2, [t1]
-        add     t1, cpdst, t0
-        stq     [t1], t2
-        add     cpi, cpi, #1            | jmp mb_cp
+        sub     cpn, cpn, #1            | z mb_cpd      ; (8-byte words after the header)
+mb_cp:  ldq     t2, [t3]
+        stq     [cpi], t2
+        add     t3, t3, #8
+        add     cpi, cpi, #8
+        sub     cpn, cpn, #1            | nz mb_cp
 mb_cpd: add     mg, mg, len
         ext     t0, cphdr, 24, 4
         bne     t0, #K_FORMULA, mb_next
@@ -815,4 +859,299 @@ rd_count:
         or      vl, vl, t1
 rdc_ret:
         ret
+.endscope
+
+; ----------------------------------------------------------------------
+; COMPILE ($44), DECOMPILE ($45), RENDER ($46), PARSE ($47) (README
+; section 10): the parameter block (32 bytes) and the descriptor's codec
+; settings, the job on its unit, its results back.  FORMAT_CELLS ($43):
+; RENDER's unit for each field
+.scope
+.reg xb, xp0, xp8, xp16, xp24, xp32, xp40, k
+codec:
+        movx    xb, X
+        call    x_params
+        ldq     t0, [desc+56]           ; names, separators (0: "." and ",")
+        ext     t1, t0, 0, 28
+        out     #P_CO_NAMES, t1
+        call    x_dsep
+        ext     t1, t0, 40, 8
+        bnz     t1, cx_1
+        li      t1, #0x2C
+cx_1:   out     #P_CO_ASEP, t1
+        beq     op, #0x46, cx_render
+        beq     op, #0x47, cx_parse
+        ext     t0, xp0, 32, 28         ; COMPILE, DECOMPILE
+        out     #P_CO_SOURCE, t0
+        ext     t0, xp8, 0, 16
+        out     #P_CO_LEN, t0
+        ext     t0, xp8, 16, 16
+        out     #P_CO_CAP, t0
+        ext     t0, xp8, 32, 20
+        out     #P_CO_ROW, t0
+        ext     t0, xp16, 0, 24
+        out     #P_CO_COL, t0
+        ext     t0, xp16, 32, 28
+        out     #P_CO_DEST, t0
+        ext     t0, op, 0, 1
+        out     #P_CO_DECOMPILE, t0
+        job     #U_CODEC
+        in      k, #I_CO_ERROR
+        li      t0, #0
+        bnz     k, cx_c1
+        in      t0, #I_CO_RLEN
+cx_c1:  res     t0
+        in      t0, #I_CO_RLEN          ; length, error, host calls, position (24-29)
+        ins     t0, k, t0, 16, 8
+        in      t1, #I_CO_HOSTS
+        ins     t0, t1, t0, 24, 8
+        in      t1, #I_CO_EPOS
+        ins     t0, t1, t0, 32, 16
+        stq     [xb+24], t0             | jmp cx_end
+cx_render:
+        ext     t0, xp0, 32, 4
+        out     #P_CE_KIND, t0
+        ext     t0, xp16, 0, 16         ; the format (byte 2: the block's fixed point)
+        ext     t1, xp0, 40, 8
+        ins     t0, t1, t0, 16, 8
+        ext     t1, xp16, 24, 40
+        ins     t0, t1, t0, 24, 40
+        out     #P_CE_FORMAT, t0
+        ext     t0, xp0, 48, 8
+        out     #P_CE_WIDTH, t0
+        out     #P_CE_CAP, t0
+        ext     t0, xp0, 63, 1
+        out     #P_CE_UPPER, t0
+        out     #P_CE_VALUE, xp8
+        ext     t0, xp8, 0, 28
+        out     #P_CE_TEXT, t0
+        ext     t0, xp8, 32, 16
+        out     #P_CE_TLEN, t0
+        ext     t0, xp24, 0, 28
+        out     #P_CE_DEST, t0
+        ext     t0, xp24, 32, 28
+        out     #P_CE_SCRATCH, t0
+        job     #U_RENDER
+        in      k, #I_CE_ERROR          ; R[a]: the colour; a renderer error in bits 15-8
+        in      t1, #I_CE_COLOUR
+        ins     t0, k, t1, 8, 8
+        res     t0
+        jmp     cx_end
+cx_parse:
+        ext     t0, xp0, 32, 28         ; PARSE: the literal
+        out     #P_SF_SOURCE, t0
+        ext     t0, xp8, 0, 16
+        out     #P_SF_LEN, t0
+        job     #U_PARSE
+        in      k, #I_NU_ERROR
+        bz      k, cx_p1
+        res     _
+        stq     [xb+16], _
+        stq     [xb+24], _              | jmp cx_end
+cx_p1:  in      t1, #I_NU_RKIND         ; the value (16-23), then its kind, fixed point
+        li      t0, #4
+        bz      t1, cx_p2
+        li      t0, #3
+cx_p2:  res     t0
+        in      t1, #I_NU_RVALUE
+        stq     [xb+16], t1
+        in      t1, #I_NU_RSCALE
+        ins     t0, t1, t0, 8, 8
+        stq     [xb+24], t0
+cx_end: beq     k, #CODEC_MEMORY, cx_mem        ; a unit's memory fault or abort ends the job
+        beq     k, #CODEC_ABORTED, aborted
+        end     #ERR_NONE
+cx_mem: end     #ERR_ADDRESS
+
+; the parameter block's first 32 bytes (FORMAT_CELLS: 48), its descriptor
+x_params:
+        ldq     xp0, [xb]
+        ext     desc, xp0, 0, 28
+        ldq     xp8, [xb+8]
+        ldq     xp16, [xb+16]
+        ldq     xp24, [xb+24]
+        ldq     xp32, [xb+32]
+        ldq     xp40, [xb+40]           | ret
+; the decimal separator (t0: the descriptor's bytes 56-63; 0: ".")
+x_dsep: ext     t1, t0, 32, 8
+        bnz     t1, xd_1
+        li      t1, #0x2E
+xd_1:   out     #P_CO_DSEP, t1          | ret
+
+; FORMAT_CELLS ($43) (section 6): rows r1..r2, columns c1..c2 (widths from
+; the list), each field rendered (RENDER's unit), colours, CHANGED
+.reg line, cline, col, foff, coff, w, ckind, cval, cfmt, ctlen, ctext, chg, numfmt, hdr
+format_cells:
+        movx    xb, X
+        call    x_params
+        ldl     t0, [desc]              ; the descriptor: magic, row table, size
+        bne     t0, MAGIC, desc_bad
+        ldl     rowtab, [desc+4]
+        ext     rowtab, rowtab, 0, 28
+        ldl     nrows, [desc+8]
+        ldl     ncols, [desc+12]
+        ldq     t0, [desc+56]
+        call    x_dsep
+        ext     row, xp0, 32, 32
+        ext     line, xp24, 0, 28
+        ext     cline, xp32, 0, 28
+        li      ctext, #0
+fc_rows:
+        ext     t0, xp8, 0, 32
+        bgtu    row, t0, fc_done
+        bgeu    row, nrows, fc_done
+        babt    aborted
+        ext     col, xp8, 32, 32
+        li      foff, #0
+        li      coff, #0
+fc_cols:
+        ext     t0, xp16, 0, 32         ; the column's width (a byte of the list)
+        bleu    col, t0, fc_c1
+        add     row, row, #1
+        ext     t0, xp24, 32, 16
+        add     line, line, t0
+        ext     line, line, 0, 28
+        ext     t0, xp32, 32, 16
+        add     cline, cline, t0
+        ext     cline, cline, 0, 28     | jmp fc_rows
+fc_c1:  ext     t0, xp16, 32, 28
+        ext     t1, xp8, 32, 32
+        sub     t1, col, t1
+        add     t0, t0, t1
+        ldb     w, [t0]
+        bz      w, fc_col1              ; (a hidden column)
+        mov     qr, row
+        mov     qc, col
+        call    lookup
+        li      ckind, #0               ; the cell (none: blank)
+        li      cval, #0
+        li      cfmt, #0
+        li      ctlen, #0
+        li      chg, #0
+        li      numfmt, #0
+        bgeu    qc, ncols, fc_blank
+        bz      qa, fc_blank
+        ldq     hdr, [qa]               ; its header: kind, CHANGED
+        ext     chg, hdr, 28, 1
+        ext     t0, xp24, 56, 1
+        bz      t0, fc_h1
+        bz      chg, fc_next            ; (only cells with CHANGED)
+fc_h1:  ldq     t1, [qa+8]              ; +8: a format, a value, or an error code
+        ext     t0, hdr, 24, 4
+        beq     t0, #K_EMPTY, fc_empty
+        beq     t0, #K_ERROR, fc_err
+        bltu    t0, #K_F64, fc_other
+        bgtu    t0, #K_I32, fc_other
+        mov     ckind, t0               ; a number: its format at +16 if it has one
+        mov     cval, t1
+        ext     t2, hdr, 30, 1
+        bz      t2, fc_render
+        ldq     cfmt, [qa+16]
+        li      numfmt, #1              | jmp fc_render
+fc_empty:
+        mov     cfmt, t1                | jmp fc_render
+fc_err: li      ckind, #K_ERROR
+        mov     cval, t1                | jmp fc_render
+fc_other:                               ; TEXT, FORMULA, UNCOMPILED: the format, then +16
+        mov     cfmt, t1
+        ldq     t1, [qa+16]
+        bne     t0, #K_TEXT, fc_o1
+        li      ckind, #K_TEXT          ; length (16-17), text at +18
+        ext     ctlen, t1, 0, 16
+        add     ctext, qa, #18          | jmp fc_render
+fc_o1:  bne     t0, #K_UNCOMPILED, fc_o2
+        li      ckind, #K_UNCOMPILED    ; length (20-21), text at +24
+        ext     ctlen, t1, 32, 16
+        add     ctext, qa, #24          | jmp fc_render
+fc_o2:  mov     cval, t1                ; FORMULA: the result (16-23), then its kind (24)
+        ldq     t1, [qa+24]
+        li      numfmt, #1
+        ext     t0, t1, 0, 4
+        beq     t0, #K_ERROR, fc_o3
+        beq     t0, #K_TEXT, fc_o4
+        bltu    t0, #K_F64, fc_o5
+        bgtu    t0, #K_I32, fc_o5
+        mov     ckind, t0               | jmp fc_render
+fc_o3:  li      ckind, #K_ERROR
+        li      numfmt, #0              | jmp fc_render
+fc_o4:  li      ckind, #K_TEXT          ; its text: after the bytecode
+        ext     ctlen, cval, 0, 16
+        li      numfmt, #0
+        ext     t0, t1, 16, 16
+        add     ctext, qa, t0
+        add     ctext, ctext, #32
+        ext     ctext, ctext, 0, 28     | jmp fc_render
+fc_o5:  li      ckind, #0
+        li      numfmt, #0              | jmp fc_render
+fc_blank:
+        ext     t0, xp24, 56, 1
+        bnz     t0, fc_next
+fc_render:                              ; one field (char size 2: into scratch, then expanded)
+        out     #P_CE_KIND, ckind
+        out     #P_CE_VALUE, cval
+        out     #P_CE_FORMAT, cfmt
+        out     #P_CE_TLEN, ctlen
+        out     #P_CE_TEXT, ctext
+        out     #P_CE_WIDTH, w
+        out     #P_CE_CAP, w
+        ext     t0, xp24, 58, 1
+        out     #P_CE_UPPER, t0
+        ext     t0, xp40, 0, 28
+        out     #P_CE_SCRATCH, t0
+        ext     t1, xp24, 48, 2
+        bne     t1, #2, fc_r1
+        add     t0, t0, #512
+        ext     t0, t0, 0, 28           | jmp fc_r2
+fc_r1:  add     t0, line, foff
+        ext     t0, t0, 0, 28
+fc_r2:  out     #P_CE_DEST, t0
+        job     #U_RENDER
+        in      t0, #I_CE_ERROR
+        beq     t0, #CODEC_MEMORY, cx_mem
+        beq     t0, #CODEC_ABORTED, aborted
+        li      i, #0
+        ext     t1, xp24, 48, 2
+        bne     t1, #2, fc_colr
+fc_exp: bgeu    i, w, fc_exp9           ; 16-bit characters: the code, then 0
+        ext     t0, xp40, 0, 28
+        add     t0, t0, i
+        ldb     t2, [t0+512]
+        shl     t1, i, #1
+        add     t1, t1, foff
+        add     t1, t1, line
+        sth     [t1], t2
+        add     i, i, #1                | jmp fc_exp
+fc_exp9:
+        li      i, #0
+fc_colr:                                ; the colour plane: one byte a character
+        ext     t0, xp32, 0, 28
+        bz      t0, fc_clr
+        in      t2, #I_CE_COLOUR
+        bz      numfmt, fc_cl1
+        bz      ckind, fc_cl1
+        bnz     cfmt, fc_cl2
+fc_cl1: ext     t2, xp32, 48, 8
+fc_cl2: bgeu    i, w, fc_clr
+        add     t1, cline, coff
+        add     t1, t1, i
+        stb     [t1], t2
+        add     i, i, #1                | jmp fc_cl2
+fc_clr: ext     t0, xp24, 57, 1         ; CHANGED cleared (flags bit 1)
+        bz      t0, fc_next
+        bz      chg, fc_next
+        ext     t0, hdr, 24, 8
+        and     t0, t0, #0xEF
+        stb     [qa+3], t0
+fc_next:
+        ext     t1, xp24, 48, 2
+        add     foff, foff, w
+        bne     t1, #2, fc_n1
+        add     foff, foff, w
+fc_n1:  ext     foff, foff, 0, 16
+        add     coff, coff, w
+        ext     coff, coff, 0, 16
+fc_col1:
+        add     col, col, #1            | jmp fc_cols
+fc_done:
+        end     #ERR_NONE
 .endscope

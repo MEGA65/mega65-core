@@ -44,7 +44,7 @@ def fmt(style=0, dec=0, k=0, flags=0, colour=0):
 
 # a small sheet for FORMAT_CELLS
 sh = SH.Sheet(3, 8)
-sh.number(0, 0, 42); sh.text(0, 1, "Hi"); sh.number(0, 2, -150, fmt=fmt(1, 2, 2, 0, 0x52), flags=SH.F_CHANGED)
+sh.number(0, 0, 42); sh.text(0, 1, "Hi", fmt=fmt(0, 0, 0, 0, 0x05)); sh.number(0, 2, -150, fmt=fmt(1, 2, 2, 0, 0x52), flags=SH.F_CHANGED)
 sh.number(1, 0, 1234567, flags=SH.F_CHANGED); sh.number(1, 2, 7)
 desc = sh.layout(m, B + 0x0800, slack=0, change_cap=4)
 NAMES = B + 0x2000
@@ -114,18 +114,20 @@ def SH_SCREEN(c):
 
 SCRATCH = B + 0x7000
 dst = B + 0x6000
-renders = [  # (kind, k, width, value bytes, format, expected text)
+DESC0 = B + 0x2380                           # (a descriptor's codec bytes: separators 0)
+m.write(DESC0 + SH.D_NAMES, struct.pack("<IBB", NAMES, 0, 0))
+renders = [  # (kind, k, width, value bytes, format, expected text[, descriptor])
     (4, 0, 6, struct.pack("<q", 42), fmt(), "    42"),
+    (4, 2, 8, struct.pack("<q", -150), fmt(1, 2, 2, 0, 0x07), "   -1.50", DESC0),
     (4, 2, 8, struct.pack("<q", -150), fmt(1, 2, 2), "   -1.50"),
     (3, 0, 7, struct.pack("<d", 2.5), fmt(1, 3), "  2.500"),
     (4, 0, 9, struct.pack("<q", 1234567), fmt(4, 0, 0, 1), "1,234,567"),
     (4, 0, 3, struct.pack("<q", 123456), fmt(4), "###"),
 ]
-for kind, k, w, val, f, text in renders:
-    m.write(blk, struct.pack("<IBBBB", desc, kind, k, w, 1) + val + f + struct.pack("<II", dst, SCRATCH))
-    A(I.LI, 1, z=0)
-    A(I.RENDER, 1, x=blk)
-    A(I.STR, 1, x=RES + 4 * nres); nres += 1         # (R[a]: the colour; not checked)
+for kind, k, w, val, f, text, *d in renders:
+    m.write(blk, struct.pack("<IBBBB", d[0] if d else desc, kind, k, w, 1) + val + f + struct.pack("<II", dst, SCRATCH))
+    A(I.RENDER, 1, x=blk)                            # (it writes R[a]: no LI first)
+    store_result(f[6] & 15)                          # (R[a]: the colour, no error)
     final[dst - B:dst - B + w] = SC(text)
     mask[dst - B:dst - B + w] = b"\1" * w
     dst += 16
@@ -168,6 +170,7 @@ for blk_flags, lines in ((0, (line0, line1)),):
     blk += 48
 # again: 16-bit characters, only cells with CHANGED (A2), CHANGED cleared
 FD2, FC2 = B + 0x6800, B + 0x6A00
+m.write(FD2 + 80, b"\xAA" * 14)                # (A2's field: each high byte must be written 0)
 m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD2, 80, 2, 3,
                          FC2, 40, 0x0E, 0, SCRATCH, 0))
 A(I.FORMATCELLS, x=blk)
