@@ -3879,6 +3879,8 @@ begin
       reg_dmagic_floppy_mode <= '0';
       reg_dmagic_draw_spiral <= '0';
       reg_dmagic_sid_mode <= '0';
+      -- (option $90's count high byte: 0 again for the next job)
+      dmagic_count(23 downto 16) <= x"00";
     end procedure;
 
     procedure alu_op_cmp (
@@ -6038,6 +6040,17 @@ begin
                   state <= normal_fetch_state;
                   report "monitor_instruction_strobe assert (DMA swap/mix unimplemented function abort)";
                   monitor_instruction_strobe <= '1';
+                  -- Leave as a finished job would: the CPU port as it was
+                  -- (not the DMA's mapping, set above, which the next job
+                  -- would save and restore as the CPU's), the options and
+                  -- the count's high byte cleared (a count of 0 is $010000,
+                  -- which the next job would inherit: 64KB too many)
+                  cpuport_value(2 downto 0) <= cpuport_value(2 downto 0);
+                  dmagic_reset_options;
+                  if dma_inline='1' then
+                    reg_pc <= reg_dmagic_addr(15 downto 0);
+                    dma_inline <= '0';
+                  end if;
               end case;
               -- XXX Potential security issue: Ideally we should not allow a DMA to
               -- write to Hypervisor memory, so as to make it harder to overwrite
