@@ -578,6 +578,9 @@ architecture rtl of sdcard_native is
   signal ready       : std_logic := '0';
   signal rca         : std_logic_vector(15 downto 0) := (others => '0');
   signal cur_set     : unsigned(15 downto 0) := SET_DS;
+  -- cur_set is neither SET_DS nor SET_HS (registered; cur_set only changes
+  -- with a resync, long before a retry looks at this)
+  signal cur_fast    : std_logic := '0';
   signal new_set     : unsigned(15 downto 0) := SET_DS;
   signal istep       : natural range 0 to 31 := 0;
   signal tries       : natural range 0 to 15 := 0;
@@ -725,6 +728,11 @@ architecture rtl of sdcard_native is
   signal sp_rxsr     : std_logic_vector(7 downto 0) := x"FF";
   signal sp_new      : std_logic := '0';     -- pulse: byte sp_byte (number sp_bn) in
   signal sp_byte     : std_logic_vector(7 downto 0) := x"FF";
+  -- with sp_byte, worked out as it is taken (so that the 8-bit compares
+  -- are not in front of the state logic): sp_byte is not 00 / is the low
+  -- byte of the read block's CRC
+  signal sp_nz       : std_logic := '1';
+  signal sp_crc_lo   : std_logic := '0';
   signal sp_bn       : unsigned(12 downto 0) := (others => '0');
   signal sp_cmd_end  : unsigned(12 downto 0) := (others => '0');
   signal sp_r1       : std_logic_vector(7 downto 0) := x"FF";
@@ -1217,7 +1225,7 @@ begin
       if close_tries < 2 then
         stat_stop_retries <= stat_stop_retries + 1;
         close_tries <= close_tries + 1;
-        if close_tries = 1 and cur_set /= SET_DS and cur_set /= SET_HS then
+        if close_tries = 1 and cur_fast = '1' then
           if hs = '1' then
             cur_set <= SET_HS; new_set <= SET_HS;
           else
@@ -1369,6 +1377,11 @@ begin
         blk_settle <= blk_settle - 1;
       end if;
       w_reqd_d <= w_reqd;
+      if cur_set /= SET_DS and cur_set /= SET_HS then
+        cur_fast <= '1';
+      else
+        cur_fast <= '0';
+      end if;
 
       -- timeout: tmo_z says tmo has reached 0 (a register, so that the 28-bit
       -- compare is not in front of the state logic)
@@ -1596,6 +1609,16 @@ begin
           sp_rxsr <= sp_rxsr(6 downto 0) & rxd_dat(0);
           if (rxd_tag(2 downto 0) + lag(2 downto 0)) = "000" then
             sp_byte <= sp_rxsr(6 downto 0) & rxd_dat(0);
+            if sp_rxsr(6 downto 0) & rxd_dat(0) = x"00" then
+              sp_nz <= '0';
+            else
+              sp_nz <= '1';
+            end if;
+            if sp_rxsr(6 downto 0) & rxd_dat(0) = d_crc(7 downto 0) then
+              sp_crc_lo <= '1';
+            else
+              sp_crc_lo <= '0';
+            end if;
             sp_bn   <= resize(shift_right(rxd_tag + lag - 1, 3), 13);
             sp_new  <= '1';
           end if;
@@ -1999,7 +2022,7 @@ begin
           elsif op_try < 2 then
             if op = OP_READ then stat_read_retries <= stat_read_retries + 1; end if;
             op_try <= op_try + 1;
-            if op_try = 1 and cur_set /= SET_DS and cur_set /= SET_HS then
+            if op_try = 1 and cur_fast = '1' then
               -- an accepted fast setting failed twice: back to normal
               if hs = '1' then
                 cur_set <= SET_HS; new_set <= SET_HS;
@@ -3011,7 +3034,7 @@ begin
               d_idx <= d_idx + 1;
               if d_idx = 513 then
                 d_act <= '0';
-                if d_crc_hi = '0' or sp_byte /= d_crc(7 downto 0) then
+                if d_crc_hi = '0' or sp_crc_lo = '0' then
                   if d_discard = '0' then
                     rpush("11", x"00");
                   end if;
@@ -3195,7 +3218,7 @@ begin
                 sp_ok <= '0';
                 st    <= P_FIN;
               end if;
-            elsif sp_byte /= x"00" then
+            elsif sp_nz = '1' then
               -- programmed
               op_done <= op_done + 1;
               blk_settle <= "11";
