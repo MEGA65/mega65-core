@@ -735,6 +735,20 @@ architecture rtl of sdcard_native is
   signal sp_crc_lo   : std_logic := '0';
   signal sp_bn       : unsigned(12 downto 0) := (others => '0');
   signal sp_cmd_end  : unsigned(12 downto 0) := (others => '0');
+  -- the byte sp_new announced, a cycle later, with where it is against the
+  -- command's end worked out (registered: the 13-bit compares are not in
+  -- front of the state logic): after it / the stuff byte right after it /
+  -- more than 10 bytes after it; after the write's last CRC byte (or the
+  -- byte after the stop token) / more than 8 bytes after it.  sp_ref_chg:
+  -- sp_cmd_end or sp_tok_bn was set a cycle ago, so these are from the old
+  -- one (and the byte, before the new one, is not looked at)
+  signal sp_new_d    : std_logic := '0';
+  signal sp_past     : std_logic := '0';
+  signal sp_stuff    : std_logic := '0';
+  signal sp_late     : std_logic := '0';
+  signal sp_tpast    : std_logic := '0';
+  signal sp_tlate    : std_logic := '0';
+  signal sp_ref_chg  : std_logic := '0';
   signal sp_r1       : std_logic_vector(7 downto 0) := x"FF";
   signal sp_ext      : std_logic_vector(31 downto 0) := (others => '0');
   signal sp_n        : natural range 0 to 15 := 0;
@@ -1377,6 +1391,13 @@ begin
         blk_settle <= blk_settle - 1;
       end if;
       w_reqd_d <= w_reqd;
+      sp_new_d <= sp_new;
+      sp_ref_chg <= '0';
+      if sp_bn > sp_tok_bn then sp_tpast <= '1'; else sp_tpast <= '0'; end if;
+      if sp_bn - sp_tok_bn > 8 then sp_tlate <= '1'; else sp_tlate <= '0'; end if;
+      if sp_bn > sp_cmd_end then sp_past <= '1'; else sp_past <= '0'; end if;
+      if sp_bn = sp_cmd_end + 1 then sp_stuff <= '1'; else sp_stuff <= '0'; end if;
+      if sp_bn - sp_cmd_end > 10 then sp_late <= '1'; else sp_late <= '0'; end if;
       if cur_set /= SET_DS and cur_set /= SET_HS then
         cur_fast <= '1';
       else
@@ -2133,13 +2154,14 @@ begin
               sp_n       <= sp_n + 1;
               if sp_n = 5 then
                 sp_cmd_end <= sp_ld_n + 1;
+                sp_ref_chg <= '1';
               end if;
             else
               sp_tx_next <= x"FF";
             end if;
           end if;
-          if sp_n = 6 and sp_new = '1' and sp_bn > sp_cmd_end then
-            if sp_byte(7) = '0' and not (c_idx = 12 and sp_bn = sp_cmd_end + 1) then
+          if sp_n = 6 and sp_new_d = '1' and sp_ref_chg = '0' and sp_past = '1' then
+            if sp_byte(7) = '0' and not (c_idx = 12 and sp_stuff = '1') then
               sp_r1  <= sp_byte;
               c_ok   <= '1';
               sp_cnt <= 0;
@@ -2153,7 +2175,7 @@ begin
               else
                 st <= ret_st;
               end if;
-            elsif sp_bn - sp_cmd_end > 10 then
+            elsif sp_late = '1' then
               c_ok  <= '0';
               sp_r1 <= x"FF";
               st    <= ret_st;
@@ -3185,6 +3207,7 @@ begin
             elsif t_idx = 513 then
               sp_tx_next <= t_crc(7 downto 0);
               sp_tok_bn  <= sp_ld_n + 1;   -- the last CRC byte
+              sp_ref_chg <= '1';
             else
               sp_tx_next <= x"FF";
               tmo        <= to_unsigned(TMO_BUSY, 28);
@@ -3199,7 +3222,7 @@ begin
         when P_WR_DRESP =>
           run        <= '1';
           sp_tx_next <= x"FF";
-          if sp_new = '1' and sp_bn > sp_tok_bn then
+          if sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' then
             if sp_cnt = 0 then
               if sp_byte(4) = '0' and sp_byte(0) = '1' then
                 if sp_byte(3 downto 1) = "010" then
@@ -3213,7 +3236,7 @@ begin
                   sp_ok <= '0';
                   st    <= P_FIN;
                 end if;
-              elsif sp_bn - sp_tok_bn > 8 then
+              elsif sp_tlate = '1' then
                 e_err <= ERR_WR_TMO;
                 sp_ok <= '0';
                 st    <= P_FIN;
@@ -3244,6 +3267,7 @@ begin
             if sp_cnt = 0 then
               sp_tx_next <= x"FD";
               sp_tok_bn  <= sp_ld_n + 2;  -- skip the byte after the token
+              sp_ref_chg <= '1';
               sp_cnt     <= 1;
               tmo        <= to_unsigned(TMO_BUSY, 28);
               tmo_z        <= '0';
@@ -3251,7 +3275,7 @@ begin
               sp_tx_next <= x"FF";
             end if;
           end if;
-          if sp_cnt = 1 and sp_new = '1' and sp_bn > sp_tok_bn and sp_byte /= x"00" then
+          if sp_cnt = 1 and sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' and sp_nz = '1' then
             sp_ok <= '1';
             st    <= P_FIN;
           elsif sp_cnt = 1 and tmo_z = '1' then
