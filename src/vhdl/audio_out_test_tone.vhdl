@@ -57,6 +57,12 @@ end entity audio_out_test_tone;
 architecture synth of audio_out_test_tone is
 
   signal last_sample_ready_toggle : std_logic := '0';
+  -- sample_ready_toggle (from the CPU clock) through two flip-flops before
+  -- anything looks at it: straight into the compare it was in front of the
+  -- enable of all 64 sample bits, inside clock41 to audio_clk's 2 ns
+  signal sample_ready_sync : std_logic_vector(1 downto 0) := (others => '0');
+  attribute ASYNC_REG : string;
+  attribute ASYNC_REG of sample_ready_sync : signal is "TRUE";
   signal sample_stable_cycles : integer := 0; 
 
   signal i2s_data : std_logic_vector(63 downto 0) := (others => '0');
@@ -89,9 +95,10 @@ begin
         elsif rising_edge(pcm_clk) then
 
           -- Receive samples via slow toggle clock from CPU clock domain
-          if last_sample_ready_toggle /= sample_ready_toggle then
+          sample_ready_sync <= sample_ready_sync(0) & sample_ready_toggle;
+          if last_sample_ready_toggle /= sample_ready_sync(1) then
             sample_stable_cycles <= 0;
-            last_sample_ready_toggle <= sample_ready_toggle;
+            last_sample_ready_toggle <= sample_ready_sync(1);
           else
             sample_stable_cycles <= sample_stable_cycles + 1;
             if sample_stable_cycles = 8 then
