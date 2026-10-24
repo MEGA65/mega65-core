@@ -1241,8 +1241,8 @@ begin  -- behavioural
             -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
             -- HWERRATA:2 - (reserved: VIC-IV character attribute combinations, #829, not merged yet)
             -- HWERRATA:3 - VIC-IV GOTOY tokens: a GOTOX token with colour RAM byte 0 bit 1 set and
-            --              gotox_pos bits 9-8 = 11 ends its text row after glyph row Y (screen RAM byte 0
-            --              bits 3-0; 7 or more: no change)
+            --              gotox_pos bits 9-8 = 11 makes its text row Y + 1 physical rasters (V400 lines)
+            --              high (Y: screen RAM byte 0 bits 3-0; at or past the row's height: no change)
             --
             fastio_rdata <= hw_errata_level;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)

@@ -1090,14 +1090,17 @@ architecture Behavioral of viciv is
   signal bug_compat_mode : std_logic := '1';
 
   -- GOTOY (HWERRATA:3): a GOTOX token in 16-bit text mode with colour RAM
-  -- byte 0 bit 1 set and gotox_pos bits 9-8 = 11 ends its text row after glyph
-  -- row Y (screen RAM byte 0 bits 3-0; 7 or more: no change).  Seen during a
-  -- raster's fetch; at the next fetch start, if the row about to be fetched is
-  -- past Y, that raster is row 0 of the next text row instead.
+  -- byte 0 bit 1 set and gotox_pos bits 9-8 = 11 makes its text row Y + 1
+  -- physical rasters high (V400 lines, in V200 too: Y = 0 half a V200 pixel;
+  -- screen RAM byte 0 bits 3-0; Y at or past the row's height: no change).
+  -- Seen during a raster's fetch; at the next fetch start, if the row has had
+  -- more than Y rasters, that raster is the next text row's first instead.
   signal gotoy_enable : std_logic := '0';
   signal gotoy_seen : std_logic := '0';
   signal gotoy_y : unsigned(3 downto 0) := (others => '1');
   signal gotoy_fire : std_logic := '0';
+  -- rasters fetched so far for the current text row (saturating)
+  signal gotoy_row_rasters : unsigned(3 downto 0) := (others => '0');
   -- a GOTOY has ended a text row this frame: the VIC-II row cycle
   -- (pixels_since_last_char) no longer says where rows end, so it no longer
   -- resynchronises the glyph row counter (in a steady display it never
@@ -3035,9 +3038,9 @@ begin
     variable long_address : unsigned(31 downto 0) := (others => '0');
     variable next_glyph_number_temp : std_logic_vector(12 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
-    variable gotoy_shift : unsigned(2 downto 0) := (others => '0');
     variable gotoy_card : unsigned(15 downto 0) := (others => '0');
-    variable chargen_y_next_rel : unsigned(2 downto 0) := (others => '0');
+    variable chargen_y_pre, chargen_y_next_pre : unsigned(2 downto 0) := (others => '0');
+    variable chargen_y_sub_pre : unsigned(4 downto 0) := (others => '0');
     variable row_cycle_resync : boolean := true;
   begin
     if rising_edge(pixelclock) and all_pause='0' then
@@ -3046,8 +3049,8 @@ begin
       -- this raster's fetch ends the text row at the next fetch start
       -- (registered, so that neither adds to the fetch start's logic)
       next_card_of_row <= to_unsigned(safe_to_integer(first_card_of_row) + row_advance,16);
-      if gotoy_enable='1' and gotoy_seen='1' and ('0' & chargen_y) > gotoy_y
-        and before_y_chargen_start='0' then
+      if gotoy_enable='1' and gotoy_seen='1' and gotoy_row_rasters > gotoy_y
+        and before_y_chargen_start='0' and first_card_of_row = prev_first_card_of_row then
         gotoy_fire <= '1';
       else
         gotoy_fire <= '0';
@@ -3445,13 +3448,27 @@ begin
       end if;
       if is_fetch_start='1' and last_was_fetch_start='0' then
         if gotoy_fire='1' then
-          -- GOTOY: this raster is row 0 of the next text row
-          gotoy_shift := chargen_y; gotoy_card := next_card_of_row;
+          -- GOTOY: this raster is the next text row's first, its glyph row
+          -- counters as the frame's first row starts them (the start of frame
+          -- reset's values), then updated below as on any raster
+          gotoy_card := next_card_of_row;
           gotoy_used <= '1';
+          chargen_y_pre := "000";
+          if chargen_y_scale = 0 then
+            chargen_y_next_pre := "001"; chargen_y_sub_pre := "00000";
+          else
+            chargen_y_next_pre := "000"; chargen_y_sub_pre := "00001";
+          end if;
         else
-          gotoy_shift := "000"; gotoy_card := first_card_of_row;
+          gotoy_card := first_card_of_row;
+          chargen_y_pre := chargen_y; chargen_y_next_pre := chargen_y_next;
+          chargen_y_sub_pre := chargen_y_sub;
         end if;
-        chargen_y_next_rel := chargen_y_next - gotoy_shift;
+        if gotoy_card /= prev_first_card_of_row then
+          gotoy_row_rasters <= to_unsigned(1,4);    -- (a text row's first raster)
+        elsif gotoy_row_rasters /= 15 then
+          gotoy_row_rasters <= gotoy_row_rasters + 1;
+        end if;
         row_cycle_resync := gotoy_used = '0' and gotoy_fire = '0';
         gotoy_seen <= '0';
         -- Start of filling raster buffer.
@@ -3482,7 +3499,7 @@ begin
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
-        chargen_y_hold <= chargen_y - gotoy_shift;
+        chargen_y_hold <= chargen_y_pre;
 
         if chargen_y_hold = chargen_y then
           charrow_repeated <= '1';
@@ -3542,13 +3559,13 @@ begin
         raster_fetch_restart <= '1';
 
         -- Now check if we have tipped over from one logical pixel row to another.
-        -- (GOTOY: the counters moved back by gotoy_shift, and no VIC-II row
-        -- cycle resynchronisation for the rest of the frame)
-        chargen_y <= chargen_y_next_rel;
-        if chargen_y_sub=chargen_y_scale then
-          chargen_y_next <= chargen_y_next_rel + 1;
+        -- (GOTOY: from the row start's values, and no VIC-II row cycle
+        -- resynchronisation for the rest of the frame)
+        chargen_y <= chargen_y_next_pre;
+        if chargen_y_sub_pre=chargen_y_scale then
+          chargen_y_next <= chargen_y_next_pre + 1;
           if chargen_y_scale /= 0 then
-            if chargen_y_next_rel = "111" then
+            if chargen_y_next_pre = "111" then
               report "bumping chargen_y to " & integer'image(safe_to_integer(chargen_y)) severity note;
               bump_screen_row_address<='1';
             end if;
@@ -3556,7 +3573,7 @@ begin
               chargen_y_next <= "000";
             end if;
           else
-            if chargen_y_next_rel = "111" then
+            if chargen_y_next_pre = "111" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
             end if;
@@ -3564,7 +3581,7 @@ begin
               chargen_y_next <= "000";
             end if;
           end if;
-          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
+          if (chargen_y_scale=x"02") and (chargen_y_pre(0)='1') then
             chargen_y_sub <= "00001";
           else
             report "LEGACY: chargen_y_sub = 0 due increment of chargen_y";
@@ -3572,8 +3589,8 @@ begin
           end if;
         else
           report "LEGACY: chargen_y_sub incremented";
-          chargen_y_sub <= chargen_y_sub + 1;
-          chargen_y_next <= chargen_y_next_rel;
+          chargen_y_sub <= chargen_y_sub_pre + 1;
+          chargen_y_next <= chargen_y_next_pre;
         end if;
 
         if gotoy_fire='1' then
