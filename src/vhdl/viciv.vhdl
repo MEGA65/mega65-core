@@ -1098,9 +1098,11 @@ architecture Behavioral of viciv is
   signal gotoy_seen : std_logic := '0';
   signal gotoy_y : unsigned(3 downto 0) := (others => '1');
   signal gotoy_fire : std_logic := '0';
-  -- rows the text rows have been shortened by this frame (mod 8), so that the
-  -- VIC-II row cycle (pixels_since_last_char) stays aligned with them
-  signal gotoy_phase : unsigned(2 downto 0) := (others => '0');
+  -- a GOTOY has ended a text row this frame: the VIC-II row cycle
+  -- (pixels_since_last_char) no longer says where rows end, so it no longer
+  -- resynchronises the glyph row counter (in a steady display it never
+  -- changes it anyway); until the next frame
+  signal gotoy_used : std_logic := '0';
   signal next_card_of_row : unsigned(15 downto 0) := (others => '0');
   signal prev_bug_compat_mode : std_logic := '1';
   signal bug_compat_vic_iii_d016_delta : integer := 2;
@@ -3036,7 +3038,7 @@ begin
     variable gotoy_shift : unsigned(2 downto 0) := (others => '0');
     variable gotoy_card : unsigned(15 downto 0) := (others => '0');
     variable chargen_y_next_rel : unsigned(2 downto 0) := (others => '0');
-    variable pixels_since_last_char_rel : unsigned(2 downto 0) := (others => '0');
+    variable row_cycle_resync : boolean := true;
   begin
     if rising_edge(pixelclock) and all_pause='0' then
 
@@ -3445,12 +3447,12 @@ begin
         if gotoy_fire='1' then
           -- GOTOY: this raster is row 0 of the next text row
           gotoy_shift := chargen_y; gotoy_card := next_card_of_row;
-          gotoy_phase <= gotoy_phase + chargen_y;
+          gotoy_used <= '1';
         else
           gotoy_shift := "000"; gotoy_card := first_card_of_row;
         end if;
         chargen_y_next_rel := chargen_y_next - gotoy_shift;
-        pixels_since_last_char_rel := pixels_since_last_char - (gotoy_phase + gotoy_shift);
+        row_cycle_resync := gotoy_used = '0' and gotoy_fire = '0';
         gotoy_seen <= '0';
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
@@ -3540,7 +3542,8 @@ begin
         raster_fetch_restart <= '1';
 
         -- Now check if we have tipped over from one logical pixel row to another.
-        -- (GOTOY: the counters and the row cycle moved back by gotoy_shift)
+        -- (GOTOY: the counters moved back by gotoy_shift, and no VIC-II row
+        -- cycle resynchronisation for the rest of the frame)
         chargen_y <= chargen_y_next_rel;
         if chargen_y_sub=chargen_y_scale then
           chargen_y_next <= chargen_y_next_rel + 1;
@@ -3549,7 +3552,7 @@ begin
               report "bumping chargen_y to " & integer'image(safe_to_integer(chargen_y)) severity note;
               bump_screen_row_address<='1';
             end if;
-            if pixels_since_last_char_rel = "111" then
+            if pixels_since_last_char = "111" and row_cycle_resync then
               chargen_y_next <= "000";
             end if;
           else
@@ -3557,7 +3560,7 @@ begin
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
             end if;
-            if pixels_since_last_char_rel = "110" then
+            if pixels_since_last_char = "110" and row_cycle_resync then
               chargen_y_next <= "000";
             end if;
           end if;
@@ -3732,7 +3735,7 @@ begin
         -- Force badline so that moving chargen down results in fresh loading
         -- of the first line of text.
         prev_first_card_of_row <= (others => '1');
-        gotoy_phase <= "000";
+        gotoy_used <= '0';
         report "Masking chargen_active based on displayy<y_chargen_start" severity note;
 
       end if;
