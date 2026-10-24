@@ -128,3 +128,27 @@ For the codec side (proposed, the user's idea; not yet in the README):
    layout of a rectangle is chosen to match a selection entry's bytes 0-11.
    A cell list (CELLS) would give one span per cell; a deleted reference
    (#REF!) none, or a span with an empty rectangle.
+
+## Changed 2026-10-24 in the codec's shite_number_text (at the user's request; by the execution side)
+
+So that floats render faster in narrow fields (KLOPAPIER: a screen of F64s
+took 620 ms), the general style's precision search no longer converts the
+value again for each precision.  Output unchanged.
+
+- Before the first digit (the decimal exponent known), general starts at
+  the largest precision that could show in the width, plain or scientific
+  (by DIGITS_READY's own length rules), not 17 / 19.
+- PRECISION_DECIDE keeps the exact digits and exponent before rounding
+  (raw_digits, raw_exponent).  Each retry at one digit fewer restores them
+  and rounds by the next digit (up when it is 5 or more: half away from
+  zero, exact, as the digits are the exact value's, truncated), through
+  ROUND_DIGITS; GENERAL_SAVE_B / GENERAL_RESTORE_A / GENERAL_RESTORE_B are
+  gone (no copies of slots 2 and 3).
+- Checked against the old unit side by side in GHDL (random F64s, integers
+  and fixed point, every style, widths 1-24): no output, length or error
+  differs.  1/3 in width 8: 68.8K cycles to 5.0K; 46.333.. 89K to 6.6K.
+  Yosys: +230 LUTs, +88 FFs (3994 to 4224 LUTs).
+
+Seen while doing it, not changed: the scientific exponent is written with
+no `+` and as few digits as it needs (`1E6`), where README 6 says a sign
+and at least two digits (`1E+06`).

@@ -70,7 +70,6 @@ begin
       DIGIT_BEGIN, DIGIT_COMPARE, DIGIT_SUBTRACT, DIGIT_HAVE,
       SHORTEST_LOW, SHORTEST_HIGH, SHORTEST_DECIDE, SHORTEST_TIE,
       PRECISION_ROUND, PRECISION_DECIDE, ROUND_DIGITS, DIGITS_READY,
-      GENERAL_SAVE_B, GENERAL_RESTORE_A, GENERAL_RESTORE_B,
       FIXED_SCALE, FIXED_DIV_START, FIXED_DIV_NORMAL, FIXED_DIV_COMPARE,
       FIXED_DIV_BITS, FIXED_DIV_BIT_COMPARE, FIXED_DIV_SUBTRACT,
       FIXED_DIV_QUOTIENT, FIXED_DIV_ROUND, FIXED_DIV_ROUND_COMPARE,
@@ -79,7 +78,9 @@ begin
       EMIT_EXPONENT);
     type purpose_type is (PARSING, SHORTEST, FIXED_DISPLAY, SCI_DISPLAY, GENERAL_DISPLAY);
     type digits_type is array (0 to 18) of unsigned(3 downto 0);
-    variable digits : digits_type;
+    variable digits, raw_digits : digits_type;   -- (raw: general's digits before rounding)
+    variable raw_exponent : integer range -400 to 400;
+    variable fit, fixed_part : integer range -512 to 512;
     variable state, big_return, ram_return : state_type := IDLE;
     variable purpose : purpose_type := PARSING;
     variable input_base, output_base, memory_address, cache_address : unsigned(27 downto 0);
@@ -420,12 +421,7 @@ begin
             if purpose = FIXED_DISPLAY then
               remaining_scale := places; if percent then remaining_scale := remaining_scale + 2; end if;
               state := FIXED_SCALE;
-            elsif purpose = GENERAL_DISPLAY then calculate(BIG_COPY, 2, 0, 0, GENERAL_SAVE_B);
             else decimal_exponent := 0; calculate(BIG_COMPARE, 0, 1, 0, NORMAL_COMPARE); end if;
-          when GENERAL_SAVE_B => calculate(BIG_COPY, 3, 1, 0, GENERAL_RESTORE_B);
-          when GENERAL_RESTORE_A => calculate(BIG_COPY, 1, 3, 0, GENERAL_RESTORE_B);
-          when GENERAL_RESTORE_B =>
-            decimal_exponent := 0; digit_count := 0; calculate(BIG_COMPARE, 0, 1, 0, NORMAL_COMPARE);
           when NORMAL_COMPARE =>
             if big_comparison < 0 then normal_direction := 0; state := NORMAL_SMALL;
             else state := NORMAL_LARGE; end if;
@@ -447,7 +443,30 @@ begin
           when DIGIT_HAVE =>
             if normal_direction = 0 then calculate(BIG_COMPARE, 0, 1, 0, NORMAL_SMALL);
             else state := DIGIT_BEGIN; end if;
-          when DIGIT_BEGIN => digit_value := 0; calculate(BIG_COMPARE, 0, 1, 0, DIGIT_COMPARE);
+          when DIGIT_BEGIN =>
+            -- General, before the first digit: no more digits than could show in
+            -- the width, plain or scientific (with the exponent now known); the
+            -- precisions below it are tried from these digits, not made again
+            if purpose = GENERAL_DISPLAY and digit_count = 0 then
+              fit := 0;
+              if decimal_exponent >= 0 then            -- plain: d..d[.d..d]
+                if decimal_exponent + 1 + boolean'pos(sign_bit = '1') <= requested_width then
+                  fit := requested_width - 1 - boolean'pos(sign_bit = '1');
+                  if fit < decimal_exponent + 1 then fit := decimal_exponent + 1; end if;
+                end if;
+              else                                     -- plain: 0.0..0d..d
+                fit := requested_width - 2 - boolean'pos(sign_bit = '1') + decimal_exponent + 1;
+              end if;
+              fixed_part := 2 + boolean'pos(sign_bit = '1') + boolean'pos(decimal_exponent < 0) +
+                boolean'pos(magnitude(decimal_exponent) >= 10) + boolean'pos(magnitude(decimal_exponent) >= 100);
+              if requested_width - fixed_part - 1 >= 2 then    -- scientific: d[.d..d]E[-]x
+                if requested_width - fixed_part - 1 > fit then fit := requested_width - fixed_part - 1; end if;
+              elsif requested_width - fixed_part >= 1 and fit < 1 then fit := 1;
+              end if;
+              if fit < 1 then fit := 1; end if;
+              if fit < precision then precision := fit; end if;
+            end if;
+            digit_value := 0; calculate(BIG_COMPARE, 0, 1, 0, DIGIT_COMPARE);
           when DIGIT_COMPARE =>
             if big_comparison >= 0 then
               digit_value := digit_value + 1; calculate(BIG_SUBTRACT, 0, 1, 0, DIGIT_SUBTRACT);
@@ -475,6 +494,7 @@ begin
           when SHORTEST_TIE => calculate(BIG_COMPARE, 0, 1, 0, PRECISION_DECIDE);
           when PRECISION_ROUND => calculate(BIG_COMPARE, 0, 1, 0, PRECISION_DECIDE);
           when PRECISION_DECIDE =>
+            raw_digits := digits; raw_exponent := decimal_exponent;
             round_up := big_comparison > 0 or (big_comparison = 0 and (purpose /= SHORTEST or digits(digit_count - 1)(0) = '1'));
             digit_index := digit_count - 1; state := ROUND_DIGITS;
           when ROUND_DIGITS =>
@@ -509,8 +529,12 @@ begin
                   if plain_length <= requested_width then state := EMIT_BEGIN;
                   elsif scientific_length <= requested_width then
                     scientific := true; decimal_position := 1; fraction_digits := digit_count - 1; state := EMIT_BEGIN;
-                  elsif precision > 1 then
-                    precision := precision - 1; calculate(BIG_COPY, 0, 2, 0, GENERAL_RESTORE_A);
+                  elsif precision > 1 then           -- one digit fewer, rounded from the
+                    precision := precision - 1;        -- exact digits (half away from zero:
+                    digits := raw_digits;              -- up when the next is 5 or more)
+                    digit_count := precision; decimal_exponent := raw_exponent;
+                    round_up := raw_digits(precision) >= 5;
+                    digit_index := precision - 1; state := ROUND_DIGITS;
                   else fail(CODEC_CAPACITY); end if;
                 else state := EMIT_BEGIN; end if;
               end if;
