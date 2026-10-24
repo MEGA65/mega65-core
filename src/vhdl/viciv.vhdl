@@ -1088,6 +1088,20 @@ architecture Behavioral of viciv is
   -- Set to 0 to disable bug compatibility D016 positioning
   signal prev_hw_errata_level : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bug_compat_mode : std_logic := '1';
+
+  -- GOTOY (HWERRATA:2): a GOTOX token in 16-bit text mode with colour RAM
+  -- byte 0 bit 1 set and gotox_pos bits 9-8 = 11 ends its text row after glyph
+  -- row Y (screen RAM byte 0 bits 3-0; 7 or more: no change).  Seen during a
+  -- raster's fetch; at the next fetch start, if the row about to be fetched is
+  -- past Y, that raster is row 0 of the next text row instead.
+  signal gotoy_enable : std_logic := '0';
+  signal gotoy_seen : std_logic := '0';
+  signal gotoy_y : unsigned(3 downto 0) := (others => '1');
+  signal gotoy_fire : std_logic := '0';
+  -- rows the text rows have been shortened by this frame (mod 8), so that the
+  -- VIC-II row cycle (pixels_since_last_char) stays aligned with them
+  signal gotoy_phase : unsigned(2 downto 0) := (others => '0');
+  signal next_card_of_row : unsigned(15 downto 0) := (others => '0');
   signal prev_bug_compat_mode : std_logic := '1';
   signal bug_compat_vic_iii_d016_delta : integer := 2;
 
@@ -2108,6 +2122,12 @@ begin
           bug_compat_vic_iii_d016_delta <= 2;
           bug_compat_mode <= '1';
         end if;
+        -- HWERRATA:2 VIC-IV GOTOY tokens
+        if to_integer(hw_errata_level) >= 2 then
+          gotoy_enable <= '1';
+        else
+          gotoy_enable <= '0';
+        end if;
       end if;
 
       upscale_enable <= upscale_enable_int;
@@ -3011,8 +3031,23 @@ begin
     variable long_address : unsigned(31 downto 0) := (others => '0');
     variable next_glyph_number_temp : std_logic_vector(12 downto 0) := (others => '0');
     variable next_glyph_colour_temp : std_logic_vector(7 downto 0) := (others => '0');
+    variable gotoy_shift : unsigned(2 downto 0) := (others => '0');
+    variable gotoy_card : unsigned(15 downto 0) := (others => '0');
+    variable chargen_y_next_rel : unsigned(2 downto 0) := (others => '0');
+    variable pixels_since_last_char_rel : unsigned(2 downto 0) := (others => '0');
   begin
     if rising_edge(pixelclock) and all_pause='0' then
+
+      -- GOTOY: the next text row's first card, and whether a GOTOY seen in
+      -- this raster's fetch ends the text row at the next fetch start
+      -- (registered, so that neither adds to the fetch start's logic)
+      next_card_of_row <= to_unsigned(safe_to_integer(first_card_of_row) + row_advance,16);
+      if gotoy_enable='1' and gotoy_seen='1' and ('0' & chargen_y) > gotoy_y
+        and before_y_chargen_start='0' then
+        gotoy_fire <= '1';
+      else
+        gotoy_fire <= '0';
+      end if;
 
       -- Data from hyper RAM: one byte per pixelclock while the strobe is high
       hyper_data <= hyper_data_in;
@@ -3412,6 +3447,16 @@ begin
         end if;
       end if;
       if is_fetch_start='1' and last_was_fetch_start='0' then
+        if gotoy_fire='1' then
+          -- GOTOY: this raster is row 0 of the next text row
+          gotoy_shift := chargen_y; gotoy_card := next_card_of_row;
+          gotoy_phase <= gotoy_phase + chargen_y;
+        else
+          gotoy_shift := "000"; gotoy_card := first_card_of_row;
+        end if;
+        chargen_y_next_rel := chargen_y_next - gotoy_shift;
+        pixels_since_last_char_rel := pixels_since_last_char - (gotoy_phase + gotoy_shift);
+        gotoy_seen <= '0';
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
@@ -3440,7 +3485,7 @@ begin
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
-        chargen_y_hold <= chargen_y;
+        chargen_y_hold <= chargen_y - gotoy_shift;
 
         if chargen_y_hold = chargen_y then
           charrow_repeated <= '1';
@@ -3452,10 +3497,10 @@ begin
         report "COLOURRAM: Setting colourramaddress via first_card_of_row."
           & " text_mode=" & std_logic'image(text_mode)
           & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
-        colourramaddress <= colour_ram_base + first_card_of_row;
+        colourramaddress <= colour_ram_base + gotoy_card;
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
-        prev_first_card_of_row <= first_card_of_row;
+        prev_first_card_of_row <= gotoy_card;
 
         -- Set all signals for both eventuality, since none are shared between
         -- the two paths.  This helps keep the logic shallow.
@@ -3467,18 +3512,18 @@ begin
           -- card, but not two bitmap bytes, so we have to increment double
           screen_row_current_address
             <= to_unsigned(safe_to_integer(screen_ram_base(19 downto 0))
-                           + safe_to_integer(first_card_of_row) + safe_to_integer(first_card_of_row),20);
+                           + safe_to_integer(gotoy_card) + safe_to_integer(gotoy_card),20);
         else
           screen_row_current_address
             <= to_unsigned(safe_to_integer(screen_ram_base(19 downto 0))
-                           + safe_to_integer(first_card_of_row),20);
+                           + safe_to_integer(gotoy_card),20);
         end if;
         card_of_row <= (others =>'0');
         screen_ram_buffer_write_address <= to_unsigned(0,10);
         short_line <= '0';
         report "ZEROing screen_ram_buffer_write_address" severity note;
         -- Finally decide which way we should go
-        if safe_to_integer(first_card_of_row) /= safe_to_integer(prev_first_card_of_row) then
+        if safe_to_integer(gotoy_card) /= safe_to_integer(prev_first_card_of_row) then
           raster_fetch_state_init <= FetchScreenRamLine;
           raster_fetch_state <= FetchScreenRamLine;
           -- From Section 3.5 of http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
@@ -3500,23 +3545,24 @@ begin
         raster_fetch_restart <= '1';
 
         -- Now check if we have tipped over from one logical pixel row to another.
-        chargen_y <= chargen_y_next;
+        -- (GOTOY: the counters and the row cycle moved back by gotoy_shift)
+        chargen_y <= chargen_y_next_rel;
         if chargen_y_sub=chargen_y_scale then
-          chargen_y_next <= chargen_y_next + 1;
+          chargen_y_next <= chargen_y_next_rel + 1;
           if chargen_y_scale /= 0 then
-            if chargen_y_next = "111" then
+            if chargen_y_next_rel = "111" then
               report "bumping chargen_y to " & integer'image(safe_to_integer(chargen_y)) severity note;
               bump_screen_row_address<='1';
             end if;
-            if pixels_since_last_char = "111" then
+            if pixels_since_last_char_rel = "111" then
               chargen_y_next <= "000";
             end if;
           else
-            if chargen_y_next = "111" then
+            if chargen_y_next_rel = "111" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
             end if;
-            if pixels_since_last_char = "110" then
+            if pixels_since_last_char_rel = "110" then
               chargen_y_next <= "000";
             end if;
           end if;
@@ -3529,9 +3575,19 @@ begin
         else
           report "LEGACY: chargen_y_sub incremented";
           chargen_y_sub <= chargen_y_sub + 1;
+          chargen_y_next <= chargen_y_next_rel;
         end if;
 
-        if bump_screen_row_address='1' then
+        if gotoy_fire='1' then
+          -- GOTOY: the next text row now (instead of any advance pending)
+          bump_screen_row_address <= '0';
+          screen_row_address <= screen_ram_base(19 downto 0) + gotoy_card;
+          first_card_of_row <= gotoy_card;
+          display_row_number <= display_row_number + 1;
+          if display_row_number = display_row_count then
+            stop_chargen_raster_counter <= stop_chargen_delay;
+          end if;
+        elsif bump_screen_row_address='1' then
           bump_screen_row_address <= '0';
 
           -- Compute the address for the screen row.
@@ -3681,6 +3737,7 @@ begin
         -- Force badline so that moving chargen down results in fresh loading
         -- of the first line of text.
         prev_first_card_of_row <= (others => '1');
+        gotoy_phase <= "000";
         report "Masking chargen_active based on displayy<y_chargen_start" severity note;
 
       end if;
@@ -4398,6 +4455,12 @@ begin
             glyph_width_deduct(3) <= '0';
             if screen_ram_buffer_dout = x"ff" then
               screen_ram_high_is_ff <= '1';
+            end if;
+
+            -- GOTOY: a GOTOX with colour byte 0 bit 1 and gotox_pos bits 9-8 set
+            if colourramdata(4)='1' and colourramdata(1)='1' and screen_ram_buffer_dout(1 downto 0)="11" then
+              gotoy_seen <= '1';
+              gotoy_y <= glyph_number(3 downto 0);
             end if;
 
             -- First colour RAM byte has vertical controls
