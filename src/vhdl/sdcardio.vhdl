@@ -677,7 +677,7 @@ architecture behavioural of sdcardio is
   signal crc_force_delay_counter : integer range 0 to 12 := 0;
   signal crc_force_delay : std_logic := '0';
 
-  constant hw_errata_level_max : unsigned(7 downto 0) := x"02";
+  constant hw_errata_level_max : unsigned(7 downto 0) := x"01";
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
@@ -1221,9 +1221,6 @@ begin  -- behavioural
             --
             -- HWERRATA Table:
             -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
-            -- HWERRATA:2 - VIC-IV GOTOY tokens: a GOTOX token with colour RAM byte 0 bit 1 set and
-            --              gotox_pos bits 9-8 = 11 ends its text row after glyph row Y (screen RAM byte 0
-            --              bits 3-0; 7 or more: no change)
             --
             fastio_rdata <= hw_errata_level;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
