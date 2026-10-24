@@ -353,6 +353,7 @@ begin
     variable nbytes   : natural;
     variable read_nac, multi_nac : natural;
     variable stop_ref : boolean;
+    variable reset_ref : boolean;     -- CMD0 ends a transfer too
     variable stopped  : boolean;
     variable err_done : boolean := false;
     variable buf      : t_blk;
@@ -391,7 +392,7 @@ begin
         hs_mode <= false;
       elsif rd_go'event then
         native_reading <= true;
-        stop_ref := stop_go;
+        stop_ref := stop_go; reset_ref := reset_go;
         stopped  := false;
         blk      := rd_blk;
         if rd_small and rd_kind = 2 then nbytes := 8;
@@ -423,7 +424,7 @@ begin
                 crc(16*l+15 downto 16*l) := crc16_bit(crc(16*l+15 downto 16*l), nib(l));
               end loop;
               out_edge;
-              if stop_go /= stop_ref then stopped := true; exit; end if;
+              if stop_go /= stop_ref or reset_go /= reset_ref then stopped := true; exit; end if;
               drive(nib);
             end loop;
             exit when stopped;
@@ -436,7 +437,7 @@ begin
           if rd_small and rd_kind /= 4 and G_INFO_BAD_CRC then crc(0) := not crc(0); end if;
           for k in 15 downto 0 loop
             out_edge;
-            if stop_go /= stop_ref then stopped := true; exit; end if;
+            if stop_go /= stop_ref or reset_go /= reset_ref then stopped := true; exit; end if;
             drive(crc(48+k) & crc(32+k) & crc(16+k) & crc(k));
           end loop;
           exit when stopped;
@@ -452,22 +453,23 @@ begin
           blk := blk + 1;
           for i in 2 to multi_nac loop
             out_edge;
-            if stop_go /= stop_ref then stopped := true; exit; end if;
+            if stop_go /= stop_ref or reset_go /= reset_ref then stopped := true; exit; end if;
           end loop;
           exit when stopped;
         end loop;
         dat_drv <= transport "ZZZZ" after G_TOH;
         native_reading <= false;
+        if reset_go /= reset_ref then hs_mode <= false; end if;
 
       elsif wr_go'event then
-        stop_ref := stop_go;
+        stop_ref := stop_go; reset_ref := reset_go;
         blk      := wr_blk;
         loop
           -- wait for the start bit (or CMD12)
           stopped := false;
           loop
             wait until rising_edge(clk);
-            if stop_go /= stop_ref then stopped := true; exit; end if;
+            if stop_go /= stop_ref or reset_go /= reset_ref then stopped := true; exit; end if;
             exit when to_X01(dat(0)) = '0';
           end loop;
           exit when stopped;
@@ -522,6 +524,7 @@ begin
           blk := blk + 1;
         end loop;
         dat_drv <= transport "ZZZZ" after G_TOH;
+        if reset_go /= reset_ref then hs_mode <= false; end if;
 
       else
         -- busy after an R1b

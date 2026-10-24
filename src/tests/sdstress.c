@@ -368,6 +368,9 @@ static void init_report(void)
   for (slot = 0; slot < 2; slot++) {
     printf("\nslot %u (%s):\n", slot, slot ? "micro-sd" : "full-size sd");
     POKE(0xD680, slot ? 0xC1 : 0xC0);
+    /* first as booted: the init the hypervisor did, untouched */
+    printf(" as booted: $d680=$%02x\n", PEEK(0xD680));
+    show_status();
     printf(" normal init:\n");
     sd_reset(0);
     if (sd_error == 2) { printf("  no answer (empty slot?)\n"); continue; }

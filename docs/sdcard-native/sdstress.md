@@ -16,8 +16,9 @@ It asks for one of three modes.
 
 ## 1. Init report (reads only)
 
-For each slot: initialise normally, at default speed (`$24`), then normally
-again, showing `$D686`/`$D687`, the bus the card ended up on, and the card's
+For each slot: first the state the boot left (the hypervisor's init,
+untouched: the bus it ended up on and its init record), then initialise
+normally, at default speed (`$24`), then normally again, showing `$D686`/`$D687`, the bus the card ended up on, and the card's
 CID (maker, name, serial, date).  If the native bus was given up and the
 card fell back to SPI, it says at which init step, whether the card did not
 answer or answered badly, the last response, and the test read's error.

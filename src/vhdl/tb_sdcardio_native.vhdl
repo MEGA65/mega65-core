@@ -35,7 +35,8 @@ entity tb_sdcardio_native is
     G_INFO_TEST : boolean := false;
     G_INFO_BAD_CRC : boolean := false;
     G_BOUND_TEST : boolean := false;
-    G_TAIL_TEST : boolean := false
+    G_TAIL_TEST : boolean := false;
+    G_REINIT_TEST : boolean := false
     );
 end entity;
 
@@ -322,6 +323,40 @@ begin
       wait for 100 us; peek(16#D3680#, v); check(v(6) = '0', "partial fill closes cleanly at capacity");
       set_sector(12); poke(16#D3680#, 2); wait_range_error;
       report "ALL TAIL TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_REINIT_TEST then
+      -- As after booting: both slots initialised, sequential reads (the
+      -- cache's read-ahead stream left open and paused), the CPU elsewhere
+      -- for a while; then a program selects the card and resets it.
+      poke(16#D3680#, 16#2B#); wait_ready(40 ms);
+      for n in 0 to 11 loop
+        set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(n, false, "boot read");
+      end loop;
+      wait for 2 ms;
+      for r in 0 to 2 loop
+        poke(16#D3680#, 16#C0#);
+        if r = 2 then poke(16#D3680#, 16#24#);
+        else poke(16#D3680#, 0); poke(16#D3680#, 1); end if;
+        wait_ready(40 ms);
+        peek(16#D3680#, v); check(v(6) = '0', "re-init: no error");
+        peek(16#D3686#, v); check(v(1 downto 0) = "11", "re-init: ready, native bus");
+        poke(16#D36CE#, 16#80#);
+        for i in 17 to 23 loop
+          poke(16#D36CE#, i); peek(16#D36CF#, v);
+          report "  init record byte " & integer'image(i) & " = " & integer'image(to_integer(v));
+        end loop;
+        poke(16#D36CE#, 17); peek(16#D36CF#, v);
+        check(v = 0, "re-init: no failed init step");
+        set_sector(40 + r); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(40 + r, false, "read after re-init");
+        for n in 41 + r to 50 + r loop
+          set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+        end loop;
+        wait for 1 ms;
+      end loop;
+      assert fails = 0 report "REINIT TESTS FAILED" severity failure;
+      report "ALL REINIT TESTS PASSED"; done <= true; wait;
     end if;
     if G_BOUND_TEST then
       poke(16#D3680#, 16#2B#); wait_ready(40 ms);

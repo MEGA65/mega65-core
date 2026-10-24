@@ -71,6 +71,7 @@ VARIANTS = [
     ("io-info-crc", "tb_sdcardio_native", ["G_INFO_TEST=true", "G_INFO_BAD_CRC=true"], "500ms"),
     ("io-bound", "tb_sdcardio_native", ["G_BOUND_TEST=true"], "800ms"),
     ("io-tail", "tb_sdcardio_native", ["G_TAIL_TEST=true"], "800ms"),
+    ("io-reinit", "tb_sdcardio_native", ["G_REINIT_TEST=true"], "800ms"),
 ]
 
 UNISIM_STUB = """
