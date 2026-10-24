@@ -199,6 +199,16 @@ for r, (text, colours) in enumerate(((line0, [0x07] * 8 + [0x2E] * 11),
     final[a - B:a - B + len(text)] = bytes(colours)
     mask[a - B:a - B + len(text)] = b"\1" * len(text)
 blk += 48
+# again: flags bit 4, no margin (a number the field's whole width)
+FD4, FC4 = B + 0x7800, B + 0x7A00
+m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD4, 40, 1, 16,
+                         FC4, 40, 0x0E, 0, SCRATCH, 0))
+A(I.FORMATCELLS, x=blk)
+for r, text in enumerate(("      42" + "Hi " + " " * 8, " 1234567" + "   " + " " * 8)):
+    a = FD4 + 40 * r
+    final[a - B:a - B + len(text)] = SC(text)
+    mask[a - B:a - B + len(text)] = b"\1" * len(text)
+blk += 48
 # again: 16-bit characters, only cells with CHANGED (A2), CHANGED cleared
 FD2, FC2 = B + 0x6800, B + 0x6A00
 m.write(FD2 + 80, b"\xAA" * 16)                # (A2's field: each high byte must be written 0)

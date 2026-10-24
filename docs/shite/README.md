@@ -563,7 +563,7 @@ Renders a rectangle of cells as screen text.  Parameter block (48 bytes,
 | 24 | 4 | destination |
 | 28 | 2 | destination stride (bytes per screen line) |
 | 30 | 1 | character size: 1 (screen codes) or 2 (16-bit characters: the screen code, then 0) |
-| 31 | 1 | flags: bit 0 only cells with CHANGED; bit 1 clear CHANGED on the cells rendered; bit 2 the upper-case character set; bit 3 ASCII (characters as they are, for an ASCII font) |
+| 31 | 1 | flags: bit 0 only cells with CHANGED; bit 1 clear CHANGED on the cells rendered; bit 2 the upper-case character set; bit 3 ASCII (characters as they are, for an ASCII font); bit 4 no margin (numbers the field's whole width, below) |
 | 32 | 4 | colour destination (0: none): one byte per character, the colour |
 | 36 | 2 | colour stride |
 | 38 | 1 | default colour (cells without a format, and blank fields) |
@@ -615,7 +615,8 @@ A number (a number cell, or a formula's number) is rendered one character
 narrower than its field, and the field's last character is a space, as in
 Lotus 1-2-3: numbers in adjacent columns stay apart.  So its alignment,
 and "too wide" (`#`s), are within `width - 1`.  A field of width 1 has no
-margin.  Text and errors use the whole width.
+margin, and nor does any field with flag bit 4.  Text and errors use the
+whole width.
 
 **Numbers.**  The style (format byte 0 bits 3-0), d = format byte 1 (0-15):
 

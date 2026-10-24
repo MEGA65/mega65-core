@@ -1122,6 +1122,8 @@ fc_render:                              ; one field (char size 2: into scratch, 
         bltu    ckind, #K_F64, fc_rw    ; space (as Lotus 1-2-3: columns of numbers
         bgtu    ckind, #K_I32, fc_rw    ; stay apart)
         bltu    w, #2, fc_rw
+        ext     t0, xp24, 60, 1         ; (flags bit 4: no margin)
+        bnz     t0, fc_rw
         sub     t3, w, #1
 fc_rw:  out     #P_CE_WIDTH, t3
         out     #P_CE_CAP, t3
