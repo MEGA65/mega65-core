@@ -151,6 +151,22 @@ status mailbox and use registers, with no extra BRAM.
 fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
+**Init record.** Bytes 17-23 (latched by the same `$80` write) say why the
+selected card's last initialisation gave up the native bus and fell back to
+SPI; they are zero when it did not, and cleared by every init.
+
+| Byte | |
+|---|---|
+| 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0 |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed |
+| 19 | The failed test read's error code |
+| 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian |
+
+Step 5 with a response (bit 2) means the card never finished powering up
+within a second.  `sdstress` (mode 1, [sdstress.md](sdstress.md)) prints
+this.  `tb_sdcardio_native` checks it with `G_SPI_CARD=true` (step 4, no
+response) and without (all zero).
+
 Terminal native or upper-controller errors also keep `$D680.1` asserted.
 This preserves software that detects failure by a busy timeout. New callers
 can issue `$2A` after `$D680.0` clears instead of resetting the card. Native

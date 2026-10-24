@@ -181,6 +181,15 @@ entity sdcard_native is
     -- (read retries, stop retries, read CRC/timeouts/commands, terminal read
     -- failures, terminal stop failures), then the current clock setting.
     diag_stats  : out unsigned(127 downto 0);
+    -- CPU-domain record of why the native bus was given up at the last
+    -- init (all zero if it was not): bits 7..0 the init step that failed
+    -- (see N_INIT; 13 = the test read), 15..8 flags (0 fell back to SPI,
+    -- 1 no response, 2 a response came (else: CRC/index/header bad),
+    -- 3 the test read failed at high speed and was retried at default
+    -- speed, 4 the test read failed at default speed, 5 CMD6 high speed
+    -- not granted), 23..16 the failed test read's error code, 55..24 bits
+    -- 39..8 of the last response (R1 card status, OCR, ...).
+    init_diag   : out unsigned(55 downto 0);
 
     rd_valid    : out std_logic;
     rd_data     : out unsigned(7 downto 0);
@@ -453,7 +462,7 @@ architecture rtl of sdcard_native is
   -- status bundle (engine -> host)
   ------------------------------------------------------------------------------
 
-  constant ST_W : natural := 249;
+  constant ST_W : natural := 305;
   signal st_live   : std_logic_vector(ST_W-1 downto 0);
   signal st_pub    : std_logic_vector(ST_W-1 downto 0) := (others => '0');
   signal st_host   : std_logic_vector(ST_W-1 downto 0) := (2 => '1', others => '0');
@@ -691,6 +700,15 @@ architecture rtl of sdcard_native is
   signal op_more     : std_logic := '0';
   signal op_fin      : std_logic := '0';
   signal blk_settle  : unsigned(1 downto 0) := (others => '0');
+  -- why the native bus was given up (init_diag): nf_cur is the init step
+  -- being looked at (so the step that sent init to 30 when it is there),
+  -- c_noresp says the last native command had no response at all
+  signal nf_cur      : natural range 0 to 31 := 0;
+  signal nf_step     : unsigned(4 downto 0) := (others => '0');
+  signal nf_flags    : std_logic_vector(7 downto 0) := (others => '0');
+  signal nf_err      : unsigned(7 downto 0) := (others => '0');
+  signal nf_resp     : std_logic_vector(31 downto 0) := (others => '0');
+  signal c_noresp    : std_logic := '0';
   -- an SPI read block's first CRC byte matched (so the second byte's check
   -- is 8 bits, not a 16-bit compare in front of the state logic)
   signal d_crc_hi    : std_logic := '0';
@@ -777,6 +795,7 @@ begin
   diag_stats  <= unsigned(st_host(215 downto 88));
   last_sector <= unsigned(st_host(247 downto 216));
   capacity_valid <= st_host(248);
+  init_diag   <= unsigned(st_host(304 downto 249));
   hs_wait     <= st_host(64);
   hs_wseq     <= st_host(65);
   hs_wblk     <= unsigned(st_host(81 downto 66));
@@ -901,6 +920,10 @@ begin
     & stat_read_cmd & stat_read_timeout & stat_read_crc & stat_stop_retries & stat_read_retries);
   st_live(247 downto 216) <= std_logic_vector(cap_last);
   st_live(248) <= cap_known;
+  st_live(256 downto 249) <= "000" & std_logic_vector(nf_step);
+  st_live(264 downto 257) <= nf_flags;
+  st_live(272 downto 265) <= std_logic_vector(nf_err);
+  st_live(304 downto 273) <= nf_resp;
 
   publish : process (clock162)
   begin
@@ -1427,6 +1450,7 @@ begin
           c_phase <= 0;
           c_n     <= (others => '0');
           c_ok    <= '0';
+          c_noresp <= '0';
         end if;
         if c_act = '1' then
           case c_phase is
@@ -1465,6 +1489,7 @@ begin
                   elsif rf_c80 = '1' then
                     -- no response (Ncr is at most 64)
                     c_ok    <= '0';
+                    c_noresp <= '1';
                     c_end   <= rxd_tag;  rf_cend <= '0'; rf_c80 <= '0'; wr_gap_ok <= '0';
                     c_phase <= 3;
                   end if;
@@ -2015,12 +2040,19 @@ begin
             op_verify <= '0';
             if hs = '1' and mode_native = '1' then
               -- once more, at default speed
+              nf_flags(3) <= '1';
+              nf_err  <= e_err;
               hs      <= '0';
               cur_set <= SET_DS;
               new_set <= SET_DS;
               istep   <= 13;
               resync(N_INIT);
             elsif mode_native = '1' then
+              nf_step     <= to_unsigned(13, 5);
+              nf_flags(0) <= '1';
+              nf_flags(4) <= '1';
+              nf_err      <= e_err;
+              nf_resp     <= r_sr(39 downto 8);
               spi_fb <= '1';             -- give up on the native bus
               tmo    <= (others => '0');
               tmo_z    <= '1';
@@ -2386,6 +2418,9 @@ begin
 
         when N_INIT =>
           run <= '1';
+          if istep /= 30 then
+            nf_cur <= istep;
+          end if;
           case istep is
             when 0 =>                   -- CMD0, no response
               istep <= 1;
@@ -2506,6 +2541,7 @@ begin
               if c_ok = '0' or r1_bad(r_sr) then
                 d_arm   <= '0';
                 d_small <= '0';
+                nf_flags(5) <= '1';
                 istep   <= 13;          -- no high speed
               else
                 istep <= 18;
@@ -2520,12 +2556,14 @@ begin
                   cnt     <= (others => '0');
                   istep   <= 19;
                 else
+                  nf_flags(5) <= '1';
                   istep <= 13;
                 end if;
               elsif tmo_z = '1' then
                 d_arm   <= '0';
                 d_act   <= '0';
                 d_small <= '0';
+                nf_flags(5) <= '1';
                 istep   <= 13;
               end if;
             when 19 =>
@@ -2560,6 +2598,11 @@ begin
               st        <= S_TAIL;
             when others =>
               -- 30: the native bus failed: try SPI
+              nf_step     <= to_unsigned(nf_cur, 5);
+              nf_flags(0) <= '1';
+              nf_flags(1) <= c_noresp;
+              nf_flags(2) <= c_ok;
+              nf_resp     <= r_sr(39 downto 8);
               ready  <= '0';
               spi_fb <= '1';
               tmo    <= (others => '0');
@@ -3299,6 +3342,10 @@ begin
         cmd_pend <= '0';
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
+        nf_step   <= (others => '0');
+        nf_flags  <= (others => '0');
+        nf_err    <= (others => '0');
+        nf_resp   <= (others => '0');
         no_hs     <= e_arg(1);
         if G_FIXED_SLOT = -1 then
           slot <= e_arg(4);
@@ -3391,6 +3438,7 @@ entity sdcard_native_dual is
     probe_pass, probe_fail : out unsigned(7 downto 0);
     blocks_done : out unsigned(15 downto 0);
     diag_stats : out unsigned(127 downto 0);
+    init_diag : out unsigned(55 downto 0);     -- the status slot's
     rd_valid : out std_logic;
     rd_data : out unsigned(7 downto 0);
     rd_offset : out unsigned(8 downto 0);
@@ -3416,6 +3464,7 @@ architecture rtl of sdcard_native_dual is
   type t_u16 is array (0 to 1) of unsigned(15 downto 0);
   type t_u32 is array (0 to 1) of unsigned(31 downto 0);
   type t_u128 is array (0 to 1) of unsigned(127 downto 0);
+  type t_u56 is array (0 to 1) of unsigned(55 downto 0);
   type t_p2 is array (0 to 1) of std_logic_vector(1 downto 0);
   type t_p8 is array (0 to 1) of std_logic_vector(7 downto 0);
   type t_state is (Q_IDLE, Q_DISPATCH, Q_STOP_ACK, Q_ACK);
@@ -3437,6 +3486,7 @@ architecture rtl of sdcard_native_dual is
   signal c_setting, c_done, c_rblock, c_wblock : t_u16;
   signal c_roff, c_woff : t_u9;
   signal c_diag : t_u128;
+  signal c_idiag : t_u56;
   signal c_last : t_u32;
   signal c_capacity : std_logic_vector(1 downto 0);
   signal c_clk, c_cmd_o, c_cmd_oe : t_p2;
@@ -3463,7 +3513,8 @@ begin
         error => c_error(s), err_code => c_err(s), native_mode => c_native(s),
         high_speed => c_hs(s), sdhc => c_hc(s), clk_setting => c_setting(s),
         probe_pass => c_pass(s), probe_fail => c_fail(s), blocks_done => c_done(s),
-        diag_stats => c_diag(s), rd_valid => c_rv(s), rd_data => c_data(s),
+        diag_stats => c_diag(s), init_diag => c_idiag(s),
+        rd_valid => c_rv(s), rd_data => c_data(s),
         rd_offset => c_roff(s), rd_block => c_rblock(s), rd_good => c_good(s), rd_bad => c_bad(s),
         wr_fetch => c_wfetch(s), wr_offset => c_woff(s), wr_block => c_wblock(s), wr_data => wr_data,
         sd_clk => c_clk(s), sd_cmd_o => c_cmd_o(s), sd_cmd_oe => c_cmd_oe(s), sd_cmd_i => sd_cmd_i,
@@ -3519,6 +3570,7 @@ begin
   probe_pass <= c_pass(slot_index(status_slot));
   probe_fail <= c_fail(slot_index(status_slot));
   blocks_done <= c_done(slot_index(status_slot));
+  init_diag <= c_idiag(slot_index(status_slot));
   counters : process(c_diag, c_setting, status_slot)
     variable v : unsigned(127 downto 0);
   begin

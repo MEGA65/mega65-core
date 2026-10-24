@@ -515,6 +515,8 @@ architecture behavioural of sdcardio_native is
   signal cache_hits     : unsigned(15 downto 0);
   signal cache_misses   : unsigned(15 downto 0);
   signal ds_diag_stats : unsigned(127 downto 0);
+  signal ds_init_diag : unsigned(55 downto 0);
+  signal idiag_snapshot : unsigned(55 downto 0) := (others => '0');
   signal diag_snapshot : unsigned(127 downto 0) := (others => '0');
   signal diag_index : unsigned(4 downto 0) := (others => '0');
   -- card detect: synchronised, debounced (stable for 2^16 cycles), sticky
@@ -1203,6 +1205,7 @@ begin  -- behavioural
       probe_fail  => ds_probe_fail,
       blocks_done => ds_blocks_done,
       diag_stats => ds_diag_stats,
+      init_diag => ds_init_diag,
       rd_valid    => ds_rd_valid,
       rd_data     => ds_rd_data,
       rd_offset   => ds_rd_offset,
@@ -2014,6 +2017,11 @@ begin  -- behavioural
               -- byte 16: card detect / write protect (live)
               fastio_rdata <= "00" & unsigned(cd_changed) & '0' & cd_stable(1)
                               & wp_s2(0) & cd_stable(0);
+            elsif diag_index(3 downto 0) <= 7 then
+              -- bytes 17-23: why the selected card's last init gave up the
+              -- native bus (sdcard_native's init_diag, latched with the rest)
+              fastio_rdata <= resize(shift_right(idiag_snapshot,
+                                to_integer(diag_index(2 downto 0) - 1)*8), 8);
             else
               fastio_rdata <= x"00";
             end if;
@@ -3784,6 +3792,7 @@ begin  -- behavioural
             when x"CE" =>
               diag_index <= fastio_wdata(4 downto 0);
               if fastio_wdata(6) = '1' then cd_clear <= '1'; end if;
+              if fastio_wdata(7) = '1' then idiag_snapshot <= ds_init_diag; end if;
               if fastio_wdata(7) = '1' then
                 diag_snapshot <= ds_diag_stats;
                 diag_snapshot(127 downto 112) <= ui_info(31 downto 16);

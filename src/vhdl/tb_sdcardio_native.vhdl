@@ -603,6 +603,26 @@ begin
     else
       check(v = 8, "diagnostic high-speed clock divisor");
     end if;
+    -- bytes 17-23: why the native bus was given up.  A card already in SPI
+    -- mode does not answer CMD55 on the native bus (step 4): fell back to
+    -- SPI, no response.  A native card: nothing.
+    poke(16#D36CE#, 17);
+    peek(16#D36CF#, v);
+    if G_SPI_CARD then
+      check(v = 4, "init diagnostic: the step that failed (CMD55)");
+    else
+      check(v = 0, "init diagnostic: no step failed");
+    end if;
+    poke(16#D36CE#, 18);
+    peek(16#D36CF#, v);
+    if G_SPI_CARD then
+      check(v = 16#03#, "init diagnostic: fell back to SPI, no response");
+    else
+      check(v = 0, "init diagnostic: no flags");
+    end if;
+    poke(16#D36CE#, 19);
+    peek(16#D36CF#, v);
+    check(v = 0, "init diagnostic: no test read error");
 
     if G_ERROR_TEST then
       set_sector(5);
