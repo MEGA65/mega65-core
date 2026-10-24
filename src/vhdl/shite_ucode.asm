@@ -1118,8 +1118,13 @@ fc_render:                              ; one field (char size 2: into scratch, 
         out     #P_CE_FORMAT, cfmt
         out     #P_CE_TLEN, ctlen
         out     #P_CE_TEXT, ctext
-        out     #P_CE_WIDTH, w
-        out     #P_CE_CAP, w
+        mov     t3, w                   ; a number one narrower, its last character a
+        bltu    ckind, #K_F64, fc_rw    ; space (as Lotus 1-2-3: columns of numbers
+        bgtu    ckind, #K_I32, fc_rw    ; stay apart)
+        bltu    w, #2, fc_rw
+        sub     t3, w, #1
+fc_rw:  out     #P_CE_WIDTH, t3
+        out     #P_CE_CAP, t3
         ext     t0, xp24, 58, 1
         out     #P_CE_UPPER, t0
         ext     t0, xp24, 59, 1
@@ -1137,7 +1142,18 @@ fc_r2:  out     #P_CE_DEST, t0
         in      t0, #I_CE_ERROR
         beq     t0, #CODEC_MEMORY, cx_mem
         beq     t0, #CODEC_ABORTED, aborted
-        li      i, #0
+        bgeu    t3, w, fc_m9            ; (the margin: written here)
+        li      t1, #32
+        ext     t2, xp24, 48, 2
+        bne     t2, #2, fc_m1
+        ext     t0, xp40, 0, 28
+        add     t0, t0, t3
+        stb     [t0+512], t1            | jmp fc_m9
+fc_m1:  add     t0, line, foff
+        add     t0, t0, t3
+        ext     t0, t0, 0, 28
+        stb     [t0], t1
+fc_m9:  li      i, #0
         ext     t1, xp24, 48, 2
         bne     t1, #2, fc_colr
 fc_exp: bgeu    i, w, fc_exp9           ; 16-bit characters: the code, then 0

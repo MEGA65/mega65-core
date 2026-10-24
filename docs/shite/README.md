@@ -611,6 +611,12 @@ block copy).
 The format's alignment (byte 0 bits 5-4) overrides the default; centring
 puts an odd space on the right.
 
+A number (a number cell, or a formula's number) is rendered one character
+narrower than its field, and the field's last character is a space, as in
+Lotus 1-2-3: numbers in adjacent columns stay apart.  So its alignment,
+and "too wide" (`#`s), are within `width - 1`.  A field of width 1 has no
+margin.  Text and errors use the whole width.
+
 **Numbers.**  The style (format byte 0 bits 3-0), d = format byte 1 (0-15):
 
 | Style | Shows |

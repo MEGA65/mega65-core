@@ -161,12 +161,13 @@ for text, kind, value, k in parses:
 
 # --- FORMAT_CELLS ---------------------------------------------------------------------
 WIDTHS = B + 0x2300
-m.write(WIDTHS, bytes([7, 3, 0, 8]))         # columns A-D: C hidden (width 0)
+m.write(WIDTHS, bytes([8, 3, 0, 8]))         # columns A-D: C hidden (width 0)
 FD, FC = B + 0x6400, B + 0x6600              # screen, colours: 2 lines of 40
-# row 0: A1 42 (general, width 7), B1 "Hi" (width 3), C1 hidden, D1 no cell (width 8)
+# row 0: A1 42 (general, width 8), B1 "Hi" (width 3), C1 hidden, D1 no cell (width 8)
 # row 1: A2 1234567, B2 no cell, C2 hidden, D2 no cell
-line0 = "     42" + "Hi " + " " * 8
-line1 = "1234567" + "   " + " " * 8
+# (a number rendered one narrower, its field's last character a space)
+line0 = "     42 " + "Hi " + " " * 8
+line1 = "1234567 " + "   " + " " * 8
 for blk_flags, lines in ((0, (line0, line1)),):
     m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD, 40, 1, blk_flags,
                              FC, 40, 0x0E, 0, SCRATCH, 0))
@@ -189,8 +190,8 @@ m.write(SELL, bytes([2]) + bytes(15) +
 m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD3, 40, 1, 8,
                          FC3, 40, 0x0E, 0, SCRATCH, SELL))
 A(I.FORMATCELLS, x=blk)
-for r, (text, colours) in enumerate(((line0, [0x07] * 7 + [0x2E] * 11),
-                                     (line1, [0x07] * 7 + [0x0E] * 11))):
+for r, (text, colours) in enumerate(((line0, [0x07] * 8 + [0x2E] * 11),
+                                     (line1, [0x07] * 8 + [0x0E] * 11))):
     a = FD3 + 40 * r
     final[a - B:a - B + len(text)] = text.encode("ascii")
     mask[a - B:a - B + len(text)] = b"\1" * len(text)
@@ -200,15 +201,15 @@ for r, (text, colours) in enumerate(((line0, [0x07] * 7 + [0x2E] * 11),
 blk += 48
 # again: 16-bit characters, only cells with CHANGED (A2), CHANGED cleared
 FD2, FC2 = B + 0x6800, B + 0x6A00
-m.write(FD2 + 80, b"\xAA" * 14)                # (A2's field: each high byte must be written 0)
+m.write(FD2 + 80, b"\xAA" * 16)                # (A2's field: each high byte must be written 0)
 m.write(blk, struct.pack("<IIIIIIIHBBIHBBII", desc, 0, 1, 0, 3, WIDTHS, FD2, 80, 2, 3,
                          FC2, 40, 0x0E, 0, SCRATCH, 0))
 A(I.FORMATCELLS, x=blk)
 for a, n in ((FD2, 80 * 2), (FC2, 40 * 2)):    # (all else untouched: zero)
     mask[a - B:a - B + n] = b"\1" * n
-a = FD2 + 80                                  # A2: "1234567" as (code, 0) pairs
-final[a - B:a - B + 14] = b"".join(bytes([c, 0]) for c in SC("1234567"))
-final[FC2 + 40 - B:FC2 + 47 - B] = bytes([0x0E]) * 7
+a = FD2 + 80                                  # A2: "1234567 " as (code, 0) pairs
+final[a - B:a - B + 16] = b"".join(bytes([c, 0]) for c in SC("1234567 "))
+final[FC2 + 40 - B:FC2 + 48 - B] = bytes([0x0E]) * 8
 c = SH.find_cell(m, desc, 1, 0)               # A2's CHANGED cleared
 final[c + 3 - B] = mem[c + 3 - B] & ~SH.F_CHANGED & 0xFF
 mask[c + 3 - B] = 1
