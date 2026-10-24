@@ -36,7 +36,10 @@ entity tb_sdcardio_native is
     G_INFO_BAD_CRC : boolean := false;
     G_BOUND_TEST : boolean := false;
     G_TAIL_TEST : boolean := false;
-    G_REINIT_TEST : boolean := false
+    G_REINIT_TEST : boolean := false;
+    G_STREAM_TEST : boolean := false;
+    G_F011_TEST : boolean := false;
+    G_F011_ROUNDS : natural := 60
     );
 end entity;
 
@@ -297,8 +300,73 @@ begin
       end loop;
     end procedure;
 
+    -- what the buffer half at $DE00 holds against sector n: that sector,
+    -- the one before, or that sector rotated (k bytes)
+    procedure f011_diag(n : natural) is
+      variable b : unsigned(7 downto 0);
+      type t_b is array (0 to 511) of unsigned(7 downto 0);
+      variable d : t_b;
+      variable ok_n, ok_p : boolean := true;
+      variable rot : integer := -1;
+      variable good : boolean;
+    begin
+      for i in 0 to 511 loop
+        peek(16#FFE00# + i, b); d(i) := b;
+        if b /= pattern(n, i) then ok_n := false; end if;
+        if n = 0 or b /= pattern(n - 1, i) then ok_p := false; end if;
+      end loop;
+      for k in 1 to 511 loop
+        good := true;
+        for i in 0 to 511 loop
+          if d((i + k) mod 512) /= pattern(n, i) then good := false; exit; end if;
+        end loop;
+        if good then rot := k; exit; end if;
+      end loop;
+      report "    holds sector " & integer'image(n) & ": " & boolean'image(ok_n)
+        & ", the one before: " & boolean'image(ok_p) & ", it rotated by: " & integer'image(rot)
+        & "; bytes 0/255/256/511 = " & integer'image(to_integer(d(0))) & " "
+        & integer'image(to_integer(d(255))) & " " & integer'image(to_integer(d(256))) & " "
+        & integer'image(to_integer(d(511)));
+    end procedure;
+
+    -- an F011 read of drive 0's image (as sdstress), checked against the
+    -- card; then a raw read of the same card sector
+    procedure f011_check(t, sd, sc : natural) is
+      variable st : unsigned(7 downto 0);
+      variable n : natural;
+    begin
+      n := 55854 + t * 20 + sd * 10 + sc - 1;
+      if sd = 1 then poke(16#D3080#, 16#28#); else poke(16#D3080#, 16#20#); end if;
+      poke(16#D3084#, t); poke(16#D3085#, sc); poke(16#D3086#, sd);
+      -- (the image offset follows the registers two cycles later; a CPU's
+      -- next STA is later than that)
+      wait for 100 ns;
+      poke(16#D3081#, 16#40#);
+      for i in 0 to 5000 loop
+        peek(16#D3082#, st);
+        exit when st(7) = '0';
+        wait for 1 us;
+      end loop;
+      check(st(7) = '0' and st(4) = '0', "f011 read t" & integer'image(t) & " s" & integer'image(sd)
+            & " n" & integer'image(sc) & " done, found");
+      poke(16#D3689#, 16#00#);
+      peek(16#D3688#, st);
+      report "  f011 done: $D082 bit 7 clear; disk pointer low " & integer'image(to_integer(st));
+      f011_diag(n);
+      wait for 300 us;
+      report "  300 us later:";
+      f011_diag(n);
+      check_buffer(n, false, "f011 data t" & integer'image(t) & " s" & integer'image(sd)
+                   & " n" & integer'image(sc) & " (card sector " & integer'image(n) & ")");
+      poke(16#D3689#, 16#80#);
+      set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+      check_buffer(n, false, "raw read after f011");
+    end procedure;
+
     variable v : unsigned(7 downto 0);
     variable t0 : time;
+    variable lfsr : unsigned(31 downto 0) := x"1234ABCD";
+    variable r, ft, fs, fn : natural;
     variable h0, h1 : natural;
     variable s0, s1 : unsigned(7 downto 0);
     variable ready0, ready1 : boolean;
@@ -323,6 +391,70 @@ begin
       wait for 100 us; peek(16#D3680#, v); check(v(6) = '0', "partial fill closes cleanly at capacity");
       set_sector(12); poke(16#D3680#, 2); wait_range_error;
       report "ALL TAIL TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_F011_TEST then
+      -- sdstress mode 2: a D81 image on the card read through the F011,
+      -- each sector against the card, with raw read-ahead runs, cache
+      -- changes and open multi-sector reads in between; then a long run of
+      -- sequential raw reads (sdstress's search after a mismatch).  On
+      -- hardware an F011 read returned another sector, and the search then
+      -- left the controller busy for good.
+      poke(16#D3680#, 16#2B#); wait_ready(40 ms);
+      poke(16#D368C#, 55854 mod 256); poke(16#D368D#, (55854 / 256) mod 256);
+      poke(16#D368E#, 0); poke(16#D368F#, 0);
+      poke(16#D368B#, 16#07#);
+      for round in 0 to G_F011_ROUNDS - 1 loop
+        lfsr := lfsr(30 downto 0) & (lfsr(31) xor lfsr(21) xor lfsr(1) xor lfsr(0));
+        r := to_integer(lfsr(2 downto 0));
+        ft := to_integer(lfsr(15 downto 8)) mod 80;
+        fs := to_integer(lfsr(16 downto 16));
+        fn := 1 + to_integer(lfsr(23 downto 20)) mod 10;
+        if r < 3 then
+          for sd in 0 to 1 loop
+            for sc in 1 to 10 loop
+              f011_check(ft, sd, sc);
+            end loop;
+          end loop;
+        elsif r < 6 then
+          f011_check(ft, fs, fn);
+        elsif r = 6 then
+          if lfsr(24) = '1' then
+            for n in 0 to 19 loop
+              set_sector(55854 + to_integer(lfsr(30 downto 20)) + n);
+              poke(16#D3680#, 2); wait_ready(5 ms);
+            end loop;
+          elsif lfsr(25) = '1' then
+            poke(16#D3680#, 16#27#); wait_ready(5 ms);
+          else
+            poke(16#D3680#, 16#25#); wait_ready(5 ms);
+          end if;
+        else
+          set_sector(55854 + to_integer(lfsr(30 downto 20)));
+          poke(16#D3680#, 16#07#); wait_ready(5 ms);
+          poke(16#D3680#, 16#08#); wait_ready(5 ms);
+          f011_check(ft, fs, fn);
+        end if;
+      end loop;
+      for n in 55854 to 55854 + 299 loop
+        set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(n, false, "search read " & integer'image(n));
+      end loop;
+      poke(16#D3680#, 16#25#); wait_ready(5 ms);
+      assert fails = 0 report "F011 TESTS FAILED" severity failure;
+      report "ALL F011 TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_STREAM_TEST then
+      -- A long run of sequential single-sector reads (sdstress's search of a
+      -- D81 image): the read-ahead stream is extended line after line.  On
+      -- hardware one such run stopped with the reader at the first sector
+      -- of a line, the controller busy for good.
+      poke(16#D3680#, 16#2B#); wait_ready(40 ms);
+      for n in 55854 to 55854 + 299 loop
+        set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(n, false, "sequential read " & integer'image(n));
+      end loop;
+      assert fails = 0 report "STREAM TESTS FAILED" severity failure;
+      report "ALL STREAM TESTS PASSED"; done <= true; wait;
     end if;
     if G_REINIT_TEST then
       -- As after booting: both slots initialised, sequential reads (the

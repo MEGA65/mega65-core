@@ -208,6 +208,17 @@ static char *read_line(char *s, int n)
 
 #endif
 
+/* forget the keys typed so far, and any still arriving for a moment (the
+   RETURN of the last answer can reach the queue after it was read) */
+static void drain_keys(void)
+{
+  uint8_t i;
+  for (i = 0; i < 50; i++) {
+    while (key_pressed()) ;
+    spin(10000);
+  }
+}
+
 /* ------------------------------------------------------------------------ */
 /* random numbers                                                            */
 /* ------------------------------------------------------------------------ */
@@ -748,6 +759,7 @@ static void stress(uint32_t max_ops)
   printf(" errors: controller %lu, cache %lu, card %lu\n", (unsigned long)e_ctrl,
          (unsigned long)e_cache, (unsigned long)e_card);
   printf("stressing (any key stops)\n");
+  drain_keys();
   for (k = 0; !max_ops || n_ops < max_ops; k++) {
     stress_op();
     if (n_ops % 100 == 0) {
@@ -847,6 +859,7 @@ static void f011_compare(uint32_t max_rounds)
          slot ? "external" : "internal");
   sd_select(slot);
   printf("comparing (any key stops)\n");
+  drain_keys();
   for (round = 0; !max_rounds || round < max_rounds; round++) {
     r = rnd8() & 7;
     if (r < 3) {

@@ -1094,11 +1094,19 @@ s = s[:a] + capture + block + s[b:]
 # start sector ($D68C-$D68F / $D690-$D693; readable as $D68A bits 4/5), not
 # whichever card is selected when the F011 asks (the FAT32 engine and Hyppo
 # move between the cards).
+# An F011 sector is one sector on its own: not the kind ($07-$09, $04-$06,
+# $0B) of the last $D680 command, which ReadSector / WriteSector would
+# otherwise follow (after $08 an F011 read was taken as the next block of the
+# program's open multi-sector read, after $05 an F011 write as the next block
+# of its open write).
 rep('''                      -- SD card
                       sd_state <= ReadSector;''', '''                      -- SD card
                       nat_slot <= f011_image_slot;
+                      nat_kind <= K_SINGLE;
+                      nat_meta <= '0';
                       sd_state <= ReadSector;''')
 rep('''                      sd_state <= F011WriteSector;''', '''                      nat_slot <= f011_image_slot;
+                      nat_kind <= K_SINGLE;
                       sd_state <= F011WriteSector;''')
 rep('''  signal diskimage2_enable : std_logic := '0';''', '''  signal diskimage2_enable : std_logic := '0';
   signal diskimage1_slot : std_logic := '0';
