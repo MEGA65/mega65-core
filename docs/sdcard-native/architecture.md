@@ -175,6 +175,19 @@ deliberately stuck. A failed sector buffer is never accepted as a successful
 read. `src/hyppo/sd_read_errors.test` covers idle success, idle error, and
 error with BUSY still asserted.
 
+**Freezing checks its writes.** The freeze (RESTORE) used to take every
+write of the freeze slot for a good one: `sd_wait_for_ready` only waits for
+BUSY to clear, and never gives up.  Each write now waits in
+`freeze_wait_write`, which fails on `$D680.6` or after three timeout
+windows of BUSY; after a failure nothing more is written.  Freezing then
+undoes itself: a card reset (bounded: the card may be gone), then the SD
+sector buffer, `$D681-$D684`, `$D070`, `$D030` and the DMA list address as
+they were (memory itself is only read while freezing).  It blinks the
+border red and black at about 3 Hz for 2 seconds and goes back to the
+program, instead of loading the freezer over a program that could not be
+resumed.  No freeze slot (no system partition) is a failure too.
+`src/hyppo/freeze_errors.test`.
+
 **Boot polling and session reuse.** With retry diagnostics v1 present,
 Hyppo polls each slot's BUSY/error status immediately after reset instead of
 always sleeping before checking it. An empty external slot can therefore

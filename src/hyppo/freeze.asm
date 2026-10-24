@@ -11,6 +11,11 @@ freeze_to_slot:
 
         ;; Slot in XXYY
 
+        ;; C set: frozen.  C clear: there is no such slot, or a write
+        ;; failed; the machine is then as it was (see freeze_undo), so the
+        ;; caller can go back to the program instead of loading the freezer
+        ;; over it.
+
         jsr syspart_locate_freezeslot
         bcs freeze_save_to_sdcard_immediate
         rts
@@ -20,16 +25,25 @@ freeze_save_to_sdcard_immediate:
         ;; Save the current process to the SD card. $D681-4 are expected to
         ;; already be pointing to the first sector of the freeze slot
 
+        lda #$00
+        sta freeze_failed
+
         ;; Stash SD card registers to scratch area
         ;; (also stashed $D070 which gets mushed by palette saving)
         jsr copy_sdcard_regs_to_scratch
 
+        ;; Keep the SD card sector buffer and the DMA list address, which
+        ;; freezing overwrites, in case it fails
+        jsr freeze_keep_sd_buffer_and_dma
+
         ;; Save current SD card sector buffer contents
         jsr freeze_write_first_sector_and_wait
 
-        ;; Save each region in the list
+        ;; Save each region in the list, until a write fails
         ldx #$00
 freeze_next_region:
+        lda freeze_failed
+        bne freeze_save_failed
         jsr freeze_save_region
         txa
         clc
@@ -40,7 +54,15 @@ freeze_next_region:
         bne freeze_next_region
 
         jsr freeze_end_multi_block_write
+        lda freeze_failed
+        bne freeze_save_failed
 
+        sec
+        rts
+
+freeze_save_failed:
+        jsr freeze_undo
+        clc
         rts
 
 unfreeze_load_from_sdcard_immediate:
@@ -207,12 +229,6 @@ freeze_write_first_sector_and_wait:
         ;; Require SHIFT press and release between every sector for debug
 ;;         jsr wait_on_shift_key
 
-        lda #$00
-        sta freeze_write_tries+0
-        sta freeze_write_tries+1
-
-@retryWrite1:
-
         jsr sd_wait_for_ready_reset_if_required
 
         ;; Trigger the write of the first sector of a multi-sector write
@@ -220,15 +236,8 @@ freeze_write_first_sector_and_wait:
         lda #$04
         sta $d680
 
-        jsr sd_wait_for_ready
-        jmp @wroteOk1
+        jsr freeze_wait_write
 
-        inc freeze_write_tries+0
-        bne @retryWrite1
-        inc freeze_write_tries+1
-        bne @retryWrite1
-
-@wroteOk1:
         dec $d020
 
         ;; Increment freeze slot sector number
@@ -239,16 +248,14 @@ freeze_write_first_sector_and_wait:
 
 freeze_write_sector_and_wait:
 
+        ;; Once a write has failed, the rest is not written
+        lda freeze_failed
+        bne @skip
+
         inc $d020
 
         ;; Require SHIFT press and release between every sector for debug
 ;;         jsr wait_on_shift_key
-
-        lda #$00
-        sta freeze_write_tries+0
-        sta freeze_write_tries+1
-
-@retryWrite:
 
         jsr sd_wait_for_ready_reset_if_required
 
@@ -257,33 +264,204 @@ freeze_write_sector_and_wait:
         lda #$05
         sta $d680
 
-        jsr sd_wait_for_ready
-        jmp @wroteOk
+        jsr freeze_wait_write
 
-        inc freeze_write_tries+0
-        bne @retryWrite
-        inc freeze_write_tries+1
-        bne @retryWrite
-
-@wroteOk:
         dec $d020
 
         ;; Increment freeze slot sector number
         jsr sd_inc_sectornumber
 
+@skip:
         sec
         rts
 
 freeze_end_multi_block_write:
+        lda freeze_failed
+        bne @skip
         jsr sd_wait_for_ready
 	jsr sd_open_write_gate
         lda #$06
         sta $d680
-        jsr sd_wait_for_ready
+        jsr freeze_wait_write
+@skip:
         rts
 
-freeze_write_tries:
-        !16 $0
+freeze_wait_write:
+        ;; Wait for the write just started; if the controller reports an
+        ;; error ($D680 bit 6), or is still busy after three timeout windows
+        ;; (a card's programming busy can be long), set freeze_failed.
+        ;; (sd_wait_for_ready only waits for not busy: it would take a
+        ;; failed write for a good one, and never gives up.)
+        phy
+        ldy #$03
+@window:
+        jsr sdtimeoutreset
+@poll:
+        bit $d680
+        bvs @failed
+        jsr sdreadytest
+        bcs @done
+        bne @poll
+        dey
+        bne @window
+        bra @failed
+@done:
+        bit $d680
+        bvs @failed
+        ply
+        rts
+@failed:
+        lda #$01
+        sta freeze_failed
+        ply
+        rts
+
+freeze_failed:
+        !8 0
+
+freeze_keep_sd_buffer_and_dma:
+        ;; The DMA list address ($D701, $D702, $D704: every DMA below
+        ;; changes it) and a copy of the SD card sector buffer at $FFD6000
+        ;; ($FFD6E00 is overwritten by the first region saved).  Both go
+        ;; back if freezing fails (freeze_undo).
+        lda $d701
+        sta freeze_kept_dma+0
+        lda $d702
+        sta freeze_kept_dma+1
+        lda $d704
+        sta freeze_kept_dma+2
+
+        lda #<$6e00
+        sta freeze_region_dmalist_source_start+0
+        lda #>$6e00
+        sta freeze_region_dmalist_source_start+1
+        lda #<$6000
+        sta freeze_region_dmalist_dest_start+0
+        lda #>$6000
+        sta freeze_region_dmalist_dest_start+1
+        jmp freeze_copy_sd_buffer
+
+freeze_undo:
+        ;; A write failed: leave the card usable (a reset, as
+        ;; sd_wait_for_ready_reset_if_required would), and put back what
+        ;; freezing changed.  Memory itself is untouched (only read).
+        ;; (Not sd_resetsequence: it waits for ever if the card is gone,
+        ;; and maps the sector buffer.)
+        lda #$00
+        sta $d680
+        lda #$01
+        sta $d680
+        jsr freeze_wait_write           ;; (bounded; the result does not matter)
+
+        ;; The SD card sector buffer, from the copy at $FFD6000
+        lda #<$6000
+        sta freeze_region_dmalist_source_start+0
+        lda #>$6000
+        sta freeze_region_dmalist_source_start+1
+        lda #<$6e00
+        sta freeze_region_dmalist_dest_start+0
+        lda #>$6e00
+        sta freeze_region_dmalist_dest_start+1
+        jsr freeze_copy_sd_buffer
+
+        ;; The sector number ($D681-$D684)
+        ldx #$04
+@sector:
+        lda freeze_scratch_area,x
+        sta $d680,x
+        dex
+        bne @sector
+
+        ;; The palette select register
+        lda freeze_d070
+        sta $d070
+
+        ;; The DMA list address ($D702 first: writing it clears $D704)
+        lda freeze_kept_dma+1
+        sta $d702
+        lda freeze_kept_dma+2
+        sta $d704
+        lda freeze_kept_dma+0
+        sta $d701
+        rts
+
+freeze_copy_sd_buffer:
+        ;; 512 bytes within $FFD6xxx, source and destination set by the caller
+        lda #$ff
+        sta freeze_region_dmalist_source_mb
+        sta freeze_region_dmalist_dest_mb
+        lda #$8d
+        sta freeze_region_dmalist_source_bank
+        sta freeze_region_dmalist_dest_bank
+        lda #<$0200
+        sta freeze_region_dmalist_count+0
+        lda #>$0200
+        sta freeze_region_dmalist_count+1
+
+        ;; Execute DMA job
+        lda #$ff
+        sta $d702
+        sta $d704
+        lda #>freeze_region_dmalist
+        sta $d701
+        lda #<freeze_region_dmalist
+        sta $d705
+        rts
+
+freeze_kept_dma:
+        !8 0,0,0
+
+freeze_failed_blink:
+        ;; Freezing failed: blink the border red and black at about 3 Hz for
+        ;; 2 seconds, then put the border colour back.  Timed with the
+        ;; frame counter ($D7FA): 8 frames a half period at 50 Hz, 10 at
+        ;; 60 Hz ($FFD306F bit 7 = NTSC).
+        lda $d020
+        pha
+        lda #<$306f
+        sta zptempv32+0
+        lda #>$306f
+        sta zptempv32+1
+        lda #<$0ffd
+        sta zptempv32+2
+        lda #>$0ffd
+        sta zptempv32+3
+        ldz #$00
+        lda [<zptempv32],z
+        and #$80
+        sta freeze_blink_ntsc
+
+        ldx #12                         ;; half periods
+@half:
+        txa
+        and #$01
+        bne @black
+        lda #$02                        ;; red
+        bra @show
+@black:
+        lda #$00
+@show:
+        sta $d020
+        ldy #8
+        lda freeze_blink_ntsc
+        beq @frame
+        ldy #10
+@frame:
+        lda $d7fa
+@same:
+        cmp $d7fa
+        beq @same
+        dey
+        bne @frame
+        dex
+        bne @half
+
+        pla
+        sta $d020
+        rts
+
+freeze_blink_ntsc:
+        !8 0
 
 freeze_save_region:
         ;; X = offset into freeze_mem_list
@@ -760,36 +938,9 @@ do_freeze_prep_stash_sd_buffer_and_regs:
         bne @zz
         ldz #$00
 
-        ;; Now DMA copy the SD sector buffer from $FFD6e00 to
-        ;; $FFD6000.
-        ;; XXX Replace this (And the above!) with a fixed DMA list. It will be shorter and faster
-        lda #$ff
-        sta freeze_region_dmalist_source_mb
-        sta freeze_region_dmalist_dest_mb
-        lda #$8d
-        sta freeze_region_dmalist_source_bank
-        sta freeze_region_dmalist_dest_bank
-        lda #<$6e00
-        sta freeze_region_dmalist_source_start+0
-        lda #>$6e00
-        sta freeze_region_dmalist_source_start+1
-        lda #<$6000
-        sta freeze_region_dmalist_dest_start+0
-        lda #>$6000
-        sta freeze_region_dmalist_dest_start+1
-        lda #<$0200
-        sta freeze_region_dmalist_count+0
-        lda #>$0200
-        sta freeze_region_dmalist_count+1
-
-        ;; Execute DMA job
-        lda #$ff
-        sta $d702
-        sta $d704
-        lda #>freeze_region_dmalist
-        sta $d701
-        lda #<freeze_region_dmalist
-        sta $d705
+        ;; (The SD sector buffer was copied to $FFD6000 when freezing
+        ;; began, by freeze_keep_sd_buffer_and_dma: by now the regions saved
+        ;; before this one have overwritten $FFD6E00.)
 
 do_freeze_prep_none:
         rts

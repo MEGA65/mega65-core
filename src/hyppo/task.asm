@@ -261,6 +261,10 @@ restore_press_trap:
 
 non_hypervisor_task:
 
+        ;; (put back if freezing fails)
+        lda $d030
+        sta freeze_entry_d030
+
         ;; Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
@@ -272,6 +276,21 @@ non_hypervisor_task:
         tax ;;   <- uses $00 in A from above
         tay ;;   <- uses $00 in A from above
         jsr freeze_to_slot
+        bcs freeze_done
+
+        ;; Freezing failed (no freeze slot, or a write to the card failed):
+        ;; loading the freezer would destroy the program for nothing, as
+        ;; there is nothing to resume.  Blink the border red and black, then
+        ;; go back to the program.  (Its audio DMA stays stopped.)
+        jsr freeze_failed_blink
+        lda freeze_entry_d030
+        sta $d030
+        sta hypervisor_enterexit_trigger
+
+freeze_entry_d030:
+        !8 0
+
+freeze_done:
 
         ;; Now mark that we are in a system task, so that the freezer can't be frozen
         jsr task_set_as_system_task

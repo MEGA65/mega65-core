@@ -1,0 +1,103 @@
+# Freezing when the card fails: assemble Hyppo before running.
+
+test "Freeze write: a completion without an error is fine"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $00
+poke $FFD3680 $18
+jsr freeze_wait_write
+assert pc = $0001
+assert memory freeze_failed = $00
+test end
+
+test "Freeze write: a completion with an error fails the freeze"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $00
+poke $FFD3680 $58
+jsr freeze_wait_write
+assert pc = $0001
+assert memory freeze_failed = $01
+test end
+
+test "Freeze write: an error while still busy fails at once"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $00
+poke $FFD3680 $5A
+breakpoint sdreadytest
+jsr freeze_wait_write
+assert pc = $0001
+assert memory freeze_failed = $01
+test end
+
+test "Freeze write: busy for three timeout windows fails the freeze"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $00
+poke $FFD3680 $1A
+# Force each counter window to wrap on its first increment.
+mock read sdcounter $FF
+mock read sdcounter+1 $FF
+mock read sdcounter+2 $FF
+jsr freeze_wait_write
+assert pc = $0001
+assert memory freeze_failed = $01
+assert reads sdcounter = $03
+test end
+
+test "Freeze write: nothing more is written once a write failed"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $01
+breakpoint sd_wait_for_ready_reset_if_required
+breakpoint sd_open_write_gate
+jsr freeze_write_sector_and_wait
+assert pc = $0001
+test end
+
+test "Freeze write: no end of the multi-sector write once one failed"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke freeze_failed $01
+breakpoint sd_wait_for_ready
+breakpoint sd_open_write_gate
+jsr freeze_end_multi_block_write
+assert pc = $0001
+test end
+
+test "Freeze: no system partition, so no slot: fails before writing"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke syspart_present $00
+breakpoint freeze_save_to_sdcard_immediate
+jsr freeze_to_slot
+assert pc = $0001
+assert flag c is clear
+test end
+
+test "Freeze undo: the sector number and palette select go back"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+mock read $FFD3680 $18
+expect write $FFD3680 $00 $01
+poke freeze_scratch_area $00 $11 $22 $33 $44
+poke freeze_d070 $5A
+poke $FFD3681 $99 $99 $99 $99
+jsr freeze_undo
+assert pc = $0001
+assert memory $FFD3681 = $11
+assert memory $FFD3682 = $22
+assert memory $FFD3683 = $33
+assert memory $FFD3684 = $44
+assert memory $FFD3070 = $5A
+check writes
+test end
