@@ -17,10 +17,10 @@ note what does not (a photo of the screen is fine).
 - **Card B:** a scratch card for `sdtest`, which **destroys** its contents.
 - The programs, all loaded with `m65 -r` (so no card holds them):
   `src/utilities/sd_read_bench.prg`, `src/tests/sdtest.prg`,
-  `src/tests/f3dos.prg`, `src/tests/f3test.prg`
-  (`make src/utilities/sd_read_bench.prg src/tests/f3dos.prg
-  src/tests/f3test.prg`; `sdtest`: `cl65 -t c64 -O -Or -Oi -Os -o
-  sdtest.prg src/tests/sdtest.c`).
+  `src/tests/sdstress.prg`, `src/tests/f3dos.prg`, `src/tests/f3test.prg`
+  (`make src/utilities/sd_read_bench.prg src/tests/sdstress.prg
+  src/tests/f3dos.prg src/tests/f3test.prg`; `sdtest`: `cl65 -t c64 -O -Or
+  -Oi -Os -o sdtest.prg src/tests/sdtest.c`).
 
 ## 1. Booting
 
@@ -43,6 +43,9 @@ note what does not (a photo of the screen is fine).
    present, bit 2 slot 1 present.  Pull the external card: bit 2 clears and
    bit 5 (changed) sets; `S D36CE 50` clears bit 5.
 
+6. `sdstress`, mode 1 (init report, reads only): each card's bus, CID, and
+   for a card that fell back to SPI, the init step that failed.
+
 ## 3. Cache
 
 1. `B` with the cache on (`$25`, the default) and off (`$26`): on should be
@@ -53,6 +56,14 @@ note what does not (a photo of the screen is fine).
 
 Card B in one slot, run `sdtest`, type the confirmation.  Every slab should
 pass, with the cache on and then off.  Then the other slot.
+
+## 4b. Stress (`sdstress`, [sdstress.md](sdstress.md))
+
+1. Mode 2 with a D81 mounted on drive 0 (card A is fine, it only reads):
+   `0 mismatches, 0 rnf/stuck`.  Leave it a few minutes.
+2. Mode 3 on card B, as long as you can leave it (any key stops it):
+   `errors: controller 0, stale cache 0, wrong on the card 0`.  Send the
+   first reports if not: each lists the operations that led to it.
 
 ## 5. Engine, reading (card A)
 
@@ -95,7 +106,15 @@ read-only after a cold start, which it should not be: tell me.  An error
 4. Swap the two cards between the slots and `RESCAN`: drive letters follow
    (external first), `DRIVES` shows the new labels.
 
-## 8. What to send back
+## 8. Freezing
+
+With this build, a freeze whose writes fail no longer loads the freezer
+over the program: the border blinks red and black for 2 seconds and the
+program carries on.  Freeze a few times straight after booting (the main
+menu, BASIC, a program loaded from a D81) and resume with F3: either it
+resumes, or the border blinks.  Note which.
+
+## 9. What to send back
 
 - Timing (WNS, the failing paths if any) and LUT use of the build.
 - Steps that did not do what they say, with the screen.

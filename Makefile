@@ -880,6 +880,11 @@ $(TESTDIR)/f3test.prg:      $(TESTDIR)/f3test.c $(TESTDIR)/f3lib.c $(TESTDIR)/f3
 	$(call mbuild_header,$@)
 	$(CL65NC) -t c64 -O -Os -o $@ --mapfile $*.map $(TESTDIR)/f3test.c $(TESTDIR)/f3lib.c
 
+# the SD controller's stress test (docs/sdcard-native/sdstress.md)
+$(TESTDIR)/sdstress.prg:    $(TESTDIR)/sdstress.c $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) -t c64 -O -Or -Oi -Os -o $@ --mapfile $*.map $(TESTDIR)/sdstress.c
+
 $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
