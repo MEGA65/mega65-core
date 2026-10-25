@@ -416,6 +416,9 @@ static void init_report(void)
 /* ------------------------------------------------------------------------ */
 
 static uint32_t run_seed;
+/* mode 3 resets the card in the middle of open reads (a card can be left
+   needing a power cycle by that: it can be turned off) */
+static uint8_t mid_resets = 1;
 
 static uint8_t ga, gb, gc, gx;
 #define GEN() (++gx, ga ^= gc ^ gx, gb += ga, gc = (uint8_t)((gc + (gb >> 1)) ^ ga))
@@ -738,7 +741,7 @@ static void stress_op(void)
     log_op(O_CLEAR, 0, 0, 0); pause(); sd_cmd(0x2A);
     if (sd_error) controller_error("$2a", 0);
   } else if (r == 27) {
-    if (rnd8() < 32) {
+    if (mid_resets && rnd8() < 32) {
       /* a reset in the middle of an open multi-sector read */
       n = 8; rel = pick(n);
       log_op(O_RESET, rel, n, 0);
@@ -997,6 +1000,9 @@ int main(int argc, char **argv)
   run_seed = strtoul(line, 0, 0);
   if (!run_seed) run_seed = 1;
   rnd_state = run_seed * 2891336453UL + 1;
+  printf("resets in the middle of open reads (y/n, default y)? ");
+  read_line(line, sizeof(line));
+  mid_resets = line[0] != 'n' && line[0] != 'N';
   printf("\nthis overwrites sectors %lu-%lu of the card in slot %u.\n"
          "type: this will destroy card contents\n> ", (unsigned long)base,
          (unsigned long)(base + REGION - 1), slot);
