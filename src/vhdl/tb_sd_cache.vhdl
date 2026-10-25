@@ -21,7 +21,8 @@ entity tb_sd_cache is
     G_CLOSE_TEST : boolean := false;
     G_NAC : natural := 2000;
     G_HS_OK : boolean := true;
-    G_NAC_MULTI : natural := 2
+    G_NAC_MULTI : natural := 2;
+    G_DUP_TEST : boolean := false
     );
 end entity;
 
@@ -416,6 +417,35 @@ begin
     end if;
     wait until u_card_ready = '1' and u_busy = '0' for 40 ms;
     check(u_card_ready = '1' and cache_on = '1', "init, cache on");
+
+    if G_DUP_TEST then
+      -- A line that is partly valid (a fill from the middle of it), then a
+      -- sequential read stream that grows into it: the stream's line must
+      -- be the only one with that tag.  (The extension took another line
+      -- for it; reads then found the old one, its sectors before the old
+      -- fill "on their way in" for ever, or served from it stale.)
+      -- (LRU, so that the stream takes a line before the old one: a
+      -- lookup finds the last line with the tag)
+      command(8, 0, 0, 16#13#);
+      wait_idle(1 ms);
+      -- (8 lines: six others, then the partial line 1024 in line 6, which
+      -- the stream's lines 7, 0, 1 ... are taken before; it is used last,
+      -- so it outlives the stream's copy of 1024 in line 1)
+      for k in 0 to 5 loop
+        read1(5000 + 1000 * k, false, "line " & integer'image(k), t);
+        wait for 1 ms;
+      end loop;
+      read1(1028, false, "line 6: middle of line 1024 (fills 1028-1031)", t);
+      wait for 1 ms;
+      read1(1029, false, "line 6 again (the most recently used)", t);
+      for n in 1008 to 1047 loop
+        read1(n, false, "sequential " & integer'image(n), t);
+      end loop;
+      assert fails = 0 report "DUP TESTS FAILED" severity failure;
+      report "ALL DUP TESTS PASSED";
+      done <= true;
+      wait;
+    end if;
 
     if G_CLOSE_TEST then
       read1(7, false, "last sector of first line", t);

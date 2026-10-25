@@ -53,6 +53,7 @@ VARIANTS = [
     ("cache-dual-spi0", "tb_sd_cache", ["G_DUAL_TEST=true", "G_DUAL_SPI0=true"], "800ms"),
     ("cache-dual-spi1", "tb_sd_cache", ["G_DUAL_TEST=true", "G_DUAL_SPI1=true"], "800ms"),
     ("cache-rom", "tb_sd_cache", ["G_ROM_TEST=true", "G_LINES=16"], "2000ms"),
+    ("cache-dup", "tb_sd_cache", ["G_DUP_TEST=true", "G_LINES=8"], "300ms"),
     ("cache-close", "tb_sd_cache", ["G_CLOSE_TEST=true"], "500ms"),
     ("cache-fast-card", "tb_sd_cache", ["G_NAC=6", "G_NAC_MULTI=0"], "500ms"),
     ("cache-no-hs", "tb_sd_cache", ["G_HS_OK=false"], "800ms"),
@@ -72,6 +73,8 @@ VARIANTS = [
     ("io-bound", "tb_sdcardio_native", ["G_BOUND_TEST=true"], "800ms"),
     ("io-tail", "tb_sdcardio_native", ["G_TAIL_TEST=true"], "800ms"),
     ("io-reinit", "tb_sdcardio_native", ["G_REINIT_TEST=true"], "800ms"),
+    ("io-stream", "tb_sdcardio_native", ["G_STREAM_TEST=true"], "800ms"),
+    ("io-f011", "tb_sdcardio_native", ["G_F011_TEST=true"], "800ms"),
 ]
 
 UNISIM_STUB = """

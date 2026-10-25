@@ -338,8 +338,8 @@ begin
       n := 55854 + t * 20 + sd * 10 + sc - 1;
       if sd = 1 then poke(16#D3080#, 16#28#); else poke(16#D3080#, 16#20#); end if;
       poke(16#D3084#, t); poke(16#D3085#, sc); poke(16#D3086#, sd);
-      -- (the image offset follows the registers two cycles later; a CPU's
-      -- next STA is later than that)
+      -- (the image offset follows these registers two cycles later; a CPU's
+      -- next STA comes later than that, this testbench's next write not)
       wait for 100 ns;
       poke(16#D3081#, 16#40#);
       for i in 0 to 5000 loop
@@ -349,16 +349,14 @@ begin
       end loop;
       check(st(7) = '0' and st(4) = '0', "f011 read t" & integer'image(t) & " s" & integer'image(sd)
             & " n" & integer'image(sc) & " done, found");
+      -- (as a program: in hypervisor mode $DE00 is always the SD half)
+      hyp <= '0';
       poke(16#D3689#, 16#00#);
-      peek(16#D3688#, st);
-      report "  f011 done: $D082 bit 7 clear; disk pointer low " & integer'image(to_integer(st));
-      f011_diag(n);
-      wait for 300 us;
-      report "  300 us later:";
-      f011_diag(n);
       check_buffer(n, false, "f011 data t" & integer'image(t) & " s" & integer'image(sd)
                    & " n" & integer'image(sc) & " (card sector " & integer'image(n) & ")");
+      if fails /= 0 then f011_diag(n); end if;
       poke(16#D3689#, 16#80#);
+      hyp <= '1';
       set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
       check_buffer(n, false, "raw read after f011");
     end procedure;

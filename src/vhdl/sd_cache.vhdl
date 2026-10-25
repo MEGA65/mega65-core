@@ -359,6 +359,14 @@ begin
     signal v_ext    : std_logic := '0';     -- the scan is for a stream extension
     signal v_strm   : std_logic := '0';     -- found a passed streaming line
     signal v_strm_i : integer range 0 to G_LINES-1 := 0;
+    -- an extension's line may already be here (a fill from part way into
+    -- it, before the stream): that line is taken for it, so that a tag is
+    -- never in two lines (a lookup finds the last; the stream fills the
+    -- other)
+    signal v_dup    : std_logic := '0';
+    signal v_dup_i  : integer range 0 to G_LINES-1 := 0;
+    signal ext_tag  : unsigned(28 downto 0) := (others => '0');  -- the line an extension adds
+    signal r_blk    : unsigned(15 downto 0) := (others => '0');  -- a waiting read's block of the fill
 
     -- write snooping
     signal s1_v     : std_logic := '0';
@@ -573,6 +581,7 @@ begin
         end if;
         lfsr <= lfsr(14 downto 0) & (lfsr(15) xor lfsr(13) xor lfsr(12) xor lfsr(10));
         fill_writes := false;
+        ext_tag <= win_first + to_unsigned(win_n, 29);
 
         ------------------------------------------------------------------------
         -- the controller's read stream: into the line being filled
@@ -774,6 +783,7 @@ begin
               o_msrc  <= '0';
               u_ready <= '0';
               r_sec   <= sec(2 downto 0);
+              r_blk   <= resize(sec - f_start, 16);
               mlookup(mtag, mslot, mvld, sec, c_slot, mhit, midx);
               -- data reads that follow each other make the fill a stream
               seq := c_arg(15) = '0' and c_slot = seq_slot and sec = seq_next;
@@ -840,7 +850,7 @@ begin
                 misses <= misses + 1;
                 v_i    <= 0;
                 v_free <= '0';
-                v_strm <= '0';
+                v_strm <= '0'; v_dup <= '0';
                 v_ext  <= '0';
                 v_age  <= (others => '0');
                 st     <= T_VICTIM;
@@ -880,7 +890,9 @@ begin
             if v_i = G_LINES then
               rnd := to_integer(shift_right(resize(lfsr(7 downto 0), 16)
                                             * to_unsigned(G_LINES, 8), 8));
-              if v_free = '1' or (lru = '1' and v_ext = '0') then
+              if v_ext = '1' and v_dup = '1' then
+                r_line <= v_dup_i;
+              elsif v_free = '1' or (lru = '1' and v_ext = '0') then
                 r_line <= v_best;
               elsif v_strm = '1' then
                 r_line <= v_strm_i;
@@ -904,6 +916,11 @@ begin
               elsif v_free = '0' and (v_age = 0 or age > v_age) then
                 v_best <= v_i;
                 v_age  <= age;
+              end if;
+              if v_ext = '1' and used(v_i) = '1' and tag_slot(v_i) = f_slot
+                and tag(v_i) = ext_tag then
+                v_dup   <= '1';
+                v_dup_i <= v_i;
               end if;
               if line_strm(v_i) = '1' and used(v_i) = '1' and v_strm = '0'
                 and not (v_ext = '1' and in_window(v_i, win_n, win)) then
@@ -1042,7 +1059,7 @@ begin
               v_ext  <= '1';
               v_i    <= 0;
               v_free <= '0';
-              v_strm <= '0';
+              v_strm <= '0'; v_dup <= '0';
               v_age  <= (others => '0');
               st     <= T_VICTIM;
             elsif fwd0 = '0' then
@@ -1077,8 +1094,9 @@ begin
               stamp(r_line) <= now_ts;
               now_ts <= now_ts + 1;
               st     <= T_HIT;
-            elsif fill = '0' then
-              -- the fill ended without it: read it after all
+            elsif fill = '0' or r_blk < f_recv then
+              -- the fill ended without it, or it came and is not here: read
+              -- it after all
               st <= T_STOPFILL;
             end if;
 
@@ -1104,7 +1122,7 @@ begin
               v_ext  <= '1';
               v_i    <= 0;
               v_free <= '0';
-              v_strm <= '0';
+              v_strm <= '0'; v_dup <= '0';
               v_age  <= (others => '0');
               st     <= T_VICTIM;
             else
