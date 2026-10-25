@@ -304,6 +304,9 @@ begin
                 wr_multi <= idx = 25;
                 wr_go    <= not wr_go;
               when 12 =>
+                -- (a card that has not been selected since power-up or CMD0
+                -- does not answer it: illegal in its state)
+                if sel or multi_active or native_reading then
                 stop_attempts := stop_attempts + 1;
                 if stop_attempts > G_STOP_FAILS and
                   (not G_STRICT_STOP or multi_active or native_reading) then
@@ -312,6 +315,7 @@ begin
                     multi_active := false;
                   end if;
                   resp(47 downto 0) := frame48(12, status, true); rlen := 48; rbusy := 8;
+                end if;
                 end if;
               when others =>
                 null;

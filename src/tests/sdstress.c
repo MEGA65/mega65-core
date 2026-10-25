@@ -373,6 +373,7 @@ static void show_status(void)
   if (f & 8) printf("  test read failed at high speed (error $%02x), retried at default speed\n", diag_byte(19));
   if (f & 16) printf("  test read failed at default speed (error $%02x)\n", diag_byte(19));
   if (f & 32) printf("  high speed not granted by the card\n");
+  if (f & 64) printf("  native init failed once, tried again\n");
 }
 
 static void show_cid(void)

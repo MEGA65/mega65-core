@@ -158,12 +158,17 @@ SPI; they are zero when it did not, and cleared by every init.
 | Byte | |
 |---|---|
 | 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0 |
-| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try) |
 | 19 | The failed test read's error code |
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian |
 
 Step 5 with a response (bit 2) means the card never finished powering up
-within a second.  `sdstress` (mode 1, [sdstress.md](sdstress.md)) prints
+within a second.  Native init starts with CMD12 (a card left in a
+multi-block read by a reset or by configuring the FPGA stops it; an idle
+card ignores it), and a failed native init is tried once more before
+falling back to SPI: a card leaves SPI mode only by a power cycle, so a
+fallback after one transient failure would last until the card is
+re-inserted.  `sdstress` (mode 1, [sdstress.md](sdstress.md)) prints
 this.  `tb_sdcardio_native` checks it with `G_SPI_CARD=true` (step 4, no
 response) and without (all zero).
 

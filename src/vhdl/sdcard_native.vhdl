@@ -580,6 +580,10 @@ architecture rtl of sdcard_native is
   signal mode_native : std_logic := '0';
   signal spi_only    : std_logic := '0';
   signal spi_fb      : std_logic := '0';     -- native failed in this init: SPI
+  -- native init failed once in this init and is being tried again: a card
+  -- leaves SPI mode only by a power cycle, so one failed native init (a
+  -- card still busy from a transfer the init cut off) must not decide it
+  signal nat_retry   : std_logic := '0';
   signal no_hs       : std_logic := '0';
   signal hs          : std_logic := '0';
   signal hc          : std_logic := '0';
@@ -2047,6 +2051,14 @@ begin
               new_set <= SET_DS;
               istep   <= 13;
               resync(N_INIT);
+            elsif mode_native = '1' and nat_retry = '0' then
+              -- once more from the start, natively (see nat_retry)
+              nat_retry   <= '1';
+              nf_flags(6) <= '1';
+              nf_err      <= e_err;
+              tmo    <= (others => '0');
+              tmo_z  <= '1';
+              st     <= S_INIT;
             elsif mode_native = '1' then
               nf_step     <= to_unsigned(13, 5);
               nf_flags(0) <= '1';
@@ -2411,7 +2423,7 @@ begin
             cnt <= cnt + 1;
             if cnt = 80 then
               cnt   <= (others => '0');
-              istep <= 0;
+              istep <= 22;
               st    <= N_INIT;
             end if;
           end if;
@@ -2422,6 +2434,14 @@ begin
             nf_cur <= istep;
           end if;
           case istep is
+            when 22 =>
+              -- CMD12 first: a card left in a multi-block read (the init
+              -- cut off the transfer, or the FPGA was configured again in
+              -- the middle of one) stops it and is idle for CMD0.  An idle
+              -- card does not answer it (illegal in that state); CMD0 then
+              -- clears the error.
+              istep <= 0;
+              do_cmd(12, x"00000000", R_R1B, N_INIT);
             when 0 =>                   -- CMD0, no response
               istep <= 1;
               do_cmd(0, x"00000000", R_NONE, N_INIT);
@@ -2597,17 +2617,26 @@ begin
               cnt       <= (others => '0');
               st        <= S_TAIL;
             when others =>
-              -- 30: the native bus failed: try SPI
-              nf_step     <= to_unsigned(nf_cur, 5);
-              nf_flags(0) <= '1';
-              nf_flags(1) <= c_noresp;
-              nf_flags(2) <= c_ok;
-              nf_resp     <= r_sr(39 downto 8);
-              ready  <= '0';
-              spi_fb <= '1';
-              tmo    <= (others => '0');
-              tmo_z    <= '1';
-              st     <= S_INIT;
+              -- 30: the native bus failed: once more, then SPI
+              if nat_retry = '0' then
+                nat_retry   <= '1';
+                nf_flags(6) <= '1';
+                ready  <= '0';
+                tmo    <= (others => '0');
+                tmo_z  <= '1';
+                st     <= S_INIT;
+              else
+                nf_step     <= to_unsigned(nf_cur, 5);
+                nf_flags(0) <= '1';
+                nf_flags(1) <= c_noresp;
+                nf_flags(2) <= c_ok;
+                nf_resp     <= r_sr(39 downto 8);
+                ready  <= '0';
+                spi_fb <= '1';
+                tmo    <= (others => '0');
+                tmo_z  <= '1';
+                st     <= S_INIT;
+              end if;
           end case;
 
         ------------------------------------------------------------------------
@@ -3342,6 +3371,7 @@ begin
         cmd_pend <= '0';
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
+        nat_retry <= '0';
         nf_step   <= (others => '0');
         nf_flags  <= (others => '0');
         nf_err    <= (others => '0');
