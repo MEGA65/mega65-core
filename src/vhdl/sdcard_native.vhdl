@@ -558,7 +558,7 @@ architecture rtl of sdcard_native is
   type t_state is (
     S_POWERUP, S_INIT, S_IDLE, S_DISPATCH, S_FINISH, S_FAIL, S_TAIL, S_DRAIN,
     S_RESYNC, S_RESYNC2, S_CMD_WAIT, S_CMD, S_BUSY0, S_BUSY1, S_ABORT,
-    S_CLOSE, S_CLOSE_RESP, S_CLOSE_STATUS, S_RECOVER,
+    S_CLOSE, S_CLOSE_RESP, S_CLOSE_STATUS, S_RECOVER, S_INIT_CLOSED,
     I_START, I_APP, I_APP_RESP, I_DATA_CMD, I_DATA_RESP, I_DATA,
     I_EMIT, I_GOOD, I_ABORT, I_ERROR,
     N_I_REG, N_I_REG_RESP, N_I_SELECT,
@@ -575,6 +575,11 @@ architecture rtl of sdcard_native is
   signal st, ret_st, resync_ret, drain_ret : t_state := S_POWERUP;
   signal close_ret : t_state := S_DISPATCH;
   signal close_tries : natural range 0 to 2 := 0;
+  -- an init that first ends the card's transfer (CMD12, CMD13) at the bus
+  -- setting it was made with: a card cut off in the middle of a 4-bit high
+  -- speed multi-block read did not take the init's CMD0 at 400 kHz, and the
+  -- SPI fallback after it then lasted until the card was re-inserted
+  signal init_close : std_logic := '0';
 
   -- mode / card
   signal mode_native : std_logic := '0';
@@ -1276,6 +1281,12 @@ begin
         else
           st <= S_CLOSE;
         end if;
+      elsif init_close = '1' then
+        -- (the init goes ahead without it)
+        init_close <= '0';
+        tmo   <= to_unsigned(TMO_SETTLE, 28);
+        tmo_z <= '0';
+        st    <= S_INIT;
       else
         stat_stop_fail <= stat_stop_fail + 1;
         if op = OP_READ then stat_read_fail <= stat_read_fail + 1; end if;
@@ -2023,6 +2034,14 @@ begin
           else
             close_failed;
           end if;
+
+        -- the transfer the init cut off is over: now the init
+        when S_INIT_CLOSED =>
+          init_close <= '0';
+          run   <= '0';
+          tmo   <= to_unsigned(TMO_SETTLE, 28);
+          tmo_z <= '0';
+          st    <= S_INIT;
 
         when S_RECOVER =>
           -- CMD12/CMD13 proved the existing card session usable; no CMD0,
@@ -3399,7 +3418,16 @@ begin
         w_seq     <= not w_seq;          -- orphan any write data in flight
         tmo       <= to_unsigned(TMO_SETTLE, 28);
         tmo_z       <= '0';
-        st        <= S_INIT;
+        if mode_native = '1' and ready = '1' then
+          -- end whatever the card is doing first (see init_close)
+          init_close  <= '1';
+          close_ret   <= S_INIT_CLOSED;
+          close_tries <= 0;
+          st          <= S_CLOSE;
+        else
+          init_close <= '0';
+          st         <= S_INIT;
+        end if;
       end if;
 
     end if;

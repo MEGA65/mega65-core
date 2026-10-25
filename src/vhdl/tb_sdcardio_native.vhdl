@@ -781,7 +781,7 @@ begin
     poke(16#D36CE#, 18);
     peek(16#D36CF#, v);
     if G_SPI_CARD then
-      check(v = 16#03#, "init diagnostic: fell back to SPI, no response");
+      check(v = 16#43#, "init diagnostic: native tried twice, fell back to SPI, no response");
     else
       check(v = 0, "init diagnostic: no flags");
     end if;
