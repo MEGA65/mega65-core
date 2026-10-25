@@ -208,6 +208,20 @@ static char *read_line(char *s, int n)
 
 #endif
 
+/* after a progress line (one screen row, begun with \r): on the MEGA65 a
+   new line and the cursor back up to it (PETSCII 145), so that the next one
+   overwrites it, and a report (which begins with a new line) goes below it;
+   \r does nothing there ($0A) */
+static void progress_end(void)
+{
+#ifdef HOST
+  fflush(stdout);
+#else
+  putchar('\n');
+  putchar(145);
+#endif
+}
+
 /* forget the keys typed so far, and any still arriving for a moment (the
    RETURN of the last answer can reach the queue after it was read) */
 static void drain_keys(void)
@@ -763,12 +777,9 @@ static void stress(uint32_t max_ops)
   for (k = 0; !max_ops || n_ops < max_ops; k++) {
     stress_op();
     if (n_ops % 100 == 0) {
-      printf("\rops %lu read %lu written %lu errors: ctrl %lu cache %lu card %lu ",
-             (unsigned long)n_ops, (unsigned long)n_read, (unsigned long)n_written,
+      printf("\rops %lu errors %lu/%lu/%lu  ", (unsigned long)n_ops,
              (unsigned long)e_ctrl, (unsigned long)e_cache, (unsigned long)e_card);
-#ifdef HOST
-      fflush(stdout);
-#endif
+      progress_end();
     }
     if (n_ops % 500 == 0) { log_op(O_SWEEP, 0, 0, 0); sweep(); }
     if (key_pressed()) break;
@@ -889,11 +900,9 @@ static void f011_compare(uint32_t max_rounds)
       f011_check(rnd8() % 80, rnd8() & 1, 1 + rnd8() % 10);
     }
     if (round % 20 == 0) {
-      printf("\rf011 reads %lu mismatches %lu rnf/stuck %lu ", (unsigned long)f_reads,
+      printf("\rf011 reads %lu bad %lu rnf %lu  ", (unsigned long)f_reads,
              (unsigned long)f_bad, (unsigned long)f_rnf);
-#ifdef HOST
-      fflush(stdout);
-#endif
+      progress_end();
     }
     if (key_pressed()) break;
   }
