@@ -58,7 +58,12 @@ random pause (none, a few microseconds, a few milliseconds):
 
 It asks whether to include the resets in the middle of open reads (default
 yes): on hardware such a reset has left a card that needed a power cycle
-(re-inserting it), so they can be left out to run the rest for longer.
+(re-inserting it), so they can be left out to run the rest for longer.  It
+also asks whether to stop at the first error (default no): it then leaves
+out its recovery after a controller error (`$2A`, else a reset), so that
+the controller and card stay as the error left them, and the report and
+the operations before it stay on the screen.  With the same seed the run
+is the same, so an error comes back at the same operation.
 
 Every 500 operations it checks the whole region, cache on then off.  Any
 key stops it.

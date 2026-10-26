@@ -23,7 +23,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "tests", "sdstress.c")
 
-STRESS = "3\n0\n\n\n\nthis will destroy card contents\n"
+STRESS = "3\n0\n\n\n\n\nthis will destroy card contents\n"
 F011 = "2\n\n"
 
 # (what, fault, at, ops, script, text the output must hold, exit code)

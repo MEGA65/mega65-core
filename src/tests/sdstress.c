@@ -420,6 +420,9 @@ static uint32_t run_seed;
 /* mode 3 resets the card in the middle of open reads (a card can be left
    needing a power cycle by that: it can be turned off) */
 static uint8_t mid_resets = 1;
+/* mode 3 stops at the first error, without the recovery after a
+   controller error, so that the controller can be looked at as it is */
+static uint8_t stop_first, stop_now;
 
 static uint8_t ga, gb, gc, gx;
 #define GEN() (++gx, ga ^= gc ^ gx, gb += ga, gc = (uint8_t)((gc + (gb >> 1)) ^ ga))
@@ -562,6 +565,11 @@ static void controller_error(const char *what, uint16_t rel)
            PEEK(0xD680), PEEK(0xD686), PEEK(0xD687));
     show_history();
   }
+  if (stop_first) {
+    /* leave the controller as it is, to be looked at */
+    stop_now = 1;
+    return;
+  }
   /* recover: clear, else a reset */
   sd_error = 0;
   sd_cmd(0x2A);
@@ -594,6 +602,7 @@ static void check(uint16_t rel)
   st2 = sd_error ? 9 : sector_state(base + rel, stage_of[rel]);
   if (!st2) e_cache++;
   else e_card++;
+  if (stop_first) stop_now = 1;
   if (e_cache + e_card <= 20) {
     printf("\n%s: sector %lu ", st2 ? "WRONG ON THE CARD" : "STALE CACHE", (unsigned long)(base + rel));
     describe(st);
@@ -785,8 +794,9 @@ static void stress(uint32_t max_ops)
              (unsigned long)e_ctrl, (unsigned long)e_cache, (unsigned long)e_card);
       progress_end();
     }
+    if (stop_now) { printf("\nstopped at the first error (op %lu)\n", (unsigned long)n_ops); break; }
     if (n_ops % 500 == 0) { log_op(O_SWEEP, 0, 0, 0); sweep(); }
-    if (key_pressed()) break;
+    if (key_pressed() || stop_now) break;
   }
   sweep();
   printf("\n\ndone: %lu operations, %lu sectors read, %lu written\n"
@@ -1004,6 +1014,9 @@ int main(int argc, char **argv)
   printf("resets in the middle of open reads (y/n, default y)? ");
   read_line(line, sizeof(line));
   mid_resets = line[0] != 'n' && line[0] != 'N';
+  printf("stop at the first error (y/n, default n)? ");
+  read_line(line, sizeof(line));
+  stop_first = line[0] == 'y' || line[0] == 'Y';
   printf("\nthis overwrites sectors %lu-%lu of the card in slot %u.\n"
          "type: this will destroy card contents\n> ", (unsigned long)base,
          (unsigned long)(base + REGION - 1), slot);
