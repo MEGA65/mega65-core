@@ -188,8 +188,17 @@ entity sdcard_native is
     -- 3 the test read failed at high speed and was retried at default
     -- speed, 4 the test read failed at default speed, 5 CMD6 high speed
     -- not granted), 23..16 the failed test read's error code, 55..24 bits
-    -- 39..8 of the last response (R1 card status, OCR, ...).
+    -- 39..8 of the last response (R1 card status, OCR, ...).  Flag 6: native
+    -- init failed once and was tried again; 7: the failed command's busy
+    -- (DAT0 low after an R1b) did not end.
     init_diag   : out unsigned(55 downto 0);
+    -- The first data block (native) since the last init whose CRC or end bit
+    -- was wrong, frozen there: 0 a block failed, 4..1 the end bit nibble,
+    -- 15..8 its block number in the transfer, 31..16 the clock setting,
+    -- 47..32 start bit tag - the command's end tag, 111..48 the CRCs
+    -- received (16 per DAT line, line 0 lowest), 175..112 the CRCs worked
+    -- out, 191..176 the block's first two bytes.
+    blk_diag    : out unsigned(191 downto 0);
 
     rd_valid    : out std_logic;
     rd_data     : out unsigned(7 downto 0);
@@ -462,7 +471,7 @@ architecture rtl of sdcard_native is
   -- status bundle (engine -> host)
   ------------------------------------------------------------------------------
 
-  constant ST_W : natural := 305;
+  constant ST_W : natural := 497;
   signal st_live   : std_logic_vector(ST_W-1 downto 0);
   signal st_pub    : std_logic_vector(ST_W-1 downto 0) := (others => '0');
   signal st_host   : std_logic_vector(ST_W-1 downto 0) := (2 => '1', others => '0');
@@ -717,6 +726,27 @@ architecture rtl of sdcard_native is
   signal nf_flags    : std_logic_vector(7 downto 0) := (others => '0');
   signal nf_err      : unsigned(7 downto 0) := (others => '0');
   signal nf_resp     : std_logic_vector(31 downto 0) := (others => '0');
+  -- the first failed data block since the init (blk_diag): captured at
+  -- every block's end bit, frozen a cycle after one fails
+  signal fb_frozen : std_logic := '0';
+  signal fb_end    : std_logic_vector(3 downto 0) := (others => '0');
+  signal fb_blk    : unsigned(7 downto 0) := (others => '0');
+  signal fb_set    : unsigned(15 downto 0) := (others => '0');
+  signal fb_lat    : unsigned(15 downto 0) := (others => '0');
+  signal fb_rx     : std_logic_vector(63 downto 0) := (others => '0');
+  signal fb_calc   : std_logic_vector(63 downto 0) := (others => '0');
+  signal fb_first  : std_logic_vector(15 downto 0) := (others => '0');
+  signal c_btmo    : std_logic := '0';     -- the last command's busy timed out
+  -- DAT0 went low, the other lines not, while a data block was awaited (a
+  -- card's busy, not a start bit): blk_diag byte 0 bit 5, until the init
+  signal fb_partial : std_logic := '0';
+  -- a write block is on its way (data, CRC status, the card's busy after
+  -- it, or after the CMD12 ending the write): an init waits for its end
+  signal w_inblock : std_logic := '0';
+  -- before a read or write command: the card idle (DAT0 high for g_cnt
+  -- samples running), so that a card still busy does not get it
+  signal g_ok      : std_logic := '0';
+  signal g_cnt     : natural range 0 to 8 := 0;
   signal c_noresp    : std_logic := '0';
   -- an SPI read block's first CRC byte matched (so the second byte's check
   -- is 8 bits, not a 16-bit compare in front of the state logic)
@@ -805,6 +835,7 @@ begin
   last_sector <= unsigned(st_host(247 downto 216));
   capacity_valid <= st_host(248);
   init_diag   <= unsigned(st_host(304 downto 249));
+  blk_diag    <= unsigned(st_host(496 downto 305));
   hs_wait     <= st_host(64);
   hs_wseq     <= st_host(65);
   hs_wblk     <= unsigned(st_host(81 downto 66));
@@ -933,6 +964,16 @@ begin
   st_live(264 downto 257) <= nf_flags;
   st_live(272 downto 265) <= std_logic_vector(nf_err);
   st_live(304 downto 273) <= nf_resp;
+  st_live(305) <= fb_frozen;
+  st_live(309 downto 306) <= fb_end;
+  st_live(310) <= fb_partial;
+  st_live(312 downto 311) <= (others => '0');
+  st_live(320 downto 313) <= std_logic_vector(fb_blk);
+  st_live(336 downto 321) <= std_logic_vector(fb_set);
+  st_live(352 downto 337) <= std_logic_vector(fb_lat);
+  st_live(416 downto 353) <= fb_rx;
+  st_live(480 downto 417) <= fb_calc;
+  st_live(496 downto 481) <= fb_first;
 
   publish : process (clock162)
   begin
@@ -1253,6 +1294,7 @@ begin
     procedure failed(code : unsigned(7 downto 0)) is
     begin
       e_err <= code;
+      w_inblock <= '0';
       count_read_error(code);
       d_arm <= '0';
       if mode_native = '1' and (op_multi = '1' or
@@ -1466,6 +1508,7 @@ begin
           c_n     <= (others => '0');
           c_ok    <= '0';
           c_noresp <= '0';
+          c_btmo  <= '0';
         end if;
         if c_act = '1' then
           case c_phase is
@@ -1570,7 +1613,11 @@ begin
       end if;
       if mode_native = '1' and rxd_v = '1' then
         if d_act = '0' then
-          if d_arm = '1' and rf_dafter = '1' and rxd_dat(0) = '0' then
+          -- a start bit is on all four lines (DAT0 alone low is a busy)
+          if d_arm = '1' and rf_dafter = '1' and rxd_dat(0) = '0' and rxd_dat /= "0000" then
+            fb_partial <= '1';
+          end if;
+          if d_arm = '1' and rf_dafter = '1' and rxd_dat = "0000" then
             d_act       <= '1';
             d_arm       <= '0';
             d_phase     <= 0;
@@ -1601,6 +1648,9 @@ begin
                 d_hi <= nib;
               else
                 b := d_hi & nib;
+                if fb_frozen = '0' and d_idx(9 downto 2) = 0 then
+                  fb_first <= fb_first(7 downto 0) & b;
+                end if;
                 if d_small = '1' then
                   if op = OP_INFO then
                     rpush("00", b);
@@ -1629,6 +1679,14 @@ begin
               d_act     <= '0';
               d_done    <= '1';
               d_end_tag <= rxd_tag;
+              if fb_frozen = '0' then
+                fb_rx   <= d_crcrx;
+                fb_calc <= d_crc;
+                fb_end  <= rxd_dat;
+                fb_set  <= cur_set;
+                fb_lat  <= d_start_tag - c_end;
+                fb_blk  <= op_done(7 downto 0);
+              end if;
               if d_crcrx = d_crc and rxd_dat = "1111" then
                 d_ok <= '1';
                 if d_small = '0' and d_discard = '0' then
@@ -1642,6 +1700,12 @@ begin
               end if;
           end case;
         end if;
+      end if;
+
+      -- the block that just ended failed: keep it (the next block's end is
+      -- a thousand cycles away)
+      if d_done = '1' and d_ok = '0' and mode_native = '1' then
+        fb_frozen <= '1';
       end if;
 
       --------------------------------------------------------------------------
@@ -1717,7 +1781,10 @@ begin
           e_ack <= e_seen;
           cmd_pend <= '0';
         elsif e_code = C_INIT then
-          take := true;
+          -- (not in the middle of a write block: when it is over)
+          if w_inblock = '0' then
+            take := true;
+          end if;
         elsif st /= S_IDLE then
           e_error <= '1';
           e_err   <= ERR_BUSY;
@@ -2187,7 +2254,7 @@ begin
           if rxd_v = '1' and rf_bafter = '1' then
             if rxd_dat(0) = '0' then
               st <= S_BUSY1;
-            elsif b_n = 16 then
+            elsif b_n = 31 then
               c_earliest <= rxd_tag + 2;  cmd_gap_ok <= '0';
               st         <= ret_st;
             else
@@ -2201,8 +2268,9 @@ begin
             c_earliest <= rxd_tag + 2;  cmd_gap_ok <= '0';
             st         <= ret_st;
           elsif tmo_z = '1' then
-            c_ok <= '0';
-            st   <= ret_st;
+            c_ok   <= '0';
+            c_btmo <= '1';
+            st     <= ret_st;
           end if;
 
         -- SPI: 6 command bytes, then R1 in one of the following bytes (CMD12:
@@ -2649,6 +2717,7 @@ begin
                 nf_flags(0) <= '1';
                 nf_flags(1) <= c_noresp;
                 nf_flags(2) <= c_ok;
+                nf_flags(7) <= c_btmo;
                 nf_resp     <= r_sr(39 downto 8);
                 ready  <= '0';
                 spi_fb <= '1';
@@ -2663,21 +2732,36 @@ begin
         ------------------------------------------------------------------------
         when N_RD_CMD =>
           run <= '1';
-          if op = OP_PROBE then
-            tmo <= to_unsigned(TMO_PROBE, 28);
-            tmo_z <= '0';
+          if g_ok = '0' then
+            -- the card idle first (see g_ok); on a timeout go ahead anyway
+            if g_cnt = 0 then
+              tmo <= to_unsigned(TMO_BUSY, 28); tmo_z <= '0';
+              g_cnt <= 1;
+            elsif tmo_z = '1' then
+              g_ok <= '1';
+            elsif rxd_v = '1' then
+              if rxd_dat(0) = '0' then g_cnt <= 1;
+              elsif g_cnt = 8 then g_ok <= '1';
+              else g_cnt <= g_cnt + 1; end if;
+            end if;
           else
-            tmo <= to_unsigned(TMO_READ, 28);
-            tmo_z <= '0';
-          end if;
-          -- the data may start before the response is over: scan from now
-          d_arm   <= '1';
-          d_after <= ttag;  rf_dafter <= '0';
-          d_small <= '0';
-          if op_multi = '1' then
-            do_cmd(18, card_addr(op_addr, op_done, hc), R_R1, N_RD_RESP);
-          else
-            do_cmd(17, card_addr(op_addr, op_done, hc), R_R1, N_RD_RESP);
+            g_ok <= '0'; g_cnt <= 0;
+            if op = OP_PROBE then
+              tmo <= to_unsigned(TMO_PROBE, 28);
+              tmo_z <= '0';
+            else
+              tmo <= to_unsigned(TMO_READ, 28);
+              tmo_z <= '0';
+            end if;
+            -- the data may start before the response is over: scan from now
+            d_arm   <= '1';
+            d_after <= ttag;  rf_dafter <= '0';
+            d_small <= '0';
+            if op_multi = '1' then
+              do_cmd(18, card_addr(op_addr, op_done, hc), R_R1, N_RD_RESP);
+            else
+              do_cmd(17, card_addr(op_addr, op_done, hc), R_R1, N_RD_RESP);
+            end if;
           end if;
 
         when N_RD_RESP =>
@@ -2758,10 +2842,25 @@ begin
         ------------------------------------------------------------------------
         when N_WR_CMD =>
           run <= '1';
-          if op_multi = '1' then
-            do_cmd(25, card_addr(op_addr, op_done, hc), R_R1, N_WR_RESP);
+          if g_ok = '0' then
+            -- the card idle first (see g_ok)
+            if g_cnt = 0 then
+              tmo <= to_unsigned(TMO_BUSY, 28); tmo_z <= '0';
+              g_cnt <= 1;
+            elsif tmo_z = '1' then
+              g_ok <= '1';
+            elsif rxd_v = '1' then
+              if rxd_dat(0) = '0' then g_cnt <= 1;
+              elsif g_cnt = 8 then g_ok <= '1';
+              else g_cnt <= g_cnt + 1; end if;
+            end if;
           else
-            do_cmd(24, card_addr(op_addr, op_done, hc), R_R1, N_WR_RESP);
+            g_ok <= '0'; g_cnt <= 0;
+            if op_multi = '1' then
+              do_cmd(25, card_addr(op_addr, op_done, hc), R_R1, N_WR_RESP);
+            else
+              do_cmd(24, card_addr(op_addr, op_done, hc), R_R1, N_WR_RESP);
+            end if;
           end if;
 
         when N_WR_RESP =>
@@ -2782,6 +2881,7 @@ begin
             run       <= '1';
             e_wait    <= '0';
             op_stop12 <= '1';
+            w_inblock <= '1';
             do_cmd(12, x"00000000", R_R1B, N_WR_NEXT);
           elsif op_more = '0' then
             run <= '0';
@@ -2798,6 +2898,7 @@ begin
             if tick = '1' and wr_gap_ok = '1' then
               dat_oe_nx <= "1111";
               dat_nx    <= "0000";
+              w_inblock <= '1';
               t_idx     <= (others => '0');
               t_crc     <= (others => '0');
               w_under   <= '0';
@@ -2882,6 +2983,7 @@ begin
 
         when N_WR_NEXT =>
           run <= '1';
+          w_inblock <= '0';
           if c_ok = '0' then
             failed(ERR_WR_TMO);
           elsif op_stop12 = '1' then
@@ -3391,6 +3493,11 @@ begin
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
         nat_retry <= '0';
+        fb_frozen <= '0';
+        fb_partial <= '0';
+        w_inblock <= '0';
+        g_ok      <= '0';
+        g_cnt     <= 0;
         nf_step   <= (others => '0');
         nf_flags  <= (others => '0');
         nf_err    <= (others => '0');
@@ -3497,6 +3604,7 @@ entity sdcard_native_dual is
     blocks_done : out unsigned(15 downto 0);
     diag_stats : out unsigned(127 downto 0);
     init_diag : out unsigned(55 downto 0);     -- the status slot's
+    blk_diag : out unsigned(191 downto 0);     -- the status slot's
     rd_valid : out std_logic;
     rd_data : out unsigned(7 downto 0);
     rd_offset : out unsigned(8 downto 0);
@@ -3523,6 +3631,7 @@ architecture rtl of sdcard_native_dual is
   type t_u32 is array (0 to 1) of unsigned(31 downto 0);
   type t_u128 is array (0 to 1) of unsigned(127 downto 0);
   type t_u56 is array (0 to 1) of unsigned(55 downto 0);
+  type t_u192 is array (0 to 1) of unsigned(191 downto 0);
   type t_p2 is array (0 to 1) of std_logic_vector(1 downto 0);
   type t_p8 is array (0 to 1) of std_logic_vector(7 downto 0);
   type t_state is (Q_IDLE, Q_DISPATCH, Q_STOP_ACK, Q_ACK);
@@ -3545,6 +3654,7 @@ architecture rtl of sdcard_native_dual is
   signal c_roff, c_woff : t_u9;
   signal c_diag : t_u128;
   signal c_idiag : t_u56;
+  signal c_bdiag : t_u192;
   signal c_last : t_u32;
   signal c_capacity : std_logic_vector(1 downto 0);
   signal c_clk, c_cmd_o, c_cmd_oe : t_p2;
@@ -3571,7 +3681,7 @@ begin
         error => c_error(s), err_code => c_err(s), native_mode => c_native(s),
         high_speed => c_hs(s), sdhc => c_hc(s), clk_setting => c_setting(s),
         probe_pass => c_pass(s), probe_fail => c_fail(s), blocks_done => c_done(s),
-        diag_stats => c_diag(s), init_diag => c_idiag(s),
+        diag_stats => c_diag(s), init_diag => c_idiag(s), blk_diag => c_bdiag(s),
         rd_valid => c_rv(s), rd_data => c_data(s),
         rd_offset => c_roff(s), rd_block => c_rblock(s), rd_good => c_good(s), rd_bad => c_bad(s),
         wr_fetch => c_wfetch(s), wr_offset => c_woff(s), wr_block => c_wblock(s), wr_data => wr_data,
@@ -3629,6 +3739,7 @@ begin
   probe_fail <= c_fail(slot_index(status_slot));
   blocks_done <= c_done(slot_index(status_slot));
   init_diag <= c_idiag(slot_index(status_slot));
+  blk_diag <= c_bdiag(slot_index(status_slot));
   counters : process(c_diag, c_setting, status_slot)
     variable v : unsigned(127 downto 0);
   begin

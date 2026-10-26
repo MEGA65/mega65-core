@@ -244,6 +244,8 @@ rep("""  signal sector_buffer_mapped : std_logic := '0';
   signal ds_diag_stats : unsigned(127 downto 0);
   signal ds_init_diag : unsigned(55 downto 0);
   signal idiag_snapshot : unsigned(55 downto 0) := (others => '0');
+  signal ds_blk_diag : unsigned(191 downto 0);
+  signal bdiag_snapshot : unsigned(191 downto 0) := (others => '0');
   signal diag_snapshot : unsigned(127 downto 0) := (others => '0');
   signal diag_index : unsigned(3 downto 0) := (others => '0');
 """)
@@ -362,6 +364,7 @@ cut("  sd0: entity work.sdcardctrl", "  -- CPU direct-readable sector buffer", "
       blocks_done => ds_blocks_done,
       diag_stats => ds_diag_stats,
       init_diag => ds_init_diag,
+      blk_diag => ds_blk_diag,
       rd_valid    => ds_rd_valid,
       rd_data     => ds_rd_data,
       rd_offset   => ds_rd_offset,
@@ -1137,7 +1140,7 @@ rep("""    sd_dat_i : in std_logic_vector(7 downto 0);
     sd_wp : in std_logic_vector(1 downto 0) := "00";
 """)
 rep("""  signal diag_index : unsigned(3 downto 0) := (others => '0');""",
-    """  signal diag_index : unsigned(4 downto 0) := (others => '0');
+    """  signal diag_index : unsigned(5 downto 0) := (others => '0');
   -- card detect: synchronised, debounced (stable for 2^16 cycles), sticky
   -- changes; read in diagnostic byte 16
   signal cd_s1, cd_s2, wp_s1, wp_s2 : std_logic_vector(1 downto 0) := "00";
@@ -1153,9 +1156,19 @@ rep("""  signal diag_index : unsigned(3 downto 0) := (others => '0');""",
 rep("""          when x"CE" => fastio_rdata <= "0000" & diag_index;
           when x"CF" =>
             fastio_rdata <= diag_snapshot(to_integer(diag_index)*8+7 downto to_integer(diag_index)*8);""",
-    """          when x"CE" => fastio_rdata <= "000" & diag_index;
+    """          when x"CE" => fastio_rdata <= "00" & diag_index;
           when x"CF" =>
-            if diag_index(4) = '0' then
+            if diag_index(5) = '1' then
+              -- bytes 32-55: the first failed data block since the selected
+              -- card's last init (sdcard_native's blk_diag, latched with the
+              -- rest)
+              if diag_index(4 downto 0) < 24 then
+                fastio_rdata <= resize(shift_right(bdiag_snapshot,
+                                  to_integer(diag_index(4 downto 0))*8), 8);
+              else
+                fastio_rdata <= x"00";
+              end if;
+            elsif diag_index(4) = '0' then
               fastio_rdata <= diag_snapshot(to_integer(diag_index(3 downto 0))*8+7
                                             downto to_integer(diag_index(3 downto 0))*8);
             elsif diag_index(3 downto 0) = 0 then
@@ -1171,9 +1184,12 @@ rep("""          when x"CE" => fastio_rdata <= "0000" & diag_index;
               fastio_rdata <= x"00";
             end if;""")
 rep("""              diag_index <= fastio_wdata(3 downto 0);""",
-    """              diag_index <= fastio_wdata(4 downto 0);
+    """              diag_index <= fastio_wdata(5 downto 0);
               if fastio_wdata(6) = '1' then cd_clear <= '1'; end if;
-              if fastio_wdata(7) = '1' then idiag_snapshot <= ds_init_diag; end if;""")
+              if fastio_wdata(7) = '1' then
+                idiag_snapshot <= ds_init_diag;
+                bdiag_snapshot <= ds_blk_diag;
+              end if;""")
 rep("""      nat_cmd_valid <= '0';
 """, """      nat_cmd_valid <= '0';
       cd_clear <= '0';

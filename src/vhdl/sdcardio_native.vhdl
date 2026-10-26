@@ -517,8 +517,10 @@ architecture behavioural of sdcardio_native is
   signal ds_diag_stats : unsigned(127 downto 0);
   signal ds_init_diag : unsigned(55 downto 0);
   signal idiag_snapshot : unsigned(55 downto 0) := (others => '0');
+  signal ds_blk_diag : unsigned(191 downto 0);
+  signal bdiag_snapshot : unsigned(191 downto 0) := (others => '0');
   signal diag_snapshot : unsigned(127 downto 0) := (others => '0');
-  signal diag_index : unsigned(4 downto 0) := (others => '0');
+  signal diag_index : unsigned(5 downto 0) := (others => '0');
   -- card detect: synchronised, debounced (stable for 2^16 cycles), sticky
   -- changes; read in diagnostic byte 16
   signal cd_s1, cd_s2, wp_s1, wp_s2 : std_logic_vector(1 downto 0) := "00";
@@ -1206,6 +1208,7 @@ begin  -- behavioural
       blocks_done => ds_blocks_done,
       diag_stats => ds_diag_stats,
       init_diag => ds_init_diag,
+      blk_diag => ds_blk_diag,
       rd_valid    => ds_rd_valid,
       rd_data     => ds_rd_data,
       rd_offset   => ds_rd_offset,
@@ -2008,9 +2011,19 @@ begin  -- behavioural
             fastio_rdata(6 downto 0) <= touch_byte(6 downto 0);
           when x"CC" => fastio_rdata <= x"53"; -- SD retry diagnostics signature
           when x"CD" => fastio_rdata <= x"01"; -- format version
-          when x"CE" => fastio_rdata <= "000" & diag_index;
+          when x"CE" => fastio_rdata <= "00" & diag_index;
           when x"CF" =>
-            if diag_index(4) = '0' then
+            if diag_index(5) = '1' then
+              -- bytes 32-55: the first failed data block since the selected
+              -- card's last init (sdcard_native's blk_diag, latched with the
+              -- rest)
+              if diag_index(4 downto 0) < 24 then
+                fastio_rdata <= resize(shift_right(bdiag_snapshot,
+                                  to_integer(diag_index(4 downto 0))*8), 8);
+              else
+                fastio_rdata <= x"00";
+              end if;
+            elsif diag_index(4) = '0' then
               fastio_rdata <= diag_snapshot(to_integer(diag_index(3 downto 0))*8+7
                                             downto to_integer(diag_index(3 downto 0))*8);
             elsif diag_index(3 downto 0) = 0 then
@@ -3793,9 +3806,12 @@ begin  -- behavioural
               end case;
 
             when x"CE" =>
-              diag_index <= fastio_wdata(4 downto 0);
+              diag_index <= fastio_wdata(5 downto 0);
               if fastio_wdata(6) = '1' then cd_clear <= '1'; end if;
-              if fastio_wdata(7) = '1' then idiag_snapshot <= ds_init_diag; end if;
+              if fastio_wdata(7) = '1' then
+                idiag_snapshot <= ds_init_diag;
+                bdiag_snapshot <= ds_blk_diag;
+              end if;
               if fastio_wdata(7) = '1' then
                 diag_snapshot <= ds_diag_stats;
                 diag_snapshot(127 downto 112) <= ui_info(31 downto 16);

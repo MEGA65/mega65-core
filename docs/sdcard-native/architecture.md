@@ -158,9 +158,37 @@ SPI; they are zero when it did not, and cleared by every init.
 | Byte | |
 |---|---|
 | 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0 |
-| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try) |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 750 ms |
 | 19 | The failed test read's error code |
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian |
+
+**Conservative timing for poor cards.**  A data block starts only on all
+four DAT lines low (DAT0 alone low is a busy).  Before a read or write
+command the controller waits for the card to be idle (DAT0 high for 8 clocks,
+or 750 ms).  After an R1b command the card has 31 clocks to start its busy.
+An init that arrives while a write block is on its way (its data, CRC
+status, or the busy after it or after the CMD12 ending the write) waits for
+the block to finish, so that a write is cut only between sectors.
+
+**Failed block.**  Bytes 32-55 (latched by the same `$80` write) keep the
+first native data block since the selected card's last init whose CRC or
+end bit was wrong; byte 32 bit 0 says whether there is one.  Each block's
+CRCs and end bits are captured as it ends, and the capture freezes a cycle
+after one fails, so the 162 MHz paths gain no compare.
+
+| Byte | |
+|---|---|
+| 32 | Bit 0 a block failed; bits 4-1 its end-bit nibble (DAT3..0, all ones when right); bit 5 DAT0 went low with the other lines high while a block was awaited (a card's busy, which is not taken for a start bit) |
+| 33 | Its block number in the transfer (low 8 bits) |
+| 34-35 | The clock setting it was read with (bits 6-0 P, 12-8 D) |
+| 36-37 | Its start bit's tag minus the command's end tag (SD clocks; the first block's Nac) |
+| 38-45 | The CRC16s received, DAT0 first, each little-endian |
+| 46-53 | The CRC16s worked out from the data |
+| 54-55 | Its first two bytes (55 the first) |
+
+One line's CRC wrong and the other three right is that line's signal or
+sampling point; all four wrong with a wrong end bit is the block found in
+the wrong place (framing); a CRC off by a bit or two is isolated bit errors.
 
 Step 5 with a response (bit 2) means the card never finished powering up
 within a second.  Native init starts with CMD12 (a card left in a

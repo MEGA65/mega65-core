@@ -336,6 +336,24 @@ static uint8_t diag_byte(uint8_t i)
   return PEEK(0xD6CF);
 }
 
+/* the first data block since the card's last init whose CRC or end bit
+   was wrong (diagnostic bytes 32-55; latch with $d6ce = $80 first) */
+static void show_blk(void)
+{
+  uint8_t l, f = diag_byte(32);
+  if (f & 32) printf("  dat0 went low alone while a block was awaited (busy)\n");
+  if (!(f & 1)) return;
+  printf("  failed block: set $%02x%02x lat %u #%u end $%x\n", diag_byte(35), diag_byte(34),
+         diag_byte(36) | (diag_byte(37) << 8), diag_byte(33), (f >> 1) & 15);
+  printf("  crc got/want:");
+  for (l = 0; l < 4; l++) {
+    if (l == 2) printf("\n               ");
+    printf(" %02x%02x/%02x%02x", diag_byte(39 + 2 * l), diag_byte(38 + 2 * l),
+           diag_byte(47 + 2 * l), diag_byte(46 + 2 * l));
+  }
+  printf("\n  first bytes %02x %02x\n", diag_byte(55), diag_byte(54));
+}
+
 static const char *step_name(uint8_t s)
 {
   switch (s) {
@@ -374,6 +392,8 @@ static void show_status(void)
   if (f & 16) printf("  test read failed at default speed (error $%02x)\n", diag_byte(19));
   if (f & 32) printf("  high speed not granted by the card\n");
   if (f & 64) printf("  native init failed once, tried again\n");
+  if (f & 128) printf("  - its busy (dat0 low) did not end\n");
+  show_blk();
 }
 
 static void show_cid(void)
@@ -563,6 +583,7 @@ static void controller_error(const char *what, uint16_t rel)
     printf("\nCONTROLLER ERROR (%s, sector %lu): $d680=$%02x $d686=$%02x $d687=$%02x\n", what,
            (unsigned long)(base + rel),
            PEEK(0xD680), PEEK(0xD686), PEEK(0xD687));
+    if (PEEK(0xD6CC) == 0x53) { POKE(0xD6CE, 0x80); show_blk(); }
     show_history();
   }
   if (stop_first) {
@@ -945,6 +966,56 @@ static uint8_t mbr_valid(void)
   return any;
 }
 
+/* ------------------------------------------------------------------------ */
+/* 4. sampling point scan                                                    */
+/* ------------------------------------------------------------------------ */
+
+/* a little-endian word of the controller's diagnostics (latched first) */
+static uint16_t diag_word(uint8_t i)
+{
+  return diag_byte(i) | ((uint16_t)diag_byte(i + 1) << 8);
+}
+
+/* For each sample delay D (half cycles of 3.086 ns after the SD clock's
+   rising edge) at clock period P: make (P, D) the clock setting ($21, no
+   checks), read 64 sectors with the cache off, and count what went wrong.
+   A failing read is retried, and the retries fall back to the normal
+   setting: so the counts, and whether the setting is still (P, D) at the
+   end, show where the data eye is.  The sectors should hold varied data
+   (mode 3's region does): sector 0 of a wiped card is all zeros. */
+static void sample_scan(uint8_t p)
+{
+  uint8_t d, i, fails;
+  uint16_t crc0, ret0, term0, set;
+  printf("\nsample delay scan at p=%u, 64 reads each, cache off\n"
+         " d  crc retry term fail setting\n", p);
+  sd_cmd(0x26);
+  for (d = 0; d < 16; d++) {
+    POKE(0xD6CE, 0x80);
+    crc0 = diag_word(4); ret0 = diag_word(0); term0 = diag_word(10);
+    POKE(0xD681, p);
+    POKE(0xD682, d);
+    sd_error = 0;
+    sd_cmd(0x21);
+    if (sd_error) { printf("%2u  (setting refused)\n", d); sd_error = 0; sd_cmd(0x2A); continue; }
+    fails = 0;
+    for (i = 0; i < 64; i++) {
+      sd_set_sector(base + i);
+      sd_error = 0;
+      sd_cmd(0x02);
+      if (sd_error) { fails++; sd_error = 0; sd_cmd(0x2A); }
+    }
+    POKE(0xD6CE, 0x80);
+    set = diag_word(14);
+    printf("%2u %4u %5u %4u %4u $%04x%s\n", d, diag_word(4) - crc0, diag_word(0) - ret0,
+           diag_word(10) - term0, fails, set,
+           set == ((uint16_t)d << 8 | p) ? "" : " (fell back)");
+    sd_error = 0;
+    sd_cmd(0x22);
+  }
+  sd_cmd(0x25);
+}
+
 int main(int argc, char **argv)
 {
   static char line[64];
@@ -969,7 +1040,8 @@ int main(int argc, char **argv)
   printf("sdstress: sd controller stress test\n\n"
          "1 init report (reads only)\n"
          "2 f011 compare with a mounted d81 (reads only)\n"
-         "3 stress a scratch card (DESTRUCTIVE)\n> ");
+         "3 stress a scratch card (DESTRUCTIVE)\n"
+         "4 sampling point scan (reads only)\n> ");
   read_line(line, sizeof(line));
   run_seed = 1;
   rnd_state = 2891336453UL;
@@ -984,6 +1056,23 @@ int main(int argc, char **argv)
     if (strtoul(line, 0, 0)) rnd_state = strtoul(line, 0, 0) * 2891336453UL + 1;
     f011_compare(max);
     return f_bad || f_rnf;
+  }
+  if (line[0] == '4') {
+    printf("card (0 = full-size, 1 = micro-sd)? ");
+    read_line(line, sizeof(line));
+    slot = line[0] == '1';
+    if (!sd_select(slot)) {
+      printf("no card there\n");
+      return 1;
+    }
+    printf("first sector to read (default 4096)? ");
+    read_line(line, sizeof(line));
+    base = strtoul(line, 0, 0);
+    if (!base) base = 4096;
+    printf("clock period p (324 mhz / p; default 8 = 40.5 mhz)? ");
+    read_line(line, sizeof(line));
+    sample_scan((uint8_t)(strtoul(line, 0, 0) ? strtoul(line, 0, 0) : 8));
+    return 0;
   }
   if (line[0] != '3') return 0;
 

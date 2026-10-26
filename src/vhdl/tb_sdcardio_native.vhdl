@@ -859,6 +859,23 @@ begin
     poke(16#D3680#, 16#08#);
     wait_ready(5 ms);
     check_buffer(21, false, "multi read sector 21 (after a CRC retry)");
+    -- the failed block is kept: the model flipped bit 0 of line 0's CRC
+    poke(16#D36CE#, 16#80#);
+    poke(16#D36CE#, 32); peek(16#D36CF#, v);
+    check(v = x"1F", "failed block kept, end bits all ones");
+    for i in 0 to 7 loop
+      poke(16#D36CE#, 38 + i); peek(16#D36CF#, s0);
+      poke(16#D36CE#, 46 + i); peek(16#D36CF#, s1);
+      if i = 0 then
+        check((s0 xor s1) = x"01", "failed block: line 0 CRC bit 0 differs");
+      else
+        check(s0 = s1, "failed block: the rest of the CRCs agree");
+      end if;
+    end loop;
+    poke(16#D36CE#, 55); peek(16#D36CF#, v);
+    check(v = pattern(21, 0), "failed block: its first byte");
+    poke(16#D36CE#, 54); peek(16#D36CF#, v);
+    check(v = pattern(21, 1), "failed block: its second byte");
     poke(16#D3680#, 16#09#);
     wait_ready(5 ms);
     check_buffer(22, false, "multi read sector 22");
