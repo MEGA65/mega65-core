@@ -860,6 +860,8 @@ begin
     wait_ready(5 ms);
     check_buffer(21, false, "multi read sector 21 (after a CRC retry)");
     -- the failed block is kept: the model flipped bit 0 of line 0's CRC
+    -- (native only: an SPI card's blocks are not captured)
+    if not G_SPI_CARD then
     poke(16#D36CE#, 16#80#);
     poke(16#D36CE#, 32); peek(16#D36CF#, v);
     check(v = x"1F", "failed block kept, end bits all ones");
@@ -876,6 +878,7 @@ begin
     check(v = pattern(21, 0), "failed block: its first byte");
     poke(16#D36CE#, 54); peek(16#D36CF#, v);
     check(v = pattern(21, 1), "failed block: its second byte");
+    end if;
     poke(16#D3680#, 16#09#);
     wait_ready(5 ms);
     check_buffer(22, false, "multi read sector 22");
