@@ -443,6 +443,10 @@ static uint8_t mid_resets = 1;
 /* mode 3 stops at the first error, without the recovery after a
    controller error, so that the controller can be looked at as it is */
 static uint8_t stop_first, stop_now;
+/* mode 3 checks the card after every operation: the cache emptied, one
+   sector read from the card (a card hung by an operation is found right
+   after it, not at the next check of the region) */
+static uint8_t check_each;
 
 static uint8_t ga, gb, gc, gx;
 #define GEN() (++gx, ga ^= gc ^ gx, gb += ga, gc = (uint8_t)((gc + (gb >> 1)) ^ ga))
@@ -813,6 +817,14 @@ static void stress(uint32_t max_ops)
   drain_keys();
   for (k = 0; !max_ops || n_ops < max_ops; k++) {
     stress_op();
+    if (check_each && !stop_now) {
+      uint16_t rel = (uint16_t)(n_ops % REGION);
+      sd_cmd(0x27);
+      sd_set_sector(base + rel);
+      sd_cmd(0x02);
+      if (sd_error) controller_error("check after the operation", rel);
+      else check(rel);
+    }
     if (n_ops % 100 == 0) {
       printf("\rops %lu errors %lu/%lu/%lu  ", (unsigned long)n_ops,
              (unsigned long)e_ctrl, (unsigned long)e_cache, (unsigned long)e_card);
@@ -1109,6 +1121,9 @@ int main(int argc, char **argv)
   printf("stop at the first error (y/n, default n)? ");
   read_line(line, sizeof(line));
   stop_first = line[0] == 'y' || line[0] == 'Y';
+  printf("check the card after every operation (y/n, default n)? ");
+  read_line(line, sizeof(line));
+  check_each = line[0] == 'y' || line[0] == 'Y';
   printf("\nthis overwrites sectors %lu-%lu of the card in slot %u.\n"
          "type: this will destroy card contents\n> ", (unsigned long)base,
          (unsigned long)(base + REGION - 1), slot);
