@@ -443,6 +443,8 @@ static uint8_t mid_resets = 1;
 /* mode 3 stops at the first error, without the recovery after a
    controller error, so that the controller can be looked at as it is */
 static uint8_t stop_first, stop_now;
+/* a key ended a sweep (not an error) */
+static uint8_t key_stop;
 /* mode 3 checks the card after every operation: the cache emptied, one
    sector read from the card (a card hung by an operation is found right
    after it, not at the next check of the region) */
@@ -734,7 +736,8 @@ static void sweep(void)
       else read_seq(r, 64);
       /* (a key, or the first error when stopping there, ends it: a check
          whose reads each time out can take a long time) */
-      if (stop_now || key_pressed()) { stop_now = 1; return; }
+      if (stop_now) return;
+      if (key_pressed()) { key_stop = 1; return; }
     }
   }
   sd_cmd(cache_state ? 0x25 : 0x26);
@@ -807,7 +810,10 @@ static void stress(uint32_t max_ops)
 {
   uint16_t i, k;
   memset(h_op, 0xFF, sizeof(h_op));
+  key_stop = 0;
   printf("\nwriting the region (%u sectors from %lu)...", REGION, (unsigned long)base);
+  /* (keys typed with the answers would end the check at once) */
+  drain_keys();
   for (i = 0; i < REGION; i += 128) write_multi(i, 128, 0, 1);
   printf("\nchecking it...");
   sweep();
@@ -832,7 +838,7 @@ static void stress(uint32_t max_ops)
     }
     if (stop_now) { printf("\nstopped at the first error (op %lu)\n", (unsigned long)n_ops); break; }
     if (n_ops % 500 == 0) { log_op(O_SWEEP, 0, 0, 0); sweep(); }
-    if (key_pressed() || stop_now) break;
+    if (key_stop || key_pressed() || stop_now) break;
   }
   sweep();
   printf("\n\ndone: %lu operations, %lu sectors read, %lu written\n"
