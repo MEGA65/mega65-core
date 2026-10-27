@@ -728,6 +728,9 @@ static void sweep(void)
     for (r = 0; r < REGION; r += 64) {
       if (k) read_multi(r, 64, 0);
       else read_seq(r, 64);
+      /* (a key, or the first error when stopping there, ends it: a check
+         whose reads each time out can take a long time) */
+      if (stop_now || key_pressed()) { stop_now = 1; return; }
     }
   }
   sd_cmd(cache_state ? 0x25 : 0x26);

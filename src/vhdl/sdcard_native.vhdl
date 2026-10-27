@@ -266,6 +266,7 @@ architecture rtl of sdcard_native is
   constant ERR_WR_CRC   : unsigned(7 downto 0) := x"30";  -- write: card saw a CRC error
   constant ERR_WR_ERR   : unsigned(7 downto 0) := x"31";  -- write: card reported an error
   constant ERR_WR_TMO   : unsigned(7 downto 0) := x"32";  -- write: status / busy timeout
+  constant ERR_WR_NORESP : unsigned(7 downto 0) := x"33"; -- write (SPI): no data response
   constant ERR_BUSY     : unsigned(7 downto 0) := x"40";  -- command while busy
   constant ERR_NOTREADY : unsigned(7 downto 0) := x"41";  -- transfer without a card
   constant ERR_NOHS     : unsigned(7 downto 0) := x"42";  -- setting needs high speed
@@ -604,6 +605,7 @@ architecture rtl of sdcard_native is
   signal v2          : std_logic := '0';
   signal ready       : std_logic := '0';
   signal rca         : std_logic_vector(15 downto 0) := (others => '0');
+  signal rca_nz      : std_logic := '0';     -- rca /= 0, registered
   signal cur_set     : unsigned(15 downto 0) := SET_DS;
   -- cur_set is neither SET_DS nor SET_HS (registered; cur_set only changes
   -- with a resync, long before a retry looks at this)
@@ -790,6 +792,17 @@ architecture rtl of sdcard_native is
   -- byte of the read block's CRC
   signal sp_nz       : std_logic := '1';
   signal sp_crc_lo   : std_logic := '0';
+  -- worked out as each SPI byte is taken (registered, not compares in front
+  -- of the state logic): $FE (a data token), an error token (0000xxxx), a
+  -- data response (xxx0sss1) with sss = 010 (accepted) / 101 (CRC error)
+  signal sp_fe       : std_logic := '0';
+  -- $FF: the card's busy is over (a byte that is not $00 can still be the
+  -- tail of a data response and the start of the busy after it)
+  signal sp_ff       : std_logic := '0';
+  signal sp_etok     : std_logic := '0';
+  signal sp_dresp    : std_logic := '0';
+  signal sp_dacc     : std_logic := '0';
+  signal sp_dcrc     : std_logic := '0';
   signal sp_bn       : unsigned(12 downto 0) := (others => '0');
   signal sp_cmd_end  : unsigned(12 downto 0) := (others => '0');
   -- the byte sp_new announced, a cycle later, with where it is against the
@@ -1471,6 +1484,7 @@ begin
         blk_settle <= blk_settle - 1;
       end if;
       w_reqd_d <= w_reqd;
+      if rca /= x"0000" then rca_nz <= '1'; else rca_nz <= '0'; end if;
       sp_new_d <= sp_new;
       sp_ref_chg <= '0';
       if sp_bn > sp_tok_bn then sp_tpast <= '1'; else sp_tpast <= '0'; end if;
@@ -1739,6 +1753,16 @@ begin
             else
               sp_nz <= '1';
             end if;
+            sp_fe    <= '0'; sp_etok <= '0'; sp_dresp <= '0'; sp_dacc <= '0'; sp_dcrc <= '0';
+            sp_ff    <= '0';
+            if sp_rxsr(6 downto 0) & rxd_dat(0) = x"FE" then sp_fe <= '1'; end if;
+            if sp_rxsr(6 downto 0) & rxd_dat(0) = x"FF" then sp_ff <= '1'; end if;
+            if sp_rxsr(6 downto 3) = "0000" then sp_etok <= '1'; end if;
+            if sp_rxsr(3) = '0' and rxd_dat(0) = '1' then
+              sp_dresp <= '1';
+              if sp_rxsr(2 downto 0) = "010" then sp_dacc <= '1'; end if;
+              if sp_rxsr(2 downto 0) = "101" then sp_dcrc <= '1'; end if;
+            end if;
             if sp_rxsr(6 downto 0) & rxd_dat(0) = d_crc(7 downto 0) then
               sp_crc_lo <= '1';
             else
@@ -1969,7 +1993,7 @@ begin
               end if;
             elsif e_code = C_CLEAR then
               op <= OP_NONE;
-              if mode_native = '1' and rca /= x"0000" then
+              if mode_native = '1' and rca_nz = '1' then
                 e_busy <= '1';
                 close_ret <= S_RECOVER;
                 close_tries <= 0;
@@ -2319,7 +2343,7 @@ begin
               sp_cnt <= sp_cnt + 1;
             end if;
           elsif sp_n = 8 then
-            if sp_new = '1' and sp_byte /= x"00" then
+            if sp_new = '1' and sp_ff = '1' then
               st <= ret_st;
             elsif tmo_z = '1' then
               c_ok <= '0';
@@ -2407,9 +2431,9 @@ begin
             elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
           elsif sp_new = '1' then
             if d_act = '0' then
-              if sp_byte = x"FE" then
+              if sp_fe = '1' then
                 d_act <= '1'; d_idx <= (others => '0'); d_crc <= (others => '0');
-              elsif sp_byte(7 downto 4) = "0000" then
+              elsif sp_etok = '1' then
                 e_err <= ERR_RD_CRC; st <= I_ABORT;
               elsif tmo_z = '1' then e_err <= ERR_RD_TMO; st <= I_ABORT; end if;
             else
@@ -2517,6 +2541,11 @@ begin
 
         when N_INIT =>
           run <= '1';
+          -- (cnt counts only in step 19: cleared here once, not in each
+          -- step that leaves for a state counting from 0)
+          if istep /= 19 then
+            cnt <= (others => '0');
+          end if;
           if istep /= 30 then
             nf_cur <= istep;
           end if;
@@ -2660,7 +2689,6 @@ begin
                   hs      <= '1';
                   new_set <= SET_HS;
                   cur_set <= SET_HS;
-                  cnt     <= (others => '0');
                   istep   <= 19;
                 else
                   nf_flags(5) <= '1';
@@ -2701,7 +2729,6 @@ begin
               op_verify <= '0';
               op        <= OP_NONE;
               op_done   <= (others => '0');
-              cnt       <= (others => '0');
               st        <= S_TAIL;
             when others =>
               -- 30: the native bus failed: once more, then SPI
@@ -3023,6 +3050,7 @@ begin
         when P_INIT =>
           run        <= '1';
           sp_cs_next <= '0';
+          cnt        <= (others => '0');     -- (no step counts)
           case istep is
             when 0 =>
               istep <= 1;
@@ -3104,7 +3132,6 @@ begin
               end if;
             when 11 =>
               -- deselect, then the data clock
-              cnt    <= (others => '0');
               ret_st <= P_INIT;
               istep  <= 12;
               st     <= P_DESEL;
@@ -3137,7 +3164,6 @@ begin
               op_verify <= '0';
               op        <= OP_NONE;
               op_done   <= (others => '0');
-              cnt       <= (others => '0');
               st        <= S_TAIL;
             when others =>
               -- 30: init failed, 31: no card
@@ -3149,7 +3175,6 @@ begin
               else
                 e_err <= ERR_INIT;
               end if;
-              cnt <= (others => '0');
               st  <= S_TAIL;
           end case;
 
@@ -3215,7 +3240,7 @@ begin
           end if;
           if sp_new = '1' then
             if d_act = '0' then
-              if sp_byte = x"FE" then
+              if sp_fe = '1' then
                 d_act <= '1';
                 d_idx <= (others => '0');
                 d_crc <= (others => '0');
@@ -3227,7 +3252,7 @@ begin
                 if not next_ok then
                   stop_en <= '1';
                 end if;
-              elsif sp_byte(7 downto 4) = "0000" then
+              elsif sp_etok = '1' then
                 e_err <= ERR_RD_CRC;      -- data error token
                 sp_ok <= '0';
                 st    <= P_RD_END;
@@ -3417,10 +3442,10 @@ begin
           sp_tx_next <= x"FF";
           if sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' then
             if sp_cnt = 0 then
-              if sp_byte(4) = '0' and sp_byte(0) = '1' then
-                if sp_byte(3 downto 1) = "010" then
+              if sp_dresp = '1' then
+                if sp_dacc = '1' then
                   sp_cnt <= 1;
-                elsif sp_byte(3 downto 1) = "101" then
+                elsif sp_dcrc = '1' then
                   e_err <= ERR_WR_CRC;
                   sp_ok <= '0';
                   st    <= P_FIN;
@@ -3430,11 +3455,11 @@ begin
                   st    <= P_FIN;
                 end if;
               elsif sp_tlate = '1' then
-                e_err <= ERR_WR_TMO;
+                e_err <= ERR_WR_NORESP;
                 sp_ok <= '0';
                 st    <= P_FIN;
               end if;
-            elsif sp_nz = '1' then
+            elsif sp_ff = '1' then
               -- programmed
               op_done <= op_done + 1;
               blk_settle <= "11";
@@ -3468,7 +3493,7 @@ begin
               sp_tx_next <= x"FF";
             end if;
           end if;
-          if sp_cnt = 1 and sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' and sp_nz = '1' then
+          if sp_cnt = 1 and sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' and sp_ff = '1' then
             sp_ok <= '1';
             st    <= P_FIN;
           elsif sp_cnt = 1 and tmo_z = '1' then
