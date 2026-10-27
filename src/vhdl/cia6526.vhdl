@@ -824,6 +824,7 @@ begin  -- behavioural
             if fastio_wdata(4)='1' then
               -- Force loading of timer A now from latch
               reg_timera <= reg_timera_latch;
+              reg_timera_visible <= reg_timera_latch;
               reg_timera_has_ticked <= '0';
             end if;
             reg_timera_oneshot <= fastio_wdata(3);
@@ -836,6 +837,7 @@ begin  -- behavioural
             if fastio_wdata(4)='1' then
               -- Force loading of timer B now from latch
               reg_timerb <= reg_timerb_latch;
+              reg_timerb_visible <= reg_timerb_latch;
               reg_timerb_has_ticked <= '0';
               report "loading reg_timerb=$" & to_hexstring(reg_timerb_latch);
             end if;
