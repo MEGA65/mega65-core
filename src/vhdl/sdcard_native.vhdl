@@ -281,7 +281,7 @@ architecture rtl of sdcard_native is
   constant TMO_INIT   : natural := 1000 * G_MS;   -- ACMD41 loop
   constant TMO_READ   : natural := 250 * G_MS;    -- read data start
   constant TMO_PROBE  : natural := 20 * G_MS;     -- read data start while probing
-  constant TMO_BUSY   : natural := 750 * G_MS;    -- programming busy
+  constant TMO_BUSY   : natural := 1500 * G_MS;   -- programming busy (a slow card's can be over 750 ms; tmo is 28 bits)
   constant TMO_SETTLE : natural := 2 * G_MS;      -- power-up settling
 
   constant MH_LEN : natural := 36;              -- sample markers: D <= 31

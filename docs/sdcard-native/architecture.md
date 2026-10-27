@@ -158,14 +158,14 @@ SPI; they are zero when it did not, and cleared by every init.
 | Byte | |
 |---|---|
 | 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0 |
-| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 750 ms |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 1.5 s |
 | 19 | The failed test read's error code |
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian |
 
 **Conservative timing for poor cards.**  A data block starts only on all
 four DAT lines low (DAT0 alone low is a busy).  Before a read or write
 command the controller waits for the card to be idle (DAT0 high for 8 clocks,
-or 750 ms).  After an R1b command the card has 31 clocks to start its busy.
+or 1.5 s, the busy timeout; it was 750 ms, which a slow card can exceed).  After an R1b command the card has 31 clocks to start its busy.
 An init that arrives while a write block is on its way (its data, CRC
 status, or the busy after it or after the CMD12 ending the write) waits for
 the block to finish, so that a write is cut only between sectors.
