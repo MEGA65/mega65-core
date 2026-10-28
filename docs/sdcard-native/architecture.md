@@ -153,14 +153,32 @@ contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
 **Init record.** Bytes 17-23 (latched by the same `$80` write) say why the
 selected card's last initialisation gave up the native bus and fell back to
-SPI; they are zero when it did not, and cleared by every init.
+SPI, or, in an SPI-only init (`$23`), why its SPI init failed; they are zero
+when neither happened, and cleared by every init.
 
 | Byte | |
 |---|---|
-| 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0 |
-| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 1.5 s |
+| 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0.  16 and up: an SPI-only init's step (16 + its step: 0/1 CMD0, 2 CMD8, 4/5 ACMD41, 7 CMD58, 9 CMD59, 10 CMD16, 15 the test read) |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try), or an SPI-only init failed once and was tried again (bytes 17 and 20-23 from the last failure: when the retry passed, from the first try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 1.5 s |
 | 19 | The failed test read's error code |
-| 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian |
+| 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian; for an SPI step, byte 23 is its R1 and 20-22 the low 24 bits of the R3/R7 after it |
+
+An SPI init that fails is tried once more before it gives up (with or
+without a native fallback before it).  On hardware a card's first SPI-only
+init after it was inserted failed with `$02` and the next passed; a card
+that has had a native CMD0 since power-up may not take SPI mode at all
+(`$01`: CMD0 in SPI never answered), until it is re-inserted.
+
+**SPI writes.**  A write block's data response (`xxx0sss1`) is looked for
+bit by bit after the last CRC byte, not byte by byte: some cards send it a
+few bits late (Linux's `mmc_spi` does the same; its first 3 bits are
+undefined).  On hardware a card's late response was missed, and the write
+failed with `$33` (no data response).  `G_SPI_LATE=3`
+(`run_sdcard_tests.py io-spi-late`) sends every other response 3 bits late.
+The busy after it ends at a whole `$FF` byte.  SPI byte positions are 13-bit
+numbers that wrap every 8192 bytes; "after" a command or a write's CRC is up
+to 4095 bytes on (a plain compare missed a response just after a wrap, and
+the operation timed out: `$32` after a write block).
 
 **Conservative timing for poor cards.**  A data block starts only on all
 four DAT lines low (DAT0 alone low is a busy).  Before a read or write

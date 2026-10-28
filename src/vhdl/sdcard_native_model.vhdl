@@ -39,7 +39,9 @@ entity sdcard_native_model is
     G_SIZE_UNITS : positive := 244140; -- SDHC capacity in 1024-sector units
     G_UNSUPPORTED_CSD : boolean := false;
     G_SDSC_CSIZE : natural range 0 to 4095 := 4095;
-    G_SDSC_MULT : natural range 0 to 7 := 7
+    G_SDSC_MULT : natural range 0 to 7 := 7;
+    G_SPI_CMD8_FAILS : natural := 0;  -- first SPI CMD8s have no response
+    G_SPI_WRESP_LATE : natural := 0   -- SPI data response this many bits late (0-7)
     );
   port (
     clk : in    std_logic;
@@ -573,6 +575,8 @@ begin
     variable err_done : boolean := false;
     variable cs_on    : boolean := false;
     variable data_reads_started : boolean := false;
+    variable cmd8_fails : natural := 0;
+    variable wv : std_logic_vector(47 downto 0);
 
     procedure push(v : std_logic_vector(7 downto 0)) is
     begin
@@ -671,8 +675,18 @@ begin
               if wcrcrx = wcrc or not crc_on then
                 mem(wblk mod 64) := wbuf;
                 tags(wblk mod 64) := wblk;
-                push(x"E5");               -- accepted
-                for i in 1 to 4 loop push(x"00"); end loop;
+                -- accepted (E5), then busy; late by G_SPI_WRESP_LATE bits
+                -- (ones before it), alternately in time and late, so that
+                -- each comes after the other
+                if G_SPI_WRESP_LATE = 0 or wblk mod 2 = 0 then
+                  push(x"E5");
+                  for i in 1 to 4 loop push(x"00"); end loop;
+                else
+                  wv := x"E5" & x"00000000" & x"FF";
+                  wv := std_logic_vector(shift_right(unsigned(wv), G_SPI_WRESP_LATE));
+                  for i in 0 to G_SPI_WRESP_LATE - 1 loop wv(47 - i) := '1'; end loop;
+                  for i in 5 downto 0 loop push(wv(i * 8 + 7 downto i * 8)); end loop;
+                end if;
                 wblk := wblk + 1;
                 wr_on := wmulti;
               else
@@ -717,7 +731,11 @@ begin
                     crc_on := false;
                     r1(x"01");
                   when 8 =>
+                    if cmd8_fails < G_SPI_CMD8_FAILS then
+                      cmd8_fails := cmd8_fails + 1;
+                    else
                     r1(x"01"); push(x"00"); push(x"00"); push(x"01"); push(arg(7 downto 0));
+                    end if;
                   when 55 =>
                     if acmd41 >= 2 then r1(x"00"); else r1(x"01"); end if;
                   when 58 =>

@@ -599,6 +599,10 @@ architecture rtl of sdcard_native is
   -- leaves SPI mode only by a power cycle, so one failed native init (a
   -- card still busy from a transfer the init cut off) must not decide it
   signal nat_retry   : std_logic := '0';
+  -- SPI init failed once in this init and is being tried again: on
+  -- hardware a card's first SPI init after power-up (its first CMD0 since
+  -- being inserted) failed, and the next passed
+  signal spi_retry   : std_logic := '0';
   signal no_hs       : std_logic := '0';
   signal hs          : std_logic := '0';
   signal hc          : std_logic := '0';
@@ -818,7 +822,18 @@ architecture rtl of sdcard_native is
   signal sp_late     : std_logic := '0';
   signal sp_tpast    : std_logic := '0';
   signal sp_tlate    : std_logic := '0';
+  signal sp_attok    : std_logic := '0';   -- the byte is sp_tok_bn itself
   signal sp_ref_chg  : std_logic := '0';
+  -- A write's data response (xxx0sss1), found bit by bit: some cards send
+  -- it a few bits late, not on a byte boundary (as Linux's mmc_spi notes);
+  -- taken byte by byte it was missed ($33, no data response, on hardware).
+  -- Armed as the last CRC byte is in; its first 3 bits are undefined, then
+  -- the first 0 is the token's start and the next 4 bits sss1 (dr_sr).
+  signal dr_on       : std_logic := '0';
+  signal dr_skip     : natural range 0 to 3 := 0;
+  signal dr_n        : natural range 0 to 4 := 0;
+  signal dr_sr       : std_logic_vector(3 downto 0) := (others => '1');
+  signal dr_found    : std_logic := '0';
   signal sp_r1       : std_logic_vector(7 downto 0) := x"FF";
   signal sp_ext      : std_logic_vector(31 downto 0) := (others => '0');
   signal sp_n        : natural range 0 to 15 := 0;
@@ -1394,6 +1409,7 @@ begin
     variable b       : std_logic_vector(7 downto 0);
     variable next_ok : boolean;
     variable take    : boolean;
+    variable d13     : unsigned(12 downto 0);
     variable granting : boolean;
     variable last_nib : unsigned(9 downto 0);
 
@@ -1487,9 +1503,15 @@ begin
       if rca /= x"0000" then rca_nz <= '1'; else rca_nz <= '0'; end if;
       sp_new_d <= sp_new;
       sp_ref_chg <= '0';
-      if sp_bn > sp_tok_bn then sp_tpast <= '1'; else sp_tpast <= '0'; end if;
-      if sp_bn - sp_tok_bn > 8 then sp_tlate <= '1'; else sp_tlate <= '0'; end if;
-      if sp_bn > sp_cmd_end then sp_past <= '1'; else sp_past <= '0'; end if;
+      -- (the byte numbers are 13 bits and wrap every 8192 bytes: "after" is
+      -- 1 to 4095 bytes on, not a plain >, which missed a response just
+      -- after a wrap and timed out)
+      d13 := sp_bn - sp_tok_bn;
+      if d13 /= 0 and d13(12) = '0' then sp_tpast <= '1'; else sp_tpast <= '0'; end if;
+      if d13 > 8 then sp_tlate <= '1'; else sp_tlate <= '0'; end if;
+      if d13 = 0 then sp_attok <= '1'; else sp_attok <= '0'; end if;
+      d13 := sp_bn - sp_cmd_end;
+      if d13 /= 0 and d13(12) = '0' then sp_past <= '1'; else sp_past <= '0'; end if;
       if sp_bn = sp_cmd_end + 1 then sp_stuff <= '1'; else sp_stuff <= '0'; end if;
       if sp_bn - sp_cmd_end > 10 then sp_late <= '1'; else sp_late <= '0'; end if;
       if cur_set /= SET_DS and cur_set /= SET_HS then
@@ -1742,6 +1764,31 @@ begin
           cmd_oe_nx          <= '1';
           dat_nx(2 downto 0) <= "111";
           dat_oe_nx          <= "1000";
+        end if;
+        if sp_new_d = '1' and sp_attok = '1' then
+          -- the last CRC byte is in: look for the data response
+          dr_on    <= '1';
+          dr_skip  <= 3;
+          dr_n     <= 0;
+          dr_found <= '0';
+        end if;
+        if rxd_v = '1' and dr_on = '1' then
+          if dr_skip /= 0 then
+            dr_skip <= dr_skip - 1;
+          elsif dr_n = 0 then
+            if rxd_dat(0) = '0' then
+              dr_n <= 1;
+            end if;
+          else
+            dr_sr <= dr_sr(2 downto 0) & rxd_dat(0);
+            if dr_n = 4 then
+              dr_found <= '1';
+              dr_on    <= '0';
+              dr_n     <= 0;
+            else
+              dr_n <= dr_n + 1;
+            end if;
+          end if;
         end if;
         if rxd_v = '1' then
           -- the sample tagged n is bit n + lag of the stream
@@ -3051,6 +3098,9 @@ begin
           run        <= '1';
           sp_cs_next <= '0';
           cnt        <= (others => '0');     -- (no step counts)
+          if istep < 16 then
+            nf_cur <= istep;
+          end if;
           case istep is
             when 0 =>
               istep <= 1;
@@ -3169,13 +3219,33 @@ begin
               -- 30: init failed, 31: no card
               ready      <= '0';
               sp_cs_next <= '1';
-              e_error    <= '1';
-              if istep = 31 then
-                e_err <= ERR_NOCARD;
-              else
-                e_err <= ERR_INIT;
+              if nf_flags(0) = '0' then
+                -- (after a native fallback the record keeps the native step)
+                nf_step     <= '1' & to_unsigned(nf_cur, 4);
+                if sp_r1 = x"FF" then
+                  nf_flags(1) <= '1';  -- (no R1: in SPI, c_noresp is not set)
+                end if;
+                nf_flags(2) <= c_ok;
+                nf_resp     <= sp_r1 & sp_ext(23 downto 0);
               end if;
-              st  <= S_TAIL;
+              if spi_retry = '0' then
+                -- once more (see spi_retry)
+                spi_retry <= '1';
+                if nf_flags(0) = '0' then
+                  nf_flags(6) <= '1';
+                end if;
+                tmo   <= (others => '0');
+                tmo_z <= '1';
+                st    <= S_INIT;
+              else
+                e_error <= '1';
+                if istep = 31 then
+                  e_err <= ERR_NOCARD;
+                else
+                  e_err <= ERR_INIT;
+                end if;
+                st  <= S_TAIL;
+              end if;
           end case;
 
         -- CS high for two bytes
@@ -3426,6 +3496,8 @@ begin
               sp_tx_next <= t_crc(7 downto 0);
               sp_tok_bn  <= sp_ld_n + 1;   -- the last CRC byte
               sp_ref_chg <= '1';
+              dr_on      <= '0';           -- (not the last block's response)
+              dr_found   <= '0';
             else
               sp_tx_next <= x"FF";
               tmo        <= to_unsigned(TMO_BUSY, 28);
@@ -3440,21 +3512,23 @@ begin
         when P_WR_DRESP =>
           run        <= '1';
           sp_tx_next <= x"FF";
-          if sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' then
+          if sp_cnt = 0 and dr_found = '1' then
+            -- (the byte that ends now, if one does, may hold the token's
+            -- bits: the busy is looked for from the next)
+            if dr_sr = "0101" then
+              sp_cnt <= 1;
+            elsif dr_sr = "1011" then
+              e_err <= ERR_WR_CRC;
+              sp_ok <= '0';
+              st    <= P_FIN;
+            else
+              e_err <= ERR_WR_ERR;
+              sp_ok <= '0';
+              st    <= P_FIN;
+            end if;
+          elsif sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' then
             if sp_cnt = 0 then
-              if sp_dresp = '1' then
-                if sp_dacc = '1' then
-                  sp_cnt <= 1;
-                elsif sp_dcrc = '1' then
-                  e_err <= ERR_WR_CRC;
-                  sp_ok <= '0';
-                  st    <= P_FIN;
-                else
-                  e_err <= ERR_WR_ERR;
-                  sp_ok <= '0';
-                  st    <= P_FIN;
-                end if;
-              elsif sp_tlate = '1' then
+              if sp_tlate = '1' then
                 e_err <= ERR_WR_NORESP;
                 sp_ok <= '0';
                 st    <= P_FIN;
@@ -3518,6 +3592,7 @@ begin
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
         nat_retry <= '0';
+        spi_retry <= '0';
         fb_frozen <= '0';
         fb_partial <= '0';
         w_inblock <= '0';

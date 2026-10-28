@@ -28,6 +28,7 @@ entity tb_sdcardio_native is
     G_ERROR_TEST  : boolean := false;
     G_CACHE_LINES : natural := 16;
     G_SPI_CARD    : boolean := false;
+    G_SPI_LATE    : natural := 0;      -- the SPI card's data responses late, bits
     G_DUAL_TEST : boolean := false;
     G_CARD0_PRESENT : boolean := true;
     G_CARD1_PRESENT : boolean := false;
@@ -55,6 +56,9 @@ architecture tb of tb_sdcardio_native is
   end function;
   function sdsc_csize return natural is
   begin if G_TAIL_TEST then return 2; else return 4095; end if; end function;
+  -- (the first SPI init after $23 fails, as on hardware, and is retried)
+  function spi_cmd8_fails return natural is
+  begin if G_SPI23_TEST then return 1; else return 0; end if; end function;
   function sdsc_mult return natural is
   begin if G_TAIL_TEST then return 0; else return 7; end if; end function;
 
@@ -165,7 +169,8 @@ begin
     card : entity work.sdcard_native_model
       generic map (G_CRC_ERR_BLK => 21, G_START_SPI => G_SPI_CARD, G_LONG_READ_NAC => 40000,
                    G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_SIZE_UNITS => size_units,
-                   G_SDHC => not G_TAIL_TEST, G_SDSC_CSIZE => sdsc_csize, G_SDSC_MULT => sdsc_mult)
+                   G_SDHC => not G_TAIL_TEST, G_SDSC_CSIZE => sdsc_csize, G_SDSC_MULT => sdsc_mult,
+                   G_SPI_CMD8_FAILS => spi_cmd8_fails, G_SPI_WRESP_LATE => G_SPI_LATE)
       port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
   end generate;
   card1_clk <= transport sd_clk(1) after BOARD;
@@ -468,6 +473,11 @@ begin
       peek(16#D3680#, v); check(v(6) = '0', "$23: no error");
       peek(16#D3687#, v); report "  $d687 = " & integer'image(to_integer(v));
       peek(16#D3686#, v); check(v(1 downto 0) = "01", "$23: ready, SPI");
+      -- the first try failed at SPI step 2 (CMD8, no response): 16 + 2;
+      -- flags: tried again, no response
+      poke(16#D36CE#, 16#80#);
+      poke(16#D36CE#, 17); peek(16#D36CF#, v); check(v = 18, "$23: the record's failed SPI step");
+      poke(16#D36CE#, 18); peek(16#D36CF#, v); check(v = x"42", "$23: the record's flags");
       for n in 40 to 50 loop
         set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
         check_buffer(n, false, "read after $23");

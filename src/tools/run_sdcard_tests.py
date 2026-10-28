@@ -73,6 +73,7 @@ VARIANTS = [
     ("io-bound", "tb_sdcardio_native", ["G_BOUND_TEST=true"], "800ms"),
     ("io-tail", "tb_sdcardio_native", ["G_TAIL_TEST=true"], "800ms"),
     ("io-reinit", "tb_sdcardio_native", ["G_REINIT_TEST=true"], "800ms"),
+    ("io-spi-late", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_SPI_LATE=3"], "800ms"),
     ("io-spi23", "tb_sdcardio_native", ["G_SPI23_TEST=true"], "400ms"),
     ("io-stream", "tb_sdcardio_native", ["G_STREAM_TEST=true"], "800ms"),
     ("io-f011", "tb_sdcardio_native", ["G_F011_TEST=true"], "800ms"),
