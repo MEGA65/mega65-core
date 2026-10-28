@@ -37,6 +37,7 @@ entity tb_sdcardio_native is
     G_BOUND_TEST : boolean := false;
     G_TAIL_TEST : boolean := false;
     G_REINIT_TEST : boolean := false;
+    G_SPI23_TEST : boolean := false;
     G_STREAM_TEST : boolean := false;
     G_F011_TEST : boolean := false;
     G_F011_ROUNDS : natural := 60
@@ -453,6 +454,26 @@ begin
       end loop;
       assert fails = 0 report "STREAM TESTS FAILED" severity failure;
       report "ALL STREAM TESTS PASSED"; done <= true; wait;
+    end if;
+    if G_SPI23_TEST then
+      -- $23 on a card in native mode (sdstress, and a tester, use it to
+      -- test SPI): on hardware it failed with $01, no card.
+      poke(16#D3680#, 16#2B#); wait_ready(40 ms);
+      for n in 0 to 11 loop
+        set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+      end loop;
+      wait for 2 ms;
+      poke(16#D3680#, 16#C0#); poke(16#D3680#, 16#23#);
+      wait_ready(40 ms);
+      peek(16#D3680#, v); check(v(6) = '0', "$23: no error");
+      peek(16#D3687#, v); report "  $d687 = " & integer'image(to_integer(v));
+      peek(16#D3686#, v); check(v(1 downto 0) = "01", "$23: ready, SPI");
+      for n in 40 to 50 loop
+        set_sector(n); poke(16#D3680#, 2); wait_ready(5 ms);
+        check_buffer(n, false, "read after $23");
+      end loop;
+      assert fails = 0 report "SPI23 TESTS FAILED" severity failure;
+      report "ALL SPI23 TESTS PASSED"; done <= true; wait;
     end if;
     if G_REINIT_TEST then
       -- As after booting: both slots initialised, sequential reads (the
