@@ -1024,7 +1024,7 @@ begin
     poke(16#D36CE#, 14);
     peek(16#D36CF#, v);
     if G_SPI_CARD then
-      check(v = 13, "diagnostic SPI clock divisor");
+      check(v = 26, "diagnostic SPI clock divisor");
     else
       check(v = 8, "diagnostic high-speed clock divisor");
     end if;
