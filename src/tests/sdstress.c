@@ -123,6 +123,9 @@ static void POKE(uint16_t a, uint8_t v)
     return;
   }
   if (a != 0xD680) return;
+  /* SDSTRESS_TRACE set: each command and the sector registers, on stderr
+     (to replay a run's commands in a testbench) */
+  if (getenv("SDSTRESS_TRACE")) fprintf(stderr, "%02x %lu\n", v, (unsigned long)sim_sector);
   switch (v) {
   case 0x02: case 0x0B: sim_read(sim_sector); break;
   case 0x07: sim_open = sim_sector; sim_read(sim_open); break;
@@ -165,7 +168,7 @@ static void hw_init(void)
   for (i = 0; i < 1600; i++) memcpy(sim_card + (SIM_IMAGE + i) * 512, &i, sizeof(i));
   buf = sim_sbuf;
 }
-static void spin(uint16_t n) { (void)n; }
+static void spin(uint16_t n) { if (getenv("SDSTRESS_TRACE")) fprintf(stderr, "p %u\n", n); }
 static uint8_t key_pressed(void) { return 0; }
 static char *read_line(char *s, int n) { if (!fgets(s, n, stdin)) s[0] = 0; s[strcspn(s, "\r\n")] = 0; return s; }
 

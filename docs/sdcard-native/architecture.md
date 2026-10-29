@@ -64,7 +64,11 @@ for trying all of it on a board.
 - **Clocks.** The engine runs on clock162; SD_CLK comes from an ODDR.  The
   period is P half cycles of 3.086 ns, so the SD clock is 324 MHz / P:
   - 400 kHz for identification;
-  - 24.9 MHz default speed (and SPI);
+  - 24.9 MHz default speed;
+  - 12.5 MHz SPI (`$031A`): in SPI the card launches a bit at the falling
+    edge, up to 14 ns late, and the sample point is not probed, so 24.9 MHz
+    left about 6 ns less the board's delay; on hardware a card's SPI reads
+    and CMD12 responses failed now and then (84 of each in a stress run);
   - 40.5 MHz high speed, the default once CMD6 succeeds;
   - 46.3 / 54 / 64.8 / 81 MHz by probe and accept.
 - **Inputs** go through an IDDR.  The sample point is D half cycles after the

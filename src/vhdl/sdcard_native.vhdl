@@ -148,6 +148,14 @@ entity sdcard_native is
     G_INIT_D    : natural := 3;
     G_DS_P      : natural := 13;        -- default speed: 24.9 MHz
     G_DS_D      : natural := 3;
+    -- SPI: 12.5 MHz.  In SPI the card launches a bit at the falling edge,
+    -- up to 14 ns late, and it is taken at the next rising edge with no
+    -- probing of the sampling point: at 24.9 MHz (the default speed's
+    -- clock) that left about 6 ns less the board's delay, and on hardware
+    -- a card's SPI reads and command responses failed now and then (84 read
+    -- CRC errors, 84 failed CMD12s in a stress run)
+    G_SPI_P     : natural := 26;
+    G_SPI_D     : natural := 3;
     G_HS_P      : natural := 8;         -- high speed: 40.5 MHz
     G_HS_D      : natural := 8;
     -- -1: original multiplexed engine; 0/1: own just that socket's I/O.
@@ -297,6 +305,7 @@ architecture rtl of sdcard_native is
   end function;
 
   constant SET_DS : unsigned(15 downto 0) := setting(G_DS_P, G_DS_D);
+  constant SET_SPI : unsigned(15 downto 0) := setting(G_SPI_P, G_SPI_D);
   constant SET_HS : unsigned(15 downto 0) := setting(G_HS_P, G_HS_D);
 
   ------------------------------------------------------------------------------
@@ -611,7 +620,7 @@ architecture rtl of sdcard_native is
   signal rca         : std_logic_vector(15 downto 0) := (others => '0');
   signal rca_nz      : std_logic := '0';     -- rca /= 0, registered
   signal cur_set     : unsigned(15 downto 0) := SET_DS;
-  -- cur_set is neither SET_DS nor SET_HS (registered; cur_set only changes
+  -- cur_set is none of SET_DS, SET_HS, SET_SPI (registered; cur_set only changes
   -- with a resync, long before a retry looks at this)
   signal cur_fast    : std_logic := '0';
   signal new_set     : unsigned(15 downto 0) := SET_DS;
@@ -1344,6 +1353,8 @@ begin
         if close_tries = 1 and cur_fast = '1' then
           if hs = '1' then
             cur_set <= SET_HS; new_set <= SET_HS;
+          elsif mode_native = '0' then
+            cur_set <= SET_SPI; new_set <= SET_SPI;
           else
             cur_set <= SET_DS; new_set <= SET_DS;
           end if;
@@ -1514,7 +1525,7 @@ begin
       if d13 /= 0 and d13(12) = '0' then sp_past <= '1'; else sp_past <= '0'; end if;
       if sp_bn = sp_cmd_end + 1 then sp_stuff <= '1'; else sp_stuff <= '0'; end if;
       if sp_bn - sp_cmd_end > 10 then sp_late <= '1'; else sp_late <= '0'; end if;
-      if cur_set /= SET_DS and cur_set /= SET_HS then
+      if cur_set /= SET_DS and cur_set /= SET_HS and cur_set /= SET_SPI then
         cur_fast <= '1';
       else
         cur_fast <= '0';
@@ -2057,6 +2068,8 @@ begin
               if e_argz = '1' then
                 if hs = '1' then
                   new_set <= SET_HS; cur_set <= SET_HS;
+                elsif mode_native = '0' then
+                  new_set <= SET_SPI; cur_set <= SET_SPI;
                 else
                   new_set <= SET_DS; cur_set <= SET_DS;
                 end if;
@@ -2248,6 +2261,8 @@ begin
               -- an accepted fast setting failed twice: back to normal
               if hs = '1' then
                 cur_set <= SET_HS; new_set <= SET_HS;
+              elsif mode_native = '0' then
+                cur_set <= SET_SPI; new_set <= SET_SPI;
               else
                 cur_set <= SET_DS; new_set <= SET_DS;
               end if;
@@ -3186,8 +3201,8 @@ begin
               istep  <= 12;
               st     <= P_DESEL;
             when 12 =>
-              new_set <= SET_DS;
-              cur_set <= SET_DS;
+              new_set <= SET_SPI;
+              cur_set <= SET_SPI;
               istep   <= 13;
               resync(P_INIT);
             when 13 =>

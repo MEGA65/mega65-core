@@ -41,7 +41,8 @@ entity sdcard_native_model is
     G_SDSC_CSIZE : natural range 0 to 4095 := 4095;
     G_SDSC_MULT : natural range 0 to 7 := 7;
     G_SPI_CMD8_FAILS : natural := 0;  -- first SPI CMD8s have no response
-    G_SPI_WRESP_LATE : natural := 0   -- SPI data response this many bits late (0-7)
+    G_SPI_WRESP_LATE : natural := 0;  -- SPI data response this many bits late (0-7)
+    G_SPI_CRC_EVERY : natural := 0    -- every Nth SPI data block read has a bad CRC
     );
   port (
     clk : in    std_logic;
@@ -577,6 +578,7 @@ begin
     variable data_reads_started : boolean := false;
     variable cmd8_fails : natural := 0;
     variable wv : std_logic_vector(47 downto 0);
+    variable crc_n : natural := 0;
 
     procedure push(v : std_logic_vector(7 downto 0)) is
     begin
@@ -597,6 +599,12 @@ begin
       if b = G_CRC_ERR_BLK and not err_done then
         cr(0) := not cr(0);
         err_done := true;
+      end if;
+      if G_SPI_CRC_EVERY /= 0 then
+        crc_n := crc_n + 1;
+        if crc_n mod G_SPI_CRC_EVERY = 0 then
+          cr(0) := not cr(0);
+        end if;
       end if;
       push(cr(15 downto 8)); push(cr(7 downto 0));
     end procedure;
