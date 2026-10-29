@@ -306,6 +306,14 @@ architecture rtl of sdcard_native is
 
   constant SET_DS : unsigned(15 downto 0) := setting(G_DS_P, G_DS_D);
   constant SET_SPI : unsigned(15 downto 0) := setting(G_SPI_P, G_SPI_D);
+  -- SPI: the card is idle once it has sent this many $FF bytes running.  A
+  -- card may start its busy a byte or more after a write's data response or
+  -- stop token (one byte after is allowed for): one $FF was taken as the end
+  -- of the busy, and a command sent while the card was still programming
+  -- reads a busy card's $00 as R1 "no error".  On hardware an SPI card lost
+  -- the sectors before a multi-block write's first in its 16 KB unit
+  -- (sdstress, no error seen)
+  constant SPI_IDLE_N : natural := 4;
   constant SET_HS : unsigned(15 downto 0) := setting(G_HS_P, G_HS_D);
 
   ------------------------------------------------------------------------------
@@ -628,6 +636,10 @@ architecture rtl of sdcard_native is
   signal tries       : natural range 0 to 15 := 0;
   signal tmo         : unsigned(27 downto 0) := (others => '0');
   signal tmo_z       : std_logic := '1';     -- tmo is 0
+  -- SPI: the wait for the card's idle before a command (its own timer: the
+  -- caller's tmo runs on, for the response or data after the command)
+  signal pw_tmo      : unsigned(27 downto 0) := (others => '0');
+  signal pw_tmo_z    : std_logic := '1';
   signal cnt         : unsigned(10 downto 0) := (others => '0');
 
   -- command mailbox
@@ -1539,6 +1551,12 @@ begin
           tmo_z <= '1';
         end if;
       end if;
+      if pw_tmo /= 0 then
+        pw_tmo <= pw_tmo - 1;
+        if pw_tmo = 1 then
+          pw_tmo_z <= '1';
+        end if;
+      end if;
 
       -- write FIFO: drop entries of an earlier fetch
       if wf_head(8) /= w_seq and wf_rp /= wf_wp_e then
@@ -2321,7 +2339,15 @@ begin
         when S_CMD_WAIT =>
           run <= '1';
           if mode_native = '0' then
-            sp_n <= 0;
+            -- (not CMD0: the card's state is not known; not CMD12: it stops
+            -- a read's data, which is not $FF)
+            if c_idx = 0 or c_idx = 12 then
+              sp_n <= 0;
+            else
+              sp_n <= 9;
+            end if;
+            pw_tmo   <= to_unsigned(TMO_BUSY, 28);
+            pw_tmo_z <= '0';
             st   <= S_CMD;
           elsif c_done = '1' then
             st <= ret_st;
@@ -2359,8 +2385,10 @@ begin
             st     <= ret_st;
           end if;
 
-        -- SPI: 6 command bytes, then R1 in one of the following bytes (CMD12:
-        -- not in the stuff byte right after it); R3/R7 add 4 bytes, R1b a busy
+        -- SPI: first (sp_n 9, 10) the card idle: SPI_IDLE_N $FF bytes running
+        -- after the wait began; then 6 command bytes, then R1 in one of the
+        -- following bytes (CMD12: not in the stuff byte right after it); R3/R7
+        -- add 4 bytes, R1b a busy
         when S_CMD =>
           run <= '1';
           if sp_ld = '1' then
@@ -2376,8 +2404,31 @@ begin
             else
               sp_tx_next <= x"FF";
             end if;
+            if sp_n = 9 then
+              -- (bytes from before the wait, CS high perhaps, do not count)
+              sp_cmd_end <= sp_ld_n;
+              sp_ref_chg <= '1';
+              sp_cnt     <= 0;
+              sp_n       <= 10;
+            end if;
           end if;
-          if sp_n = 6 and sp_new_d = '1' and sp_ref_chg = '0' and sp_past = '1' then
+          if sp_n = 10 then
+            if sp_new_d = '1' and sp_ref_chg = '0' and sp_past = '1' then
+              if sp_ff = '0' then
+                sp_cnt <= 0;
+              elsif sp_cnt = SPI_IDLE_N - 1 then
+                sp_n <= 0;
+              else
+                sp_cnt <= sp_cnt + 1;
+              end if;
+            end if;
+            if pw_tmo_z = '1' then
+              -- busy for good: as no response
+              c_ok  <= '0';
+              sp_r1 <= x"FF";
+              st    <= ret_st;
+            end if;
+          elsif sp_n = 6 and sp_new_d = '1' and sp_ref_chg = '0' and sp_past = '1' then
             if sp_byte(7) = '0' and not (c_idx = 12 and sp_stuff = '1') then
               sp_r1  <= sp_byte;
               c_ok   <= '1';
@@ -3548,8 +3599,12 @@ begin
                 sp_ok <= '0';
                 st    <= P_FIN;
               end if;
-            elsif sp_ff = '1' then
-              -- programmed
+            elsif sp_ff = '0' then
+              sp_cnt <= 1;
+            elsif sp_cnt < SPI_IDLE_N then
+              sp_cnt <= sp_cnt + 1;
+            else
+              -- programmed (SPI_IDLE_N $FF bytes running)
               op_done <= op_done + 1;
               blk_settle <= "11";
               op_try  <= 0;
@@ -3582,10 +3637,17 @@ begin
               sp_tx_next <= x"FF";
             end if;
           end if;
-          if sp_cnt = 1 and sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' and sp_ff = '1' then
-            sp_ok <= '1';
-            st    <= P_FIN;
-          elsif sp_cnt = 1 and tmo_z = '1' then
+          if sp_cnt /= 0 and sp_new_d = '1' and sp_ref_chg = '0' and sp_tpast = '1' then
+            -- done after SPI_IDLE_N $FF bytes running
+            if sp_ff = '0' then
+              sp_cnt <= 1;
+            elsif sp_cnt < SPI_IDLE_N then
+              sp_cnt <= sp_cnt + 1;
+            else
+              sp_ok <= '1';
+              st    <= P_FIN;
+            end if;
+          elsif sp_cnt /= 0 and tmo_z = '1' then
             e_err <= ERR_WR_TMO;
             sp_ok <= '0';
             st    <= P_FIN;

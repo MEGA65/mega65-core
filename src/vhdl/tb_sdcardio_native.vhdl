@@ -29,6 +29,7 @@ entity tb_sdcardio_native is
     G_CACHE_LINES : natural := 16;
     G_SPI_CARD    : boolean := false;
     G_SPI_LATE    : natural := 0;      -- the SPI card's data responses late, bits
+    G_SPI_BUSY_LATE : natural := 0;    -- the SPI card's busy after a write this many bytes late
     G_SPI_CRC_EVERY : natural := 0;    -- every Nth SPI block read: bad CRC
     G_DUAL_TEST : boolean := false;
     G_CARD0_PRESENT : boolean := true;
@@ -173,6 +174,7 @@ begin
                    G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_SIZE_UNITS => size_units,
                    G_SDHC => not G_TAIL_TEST, G_SDSC_CSIZE => sdsc_csize, G_SDSC_MULT => sdsc_mult,
                    G_SPI_CMD8_FAILS => spi_cmd8_fails, G_SPI_WRESP_LATE => G_SPI_LATE,
+                   G_SPI_BUSY_LATE => G_SPI_BUSY_LATE,
                    G_SPI_CRC_EVERY => G_SPI_CRC_EVERY)
       port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
   end generate;

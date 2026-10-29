@@ -179,7 +179,17 @@ few bits late (Linux's `mmc_spi` does the same; its first 3 bits are
 undefined).  On hardware a card's late response was missed, and the write
 failed with `$33` (no data response).  `G_SPI_LATE=3`
 (`run_sdcard_tests.py io-spi-late`) sends every other response 3 bits late.
-The busy after it ends at a whole `$FF` byte.  SPI byte positions are 13-bit
+The busy after it, or after a multi-block write's stop token, ends only after
+four `$FF` bytes in a row, and before every SPI command but CMD0 and CMD12 the
+controller clocks `$FF` until the card has sent four `$FF` bytes in a row (up
+to 1.5 s, then the command fails as unanswered), as native mode waits for
+DAT0 high before a read or write.  A card may start its busy a byte or more
+late, and a busy card holds DO low: a command sent then reads its `$00` as R1
+"no error".  On hardware an SPI card lost the 26 sectors before a
+multi-block write's first in its 16 KB unit, with no error seen.
+`G_SPI_BUSY_LATE=3` (`io-spi-busy-late`, `io-spi-replay-busy`) starts the
+model's busy 3 bytes late; the model reports a command or data token sent
+while it is busy.  SPI byte positions are 13-bit
 numbers that wrap every 8192 bytes; "after" a command or a write's CRC is up
 to 4095 bytes on (a plain compare missed a response just after a wrap, and
 the operation timed out: `$32` after a write block).

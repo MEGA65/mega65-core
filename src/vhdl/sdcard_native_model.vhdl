@@ -42,7 +42,11 @@ entity sdcard_native_model is
     G_SDSC_MULT : natural range 0 to 7 := 7;
     G_SPI_CMD8_FAILS : natural := 0;  -- first SPI CMD8s have no response
     G_SPI_WRESP_LATE : natural := 0;  -- SPI data response this many bits late (0-7)
-    G_SPI_CRC_EVERY : natural := 0    -- every Nth SPI data block read has a bad CRC
+    G_SPI_CRC_EVERY : natural := 0;   -- every Nth SPI data block read has a bad CRC
+    -- SPI: a write's busy starts this many bytes late ($FF before it), after
+    -- the data response and after the byte that follows the stop token; a
+    -- command or data token while the card is busy is an error
+    G_SPI_BUSY_LATE : natural := 0
     );
   port (
     clk : in    std_logic;
@@ -551,6 +555,9 @@ begin
     type t_q is array (0 to 4095) of std_logic_vector(7 downto 0);
     variable q        : t_q;
     variable qh, qt   : natural := 0;
+    -- the queued byte is the card's busy
+    type t_qb is array (0 to 4095) of boolean;
+    variable qb       : t_qb := (others => false);
     variable mem      : t_mem;
     variable tags     : t_tags := (others => -1);
     variable txb      : std_logic_vector(7 downto 0) := x"FF";
@@ -583,7 +590,35 @@ begin
     procedure push(v : std_logic_vector(7 downto 0)) is
     begin
       q(qt) := v;
+      qb(qt) := false;
       qt := (qt + 1) mod 4096;
+    end procedure;
+
+    -- n bytes of busy, after G_SPI_BUSY_LATE bytes of $FF when late
+    procedure push_busy(n : natural; late : boolean) is
+    begin
+      if late then
+        for i in 1 to G_SPI_BUSY_LATE loop push(x"FF"); end loop;
+      end if;
+      for i in 1 to n loop
+        q(qt) := x"00";
+        qb(qt) := true;
+        qt := (qt + 1) mod 4096;
+      end loop;
+    end procedure;
+
+    -- a command or data token must not come while the card is busy
+    procedure check_busy(what : string) is
+      variable i : natural;
+    begin
+      i := qh;
+      while i /= qt loop
+        if qb(i) then
+          report "SPI model: " & what & " while the card is busy" severity error;
+          exit;
+        end if;
+        i := (i + 1) mod 4096;
+      end loop;
     end procedure;
 
     procedure push_block(b : natural) is
@@ -688,7 +723,11 @@ begin
                 -- each comes after the other
                 if G_SPI_WRESP_LATE = 0 or wblk mod 2 = 0 then
                   push(x"E5");
-                  for i in 1 to 4 loop push(x"00"); end loop;
+                  if G_SPI_BUSY_LATE = 0 then
+                    push_busy(4, false);
+                  else
+                    push_busy(16, true);
+                  end if;
                 else
                   wv := x"E5" & x"00000000" & x"FF";
                   wv := std_logic_vector(shift_right(unsigned(wv), G_SPI_WRESP_LATE));
@@ -703,13 +742,22 @@ begin
               end if;
             end if;
           elsif wr_on and cmdn = 0 and (rxb = x"FE" or rxb = x"FC") then
+            check_busy("a data token");
             wn := 0;
             wcrc := (others => '0');
           elsif wr_on and cmdn = 0 and rxb = x"FD" then
             wr_on := false;
             push(x"FF");
-            for i in 1 to 4 loop push(x"00"); end loop;
+            if G_SPI_BUSY_LATE = 0 then
+              push_busy(4, false);
+            else
+              push_busy(16, true);
+            end if;
           elsif cmdn > 0 or rxb(7 downto 6) = "01" then
+            -- (CMD0 resets, CMD12 stops a read: allowed at any time)
+            if cmdn = 0 and rxb(5 downto 0) /= "000000" and rxb(5 downto 0) /= "001100" then
+              check_busy("command " & integer'image(to_integer(unsigned(rxb(5 downto 0)))));
+            end if;
             cmdb := cmdb(39 downto 0) & rxb;
             cmdn := cmdn + 1;
             if cmdn = 6 then
@@ -770,7 +818,7 @@ begin
                     qh := qt;                -- drop the data
                     push(x"FF");             -- stuff byte
                     push(x"00");             -- R1
-                    push(x"00"); push(x"00");  -- busy
+                    push_busy(2, false);
                   when 24 | 25 =>
                     if G_SDHC then wblk := to_integer(unsigned(arg));
                     else wblk := to_integer(unsigned(arg(31 downto 9))); end if;

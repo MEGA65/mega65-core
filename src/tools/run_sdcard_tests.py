@@ -74,6 +74,8 @@ VARIANTS = [
     ("io-tail", "tb_sdcardio_native", ["G_TAIL_TEST=true"], "800ms"),
     ("io-reinit", "tb_sdcardio_native", ["G_REINIT_TEST=true"], "800ms"),
     ("io-spi-late", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_SPI_LATE=3"], "800ms"),
+    ("io-spi-busy-late", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_SPI_BUSY_LATE=3"], "800ms"),
+    ("io-spi-replay-busy", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_REPLAY_TEST=true", "G_SPI_BUSY_LATE=3"], "800ms"),
     ("io-spi-replay", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_REPLAY_TEST=true"], "800ms"),
     ("io-spi-replay-crc", "tb_sdcardio_native", ["G_SPI_CARD=true", "G_REPLAY_TEST=true", "G_SPI_CRC_EVERY=7"], "800ms"),
     ("io-replay", "tb_sdcardio_native", ["G_REPLAY_TEST=true"], "800ms"),
