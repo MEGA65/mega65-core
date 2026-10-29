@@ -657,7 +657,7 @@ static void read1(uint16_t rel)
 static void read_seq(uint16_t rel, uint8_t n)
 {
   uint8_t i;
-  for (i = 0; i < n; i++) read1(rel + i);
+  for (i = 0; i < n && !stop_now; i++) read1(rel + i);
 }
 
 /* how: 0 read all and end with $09, 1 leave open, 2 end with $0a */
@@ -843,7 +843,9 @@ static void stress(uint32_t max_ops)
     if (n_ops % 500 == 0) { log_op(O_SWEEP, 0, 0, 0); sweep(); }
     if (key_stop || key_pressed() || stop_now) break;
   }
-  sweep();
+  /* (not after the first error when stopping there: the controller and
+     the card are left as they were, and the error stays on the screen) */
+  if (!stop_now) sweep();
   printf("\n\ndone: %lu operations, %lu sectors read, %lu written\n"
          "errors: controller %lu, stale cache %lu, wrong on the card %lu\n",
          (unsigned long)n_ops, (unsigned long)n_read, (unsigned long)n_written,
