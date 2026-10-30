@@ -1021,6 +1021,17 @@ begin
       poke(16#D36CE#, 17); peek(16#D36CF#, v);
       check(v /= 0, "slot 1 selected, no command since: its failed init's record");
       poke(16#D3680#, 16#C0#);
+      -- a lone $01 out of reset, as FDISK writes before every sector:
+      -- no init (the legacy controller's starts as its reset is released)
+      poke(16#D3680#, 16#01#);
+      peek(16#D3680#, v);
+      check(v(1 downto 0) = "00", "a lone $01 out of reset starts no init");
+      peek(16#D3686#, v);
+      check(v(0) = '1' and v(7) = '0', "  ... and the card stays ready");
+      set_sector(6);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      check_buffer(6, false, "  ... and reads");
 
       -- Also reset an already working card: its old ready/idle status must
       -- not leak through the mailbox before INIT reaches the SD engine.

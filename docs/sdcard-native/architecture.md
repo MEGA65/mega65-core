@@ -98,6 +98,7 @@ The fork keeps the existing `$D680` interface and adds:
 
 | Command | Meaning |
 |---|---|
+| `$00` then `$01` | Reset, then initialise (as legacy).  A `$01` with the slot not in reset (since `$00`/`$10`, or power-up) only clears the errors: the legacy init starts as its reset is released, and FDISK writes `$01` before every sector write |
 | `$07` / `$08` / `$09` | Multi-sector read: first / next / last |
 | `$0A` | End an open multi-sector read or write |
 | `$20` | Probe a clock setting.  P is in `$D681`, D in `$D682`; pass/fail counts appear in `$D09B` / `$D09C` |

@@ -3490,7 +3490,12 @@ begin  -- behavioural
                   end if;
 
                 when x"01" | x"11" =>
-                  -- End reset: initialise the card in the selected slot
+                  -- End reset: initialise the card in the selected slot, if
+                  -- it is in reset ($00/$10, or since power-up), as the legacy
+                  -- controller's init starts as its reset is released.
+                  -- Otherwise this only clears the errors: FDISK writes $01
+                  -- before every sector write, and an init for each wedged a
+                  -- card (one came while it was busy and timed out at CMD7)
                   ui_reset(card_index(sd_interface_select_internal)) <= '0';
                   ui_error(card_index(sd_interface_select_internal)) <= '0';
                   ui_fsm_error(card_index(sd_interface_select_internal)) <= '0';
@@ -3509,10 +3514,12 @@ begin  -- behavioural
                   end if;
                   read_on_idle <= '0';
                   end if;
-                  nat_init_req <= '1';
-                  nat_init_slot <= sd_interface_select_internal;
-                  nat_init_both <= '0';
-                  nat_init_flags <= x"0";
+                  if ui_reset(card_index(sd_interface_select_internal)) = '1' then
+                    nat_init_req <= '1';
+                    nat_init_slot <= sd_interface_select_internal;
+                    nat_init_both <= '0';
+                    nat_init_flags <= x"0";
+                  end if;
 
                 when x"23" | x"24" =>
                   -- Initialise again: $23 SPI only, $24 no high speed
