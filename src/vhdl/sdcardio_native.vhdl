@@ -1262,7 +1262,7 @@ begin  -- behavioural
   -- An open multi-sector transfer is still ready between granted blocks.
   sdcard_busy    <= ui_reset(card_index(nat_slot)) or nat_init_wait
                    or not nat_quiet or not nat_cmd_ready or not nat_card_ready
-                   or nat_error or sdio_error
+                   or nat_error or (sdio_error and not sdio_refused)
                    or (nat_busy and not nat_waiting);
 
   -- what used to come from the old controller
