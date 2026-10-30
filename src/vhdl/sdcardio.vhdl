@@ -2709,7 +2709,9 @@ begin  -- behavioural
                     report "Commencing FDC buffered write.";
                   end if;
                 when x"10" =>         -- head step out, or no step
-                  f011_head_track <= f011_head_track - 1;
+                  if f011_head_track /= 0 then
+                    f011_head_track <= f011_head_track - 1;
+                  end if;
                   f_step <= '0';
                   f_stepdir <= '1';
                   step_countdown <= 500;
