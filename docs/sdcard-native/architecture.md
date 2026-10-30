@@ -413,7 +413,10 @@ overflow. An open multi-sector read/write accepts only in-range grants;
 an out-of-range next grant closes the existing stream and returns an error
 without transferring that sector. Error `$44` means out of range; `$45`
 means the capacity is unavailable/unsupported. Legacy sticky error/BUSY
-semantics are retained, allowing existing sector-reading tools, including
+semantics are retained (an error holds BUSY, except a refused command's: one
+written while busy, a write with its gate shut or refused by the read-only
+policy, or an unknown command, which as on the legacy controller sets bits
+6/5 only, so a running read still ends; Duel2 writes `$02` without waiting), allowing existing sector-reading tools, including
 the freezer, to encounter an error at the reported end without changing
 their read commands. The limit uses the card's advertised capacity.
 

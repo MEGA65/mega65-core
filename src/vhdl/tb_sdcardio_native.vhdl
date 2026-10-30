@@ -1032,6 +1032,29 @@ begin
       poke(16#D3680#, 16#02#);
       wait_ready(5 ms);
       check_buffer(6, false, "  ... and reads");
+      -- a read written while one runs, as Duel2's streaming loop does:
+      -- refused (bits 6/5), but the running read ends and BUSY clears, as on
+      -- the legacy controller (an error held BUSY, and Duel2 hung)
+      set_sector(200);
+      poke(16#D3680#, 16#02#);
+      poke(16#D3680#, 16#02#);
+      peek(16#D3680#, v);
+      check(v(6) = '1' and v(5) = '1', "a read while one runs: refused (bits 6/5)");
+      t0 := now;
+      loop
+        peek(16#D3680#, v);
+        exit when v(1 downto 0) = "00" or now - t0 > 5 ms;
+        wait for 10 us;
+      end loop;
+      check(v(1 downto 0) = "00", "  ... and the running read ends: BUSY clears");
+      check(v(6) = '1', "  ... the error shown until the next command");
+      check_buffer(200, false, "  ... with its sector");
+      set_sector(400);
+      poke(16#D3680#, 16#02#);
+      wait_ready(5 ms);
+      peek(16#D3680#, v);
+      check(v(6) = '0' and v(5) = '0', "  ... and the next read clears it");
+      check_buffer(400, false, "  ... and reads");
 
       -- Also reset an already working card: its old ready/idle status must
       -- not leak through the mailbox before INIT reaches the SD engine.

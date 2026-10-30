@@ -470,6 +470,9 @@ architecture behavioural of sdcardio_native is
   signal ui_info        : unsigned(31 downto 0);
   signal ui_reset       : std_logic_vector(1 downto 0) := "11";
   signal ui_error       : std_logic_vector(1 downto 0) := "00";
+  signal ui_refused     : std_logic_vector(1 downto 0) := "00";
+  signal sdio_refused   : std_logic := '0';
+  signal ui_hold_err    : std_logic;
   signal ui_fsm_error   : std_logic_vector(1 downto 0) := "00";
   signal ui_sdhc        : std_logic_vector(1 downto 0) := "11";
   signal ui_open_rd, ui_open_wr : std_logic_vector(1 downto 0) := "00";
@@ -1283,10 +1286,17 @@ begin  -- behavioural
     when nat_init_both = '1' or sd_interface_select_internal = nat_init_slot else '0';
   ui_error_flag <= '0' when ui_pending_init = '1' else
     ui_info(3) or ui_error(card_index(sd_interface_select_internal)) or (sdio_error and ui_owner);
+  -- an error holds BUSY (as the legacy SPI controller's did after a card
+  -- failure) unless it is only a refused command's (busy, write gate shut,
+  -- read-only policy, unknown command), which the legacy controller showed
+  -- in bits 6/5 alone: Duel2 writes $02 without waiting, and the running
+  -- read then ends as usual
+  ui_hold_err <= ui_info(3) or not (ui_refused(card_index(sd_interface_select_internal))
+    or (sdio_refused and ui_owner));
   ui_fsm_flag <= ui_fsm_error(card_index(sd_interface_select_internal)) or (sdio_fsm_error and ui_owner);
   ui_sdio_busy <= (sdio_busy and ui_owner) or qspi_busy or fe_running;
   ui_busy <= '1' when ui_reset(card_index(sd_interface_select_internal)) = '1' or ui_pending_init = '1'
-    or ui_error_flag = '1' else
+    or (ui_error_flag = '1' and ui_hold_err = '1') else
     sdcard_busy when ui_owner = '1' else (ui_info(1) and not ui_info(2)) or not ui_info(0);
   ui_token <= (others => '0') when ui_pending_init = '1' else
     ui_info(3) & (ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1))
@@ -2291,6 +2301,7 @@ begin  -- behavioural
         fs_programs_ro <= f011_buffer_wdata(0);
       end if;
       ui_error(card_index(nat_slot)) <= sdio_error;
+      ui_refused(card_index(nat_slot)) <= sdio_refused;
       ui_saved_code(card_index(nat_slot)) <= nat_err_code;
       ui_fsm_error(card_index(nat_slot)) <= sdio_fsm_error;
       ui_open_rd(card_index(nat_slot)) <= nat_open_rd;
@@ -2324,6 +2335,7 @@ begin  -- behavioural
           nat_init_wait <= '0';
           if nat_error='1' then
             sdio_error <= '1';
+            sdio_refused <= '0';
           end if;
         end if;
       end if;
@@ -3458,6 +3470,7 @@ begin  -- behavioural
                 fe_last <= '0';
                 nat_slot <= sd_interface_select_internal;
                 sdio_error <= ui_error(card_index(sd_interface_select_internal));
+                sdio_refused <= ui_refused(card_index(sd_interface_select_internal));
                 sdio_fsm_error <= ui_fsm_error(card_index(sd_interface_select_internal));
                 nat_open_rd <= ui_open_rd(card_index(sd_interface_select_internal)) and ui_info(1);
                 nat_open_wr <= ui_open_wr(card_index(sd_interface_select_internal)) and ui_info(1);
@@ -3587,6 +3600,10 @@ begin  -- behavioural
                   sd_write_multi_last <= '0';
                   if sdio_busy='1' then
                     ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_refused <= '1';
+                    end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -3639,6 +3656,10 @@ begin  -- behavioural
                     fe_status_r <= x"0F";
                     fe_last <= '1';
                     ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_refused <= '1';
+                    end if;
                     if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                       sdio_error <= '1';
                     end if;
@@ -3655,6 +3676,10 @@ begin  -- behavioural
                     if sdio_busy='1' then
                       report "SDWRITE: sdio_busy is set, not writing";
                       ui_error(card_index(sd_interface_select_internal)) <= '1';
+                      ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                      if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                        sdio_refused <= '1';
+                      end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -3688,6 +3713,10 @@ begin  -- behavioural
                   elsif fastio_wdata = x"03" then
                     report "SDWRITE: Attempt to write a sector without opening the gate";
                     ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_refused <= '1';
+                    end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -3704,6 +3733,10 @@ begin  -- behavioural
                   -- without reset ($2A).
                   if sdio_busy='1' then
                     ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_refused <= '1';
+                    end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -3740,6 +3773,7 @@ begin  -- behavioural
                   -- results afterwards; status in $D687.
                   if sdio_busy='1' or not sd_fat32 then
                     sdio_error <= '1';
+                    sdio_refused <= '1';
                     sdio_fsm_error <= '1';
                   else
                     fe_start <= '1';
@@ -3761,6 +3795,10 @@ begin  -- behavioural
                   -- $D681/$D682, or go back to normal ($22)
                   if sdio_busy='1' then
                     ui_error(card_index(sd_interface_select_internal)) <= '1';
+                    ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                    if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                      sdio_refused <= '1';
+                    end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -3842,6 +3880,10 @@ begin  -- behavioural
 
                 when others =>
                   ui_error(card_index(sd_interface_select_internal)) <= '1';
+                  ui_refused(card_index(sd_interface_select_internal)) <= '1';
+                  if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
+                    sdio_refused <= '1';
+                  end if;
                   if sdio_busy = '0' or sd_interface_select_internal = nat_slot then
                     sdio_error <= '1';
                   end if;
@@ -4425,6 +4467,7 @@ begin  -- behavioural
             sd_state <= DoneReadingSector;
           elsif nat_quiet='1' and nat_cmd_ready='1' and nat_error='1' then
             sdio_error <= '1';
+            sdio_refused <= '0';
             sdio_busy <= '0';
             nat_open_rd <= '0';
             if f011_sector_fetch='1' then
@@ -5142,6 +5185,7 @@ begin  -- behavioural
           if nat_quiet='1' and nat_cmd_ready='1' then
             if nat_error='1' then
               sdio_error <= '1';
+              sdio_refused <= '0';
               sdio_busy <= '0';
               nat_open_wr <= '0';
               if f011_busy='1' then
@@ -5252,6 +5296,7 @@ begin  -- behavioural
             fe_last <= '1';
             if fe_status /= x"00" then
               sdio_error <= '1';
+              sdio_refused <= '0';
             end if;
             nat_slot <= sd_interface_select_internal;
             sdio_busy <= '0';
