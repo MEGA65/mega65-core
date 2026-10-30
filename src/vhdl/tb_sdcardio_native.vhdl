@@ -98,7 +98,10 @@ architecture tb of tb_sdcardio_native is
   signal sd_dat_o  : std_logic_vector(7 downto 0);
   signal sd_dat_oe : std_logic_vector(7 downto 0);
   signal sd_dat_i  : std_logic_vector(7 downto 0) := (others => '1');
-  signal sd_cd_t   : std_logic_vector(1 downto 0) := "11";   -- card detect levels
+  -- card detect levels: low when a card is in (on hardware the switch pulls
+  -- the line low); high, the default, is an empty slot to the controller
+  -- (only the change and $D687's $03 look at it)
+  signal sd_cd_t   : std_logic_vector(1 downto 0) := "11";
 
   signal card_clk : std_logic := '1';
   signal card_cmd : std_logic;
@@ -372,7 +375,7 @@ begin
       check_buffer(n, false, "raw read after f011");
     end procedure;
 
-    variable v : unsigned(7 downto 0);
+    variable v, v2 : unsigned(7 downto 0);
     variable t0 : time;
     variable lfsr : unsigned(31 downto 0) := x"1234ABCD";
     variable r, ft, fs, fn : natural;
@@ -961,6 +964,19 @@ begin
       check(v = 1, "empty external slot reports ERR_NOCARD");
       peek(16#D3680#, v);
       check(v(1 downto 0) /= "00", "empty slot stays unavailable to Hyppo's busy-bit test");
+      -- with its card detect saying a card is in, the same failure reads $03
+      -- (present, answering nothing), and nothing else changes
+      peek(16#D3680#, v2);
+      sd_cd_t(1) <= '0';
+      wait for 2500 us;
+      peek(16#D3687#, v);
+      check(v = 3, "a slot whose card is in but answers nothing reports $03");
+      peek(16#D3680#, v);
+      check(v = v2, "  ... $D680 as for $01");
+      sd_cd_t(1) <= '1';
+      wait for 2500 us;
+      peek(16#D3687#, v);
+      check(v = 1, "  ... and $01 again once its card detect says empty");
 
       -- Fall back to the populated internal slot, polling immediately as
       -- firmware does.  A queued INIT must hide the previous idle status.
@@ -1268,7 +1284,7 @@ begin
     poke(16#D36CE#, 16#10#);
     peek(16#D36CF#, v);
     report "  card detect byte: " & integer'image(to_integer(v));
-    check(v = x"05", "card detect: both cards present, no changes");
+    check(v = x"05", "card detect: both slots' lines high (empty), no changes");
     set_sector(60);
     poke(16#D3680#, 16#02#);
     wait_ready(5 ms);

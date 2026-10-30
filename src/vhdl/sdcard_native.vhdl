@@ -268,6 +268,8 @@ architecture rtl of sdcard_native is
   constant ERR_NONE     : unsigned(7 downto 0) := x"00";
   constant ERR_NOCARD   : unsigned(7 downto 0) := x"01";  -- no card answered
   constant ERR_INIT     : unsigned(7 downto 0) := x"02";  -- init failed
+  -- ($03: sdcardio_native's $D687 shows ERR_NOCARD so when the slot's
+  -- card-detect switch says a card is in: present but answering nothing)
   constant ERR_CMD      : unsigned(7 downto 0) := x"10";  -- command not answered / refused
   constant ERR_RD_TMO   : unsigned(7 downto 0) := x"20";  -- no read data
   constant ERR_RD_CRC   : unsigned(7 downto 0) := x"21";  -- read data bad (after retries)

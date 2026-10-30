@@ -39,9 +39,11 @@ note what does not (a photo of the screen is fine).
 3. `A`: the four card information pages.
 4. `X` on a healthy card: recovers without a reset (the CMD12/CMD13 fix,
    [rom-load-debug.md](rom-load-debug.md), still waits for this).
-5. Card detect: in the monitor, `S D36CE 10` then `M D36CF`: bit 0 slot 0
-   present, bit 2 slot 1 present.  Pull the external card: bit 2 clears and
-   bit 5 (changed) sets; `S D36CE 50` clears bit 5.
+5. Card detect: in the monitor, `S D36CE 10` then `M D36CF`: bit 0 slot 0,
+   bit 2 slot 1, each low when a card is in (bit 1, slot 0's write protect,
+   reads high with no card).  Pull the full-size card: bit 0 sets and bit 4
+   (changed) sets; `S D36CE 50` clears bits 4-5.  (Checked on an r6: card in
+   `$04`, out `$17`, back in `$14`.)
 
 6. `sdstress`, mode 1 (init report, reads only): each card's bus, CID, and
    for a card that fell back to SPI, the init step that failed.

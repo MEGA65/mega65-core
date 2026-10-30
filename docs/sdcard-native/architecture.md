@@ -167,6 +167,17 @@ when neither happened, and cleared by every init.
 | 19 | The failed test read's error code |
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian; for an SPI step, byte 23 is its R1 and 20-22 the low 24 bits of the R3/R7 after it |
 
+**Present but not answering.**  `$D687` reads `$03` in place of `$01` (no
+card answered) when the selected slot's card-detect switch says a card is in
+(diagnostic byte 16: bit 0 slot 0, bit 2 slot 1, low when a card is in).  An
+empty slot and a card that answers nothing fail the init alike (native step
+4, then the SPI fallback); only card detect tells them apart.  On hardware a
+card that had a native init and then an SPI-only one (`$23`) answered no
+init of either kind until it was re-inserted, which powers it off and on (the
+sockets have no power switch).  Only the code differs: `$D680` and `$D686`
+are as for `$01`, and a board without card detect (the input defaults to
+"no card") still reads `$01`.
+
 An SPI init that fails is tried once more before it gives up (with or
 without a native fallback before it).  On hardware a card's first SPI-only
 init after it was inserted failed with `$02` and the next passed; a card

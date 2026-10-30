@@ -1757,7 +1757,18 @@ begin  -- behavioural
           -- @IO:GS $D686 - DEBUG SD card data token
           when x"86" => fastio_rdata <= ui_token;
           -- @IO:GS $D687 - DEBUG SD card most recent byte read
-          when x"87" => fastio_rdata <= ui_errcode;
+          -- (error code.  $01, no card answered, reads as $03 when the
+          -- selected slot's card-detect switch says a card is in: a card
+          -- that answers nothing until it is re-inserted (power cycled), as
+          -- one that took a native CMD0 does after an SPI-only init ($23).
+          -- Only the code differs: $D680/$D686 are as for $01.)
+          when x"87" =>
+            if ui_errcode = x"01"
+              and cd_stable(card_index(sd_interface_select_internal)) = '0' then
+              fastio_rdata <= x"03";
+            else
+              fastio_rdata <= ui_errcode;
+            end if;
           -- @IO:GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
