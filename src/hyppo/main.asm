@@ -840,6 +840,30 @@ trybus0:
 sd_boot_no_card:
         ;; No working SD card -- we can just try booting to BASIC, since we
         ;; now include our open-source ROM
+        jsr sd_card_not_answering
+        bcc sd_boot_no_card_msg
+
+        ;; A card is in but answered nothing: it needs taking out and putting
+        ;; back, or a power cycle. Say so and wait, as for SPI mode, so that
+        ;; it is seen before the ROM clears the screen.
+        ldx #<msg_sd_noresp
+        ldy #>msg_sd_noresp
+        jsr printmessage
+        ldx #<msg_sd_noresp_fix
+        ldy #>msg_sd_noresp_fix
+        jsr printmessage
+        ldx #<msg_sd_noresp_continue
+        ldy #>msg_sd_noresp_continue
+        jsr printmessage
+sd_noresp_drain_keys:
+        jsr scankeyboard
+        bcc sd_noresp_drain_keys
+sd_noresp_wait_key:
+        jsr scankeyboard
+        bcs sd_noresp_wait_key
+        jmp go64
+
+sd_boot_no_card_msg:
         ldx #<msg_nosdcard
         ldy #>msg_nosdcard
         jsr printmessage
@@ -3172,6 +3196,12 @@ msg_sdcarderror:        !text "ERROR READING FROM SD CARD"
 ;; msg_sdredoread:      !text "RE-READING SDCARD"
 ;;                      !8 0
 msg_nosdcard:           !text "NO SDCARD, TRYING BUILT-IN ROM"
+                        !8 0
+msg_sd_noresp:          !text "SD CARD IS IN BUT NOT RESPONDING."
+                        !8 0
+msg_sd_noresp_fix:      !text "REINSERT IT OR POWER-CYCLE, THEN RESET."
+                        !8 0
+msg_sd_noresp_continue: !text "PRESS ANY KEY TO TRY BUILT-IN ROM"
                         !8 0
 msg_badformat:          !text "BAD MBR OR DOS BOOT SECTOR."
                         !8 0

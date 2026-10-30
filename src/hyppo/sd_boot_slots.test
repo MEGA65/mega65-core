@@ -39,13 +39,16 @@ loadhypposymbols src/hyppo/HICKUP.sym
 let b = $BF
 poke $FFD36CC $53 $01
 mock read $FFD3680 $5A
-expect write $FFD3680 $C1 $00 $01 $C0 $00 $01
+mock read $FFD3687 $01
+expect write $FFD3680 $C1 $00 $01 $C0 $00 $01 $C1 $C0
 poke printmessage $60
 breakpoint check_sd_bus_mode
 breakpoint go64
+breakpoint sd_noresp_drain_keys
 jmp sd_boot_probe_cards
 assert pc = go64
 assert reads $FFD3680 = $02
+assert reads $FFD3687 = $02
 check writes
 test end
 
@@ -111,16 +114,92 @@ let b = $BF
 poke $FFD36CC $53 $01
 poke $FFD36D7 $D2
 mock read $FFD3680 $5A
-expect write $FFD3680 $C1 $2B $C0
+mock read $FFD3687 $01
+expect write $FFD3680 $C1 $2B $C0 $C1 $C0
 poke printmessage $60
 breakpoint check_sd_bus_mode
 breakpoint go64
+breakpoint sd_noresp_drain_keys
 jmp sd_boot_probe_cards
 assert pc = go64
 assert reads $FFD3680 = $02
 check writes
 test end
 
+
+test "Boot slots: internal card in but not answering waits for a key"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke $FFD36CC $53 $01
+mock read $FFD3680 $5A
+# $D687 for the external slot, then the internal one: $03, card in, no answer.
+mock read $FFD3687 $01 $03
+expect write $FFD3680 $C1 $00 $01 $C0 $00 $01 $C1 $C0
+poke printmessage $60
+# Model a pending-key count at $C000; the mock consumes one key per call.
+poke $C000 $01
+poke scankeyboard $AD $00 $C0 $F0 $05 $CE $00 $C0 $18 $60 $38 $60
+breakpoint check_sd_bus_mode
+breakpoint sd_boot_no_card_msg
+breakpoint sd_noresp_wait_key
+breakpoint go64
+jmp sd_boot_probe_cards
+assert pc = sd_noresp_wait_key
+assert reads $FFD3687 = $02
+check writes
+# The boot-time key was drained. Another empty poll must keep waiting.
+clear breakpoint sd_noresp_wait_key
+step 12
+breakpoint sd_noresp_wait_key
+run until brk
+assert pc = sd_noresp_wait_key
+# A new key continues to the built-in ROM.
+clear breakpoint sd_noresp_wait_key
+poke $C000 $01
+run until brk
+assert pc = go64
+test end
+
+test "Parallel boot: external card in but not answering waits for a key"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke $FFD36CC $53 $01
+poke $FFD36D7 $D2
+mock read $FFD3680 $5A
+mock read $FFD3687 $03 $01
+expect write $FFD3680 $C1 $2B $C0 $C1 $C0
+poke printmessage $60
+poke $C000 $00
+poke scankeyboard $AD $00 $C0 $F0 $05 $CE $00 $C0 $18 $60 $38 $60
+breakpoint check_sd_bus_mode
+breakpoint sd_boot_no_card_msg
+breakpoint sd_noresp_wait_key
+breakpoint go64
+jmp sd_boot_probe_cards
+assert pc = sd_noresp_wait_key
+check writes
+test end
+
+test "Boot slots: legacy controller never reads the not-answering code"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+# No native signature: $D687 is a legacy byte, $03 here by chance.
+poke $FFD36CC $00 $00
+poke $FFD3687 $03
+mock read $FFD3680 $03
+expect write $FFD3680 $C1 $00 $01 $C0 $00 $01
+poke printmessage $60
+poke sdwaitawhile $60
+breakpoint check_sd_bus_mode
+breakpoint sd_noresp_drain_keys
+breakpoint go64
+jmp sd_boot_probe_cards
+assert pc = go64
+check writes
+test end
 
 test "Boot slots: unmapped extension signature preserves legacy probing"
 loadhyppo bin/HICKUP.M65

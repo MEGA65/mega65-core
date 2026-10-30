@@ -180,6 +180,12 @@ init of either kind until it was re-inserted, which powers it off and on (the
 sockets have no power switch).  Only the code differs: `$D680` and `$D686`
 are as for `$01`, and a board without card detect (the input defaults to
 "no card") still reads `$01`.
+Hyppo, when neither slot gave it a card at boot, reads `$D687` for the
+external slot and then the internal one (only with the native signature at
+`$D6CC`/`$D6CD`), and on a `$03` from either prints "SD CARD IS IN BUT NOT
+RESPONDING." and "REINSERT IT OR POWER-CYCLE, THEN RESET." and waits for a
+key (as the SPI-mode warning does) before the built-in ROM, in place of "NO
+SDCARD, TRYING BUILT-IN ROM".
 
 An SPI init that fails is tried once more before it gives up (with or
 without a native fallback before it).  On hardware a card's first SPI-only
@@ -301,7 +307,8 @@ reports no busy/reset/error condition, native READY and a zero error code;
 otherwise it takes the existing reset path. The normal SDHC/MBR reads remain.
 
 `src/hyppo/sd_boot_wait.test` and `sd_boot_slots.test` cover readiness, errors,
-timeout windows, legacy fallback, slot priority and healthy-session reuse.
+timeout windows, legacy fallback, slot priority, healthy-session reuse and
+the `$03` message (either slot; never on a legacy controller).
 These are assembled-code tests with mocked register state, not physical
 boot-time measurements. Hardware timing of the reduced waits is pending.
 

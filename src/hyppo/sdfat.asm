@@ -216,6 +216,35 @@ sd_boot_ready:
         sec
         rts
 
+        ;; C set when a slot's card is in but answered nothing: the native
+        ;; controller's $D687 error $03 (its $01, no card, with the card-detect
+        ;; switch saying a card was in as the init failed and is still in).
+        ;; External slot first; leaves the internal slot selected, as the
+        ;; probe does. Older controllers: C clear, nothing written.
+sd_card_not_answering:
+        lda $d6cc
+        cmp #$53
+        bne sd_card_answering
+        lda $d6cd
+        cmp #$01
+        bne sd_card_answering
+        lda #$c1
+        sta $d680
+        ldx $d687
+        lda #$c0
+        sta $d680
+        cpx #$03
+        beq sd_card_not_answering_yes
+        lda $d687
+        cmp #$03
+        beq sd_card_not_answering_yes
+sd_card_answering:
+        clc
+        rts
+sd_card_not_answering_yes:
+        sec
+        rts
+
         ;; Watch for ethernet packets while waiting for the SD card.
         ;; this allows loading of code into the hypervisor for testing and
         ;; bare-metal operation.
