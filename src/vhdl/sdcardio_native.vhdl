@@ -1088,7 +1088,8 @@ begin  -- behavioural
         cd_boot <= cd_boot + 1;
       end if;
       cd_seen <= cd_boot(17);
-      -- (an init clears the code first, so each failed init is a new $01)
+      -- (an init clears the code first, so each failed init is a new $01);
+      -- a card pulled clears it: the card put back has not been tried
       for i in 0 to 1 loop
         if ds_cards(32 * i + 11 downto 32 * i + 4) = x"01" then
           nc_now(i) <= '1';
@@ -1097,6 +1098,9 @@ begin  -- behavioural
           end if;
         else
           nc_now(i) <= '0';
+        end if;
+        if cd_stable(i) = '1' then
+          nc_present(i) <= '0';
         end if;
       end loop;
       if cd_clear = '1' then

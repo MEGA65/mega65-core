@@ -991,6 +991,13 @@ begin
       wait for 2500 us;
       peek(16#D3687#, v);
       check(v = 1, "  ... and $01 again once its card detect says empty");
+      -- put back: untried, so still $01 (on hardware it read $03 again)
+      sd_cd_t(1) <= '0';
+      wait for 2500 us;
+      peek(16#D3687#, v);
+      check(v = 1, "  ... and still $01 once a card is put back, untried");
+      sd_cd_t(1) <= '1';
+      wait for 2500 us;
 
       -- Fall back to the populated internal slot, polling immediately as
       -- firmware does.  A queued INIT must hide the previous idle status.

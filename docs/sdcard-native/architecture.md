@@ -172,7 +172,8 @@ card answered) when the selected slot's card-detect switch said a card was in
 as the init failed, and still does (diagnostic byte 16: bit 0 slot 0, bit 2 slot 1, low when
 a card is in).  A slot that was empty at boot reads `$01` after a card is
 put in, until an init fails with the card in, and a card pulled after its
-init failed reads `$01` again (the change shows in byte 16 bits 4-5, so software can init it).  An
+init failed reads `$01` again, and still does once a card is put back, until
+an init of it fails (the change shows in byte 16 bits 4-5, so software can init it).  An
 empty slot and a card that answers nothing fail the init alike (native step
 4, then the SPI fallback); only card detect tells them apart.  On hardware a
 card that had a native init and then an SPI-only one (`$23`) answered no
