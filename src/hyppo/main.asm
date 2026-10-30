@@ -3201,7 +3201,7 @@ msg_sd_noresp:          !text "SD CARD IS IN BUT NOT RESPONDING."
                         !8 0
 msg_sd_noresp_fix:      !text "REINSERT IT OR POWER-CYCLE, THEN RESET."
                         !8 0
-msg_sd_noresp_continue: !text "PRESS ANY KEY TO TRY BUILT-IN ROM"
+msg_sd_noresp_continue: !text "PRESS ANY KEY TO USE BUILT-IN ROM"
                         !8 0
 msg_badformat:          !text "BAD MBR OR DOS BOOT SECTOR."
                         !8 0
