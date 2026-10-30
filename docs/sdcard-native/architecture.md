@@ -168,8 +168,11 @@ when neither happened, and cleared by every init.
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian; for an SPI step, byte 23 is its R1 and 20-22 the low 24 bits of the R3/R7 after it |
 
 **Present but not answering.**  `$D687` reads `$03` in place of `$01` (no
-card answered) when the selected slot's card-detect switch says a card is in
-(diagnostic byte 16: bit 0 slot 0, bit 2 slot 1, low when a card is in).  An
+card answered) when the selected slot's card-detect switch said a card was in
+as the init failed, and still does (diagnostic byte 16: bit 0 slot 0, bit 2 slot 1, low when
+a card is in).  A slot that was empty at boot reads `$01` after a card is
+put in, until an init fails with the card in, and a card pulled after its
+init failed reads `$01` again (the change shows in byte 16 bits 4-5, so software can init it).  An
 empty slot and a card that answers nothing fail the init alike (native step
 4, then the SPI fallback); only card detect tells them apart.  On hardware a
 card that had a native init and then an SPI-only one (`$23`) answered no

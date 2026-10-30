@@ -964,15 +964,29 @@ begin
       check(v = 1, "empty external slot reports ERR_NOCARD");
       peek(16#D3680#, v);
       check(v(1 downto 0) /= "00", "empty slot stays unavailable to Hyppo's busy-bit test");
-      -- with its card detect saying a card is in, the same failure reads $03
-      -- (present, answering nothing), and nothing else changes
+      -- $03 is a failure with card detect saying a card is in (present,
+      -- answering nothing): a card put in after the failure is not one
       peek(16#D3680#, v2);
       sd_cd_t(1) <= '0';
       wait for 2500 us;
       peek(16#D3687#, v);
+      check(v = 1, "a card put in after the failure: still $01");
+      -- an init that fails with it in: $03, and nothing else changes
+      poke(16#D3680#, 16#00#);
+      poke(16#D3680#, 16#01#);
+      t0 := now;
+      loop
+        peek(16#D3686#, v);
+        exit when v(7) = '1' and v(0) = '0';
+        assert now - t0 < 40 ms report "slot did not finish initialising" severity failure;
+        wait for 100 us;
+      end loop;
+      wait for 10 us;
+      peek(16#D3687#, v);
       check(v = 3, "a slot whose card is in but answers nothing reports $03");
       peek(16#D3680#, v);
       check(v = v2, "  ... $D680 as for $01");
+      -- pulled: $01 again
       sd_cd_t(1) <= '1';
       wait for 2500 us;
       peek(16#D3687#, v);

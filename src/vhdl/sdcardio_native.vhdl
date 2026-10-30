@@ -528,6 +528,11 @@ architecture behavioural of sdcardio_native is
   signal cd_seen    : std_logic := '0';    -- (the first stable level is no change)
   signal cd_boot    : unsigned(17 downto 0) := (others => '0');
   signal cd_changed : std_logic_vector(1 downto 0) := "00";
+  -- per slot: its error code is $01 (no card answered), a cycle ago; and
+  -- whether its card detect said a card was in as the code became $01 (so
+  -- a card put in after the failure does not make it read $03)
+  signal nc_now     : std_logic_vector(1 downto 0) := "00";
+  signal nc_present : std_logic_vector(1 downto 0) := "00";
   signal cd_pulse   : std_logic_vector(1 downto 0) := "00";
   signal fe_media   : std_logic_vector(1 downto 0) := "00";
   signal cd_clear   : std_logic := '0';
@@ -1083,6 +1088,17 @@ begin  -- behavioural
         cd_boot <= cd_boot + 1;
       end if;
       cd_seen <= cd_boot(17);
+      -- (an init clears the code first, so each failed init is a new $01)
+      for i in 0 to 1 loop
+        if ds_cards(32 * i + 11 downto 32 * i + 4) = x"01" then
+          nc_now(i) <= '1';
+          if nc_now(i) = '0' then
+            nc_present(i) <= not cd_stable(i);
+          end if;
+        else
+          nc_now(i) <= '0';
+        end if;
+      end loop;
       if cd_clear = '1' then
         cd_changed <= "00";
       end if;
@@ -1758,12 +1774,14 @@ begin  -- behavioural
           when x"86" => fastio_rdata <= ui_token;
           -- @IO:GS $D687 - DEBUG SD card most recent byte read
           -- (error code.  $01, no card answered, reads as $03 when the
-          -- selected slot's card-detect switch says a card is in: a card
-          -- that answers nothing until it is re-inserted (power cycled), as
-          -- one that took a native CMD0 does after an SPI-only init ($23).
-          -- Only the code differs: $D680/$D686 are as for $01.)
+          -- selected slot's card-detect switch said a card was in as the
+          -- init failed, and still does: a card that answers nothing until it is re-inserted
+          -- (power cycled), as one that took a native CMD0 does after an
+          -- SPI-only init ($23).  Only the code differs: $D680/$D686 are as
+          -- for $01.)
           when x"87" =>
             if ui_errcode = x"01"
+              and nc_present(card_index(sd_interface_select_internal)) = '1'
               and cd_stable(card_index(sd_interface_select_internal)) = '0' then
               fastio_rdata <= x"03";
             else
