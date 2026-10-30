@@ -185,7 +185,7 @@ begin
     port map (
       clock162 => clock162, cpuclock => cpuclock,
       cmd_valid => d_cmd_valid, cmd_ready => d_cmd_ready, cmd_code => d_cmd_code,
-      cmd_slot => d_slot, status_slot => d_slot, cards_status => cards_status,
+      cmd_slot => d_slot, status_slot => d_slot, diag_slot => d_slot, cards_status => cards_status,
       cmd_addr => d_cmd_addr, cmd_count => d_cmd_count, cmd_arg => d_cmd_arg,
       card_ready => d_card_ready, busy => d_busy, waiting => d_waiting, error => d_error,
       err_code => d_err_code, native_mode => d_native, high_speed => d_hs,

@@ -3743,7 +3743,8 @@ end architecture rtl;
 -- upper controller, sector buffer and cache remain shared. No block RAM.
 -- C_INIT (1) still resets only arg(4)'s card. C_INIT_BOTH (A) starts both
 -- engines on the same cpuclock edge. cmd_slot targets other commands;
--- status_slot independently selects the visible status.
+-- status_slot independently selects the visible status; diag_slot the
+-- init and failed-block records (the slot the CPU has selected).
 -- cards_status contains two 32-bit CPU-domain words:
 -- 0 ready, 1 busy, 2 waiting, 3 error, 11:4 error code, 12 native,
 -- 13 high speed, 14 SDHC, 15 mailbox free, 31:16 clock setting.
@@ -3773,7 +3774,7 @@ entity sdcard_native_dual is
     cmd_code : in unsigned(3 downto 0);
     cmd_addr : in unsigned(31 downto 0);
     cmd_count, cmd_arg : in unsigned(15 downto 0);
-    cmd_slot, status_slot : in std_logic;
+    cmd_slot, status_slot, diag_slot : in std_logic;
     cards_status : out unsigned(63 downto 0);
     card_ready, busy, waiting, error : out std_logic;
     err_code : out unsigned(7 downto 0);
@@ -3782,8 +3783,8 @@ entity sdcard_native_dual is
     probe_pass, probe_fail : out unsigned(7 downto 0);
     blocks_done : out unsigned(15 downto 0);
     diag_stats : out unsigned(127 downto 0);
-    init_diag : out unsigned(55 downto 0);     -- the status slot's
-    blk_diag : out unsigned(191 downto 0);     -- the status slot's
+    init_diag : out unsigned(55 downto 0);     -- diag_slot's
+    blk_diag : out unsigned(191 downto 0);     -- diag_slot's
     rd_valid : out std_logic;
     rd_data : out unsigned(7 downto 0);
     rd_offset : out unsigned(8 downto 0);
@@ -3917,8 +3918,8 @@ begin
   probe_pass <= c_pass(slot_index(status_slot));
   probe_fail <= c_fail(slot_index(status_slot));
   blocks_done <= c_done(slot_index(status_slot));
-  init_diag <= c_idiag(slot_index(status_slot));
-  blk_diag <= c_bdiag(slot_index(status_slot));
+  init_diag <= c_idiag(slot_index(diag_slot));
+  blk_diag <= c_bdiag(slot_index(diag_slot));
   counters : process(c_diag, c_setting, status_slot)
     variable v : unsigned(127 downto 0);
   begin

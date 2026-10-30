@@ -1210,6 +1210,8 @@ begin  -- behavioural
       cmd_arg     => ds_cmd_arg,
       cmd_slot    => ds_slot,
       status_slot => ds_slot,
+      -- the records follow $D680's slot select, not the last command's slot
+      diag_slot   => sd_interface_select_internal,
       cards_status => ds_cards,
       limit_enable => card_limits,
       cards_last_sector => ds_last,

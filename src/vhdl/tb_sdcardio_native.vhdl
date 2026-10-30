@@ -1011,6 +1011,16 @@ begin
       poke(16#D3680#, 16#02#);
       wait_ready(5 ms);
       check_buffer(5, false, "read after empty-slot fallback");
+      -- the init record follows $D680's slot select, not the slot of the
+      -- last command: slot 1's failed init after slot 0's read
+      poke(16#D36CE#, 16#80#);
+      poke(16#D36CE#, 17); peek(16#D36CF#, v);
+      check(v = 0, "slot 0 selected: its init record (none)");
+      poke(16#D3680#, 16#C1#);
+      poke(16#D36CE#, 16#80#);
+      poke(16#D36CE#, 17); peek(16#D36CF#, v);
+      check(v /= 0, "slot 1 selected, no command since: its failed init's record");
+      poke(16#D3680#, 16#C0#);
 
       -- Also reset an already working card: its old ready/idle status must
       -- not leak through the mailbox before INIT reaches the SD engine.

@@ -156,7 +156,7 @@ fallback, and immediate reset polling; `G_CACHE_LINES=0` exercises the same
 contract without the cache, and `G_SPI_CARD=true` covers SPI fallback.
 
 **Init record.** Bytes 17-23 (latched by the same `$80` write) say why the
-selected card's last initialisation gave up the native bus and fell back to
+selected card's (`$C0`/`$C1`, not the slot of the last command) last initialisation gave up the native bus and fell back to
 SPI, or, in an SPI-only init (`$23`), why its SPI init failed; they are zero
 when neither happened, and cleared by every init.
 
