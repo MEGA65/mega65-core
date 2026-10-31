@@ -48,6 +48,9 @@ VARIANTS = [
     ("native-bound-sdsc", "tb_sdcard_native", ["G_BOUND_TEST=true", "G_SDHC_CARD=false"], "300ms"),
     ("native-maxcard", "tb_sdcard_native", ["G_MAXCARD_TEST=true"], "300ms"),
     ("native-capfail", "tb_sdcard_native", ["G_CAPFAIL_TEST=true"], "300ms"),
+    # CMD7 busy until 55 ms: over 1.5 TMO_BUSY (15 ms) at the first native
+    # try (2.7 ms) and at the second (35 ms): init waits on, stays native
+    ("native-sel-busy", "tb_sdcard_native", ["G_SEL_BUSY_US=55000"], "300ms"),
     ("cache", "tb_sd_cache", [], "500ms"),
     ("cache-dual", "tb_sd_cache", ["G_DUAL_TEST=true"], "500ms"),
     ("cache-dual-spi0", "tb_sd_cache", ["G_DUAL_TEST=true", "G_DUAL_SPI0=true"], "800ms"),

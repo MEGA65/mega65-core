@@ -30,7 +30,8 @@ entity tb_sdcard_native is
     G_BOUND_TEST : boolean := false;
     G_SDHC_CARD : boolean := true;
     G_MAXCARD_TEST : boolean := false;
-    G_CAPFAIL_TEST : boolean := false
+    G_CAPFAIL_TEST : boolean := false;
+    G_SEL_BUSY_US : natural := 0    -- a CMD7 before this (us) is busy until it (see the model)
     );
 end entity;
 
@@ -166,7 +167,7 @@ begin
                  G_INFO_BAD_CRC => G_INFO_BAD_CRC, G_INFO_TIMEOUT => G_INFO_TIMEOUT,
                  G_INFO_BAD_HEADER => G_INFO_BAD_HEADER,
                  G_SIZE_UNITS => size_units, G_SDHC => G_SDHC_CARD,
-                 G_UNSUPPORTED_CSD => G_CAPFAIL_TEST)
+                 G_UNSUPPORTED_CSD => G_CAPFAIL_TEST, G_SEL_BUSY => G_SEL_BUSY_US * 1 us)
     port map (clk => card_clk, cmd => card_cmd, dat => card_dat);
 
   -- host: keep the read stream, answer write fetches (latency 2)
@@ -291,7 +292,7 @@ begin
       check(error = '1' and err_code = x"45" and n_bytes = 0, "re-enabling unknown capacity blocks reads");
       report "ALL CAPFAIL TESTS PASSED"; done <= true; wait;
     end if;
-    wait until card_ready = '1' and busy = '0' for 40 ms;
+    wait until card_ready = '1' and busy = '0' for 80 ms;
     check(card_ready = '1' and error = '0', "auto init");
     report "  native=" & std_logic'image(native_mode) & " hs=" & std_logic'image(high_speed)
       & " sdhc=" & std_logic'image(sdhc) & " setting=" & to_hstring(clk_setting);
@@ -614,7 +615,7 @@ begin
 
     -- re-init
     command(1, 0, 0, 0);
-    wait until card_ready = '1' and busy = '0' for 40 ms;
+    wait until card_ready = '1' and busy = '0' for 80 ms;
     check(card_ready = '1' and error = '0', "re-init");
     check(diag_stats(15 downto 0) = 1 and diag_stats(47 downto 32) = 1,
           "diagnostic counters survive re-init and exclude probe errors");

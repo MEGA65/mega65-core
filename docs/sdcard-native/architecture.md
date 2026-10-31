@@ -164,7 +164,7 @@ when neither happened, and cleared by every init.
 | Byte | |
 |---|---|
 | 17 | The init step that failed: 4 CMD55 (no SD-mode answer), 5 ACMD41 (power-up), 7 CMD2, 8 CMD3, 21 CMD9 (with the capacity limit on), 10 CMD7, 11 CMD55, 12 ACMD6 (4-bit bus), 15 CMD16, 13 the test read of block 0.  16 and up: an SPI-only init's step (16 + its step: 0/1 CMD0, 2 CMD8, 4/5 ACMD41, 7 CMD58, 9 CMD59, 10 CMD16, 15 the test read) |
-| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try), or an SPI-only init failed once and was tried again (bytes 17 and 20-23 from the last failure: when the retry passed, from the first try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 1.5 s |
+| 18 | Flags: bit 0 fell back to SPI; 1 no response; 2 a response came (with 1 and 2 clear: its CRC, index or header was bad); 3 the test read failed at high speed and was retried at default speed; 4 the test read failed at default speed; 5 the card did not grant high speed; 6 native init failed once and was tried again before SPI (bytes 17 and 20-23 are then from the second try), or an SPI-only init failed once and was tried again (bytes 17 and 20-23 from the last failure: when the retry passed, from the first try); 7 the failed command's busy (DAT0 low after an R1b) did not end within 1.5 s (CMD7, step 10: within 10.5 s, see below) |
 | 19 | The failed test read's error code |
 | 20-23 | Bits 39..8 of the last response (R1 card status, OCR, ...), little-endian; for an SPI step, byte 23 is its R1 and 20-22 the low 24 bits of the R3/R7 after it |
 
@@ -245,7 +245,14 @@ sampling point; all four wrong with a wrong end bit is the block found in
 the wrong place (framing); a CRC off by a bit or two is isolated bit errors.
 
 Step 5 with a response (bit 2) means the card never finished powering up
-within a second.  Native init starts with CMD12 (a card left in a
+within a second.  A card's busy after CMD7 (step 10) is waited out for up to
+10.5 s over the init's two native tries (1.5 s, then up to six more 1.5 s):
+on hardware a card powered up after losing power during a write (FDISK
+resetting it when a write outlasted its 0.15 s wait, then a re-insertion)
+held DAT0 low there for more than 1.5 s, and after the SPI fallback
+answered nothing until re-inserted again; left alone for 20 s first, it
+initialised normally.  Only a card that has answered CMD2, CMD3 and CMD7
+gets that far, so an empty slot still fails at once.  Native init starts with CMD12 (a card left in a
 multi-block read by a reset or by configuring the FPGA stops it; an idle
 card ignores it), and a failed native init is tried once more before
 falling back to SPI: a card leaves SPI mode only by a power cycle, so a

@@ -931,7 +931,8 @@ begin
         -- Upper-controller errors are sticky per card as well as low-level
         -- errors. Resetting/mapping the other card must not erase them.
         poke(16#D3680#, 16#FF#); peek(16#D3680#, v);
-        check(v(6) = '1' and v(1) = '1', "external upper error retains legacy BUSY");
+        -- (an unknown command: the error without BUSY, as the legacy controller)
+        check(v(6) = '1' and v(1) = '0', "external unknown command: error, no BUSY");
         poke(16#D3680#, 16#C0#); peek(16#D3680#, v);
         check(v(6) = '0', "external upper error does not leak into internal status");
         poke(16#D3680#, 16#00#);

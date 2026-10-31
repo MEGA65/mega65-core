@@ -46,7 +46,11 @@ entity sdcard_native_model is
     -- SPI: a write's busy starts this many bytes late ($FF before it), after
     -- the data response and after the byte that follows the stop token; a
     -- command or data token while the card is busy is an error
-    G_SPI_BUSY_LATE : natural := 0
+    G_SPI_BUSY_LATE : natural := 0;
+    -- a CMD7 (select) before this time holds DAT0 busy until it (0 ns: 6
+    -- clocks), as a card did on hardware for seconds after power-up, after
+    -- losing power during a write
+    G_SEL_BUSY : time := 0 ns
     );
   port (
     clk : in    std_logic;
@@ -151,6 +155,7 @@ architecture sim of sdcard_native_model is
   signal wr_multi  : boolean := false;
   signal busy_go   : boolean := false;
   signal busy_n    : natural := 0;
+  signal busy_t    : time := 0 ns;      -- if not 0: the busy's length instead
   signal spi_enter : boolean := false;   -- native CMD0 with CS low
   signal reset_go  : boolean := false;   -- native CMD0: back to default speed
 
@@ -187,6 +192,7 @@ begin
     variable resp   : std_logic_vector(135 downto 0);
     variable rlen   : natural;
     variable rbusy  : natural;
+    variable sel_busy : time := 0 ns;   -- this CMD7's busy (see G_SEL_BUSY)
     variable status : std_logic_vector(31 downto 0);
     variable multi_active : boolean := false;
     variable stop_attempts : natural := 0;
@@ -222,7 +228,7 @@ begin
         if f(46) = '1' and f(0) = '1' and c = f(7 downto 1) then
           idx := to_integer(unsigned(f(45 downto 40)));
           arg := f(39 downto 8);
-          rlen := 0; rbusy := 0;
+          rlen := 0; rbusy := 0; sel_busy := 0 ns;
           status := x"00000900";        -- READY_FOR_DATA, state tran
           if app then status(5) := '1'; end if;
           if app and idx = 41 then
@@ -266,6 +272,9 @@ begin
                 if sel then
                   was_selected := true;
                   resp(47 downto 0) := frame48(7, status, true); rlen := 48; rbusy := 6;
+                  if now < G_SEL_BUSY then
+                    sel_busy := G_SEL_BUSY - now;
+                  end if;
                 end if;
               when 9 | 10 =>
                 assert not sel and arg(31 downto 16) = rca
@@ -340,6 +349,7 @@ begin
             cmd_drv <= transport 'Z' after G_TOH;
             if rbusy /= 0 then
               busy_n  <= rbusy;
+              busy_t  <= sel_busy;
               busy_go <= not busy_go;
             end if;
           end if;
@@ -369,6 +379,7 @@ begin
     variable err_done : boolean := false;
     variable buf      : t_blk;
     variable ok       : boolean;
+    variable t_end    : time;
 
     procedure out_edge is
     begin
@@ -539,9 +550,16 @@ begin
 
       else
         -- busy after an R1b
-        for i in 1 to busy_n loop
-          out_edge; drive("ZZZ0");
-        end loop;
+        if busy_t /= 0 ns then
+          t_end := now + busy_t;
+          while now < t_end loop
+            out_edge; drive("ZZZ0");
+          end loop;
+        else
+          for i in 1 to busy_n loop
+            out_edge; drive("ZZZ0");
+          end loop;
+        end if;
         out_edge; drive("ZZZ1");
         out_edge; dat_drv <= transport "ZZZZ" after G_TOH;
       end if;

@@ -618,6 +618,7 @@ architecture rtl of sdcard_native is
   -- leaves SPI mode only by a power cycle, so one failed native init (a
   -- card still busy from a transfer the init cut off) must not decide it
   signal nat_retry   : std_logic := '0';
+  signal sel_ext     : unsigned(2 downto 0) := (others => '0');  -- CMD7 busy waits added at init (see N_INIT step 10)
   -- SPI init failed once in this init and is being tried again: on
   -- hardware a card's first SPI init after power-up (its first CMD0 since
   -- being inserted) failed, and the next passed
@@ -2745,7 +2746,19 @@ begin
               istep <= 10;
               do_cmd(7, rca & x"0000", R_R1B, N_INIT);
             when 10 =>
-              if c_ok = '0' or r1_bad(r_sr) then
+              if c_btmo = '1' and sel_ext /= 6 then
+                -- still busy after CMD7: wait on, up to 6 more TMO_BUSY over
+                -- both tries.  A card powered up after losing power during
+                -- a write held DAT0 low here for over 1.5 s, then (in SPI,
+                -- after the fallback) answered nothing until re-inserted;
+                -- left alone for 20 s first, it initialised normally
+                sel_ext <= sel_ext + 1;
+                c_ok    <= '1';
+                c_btmo  <= '0';
+                tmo     <= to_unsigned(TMO_BUSY, 28);
+                tmo_z   <= '0';
+                st      <= S_BUSY1;
+              elsif c_ok = '0' or r1_bad(r_sr) then
                 istep <= 30;
               else
                 istep <= 11;
@@ -3671,6 +3684,7 @@ begin
         spi_only  <= e_arg(0);
         spi_fb    <= '0';
         nat_retry <= '0';
+        sel_ext   <= (others => '0');
         spi_retry <= '0';
         fb_frozen <= '0';
         fb_partial <= '0';
