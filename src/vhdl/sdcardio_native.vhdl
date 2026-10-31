@@ -2676,7 +2676,9 @@ begin  -- behavioural
         busy_unseen    <= "00";
         busy_unseen_rd <= "00";
       end if;
-      if d680_cmd = '1' and (sdio_busy = '1' or nat_init_req = '1') then
+      -- (sd_state, not sdio_busy: the command's sdio_busy <= '1' is overridden
+      -- by Idle's sdio_busy <= '0' further down, and rises a cycle later)
+      if d680_cmd = '1' and (sd_state /= Idle or sdio_busy = '1' or nat_init_req = '1') then
         busy_unseen(card_index(d680_cmd_slot))    <= '1';
         busy_unseen_rd(card_index(d680_cmd_slot)) <= '0';
         busy_unseen_tmo <= (others => '1');
