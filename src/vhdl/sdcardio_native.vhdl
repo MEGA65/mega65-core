@@ -356,6 +356,24 @@ architecture behavioural of sdcardio_native is
   -- behaves itself.
   signal last_was_d087 : std_logic := '0';
 
+  -- $D680 shows BUSY for a command that started work (a read, write, init
+  -- ...) until a $D680 read of its slot has shown it once, however soon the
+  -- command ends: FDISK waits for BUSY to appear after a $02, and a read the
+  -- sector cache answered was over before its first poll, so it waited for
+  -- ever.  A wait for BUSY to rise, then fall, now always takes two loops.
+  -- Unread, it lapses after 65536 cycles (1.6 ms, about as long as a legacy
+  -- read took): Hyppo's JOYFLASH boot writes $00/$01, waits 0.1 s and
+  -- reads $D680 once, and takes BUSY then as "no card".
+  signal busy_unseen    : std_logic_vector(1 downto 0) := "00";
+  signal busy_unseen_tmo : unsigned(15 downto 0) := (others => '0');
+  signal busy_unseen_rd : std_logic_vector(1 downto 0) := "00";  -- a read has shown it
+  -- the address that read used: it is seen once the bus holds another (the
+  -- CPU may read a register on successive cycles and keep only the second,
+  -- and parks the bus at $FFFFF when it starts any other access)
+  signal busy_unseen_addr : unsigned(19 downto 0) := (others => '1');
+  signal d680_cmd       : std_logic := '0';  -- a command written to an idle controller
+  signal d680_cmd_slot  : std_logic := '0';
+
   signal fastio_rdata_ram : unsigned(7 downto 0);
   signal fastio_rdata : unsigned(7 downto 0);
 
@@ -1524,6 +1542,7 @@ begin  -- behavioural
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            card_limits,ds_capacity,capacity_index,ui_last,
            ui_reset,ui_error_flag,ui_fsm_flag,ui_sdhc,ui_busy,ui_sdio_busy,ui_token,ui_errcode,
+           busy_unseen,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
@@ -1776,8 +1795,10 @@ begin  -- behavioural
             fastio_rdata(4) <= ui_sdhc(card_index(sd_interface_select_internal));
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= ui_reset(card_index(sd_interface_select_internal));
-            fastio_rdata(1) <= ui_busy;  -- Whether the SD card thinks it is busy
-            fastio_rdata(0) <= ui_sdio_busy;  -- Whether we think we are busy
+            fastio_rdata(1) <= ui_busy  -- Whether the SD card thinks it is busy
+                               or busy_unseen(card_index(sd_interface_select_internal));
+            fastio_rdata(0) <= ui_sdio_busy  -- Whether we think we are busy
+                               or busy_unseen(card_index(sd_interface_select_internal));
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
           when x"82" => fastio_rdata <= sd_sector(15 downto 8); -- SD-control
@@ -2634,6 +2655,33 @@ begin  -- behavioural
         sb_cpu_reading <= '0';
       end if;
 
+      -- BUSY not yet seen (see busy_unseen): cleared once the bus moves on
+      -- from a $D680 read that showed it, or after 1.6 ms; a command written
+      -- to an idle controller sets it for its slot once it has started
+      d680_cmd <= '0';
+      if fastio_read = '1' and sdcardio_cs = '1' and secure_mode = '0'
+        and fastio_addr(7 downto 0) = x"80" then
+        if busy_unseen(card_index(sd_interface_select_internal)) = '1' then
+          busy_unseen_rd(card_index(sd_interface_select_internal)) <= '1';
+          busy_unseen_addr <= fastio_addr;
+        end if;
+      elsif fastio_addr /= busy_unseen_addr then
+        busy_unseen    <= busy_unseen and not busy_unseen_rd;
+        busy_unseen_rd <= "00";
+      end if;
+      if busy_unseen_tmo /= 0 then
+        busy_unseen_tmo <= busy_unseen_tmo - 1;
+      end if;
+      if busy_unseen_tmo = 1 then
+        busy_unseen    <= "00";
+        busy_unseen_rd <= "00";
+      end if;
+      if d680_cmd = '1' and (sdio_busy = '1' or nat_init_req = '1') then
+        busy_unseen(card_index(d680_cmd_slot))    <= '1';
+        busy_unseen_rd(card_index(d680_cmd_slot)) <= '0';
+        busy_unseen_tmo <= (others => '1');
+      end if;
+
       -- Advance f011 buffer position when reading from data register
       last_was_d087 <= '0';
       if fastio_read='1' then
@@ -3466,6 +3514,10 @@ begin  -- behavioural
             -- @IO:GS $D680 SD:CMDANDSTAT SD controller status/command
             when x"80" =>
               -- status / command register
+              if sdio_busy = '0' and nat_init_req = '0' then
+                d680_cmd      <= '1';
+                d680_cmd_slot <= sd_interface_select_internal;
+              end if;
               if sdio_busy = '0' and fastio_wdata /= x"C0" and fastio_wdata /= x"C1" then
                 fe_last <= '0';
                 nat_slot <= sd_interface_select_internal;

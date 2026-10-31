@@ -218,6 +218,7 @@ begin
       if a >= 16#FFE00# then sb_cs <= '1'; end if;
       wait until rising_edge(cpuclock);
       fastio_write <= '0';
+      fastio_addr  <= x"FFFFF";              -- (parked, as the CPU's next access does)
       sdcardio_cs  <= '0';
       f011_cs      <= '0';
       sb_cs        <= '0';
@@ -236,6 +237,7 @@ begin
       v := fastio_rdata;
       wait until rising_edge(cpuclock);
       fastio_read <= '0';
+      fastio_addr <= x"FFFFF";
       sdcardio_cs <= '0';
       f011_cs     <= '0';
       sb_cs       <= '0';
@@ -1033,6 +1035,41 @@ begin
       poke(16#D3680#, 16#02#);
       wait_ready(5 ms);
       check_buffer(6, false, "  ... and reads");
+      -- the same read again (from the cache, if on), not polled until long
+      -- after it ended: $D680 shows BUSY once, then ready, as FDISK waits
+      -- for BUSY to rise, then fall (it waited for ever on hardware)
+      poke(16#D3680#, 16#02#);
+      wait for 200 us;
+      -- read twice, the address held between (the CPU can read a register
+      -- on successive cycles and keep the second): BUSY both times
+      wait until rising_edge(cpuclock);
+      fastio_addr <= to_unsigned(16#D3680#, 20); fastio_read <= '1'; sdcardio_cs <= '1';
+      wait until rising_edge(cpuclock);
+      wait until falling_edge(cpuclock);
+      v := fastio_rdata;
+      wait until rising_edge(cpuclock);
+      fastio_read <= '0'; sdcardio_cs <= '0';
+      wait until rising_edge(cpuclock);
+      fastio_read <= '1'; sdcardio_cs <= '1';
+      wait until rising_edge(cpuclock);
+      wait until falling_edge(cpuclock);
+      v2 := fastio_rdata;
+      wait until rising_edge(cpuclock);
+      fastio_read <= '0'; sdcardio_cs <= '0'; fastio_addr <= x"FFFFF";
+      check(v(1 downto 0) = "11", "a read not polled until it ended: BUSY shown once");
+      check(v2(1 downto 0) = "11", "  ... and to a second read before the bus moves on");
+      peek(16#D3680#, v);
+      check(v(1 downto 0) = "00", "  ... then ready");
+      check_buffer(6, false, "  ... with its sector");
+      poke(16#D3680#, 16#C0#);
+      peek(16#D3680#, v);
+      check(v(1 downto 0) = "00", "a slot select shows no BUSY");
+      -- unread for 1.6 ms, it lapses: Hyppo's JOYFLASH boot waits, then
+      -- reads $D680 once
+      poke(16#D3680#, 16#02#);
+      wait for 2 ms;
+      peek(16#D3680#, v);
+      check(v(1 downto 0) = "00", "  ... and an unread BUSY lapses after 1.6 ms");
       -- a read written while one runs, as Duel2's streaming loop does:
       -- refused (bits 6/5), but the running read ends and BUSY clears, as on
       -- the legacy controller (an error held BUSY, and Duel2 hung)

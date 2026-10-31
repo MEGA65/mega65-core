@@ -141,6 +141,17 @@ An empty slot therefore times out in the existing firmware and falls back
 to the other slot.  `$D686` and `$D687` still expose the native failure.
 Open multi-sector transfers continue to clear busy between granted blocks.
 
+A command that starts work (a read, write, init and the like, written while
+the controller is idle) shows both busy bits until a `$D680` read of its
+slot has shown them once and the bus has moved on to another address (the
+CPU can read a register on successive cycles and keep only the second, and
+parks the bus at `$FFFFF` when it starts any other access), or for 1.6 ms,
+however soon it ends.  FDISK waits for busy to rise, then fall; a read the sector
+cache answered in microseconds was over before its first poll, and it
+waited for ever.  The time limit is for software that waits and then reads
+`$D680` once (Hyppo's JOYFLASH boot).  Slot selects, `$81`/`$82` and the
+like show nothing.
+
 **Retry diagnostics v1.** Native-only registers `$D6CC=$53` and `$D6CD=1`
 identify support; these previously unused addresses read zero on older
 builds. Write `$D6CE=$80` to latch all 16 diagnostic bytes, then write a byte
