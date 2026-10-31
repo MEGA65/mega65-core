@@ -278,18 +278,20 @@ begin
     -- power-up init
     wait for 100 ns;
     if G_CAPFAIL_TEST then
+      -- an unknown capacity bounds nothing: init passes, sectors are read
       wait_idle(40 ms);
-      check(error = '1' and err_code = x"45" and card_ready = '0' and capacity_valid = '0',
-            "unknown capacity cannot initialise with protection enabled");
+      check(error = '0' and card_ready = '1' and capacity_valid = '0' and native_mode = '1',
+            "unknown capacity initialises (natively) with protection enabled");
+      clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
+      check_blocks(5, 1, false, "unknown capacity with protection permits reads");
+      clear_rx; command(2, 300000, 1, 0); wait_idle(5 ms);
+      check(error = '0' and n_good = 1, "... at any address");
       limit_enable <= '0'; wait for 4*TCPU;
       command(1, 0, 0, 0); wait_idle(10 ms);
       check(error = '0' and card_ready = '1' and capacity_valid = '0',
-            "explicit override permits init with unknown capacity");
+            "and without protection");
       clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
-      check_blocks(5, 1, false, "unknown-capacity override permits ordinary reads");
-      limit_enable <= '1'; wait for 4*TCPU;
-      clear_rx; command(2, 5, 1, 0); wait_idle(5 ms);
-      check(error = '1' and err_code = x"45" and n_bytes = 0, "re-enabling unknown capacity blocks reads");
+      check_blocks(5, 1, false, "unknown capacity without protection permits reads");
       report "ALL CAPFAIL TESTS PASSED"; done <= true; wait;
     end if;
     wait until card_ready = '1' and busy = '0' for 80 ms;

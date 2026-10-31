@@ -743,13 +743,14 @@ begin
           when T_DISPATCH =>
             sec := c_addr;
             lookup(tag, tag_slot, used, sec, c_slot, hit, idx);
-            if (c_code = C_READ or c_code = C_WRITE) and c_limited = '1'
-              and (c_capacity = '0' or resize(c_addr, 33) > resize(c_last, 33)
+            if (c_code = C_READ or c_code = C_WRITE) and c_limited = '1' and c_capacity = '1'
+              and (resize(c_addr, 33) > resize(c_last, 33)
                 or (c_count /= 0 and resize(c_addr, 33) + resize(c_count-1, 33) > resize(c_last, 33))) then
               -- Check before lookup too: an override may have cached data
               -- beyond the card's size before protection was re-enabled.
+              -- (An unknown capacity bounds nothing.)
               pt <= '0'; o_busy <= '0'; o_error <= '1'; o_done <= (others => '0');
-              if c_capacity = '0' then o_err <= x"45"; else o_err <= x"44"; end if;
+              o_err <= x"44";
               u_ready <= '1'; st <= T_IDLE;
             elsif c_code = C_CACHE then
               -- A completed fill may still be closing CMD12 / tail clocks.

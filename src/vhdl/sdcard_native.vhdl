@@ -101,8 +101,9 @@
 --                  with zeros to 512 bytes through the normal read FIFO.
 --   Init reads CSD and publishes capacity_valid/last_sector in the CPU
 --   domain. limit_enable (default 1) bounds sector reads/writes/probes and
---   open-transfer grants; out-of-range requests return ERR_RANGE ($44),
---   unknown capacity ERR_CAPACITY ($45). No extra block RAM is used.
+--   open-transfer grants; out-of-range requests return ERR_RANGE ($44).
+--   An unknown capacity (CSD unreadable or undecodable) bounds nothing: it
+--   neither fails init nor refuses a sector.  No extra block RAM is used.
 --
 --   Clock setting (arg of C_PROBE / C_ACCEPT, and clk_setting): bits 6..0 = P
 --   (4..127), bits 12..8 = D (0..31).  P < 13 needs a card that switched to
@@ -282,7 +283,6 @@ architecture rtl of sdcard_native is
   constant ERR_NOHS     : unsigned(7 downto 0) := x"42";  -- setting needs high speed
   constant ERR_BADCMD   : unsigned(7 downto 0) := x"43";  -- unknown command / bad setting
   constant ERR_RANGE    : unsigned(7 downto 0) := x"44";  -- outside reported card capacity
-  constant ERR_CAPACITY : unsigned(7 downto 0) := x"45";  -- unavailable/unsupported CSD capacity
 
   -- R1 card status bits that fail a command.  COM_CRC_ERROR and
   -- ILLEGAL_COMMAND are left out: they are about the PREVIOUS command.
@@ -1862,8 +1862,8 @@ begin
       if cmd_pend = '1' then
         if e_code = C_MORE then
           if op /= OP_NONE and op_closed = '0' then
-            if limit_s(1) = '1' and (cap_known = '0' or
-              grant_next > resize(cap_last, 33)) then
+            if limit_s(1) = '1' and cap_known = '1' and
+              grant_next > resize(cap_last, 33) then
               op_closed <= '1'; range_failed <= '1';
             else
               op_granted <= op_granted + 1;
@@ -2123,9 +2123,9 @@ begin
 
         when S_RANGE_CHECK =>
           grant_next <= range_end + 1;
-          if limit_s(1) = '1' and (cap_known = '0' or range_end > resize(cap_last, 33)) then
+          if limit_s(1) = '1' and cap_known = '1' and range_end > resize(cap_last, 33) then
             e_error <= '1';
-            if cap_known = '0' then e_err <= ERR_CAPACITY; else e_err <= ERR_RANGE; end if;
+            e_err <= ERR_RANGE;
             op <= OP_NONE; cnt <= (others => '0'); st <= S_TAIL;
           elsif op = OP_PROBE then resync(S_DISPATCH);
           else st <= S_DISPATCH; end if;
@@ -2169,7 +2169,7 @@ begin
         when S_FINISH =>
           if range_failed = '1' then
             e_error <= '1';
-            if cap_known = '0' then e_err <= ERR_CAPACITY; else e_err <= ERR_RANGE; end if;
+            e_err <= ERR_RANGE;
           end if;
           range_failed <= '0';
           op     <= OP_NONE;
@@ -2596,7 +2596,7 @@ begin
           d_arm <= '0'; d_act <= '0'; d_small <= '0';
           if info_init = '1' then
             info_init <= '0'; op <= OP_NONE;
-            if limit_s(1) = '1' then istep <= 30; else istep <= 15; end if;
+            istep <= 15;                -- (capacity unknown: nothing bounded)
             cnt <= (others => '0'); ret_st <= P_INIT; st <= P_DESEL;
           elsif mode_native = '1' then
             rpush("11", x"00");
@@ -2623,10 +2623,8 @@ begin
             cap_shift <= to_integer(unsigned(r_long(83 downto 80)))
               + to_integer(unsigned(r_long(49 downto 47))) - 7;
             st <= S_CAP_SHIFT;
-          elsif limit_s(1) = '0' then st <= cap_ret;
           else
-            e_error <= '1'; e_err <= ERR_CAPACITY; ready <= '0';
-            cnt <= (others => '0'); st <= S_TAIL;
+            st <= cap_ret;                      -- unknown: nothing bounded
           end if;
 
         when S_CAP_SHIFT =>
@@ -2634,10 +2632,8 @@ begin
           elsif cap_shift < 0 then cap_work <= shift_right(cap_work, 1); cap_shift <= cap_shift+1;
           elsif cap_work /= 0 then
             cap_last <= resize(cap_work-1, 32); cap_known <= '1'; st <= cap_ret;
-          elsif limit_s(1) = '0' then st <= cap_ret;
           else
-            e_error <= '1'; e_err <= ERR_CAPACITY; ready <= '0';
-            cnt <= (others => '0'); st <= S_TAIL;
+            st <= cap_ret;                      -- unknown: nothing bounded
           end if;
 
         ------------------------------------------------------------------------
@@ -2740,8 +2736,7 @@ begin
             when 21 =>
               if c_ok = '1' then
                 cap_ret <= N_INIT; istep <= 9; st <= S_CAP_DECODE;
-              elsif limit_s(1) = '0' then istep <= 9;
-              else istep <= 30; end if;
+              else istep <= 9; end if;     -- (capacity unknown: nothing bounded)
             when 9 =>
               istep <= 10;
               do_cmd(7, rca & x"0000", R_R1B, N_INIT);

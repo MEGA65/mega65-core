@@ -46,8 +46,8 @@ the explicit menu actions.
 Limit control requires `$D6D9`'s `$A0` signature. `L` issues `$30` (on) or
 `$31` (off); the selected card's setting survives program exit and software
 reset, so it can also be used with the freezer. Power-up defaults to on.
-If capacity is unknown and initialisation failed, `L` followed by `N` allows
-explicit diagnostics with the limit off. The benchmark itself remains
+An unknown capacity no longer fails initialisation or bounds anything, so
+`L` only matters for a card whose capacity is known. The benchmark itself remains
 read-only and its timing reads still stay inside the discovered FAT32 window.
 
 The program reads the MBR and uses a power-of-two window of up to 16384

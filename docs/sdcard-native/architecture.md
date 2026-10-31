@@ -418,8 +418,12 @@ Reads, writes and speed-probe reads are bounded by default. A fixed-length
 request crossing the end is rejected in full, including 32-bit address
 overflow. An open multi-sector read/write accepts only in-range grants;
 an out-of-range next grant closes the existing stream and returns an error
-without transferring that sector. Error `$44` means out of range; `$45`
-means the capacity is unavailable/unsupported. Legacy sticky error/BUSY
+without transferring that sector. Error `$44` means out of range. An
+unknown capacity (a CSD that could not be read or decoded) bounds nothing:
+init goes on without it and every sector is accessible, as on the legacy
+controller; `$45` is no longer used. (Refusing every access to a card whose
+CSD read failed once, and failing its init, which then fell back to SPI,
+helped nobody: FDISK on such a card looped on `$45`.) Legacy sticky error/BUSY
 semantics are retained (an error holds BUSY, except a refused command's: one
 written while busy, a write with its gate shut or refused by the read-only
 policy, or an unknown command, which as on the legacy controller sets bits
@@ -430,9 +434,7 @@ their read commands. The limit uses the card's advertised capacity.
 `$D680 <- $31` disables protection for the selected card; `$30` enables it.
 Issue these between foreground operations. The settings are independent
 per slot and survive software resets; power-up enables both. They can be
-set even after init failed, so explicit override followed by reset can
-initialise a card whose CSD cannot be decoded. With protection enabled,
-unknown capacity prevents init/access. Re-enabling protection also blocks
+set even after init failed. Re-enabling protection also blocks
 cached sectors fetched beyond capacity while override was enabled. Cache
 read-ahead stops at the reported end, including a partially filled final
 line. The engine registers the range sum and next-grant address so wide
@@ -447,7 +449,7 @@ appear in `$D687`, and their code survives operations on the other card.
 
 `G_BOUND_TEST`, `G_MAXCARD_TEST` and `G_CAPFAIL_TEST` cover the boundaries,
 overflow, bulk/open read/write rejection, override/reset behaviour, SDSC,
-SPI, unknown capacity and 2 TiB decoding. The upper tests include cache
+SPI, unknown capacity (unbounded) and 2 TiB decoding. The upper tests include cache
 override/re-enable and per-card limits/error codes; `G_TAIL_TEST` exercises
 a synthetic capacity that ends halfway through a cache line in native/SPI.
 
