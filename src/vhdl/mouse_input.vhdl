@@ -410,7 +410,7 @@ begin
         phi_counter <= 0;
         if pot_counter < 513 then
           pot_counter <= pot_counter + 1;
-          if pot_counter = 0 then
+          if pot_counter = 0 or pot_counter = 1 then
             -- Begin draining capacitor
             pot_drain <= '1';
           elsif pot_counter = 256  then
