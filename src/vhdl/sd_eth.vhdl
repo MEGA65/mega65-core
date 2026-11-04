@@ -37,14 +37,16 @@
 -- the key by the MAC in it).
 --
 -- CONTROL REGISTER ($D6F1, through sdcardio_native):
---   write, bit 7 = 0: shift bits 6..0 into a 168-bit register (24 writes):
+--   write, bit 7 = 0: shift bits 6..0 into a 168-bit register (24 writes;
+--     ignored while on, so that the key in use stays put):
 --     bits 167..160 flags (bit 0 authenticate, bit 1 encrypt), 159..32 the
 --     key (byte i of the key in bits 159-8i..152-8i: the first key byte
 --     first), 31..0 entropy (XORed with a free-running cycle counter to make
 --     the session ID).
---   write, bit 7 = 1: bits 6..0 = our host octet.  Non-zero: take the key,
---     flags and session from the shift register and switch on (slot 0 is
---     then this card; C_INIT to connect).  Zero: switch off, forget the key.
+--   write, bit 7 = 1: bits 6..0 = our host octet.  Non-zero: take the flags
+--     and session from the shift register (the key stays in it) and switch
+--     on (slot 0 is then this card; C_INIT to connect).  Zero: switch off and
+--     clear the register, key and all.
 --   read: bit 7 on, bit 6 connected, bit 5 authenticate, bit 4 encrypt,
 --     bits 3..0 the status of the last NAK.
 --------------------------------------------------------------------------------
@@ -144,7 +146,7 @@ architecture rtl of sd_eth is
   signal sr        : unsigned(167 downto 0) := (others => '0');
   signal on_i      : std_logic := '0';
   signal octet     : unsigned(6 downto 0) := (others => '0');
-  signal key       : unsigned(127 downto 0) := (others => '0');  -- byte i at 8i
+  signal key       : unsigned(127 downto 0);  -- sr's key bits, byte i at 8i
   signal auth      : std_logic := '0';
   signal enc       : std_logic := '0';
   signal session   : unsigned(31 downto 0) := (others => '0');
@@ -157,7 +159,6 @@ architecture rtl of sd_eth is
   signal srv_mac   : unsigned(47 downto 0) := (others => '1');
   signal rs        : unsigned(23 downto 0) := (others => '0');   -- server nonce
   signal capacity  : unsigned(31 downto 0) := (others => '0');
-  signal mac_echo  : std_logic := '0';
   signal connected : std_logic := '0';
   signal seq       : unsigned(31 downto 0) := (others => '0');
 
@@ -181,13 +182,15 @@ architecture rtl of sd_eth is
   signal st, ret   : st_t := T_IDLE;       -- ret: where a build/parse returns
   signal xfer_op   : unsigned(3 downto 0) := x"0";   -- C_READ/C_WRITE/C_INFO/0
   signal hello_on  : std_logic := '0';
-  signal x_addr    : unsigned(31 downto 0) := (others => '0');
+  signal next_lba  : unsigned(31 downto 0) := (others => '0');   -- addr + done_n
+  signal room      : unsigned(31 downto 0) := (others => '0');   -- card left from it
   signal x_count   : unsigned(15 downto 0) := (others => '0');   -- 0: open
   signal granted   : unsigned(15 downto 0) := (others => '0');
   signal stopping  : std_logic := '0';     -- no more grants will come
   signal done_n    : unsigned(15 downto 0) := (others => '0');   -- blocks done
   signal req_first : unsigned(15 downto 0) := (others => '0');
   signal req_n     : unsigned(3 downto 0) := (others => '0');
+  signal req_left  : unsigned(3 downto 0) := (others => '0');
   signal req_open  : std_logic := '0';     -- a request is outstanding
   signal held      : std_logic := '0';     -- the head frame waits for a grant
   signal tries     : unsigned(7 downto 0) := (others => '0');
@@ -211,19 +214,21 @@ architecture rtl of sd_eth is
   signal pbyte     : unsigned(7 downto 0) := (others => '0');
 
   -- frame parsing ---------------------------------------------------------------
-  signal f_bcast, f_me : std_logic := '0';
+  signal f_dst     : unsigned(47 downto 0) := (others => '0');   -- Ethernet destination
+  signal f_tpa     : unsigned(31 downto 0) := (others => '0');   -- ARP target IP
+  signal f_dip     : unsigned(31 downto 0) := (others => '0');   -- IP destination
+  signal f_sess    : unsigned(31 downto 0) := (others => '0');
+  signal f_seq     : unsigned(31 downto 0) := (others => '0');
+  signal f_echo    : unsigned(47 downto 0) := (others => '0');   -- HELLO's MAC echo
   signal f_smac    : unsigned(47 downto 0) := (others => '0');
   signal f_type    : unsigned(15 downto 0) := (others => '0');
   signal f_ok      : std_logic := '0';     -- fixed fields as expected so far
   signal f_arp_ok  : std_logic := '0';
   signal f_spa     : unsigned(31 downto 0) := (others => '0');   -- ARP sender IP
-  signal f_tpa_me  : std_logic := '0';
   signal f_sip     : unsigned(31 downto 0) := (others => '0');   -- IP source
-  signal f_dip_me, f_dip_bc : std_logic := '0';
   signal f_udp_len : unsigned(15 downto 0) := (others => '0');
   signal f_flags   : unsigned(7 downto 0) := (others => '0');
   signal f_op      : unsigned(7 downto 0) := (others => '0');
-  signal f_sess_ok, f_seq_ok : std_logic := '0';
   signal f_lba     : unsigned(31 downto 0) := (others => '0');
   signal p_plen    : unsigned(9 downto 0) := (others => '0');
   signal p_auth, p_enc : std_logic := '0';
@@ -241,7 +246,8 @@ architecture rtl of sd_eth is
   signal a_tagidx  : unsigned(3 downto 0) := (others => '0');
   signal a_tag     : unsigned(7 downto 0);
   signal a_busy    : std_logic;
-  signal a_nonce   : unsigned(127 downto 0) := (others => '0');
+  signal a_nonce   : unsigned(127 downto 0);
+  signal n_parse   : std_logic := '0';     -- the nonce is for a received frame
 
   -- outputs -------------------------------------------------------------------------
   signal rd_valid_i, rd_good_i, rd_bad_i, wr_fetch_i : std_logic := '0';
@@ -256,14 +262,21 @@ architecture rtl of sd_eth is
   signal tx_wdata_i : unsigned(7 downto 0) := (others => '0');
   signal tx_len_i  : unsigned(10 downto 0) := (others => '0');
 
-  function be(v : unsigned(31 downto 0); k : natural) return unsigned is
+  subtype byte_t is unsigned(7 downto 0);
+
+  function be(v : unsigned(31 downto 0); k : natural) return byte_t is
   begin                                     -- byte k (0 = most significant)
-    return v(31 - 8 * k downto 24 - 8 * k);
+    return resize(shift_right(v, 24 - 8 * k), 8);
   end function;
 
-  function le(v : unsigned(31 downto 0); k : natural) return unsigned is
+  function le(v : unsigned(31 downto 0); k : natural) return byte_t is
   begin                                     -- byte k (0 = least significant)
-    return v(8 * k + 7 downto 8 * k);
+    return resize(shift_right(v, 8 * k), 8);
+  end function;
+
+  function macbyte(m : unsigned(47 downto 0); k : natural) return byte_t is
+  begin                                     -- byte k as sent (0 first)
+    return resize(shift_right(m, 40 - 8 * k), 8);
   end function;
 
 begin
@@ -273,6 +286,11 @@ begin
               byte_valid => a_valid, mode => a_mode, byte_in => a_in,
               byte_out => a_out, ad_end => a_adend, final => a_final,
               tag_idx => a_tagidx, tag_byte => a_tag, busy => a_busy);
+
+  -- the key is the shift register's middle (it doesn't shift while on)
+  key_bytes : for q in 0 to 15 generate
+    key(8 * q + 7 downto 8 * q) <= sr(159 - 8 * q downto 152 - 8 * q);
+  end generate;
 
   active <= on_i;
   ctl_status <= on_i & connected & auth & enc & last_nak;
@@ -295,6 +313,13 @@ begin
   wr_fetch <= wr_fetch_i;
   wr_offset <= wr_off_i;
   wr_block <= wr_blk_i;
+  -- Ascon takes the nonce at init: session | sequence | LBA | server nonce
+  -- (none for HELLO) | op, bit 7 for a response
+  a_nonce <= (f_op or x"80") & x"000000" & f_lba & seq & session
+               when n_parse = '1' and f_op = OP_HELLO else
+             (f_op or x"80") & rs & f_lba & seq & session when n_parse = '1' else
+             b_op & x"000000" & b_lba & seq & session when b_op = OP_HELLO else
+             b_op & rs & b_lba & seq & session;
   rx_raddr <= rx_raddr_i;
   rx_release <= rx_rel_i;
   tx_we <= tx_we_i;
@@ -307,17 +332,25 @@ begin
   process(clock)
 
     -- the header of the frame being built, byte k (0..57)
-    impure function hdr(k : natural) return unsigned is
+    impure function hdr(k : natural) return byte_t is
       variable flags : unsigned(7 downto 0);
     begin
       flags := x"10";
       flags(1) := b_auth;
       flags(2) := b_enc;
       case k is
-        when 0 to 5 =>
-          if b_hello = '1' then return x"ff"; end if;
-          return srv_mac(47 - 8 * k downto 40 - 8 * k);
-        when 6 to 11 => return mac(47 - 8 * (k - 6) downto 40 - 8 * (k - 6));
+        when 0 => if b_hello = '1' then return x"ff"; end if; return srv_mac(47 downto 40);
+        when 1 => if b_hello = '1' then return x"ff"; end if; return srv_mac(39 downto 32);
+        when 2 => if b_hello = '1' then return x"ff"; end if; return srv_mac(31 downto 24);
+        when 3 => if b_hello = '1' then return x"ff"; end if; return srv_mac(23 downto 16);
+        when 4 => if b_hello = '1' then return x"ff"; end if; return srv_mac(15 downto 8);
+        when 5 => if b_hello = '1' then return x"ff"; end if; return srv_mac(7 downto 0);
+        when 6 => return mac(47 downto 40);
+        when 7 => return mac(39 downto 32);
+        when 8 => return mac(31 downto 24);
+        when 9 => return mac(23 downto 16);
+        when 10 => return mac(15 downto 8);
+        when 11 => return mac(7 downto 0);
         when 12 => return x"08";
         when 13 => return x"00";
         when 14 => return x"45";
@@ -331,12 +364,14 @@ begin
         when 23 => return x"11";              -- UDP
         when 24 => return not csum(15 downto 8);
         when 25 => return not csum(7 downto 0);
-        when 26 to 29 =>
-          if b_hello = '1' then return x"00"; end if;
-          return be(my_ip, k - 26);
-        when 30 to 33 =>
-          if b_hello = '1' then return x"ff"; end if;
-          return be(srv_ip, k - 30);
+        when 26 => if b_hello = '1' then return x"00"; end if; return my_ip(31 downto 24);
+        when 27 => if b_hello = '1' then return x"00"; end if; return my_ip(23 downto 16);
+        when 28 => if b_hello = '1' then return x"00"; end if; return my_ip(15 downto 8);
+        when 29 => if b_hello = '1' then return x"00"; end if; return my_ip(7 downto 0);
+        when 30 => if b_hello = '1' then return x"ff"; end if; return srv_ip(31 downto 24);
+        when 31 => if b_hello = '1' then return x"ff"; end if; return srv_ip(23 downto 16);
+        when 32 => if b_hello = '1' then return x"ff"; end if; return srv_ip(15 downto 8);
+        when 33 => if b_hello = '1' then return x"ff"; end if; return srv_ip(7 downto 0);
         when 34 | 36 => return x"19";         -- port 6565
         when 35 | 37 => return x"a5";
         when 38 => return b_udp_len(15 downto 8);
@@ -346,9 +381,18 @@ begin
         when 43 => return x"53";              -- 'S'
         when 44 => return flags;
         when 45 => return b_op;
-        when 46 to 49 => return le(session, k - 46);
-        when 50 to 53 => return le(seq, k - 50);
-        when 54 to 57 => return le(b_lba, k - 54);
+        when 46 => return session(7 downto 0);
+        when 47 => return session(15 downto 8);
+        when 48 => return session(23 downto 16);
+        when 49 => return session(31 downto 24);
+        when 50 => return seq(7 downto 0);
+        when 51 => return seq(15 downto 8);
+        when 52 => return seq(23 downto 16);
+        when 53 => return seq(31 downto 24);
+        when 54 => return b_lba(7 downto 0);
+        when 55 => return b_lba(15 downto 8);
+        when 56 => return b_lba(23 downto 16);
+        when 57 => return b_lba(31 downto 24);
         when others => return x"00";
       end case;
     end function;
@@ -370,15 +414,26 @@ begin
     end function;
 
     -- payload byte k of a request (not WRITE: that is fetched)
-    impure function req_payload(k : natural) return unsigned is
+    impure function req_payload(k : natural) return byte_t is
     begin
       if b_op = OP_HELLO then
         case k is
-          when 0 to 5 => return mac(47 - 8 * k downto 40 - 8 * k);
+          when 0 => return mac(47 downto 40);
+          when 1 => return mac(39 downto 32);
+          when 2 => return mac(31 downto 24);
+          when 3 => return mac(23 downto 16);
+          when 4 => return mac(15 downto 8);
+          when 5 => return mac(7 downto 0);
           when 6 => return '0' & octet;
           when 7 => return x"01";             -- capabilities: Ascon-AEAD128
-          when 8 to 11 => return le(cycles, k - 8);
-          when 12 to 15 => return le(session, k - 12);
+          when 8 => return cycles(7 downto 0);
+          when 9 => return cycles(15 downto 8);
+          when 10 => return cycles(23 downto 16);
+          when 11 => return cycles(31 downto 24);
+          when 12 => return session(7 downto 0);
+          when 13 => return session(15 downto 8);
+          when 14 => return session(23 downto 16);
+          when 15 => return session(31 downto 24);
           when others => return x"00";
         end case;
       elsif k = 0 then
@@ -435,8 +490,8 @@ begin
     variable sum   : unsigned(16 downto 0);
     variable b     : unsigned(7 downto 0);
     variable want  : unsigned(15 downto 0);
-    variable limit : unsigned(16 downto 0);
-    variable n     : unsigned(16 downto 0);
+    variable n     : unsigned(3 downto 0);
+    variable diff  : unsigned(32 downto 0);
     variable k     : natural;
   begin
     if rising_edge(clock) then
@@ -502,30 +557,31 @@ begin
           -- what may be asked for: the granted blocks, or (open-ended and
           -- not stopping) 8 ahead of the data, never past the card's end
           if x_count /= 0 then
-            limit := resize(x_count, 17);
+            want := x_count - done_n;
           elsif stopping = '1' then
-            limit := resize(granted, 17);
+            want := granted - done_n;
           else
-            limit := resize(done_n, 17) + 8;
+            want := to_unsigned(8, 16);
           end if;
-          if resize(x_addr, 33) + limit > capacity then
-            limit := resize(capacity - x_addr, 17);
+          if want > 8 then
+            want := to_unsigned(8, 16);
           end if;
+          if room < 8 and resize(room, 16) < want then
+            want := resize(room, 16);
+          end if;
+          n := want(3 downto 0);
           if done_n = granted and (x_count /= 0 or stopping = '1') then
             xfer_op <= x"0";                -- all done
             st <= T_IDLE;
-          elsif req_open = '0' and resize(done_n, 17) < limit then
-            n := limit - done_n;
-            if n > 8 then
-              n := to_unsigned(8, 17);
-            end if;
+          elsif req_open = '0' and n /= 0 then
             req_first <= done_n;
-            req_n <= n(3 downto 0);
+            req_n <= n;
+            req_left <= n;
             req_open <= '1';
             held <= '0';
             seq <= seq + 1;
             timer <= (others => '0');
-            build(OP_READ, x_addr + done_n, 16, T_READ_WAIT);
+            build(OP_READ, next_lba, 16, T_READ_WAIT);
           else
             st <= T_READ_WAIT;
           end if;
@@ -559,7 +615,7 @@ begin
             req_open <= '1';
             seq <= seq + 1;
             timer <= (others => '0');
-            build(OP_WRITE, x_addr + done_n, 512, T_WRITE_WAIT);
+            build(OP_WRITE, next_lba, 512, T_WRITE_WAIT);
           elsif rx_ready = '1' then
             ret <= T_WRITE;                  -- waiting for a grant
             start_rx(0);
@@ -617,7 +673,7 @@ begin
           if b_auth = '0' then
             st <= B_HDR;
           elsif a_busy = '0' then
-            a_nonce <= b_op & rs & b_lba & seq & session;
+            n_parse <= '0';
             a_init <= '1';
             st <= B_HDR;
           end if;
@@ -734,8 +790,18 @@ begin
         when A_BUILD =>
           k := to_integer(i);
           case k is
-            when 0 to 5 => b := f_smac(47 - 8 * k downto 40 - 8 * k);
-            when 6 to 11 => b := mac(47 - 8 * (k - 6) downto 40 - 8 * (k - 6));
+            when 0 => b := f_smac(47 downto 40);
+            when 1 => b := f_smac(39 downto 32);
+            when 2 => b := f_smac(31 downto 24);
+            when 3 => b := f_smac(23 downto 16);
+            when 4 => b := f_smac(15 downto 8);
+            when 5 => b := f_smac(7 downto 0);
+            when 6 => b := mac(47 downto 40);
+            when 7 => b := mac(39 downto 32);
+            when 8 => b := mac(31 downto 24);
+            when 9 => b := mac(23 downto 16);
+            when 10 => b := mac(15 downto 8);
+            when 11 => b := mac(7 downto 0);
             when 12 => b := x"08";
             when 13 => b := x"06";
             when 14 => b := x"00";
@@ -746,10 +812,26 @@ begin
             when 19 => b := x"04";
             when 20 => b := x"00";
             when 21 => b := x"02";               -- reply
-            when 22 to 27 => b := mac(47 - 8 * (k - 22) downto 40 - 8 * (k - 22));
-            when 28 to 31 => b := be(my_ip, k - 28);
-            when 32 to 37 => b := f_smac(47 - 8 * (k - 32) downto 40 - 8 * (k - 32));
-            when 38 to 41 => b := be(f_spa, k - 38);
+            when 22 => b := mac(47 downto 40);
+            when 23 => b := mac(39 downto 32);
+            when 24 => b := mac(31 downto 24);
+            when 25 => b := mac(23 downto 16);
+            when 26 => b := mac(15 downto 8);
+            when 27 => b := mac(7 downto 0);
+            when 28 => b := my_ip(31 downto 24);
+            when 29 => b := my_ip(23 downto 16);
+            when 30 => b := my_ip(15 downto 8);
+            when 31 => b := my_ip(7 downto 0);
+            when 32 => b := f_smac(47 downto 40);
+            when 33 => b := f_smac(39 downto 32);
+            when 34 => b := f_smac(31 downto 24);
+            when 35 => b := f_smac(23 downto 16);
+            when 36 => b := f_smac(15 downto 8);
+            when 37 => b := f_smac(7 downto 0);
+            when 38 => b := f_spa(31 downto 24);
+            when 39 => b := f_spa(23 downto 16);
+            when 40 => b := f_spa(15 downto 8);
+            when 41 => b := f_spa(7 downto 0);
             when others => b := x"00";           -- padding to 60
           end case;
           if tx_busy = '0' or tx_base_i = '0' then  -- not over one being sent
@@ -779,21 +861,12 @@ begin
           rx_raddr_i <= resize(i + 1, 10);
           i <= i + 1;
           st <= P_HDR;
+          if k = 0 then
+            f_ok <= '1';
+            f_arp_ok <= '1';
+          end if;
           case k is
-            when 0 =>
-              f_bcast <= '1';
-              f_me <= '1';
-              f_ok <= '1';
-              f_arp_ok <= '1';
-              f_tpa_me <= '1';
-              f_dip_me <= '1';
-              f_sess_ok <= '1';
-              f_seq_ok <= '1';
-              if b /= x"ff" then f_bcast <= '0'; end if;
-              if b /= mac(47 downto 40) then f_me <= '0'; end if;
-            when 1 to 5 =>
-              if b /= x"ff" then f_bcast <= '0'; end if;
-              if b /= mac(47 - 8 * k downto 40 - 8 * k) then f_me <= '0'; end if;
+            when 0 to 5 => f_dst <= f_dst(39 downto 0) & b;
             when 6 to 11 => f_smac <= f_smac(39 downto 0) & b;
             when 12 | 13 => f_type <= f_type(7 downto 0) & b;
             when others => null;
@@ -806,7 +879,7 @@ begin
             when 18 => if b /= x"06" then f_arp_ok <= '0'; end if;
             when 19 => if b /= x"04" then f_arp_ok <= '0'; end if;
             when 28 to 31 => f_spa <= f_spa(23 downto 0) & b;
-            when 38 to 41 => if b /= be(my_ip, k - 38) then f_tpa_me <= '0'; end if;
+            when 38 to 41 => f_tpa <= f_tpa(23 downto 0) & b;
             when others => null;
           end case;
           -- IPv4 / UDP / netsd
@@ -816,7 +889,7 @@ begin
             when 21 => if b /= x"00" then f_ok <= '0'; end if;
             when 23 => if b /= x"11" then f_ok <= '0'; end if;
             when 26 to 29 => f_sip <= f_sip(23 downto 0) & b;
-            when 30 to 33 => if b /= be(my_ip, k - 30) then f_dip_me <= '0'; end if;
+            when 30 to 33 => f_dip <= f_dip(23 downto 0) & b;
             when 34 | 36 => if b /= x"19" then f_ok <= '0'; end if;
             when 35 | 37 => if b /= x"a5" then f_ok <= '0'; end if;
             when 38 | 39 => f_udp_len <= f_udp_len(7 downto 0) & b;
@@ -824,8 +897,8 @@ begin
             when 43 => if b /= x"53" then f_ok <= '0'; end if;
             when 44 => f_flags <= b;
             when 45 => f_op <= b;
-            when 46 to 49 => if b /= le(session, k - 46) then f_sess_ok <= '0'; end if;
-            when 50 to 53 => if b /= le(seq, k - 50) then f_seq_ok <= '0'; end if;
+            when 46 to 49 => f_sess <= b & f_sess(31 downto 8);
+            when 50 to 53 => f_seq <= b & f_seq(31 downto 8);
             when 54 to 57 => f_lba <= b & f_lba(31 downto 8);
             when others => null;
           end case;
@@ -862,23 +935,23 @@ begin
             want := want + 16;
           end if;
           if f_type = x"0806" then
-            if f_arp_ok = '1' and f_tpa_me = '1' and connected = '1'
-              and (f_bcast = '1' or f_me = '1') and rx_len >= 46 then
+            if f_arp_ok = '1' and f_tpa = my_ip and connected = '1'
+              and (f_dst = x"ffffffffffff" or f_dst = mac) and rx_len >= 46 then
               i <= (others => '0');
               rx_rel_i <= '1';               -- the reply needs nothing more from it
               st <= A_BUILD;
             end if;
-          elsif f_type = x"0800" and f_ok = '1' and f_sess_ok = '1' and f_seq_ok = '1'
+          elsif f_type = x"0800" and f_ok = '1' and f_sess = session and f_seq = seq
             and f_udp_len = want and resize(rx_len, 16) >= want + 38
             and f_flags(7 downto 4) = x"1" and f_flags(0) = '1' and f_flags(1) = auth
             and ((f_op = OP_HELLO and f_flags(2) = '0') or (f_op /= OP_HELLO and f_flags(2) = enc)) then
             if f_op = OP_HELLO then
-              if ret = T_HELLO_WAIT and (f_me = '1' or f_bcast = '1') then
+              if ret = T_HELLO_WAIT and (f_dst = mac or f_dst = x"ffffffffffff") then
                 st <= P_INIT;
               end if;
-            elsif connected = '1' and f_me = '1' and f_dip_me = '1' and f_sip = srv_ip then
+            elsif connected = '1' and f_dst = mac and f_dip = my_ip and f_sip = srv_ip then
               if f_op = OP_READ then
-                if ret = T_READ_WAIT and req_open = '1' and f_lba = x_addr + done_n then
+                if ret = T_READ_WAIT and req_open = '1' and f_lba = next_lba then
                   if done_n = granted then
                     held <= '1';             -- not granted yet: leave it there
                     st <= ret;
@@ -887,7 +960,7 @@ begin
                     st <= P_INIT;
                   end if;
                 end if;
-              elsif (f_op = OP_WRITE and ret = T_WRITE_WAIT and f_lba = x_addr + req_first)
+              elsif (f_op = OP_WRITE and ret = T_WRITE_WAIT and f_lba = next_lba)
                 or (f_op = OP_NAK and (ret = T_READ_WAIT or ret = T_WRITE_WAIT)) then
                 st <= P_INIT;
               end if;
@@ -901,11 +974,7 @@ begin
             rx_raddr_i <= to_unsigned(HDR_LEN, 10);
             st <= P_PAY;
           elsif a_busy = '0' then
-            if f_op = OP_HELLO then
-              a_nonce <= (f_op or x"80") & x"000000" & f_lba & seq & session;
-            else
-              a_nonce <= (f_op or x"80") & rs & f_lba & seq & session;
-            end if;
+            n_parse <= '1';
             a_init <= '1';
             start_rx(42);
             st <= P_AD;
@@ -973,11 +1042,7 @@ begin
               when 4 to 7 => srv_ip <= srv_ip(23 downto 0) & b;
               when 8 to 11 => capacity <= b & capacity(31 downto 8);
               when 16 to 18 => rs <= b & rs(23 downto 8);
-              when 24 =>
-                mac_echo <= '1';
-                if b /= mac(47 downto 40) then mac_echo <= '0'; end if;
-              when 25 to 29 =>
-                if b /= mac(47 - 8 * (k - 24) downto 40 - 8 * (k - 24)) then mac_echo <= '0'; end if;
+              when 24 to 29 => f_echo <= f_echo(39 downto 0) & b;
               when others => null;
             end case;
           else
@@ -1033,9 +1098,12 @@ begin
               if p_good = '1' then
                 rd_good_i <= '1';
                 done_n <= done_n + 1;
+                next_lba <= next_lba + 1;
+                room <= room - 1;
                 tries <= (others => '0');
                 timer <= (others => '0');
-                if done_n + 1 = req_first + req_n then
+                req_left <= req_left - 1;
+                if req_left = 1 then
                   req_open <= '0';
                 end if;
               else
@@ -1044,12 +1112,14 @@ begin
               end if;
             end if;
           elsif p_good = '1' and f_type = x"0800" then
-            if f_op = OP_HELLO and ret = T_HELLO_WAIT and mac_echo = '1' then
+            if f_op = OP_HELLO and ret = T_HELLO_WAIT and f_echo = mac then
               connected <= '1';
               srv_mac <= f_smac;
             elsif f_op = OP_WRITE and ret = T_WRITE_WAIT then
               if p_status = 0 then
                 done_n <= done_n + 1;
+                next_lba <= next_lba + 1;
+                room <= room - 1;
                 tries <= (others => '0');
                 req_open <= '0';
               elsif p_status = 1 then
@@ -1076,6 +1146,7 @@ begin
       end case;
 
       -- commands (after the transfer, so that they win) ---------------------------------
+      diff := ('0' & capacity) - ('0' & cmd_addr);   -- the card from cmd_addr on
       if cmd_valid = '1' and ready_i = '1' then
         ready_i <= '0';                    -- status shows it next cycle
         case cmd_code is
@@ -1104,14 +1175,15 @@ begin
               err_i <= '1';
               errc_i <= ERR_NOTREADY;
             elsif cmd_code /= C_INFO and
-              (cmd_addr >= capacity or
-               (cmd_count /= 0 and resize(cmd_addr, 33) + cmd_count > capacity)) then
+              (diff(32) = '1' or diff(31 downto 0) = 0 or
+               (diff(31 downto 16) = 0 and cmd_count > diff(15 downto 0))) then
               err_i <= '1';
               errc_i <= ERR_RANGE;
             else
               err_i <= '0';
               errc_i <= ERR_NONE;
-              x_addr <= cmd_addr;
+              next_lba <= cmd_addr;
+              room <= diff(31 downto 0);
               x_count <= cmd_count;
               granted <= cmd_count;
               if cmd_count = 0 then
@@ -1152,7 +1224,9 @@ begin
       -- the control register ------------------------------------------------------------
       if ctl_write = '1' then
         if ctl_wdata(7) = '0' then
-          sr <= sr(160 downto 0) & ctl_wdata(6 downto 0);
+          if on_i = '0' then                -- (the key in use stays put)
+            sr <= sr(160 downto 0) & ctl_wdata(6 downto 0);
+          end if;
         else
           connected <= '0';
           xfer_op <= x"0";
@@ -1164,14 +1238,10 @@ begin
             octet <= ctl_wdata(6 downto 0);
             auth <= sr(160) or sr(161);     -- encrypting implies authenticating
             enc <= sr(161);
-            for q in 0 to 15 loop
-              key(8 * q + 7 downto 8 * q) <= sr(159 - 8 * q downto 152 - 8 * q);
-            end loop;
             session <= sr(31 downto 0) xor cycles;
           else
             on_i <= '0';
-            key <= (others => '0');
-            sr <= (others => '0');
+            sr <= (others => '0');           -- (the key with it)
           end if;
         end if;
       end if;

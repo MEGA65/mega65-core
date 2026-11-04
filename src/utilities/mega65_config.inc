@@ -272,7 +272,7 @@ audioPageIndex:
 ;-------------------------------------------------------------------------------
 ;Network tab
 ;-------------------------------------------------------------------------------
-networkPageCnt	=	1
+networkPageCnt	=	2
 
 networkOptions0:
 	.byte		$50
@@ -288,8 +288,49 @@ networkOptions0:
 networkOptions0_end:
 	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"
 
+;SD card over Ethernet (#965): read by Hyppo (src/hyppo/netsd.asm) as text
+;  $030.0      encrypt (as well as sign) with the key
+;  $031-$033   our host number on the LAN, 1-127, in decimal
+;  $040-$05F   the key: 32 hex digits (the same as netsd.py's --key); none:
+;              no signing or encryption
+;It is used when DIP switch 8 is on, or right shift is held at power-on.
+networkOptions1:
+	.byte		$30			;string input type
+	.word		$0031			;offset into config table
+	.byte		$03			;input string length
+	.defPStr	"sd over ethernet host:"
+	.byte		$00, $00, $00
+
+	.byte		$10
+	.defPStr	"its key, 32 hex digits (none: open):"
+	.byte		$30			;string input type
+	.word		$0040			;offset into config table
+	.byte		$20			;input string length
+	.defPStr	"key:"			;(the field starts at column 7)
+	.byte		$00, $00, $00, $00, $00, $00, $00, $00
+	.byte		$00, $00, $00, $00, $00, $00, $00, $00
+	.byte		$00, $00, $00, $00, $00, $00, $00, $00
+	.byte		$00, $00, $00, $00, $00, $00, $00, $00
+
+	.byte		$20			;option input type
+	.word		$0030			;offset into config table
+	.byte		$01			;bits for testing/setting
+	.defPStr	"with a key:"
+	.defPStr	"signed"		;option unset
+	.defPStr	"signed+encrypted"	;option set
+
+	.byte		$40
+	.byte		$10
+	.defPStr	"dip switch 8 on, or right shift held"
+	.byte		$10
+	.defPStr	"at power-on, to use it"
+	.byte		$00
+networkOptions1_end:
+	.assert		(networkOptions1_end - networkOptions1) < 256, error, "Network Options 1 too large!"
+
 networkPageIndex:
 	.word		networkOptions0
+	.word		networkOptions1
 
 
 ;-------------------------------------------------------------------------------

@@ -42,7 +42,11 @@ use work.debugtools.all;
 
 entity ethernet is
   generic (
-    num_buffers : in integer := 4
+    num_buffers : in integer := 4;
+    -- SD over Ethernet (#965): frame buffers for sd_eth, which lives in the
+    -- SD controller (sdcard_native_dual) and talks to us through the netsd_*
+    -- ports below (cpuclock)
+    netsd : in boolean := false
     );
   port (
     clock : in std_logic;
@@ -98,7 +102,24 @@ entity ethernet is
     -- keyboard event capture via ethernet
     ---------------------------------------------------------------------------    
     eth_keycode_toggle : out std_logic;
-    eth_keycode : out unsigned(15 downto 0)
+    eth_keycode : out unsigned(15 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- SD over Ethernet (#965), cpuclock: see eth_netsd_buf
+    ---------------------------------------------------------------------------
+    netsd_mac      : out unsigned(47 downto 0);
+    netsd_rx_ready : out std_logic := '0';
+    netsd_rx_len   : out unsigned(10 downto 0) := (others => '0');
+    netsd_rx_raddr : in  unsigned(9 downto 0) := (others => '0');
+    netsd_rx_rdata : out unsigned(7 downto 0) := (others => '0');
+    netsd_rx_release : in std_logic := '0';
+    netsd_tx_we    : in  std_logic := '0';
+    netsd_tx_waddr : in  unsigned(10 downto 0) := (others => '0');
+    netsd_tx_wdata : in  unsigned(7 downto 0) := (others => '0');
+    netsd_tx_go    : in  std_logic := '0';
+    netsd_tx_base  : in  std_logic := '0';
+    netsd_tx_len   : in  unsigned(10 downto 0) := (others => '0');
+    netsd_tx_busy  : out std_logic := '0'
 
     );
 end ethernet;
@@ -172,6 +193,16 @@ architecture behavioural of ethernet is
 
   -- MAC address and filtering functions
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
+
+  -- SD over Ethernet (#965): the 50 MHz side of eth_netsd_buf
+  signal netsd_rx50_start, netsd_rx50_we, netsd_rx50_end, netsd_rx50_ok : std_logic := '0';
+  signal netsd_rx50_addr, netsd_rx50_len : unsigned(10 downto 0) := (others => '0');
+  signal netsd_rx50_data : unsigned(7 downto 0) := (others => '0');
+  signal netsd_tx50_pending, netsd_tx50_done : std_logic := '0';
+  signal netsd_tx50_len : unsigned(10 downto 0) := (others => '0');
+  signal netsd_tx50_rdata : unsigned(7 downto 0) := (others => '0');
+  signal eth_send_sd : std_logic := '0';
+  signal netsd_tx50_raddr : unsigned(10 downto 0) := (others => '0');
   signal eth_mac_shift : unsigned(39 downto 0) := (others => '0');
   signal eth_mac_filter : std_logic := '1';
   signal eth_accept_broadcast : std_logic := '1';
@@ -463,6 +494,25 @@ begin  -- behavioural
     address => txbuffer_readaddress,
     rdata => beaconbuffer_rdata);
 
+  netsd_mac <= eth_mac;
+  netsd_tx50_raddr <= to_unsigned(txbuffer_readaddress, 11);
+  netsd_bufs : if netsd generate
+    netsd_buf0 : entity work.eth_netsd_buf
+      port map (
+        clock50 => clock50mhz, cpuclock => clock,
+        rx50_start => netsd_rx50_start, rx50_we => netsd_rx50_we,
+        rx50_addr => netsd_rx50_addr, rx50_data => netsd_rx50_data,
+        rx50_end => netsd_rx50_end, rx50_ok => netsd_rx50_ok, rx50_len => netsd_rx50_len,
+        tx50_pending => netsd_tx50_pending, tx50_len => netsd_tx50_len,
+        tx50_raddr => netsd_tx50_raddr,
+        tx50_rdata => netsd_tx50_rdata, tx50_done => netsd_tx50_done,
+        rx_ready => netsd_rx_ready, rx_len => netsd_rx_len, rx_raddr => netsd_rx_raddr,
+        rx_rdata => netsd_rx_rdata, rx_release => netsd_rx_release,
+        tx_we => netsd_tx_we, tx_waddr => netsd_tx_waddr, tx_wdata => netsd_tx_wdata,
+        tx_go => netsd_tx_go, tx_base => netsd_tx_base, tx_len => netsd_tx_len,
+        tx_busy => netsd_tx_busy);
+  end generate;
+
   rx_CRC : entity work.CRC
     port map(
       CLOCK           => clock50mhz,
@@ -594,6 +644,12 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      -- SD over Ethernet: one-cycle strobes
+      netsd_rx50_start <= '0';
+      netsd_rx50_we <= '0';
+      netsd_rx50_end <= '0';
+      netsd_tx50_done <= '0';
+
       if (rxbuff_id_ethside /= rxbuff_id_ethside_last)
         or (rxbuff_id_cpuside /= rxbuff_id_cpuside_last) then
         report "rxbuff_id_ethside=" & integer'image(rxbuff_id_ethside)
@@ -696,6 +752,7 @@ begin  -- behavioural
               eth_tx_complete <= '0';
             end if;
 
+            eth_send_sd <= '0';
             -- reset beacon timer if we sent a beacon packet before
             if eth_send_beacon='1' then
               eth_send_beacon <= '0';
@@ -761,6 +818,17 @@ begin  -- behavioural
               eth_tx_state <= WaitBeforeTX;
               eth_tx_viciv <= '1';
               eth_tx_dump <= '0';
+            elsif netsd and netsd_tx50_pending = '1' and eth_send_sd = '0' then
+              -- SD over Ethernet: a frame sd_eth built (#965)
+              eth_send_sd <= '1';
+              eth_tx_commenced <= '1';
+              eth_tx_complete <= '0';
+              tx_preamble_count <= tx_preamble_length;
+              eth_txen_int <= '1';
+              eth_txd_int <= "01";
+              eth_tx_state <= WaitBeforeTX;
+              eth_tx_viciv <= '0';
+              eth_tx_dump <= '0';
             elsif (eth_remote_control = '1') and (eth_load_enable = '1') 
                    and (eth_send_beacon = '0') and (eth_beacon_timer_count = 0) then
               eth_send_beacon <= '1';
@@ -800,7 +868,10 @@ begin  -- behavioural
               tx_fcs_crc_d_valid <= '1';
               tx_fcs_crc_calc_en <= '1';
               report "TX CRC announcing input";
-              if eth_tx_viciv='0' and eth_tx_dump='0' and eth_send_beacon='0' then
+              if eth_send_sd='1' then
+                eth_tx_bits <= netsd_tx50_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(netsd_tx50_rdata);
+              elsif eth_tx_viciv='0' and eth_tx_dump='0' and eth_send_beacon='0' then
                 eth_tx_bits <= txbuffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
                 report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
@@ -831,7 +902,10 @@ begin  -- behavioural
               tx_fcs_crc_d_valid <= '1';
               tx_fcs_crc_calc_en <= '1';
               report "TX CRC announcing input";
-              if eth_tx_dump='1' then
+              if eth_send_sd='1' then
+                eth_tx_bits <= netsd_tx50_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(netsd_tx50_rdata);
+              elsif eth_tx_dump='1' then
                 if txbuffer_readaddress < video_packet_header'length then
                   report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
                   eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
@@ -888,6 +962,19 @@ begin  -- behavioural
                   report "ETHERDUMP: dumpram_raddr = $" & to_hstring(dumpram_raddr);
                 else
                   dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,11));
+                end if;
+              elsif eth_send_sd='1' then
+                if to_unsigned(txbuffer_readaddress,11) /= netsd_tx50_len then
+                  txbuffer_readaddress <= txbuffer_readaddress + 1;
+                else
+                  eth_tx_state <= SendFCS;
+                  tx_fcs_crc_d_valid <= '0';
+                  tx_fcs_crc_calc_en <= '0';
+                  eth_tx_crc_bits <= not (tx_crc_reg(31 downto 24)
+                                          & tx_crc_reg(23 downto 16)
+                                          & tx_crc_reg(15 downto 8)
+                                          & tx_crc_reg(7 downto 0));
+                  eth_tx_crc_count <= 16;
                 end if;
               elsif (eth_send_beacon='1') and (to_unsigned(txbuffer_readaddress,12) /= 68) then
                 -- sending next byte
@@ -952,12 +1039,15 @@ begin  -- behavioural
               eth_txen_int <= '0';
               eth_tx_state <= SentFrame;
               eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
+              if eth_send_sd = '1' then
+                netsd_tx50_done <= '1';
+              end if;
             end if;
           when SentFrame =>
             -- Wait for eth_tx_trigger to go low, unless it is
             -- a VIC-IV video frame, in which case immediately clear.
             eth_tx_complete <= '1';
-            if eth_tx_trigger_50mhz='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
+            if eth_tx_trigger_50mhz='0' or eth_tx_viciv = '1' or eth_tx_dump='1' or eth_send_sd = '1' then
               eth_tx_commenced <= '0';
               eth_tx_state <= IdleWait;
             end if;
@@ -973,6 +1063,7 @@ begin  -- behavioural
         eth_txd_int <= "11";        
         eth_tx_viciv <= '0';
         eth_tx_dump <= '0';
+        eth_send_sd <= '0';
       end if;
       
       frame_length := to_unsigned(eth_frame_len,11);
@@ -1047,6 +1138,7 @@ begin  -- behavioural
                 -- end of preamble
                 report "ETHRX: Found end of preamble, expecting data to follow";
                 eth_state <= ReceivingFrame;
+                netsd_rx50_start <= '1';
                 
               when others =>
                 report "CRC: Rejecting frame due to junk in preamble";
@@ -1149,6 +1241,11 @@ begin  -- behavioural
                       & ", multicast=" & std_logic'image(frame_is_multicast);
                   end if;
                   eth_frame_len <= eth_frame_len + 1;
+
+                  -- SD over Ethernet: every byte, whatever the CPU's buffers
+                  netsd_rx50_we <= '1';
+                  netsd_rx50_addr <= to_unsigned(eth_frame_len - 2, 11);
+                  netsd_rx50_data <= eth_rxd & eth_rxbits;
 
                   -- Veto packet reception if no free RX buffers
                   if eth_rx_blocked_50mhz = '0' then                  
@@ -1254,6 +1351,9 @@ begin  -- behavioural
             -- bit 7 is high if CRC fails, else is low.
             report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
             report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
+            netsd_rx50_end <= '1';
+            netsd_rx50_ok <= rx_crc_valid;
+            netsd_rx50_len <= to_unsigned(eth_frame_len, 11);
             -- Veto packet reception if no free RX buffers
             if eth_rx_blocked_50mhz = '0' then
               rxbuffer_write_toggle <= not rxbuffer_write_toggle;

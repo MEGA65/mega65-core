@@ -126,6 +126,9 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio_native.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcard_native.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ascon_aead128.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sd_eth.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/eth_netsd_buf.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sd_cache.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fat32_rom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fat32_engine.vhdl"]"\
@@ -567,6 +570,18 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sdcard_native.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/ascon_aead128.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/sd_eth.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/eth_netsd_buf.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

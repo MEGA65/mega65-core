@@ -198,6 +198,10 @@ spi2_loop:
         ldy #>msg_syspart_ok
         jsr printmessage
 
+        ;; (the network card's system partition: the real card's config has
+        ;; been applied, and is the one that counts)
+        lda netsd_skip_config
+        bne spo4
         jsr syspart_configsector_read
         lda $de0e
         bpl do_launch_onboarding
@@ -429,6 +433,9 @@ syspart_configsector_apply:
         lda $de01
         cmp #$01
         bne syspart_config_invalid
+
+        ;; SD over Ethernet (#965): host number, flags, key
+        jsr netsd_keep_config
 
         ;; Set DMAgic revision
         lda $de20

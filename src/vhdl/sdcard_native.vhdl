@@ -3774,7 +3774,9 @@ entity sdcard_native_dual is
     G_DS_P : natural := 13;
     G_DS_D : natural := 3;
     G_HS_P : natural := 8;
-    G_HS_D : natural := 8
+    G_HS_D : natural := 8;
+    -- SD over Ethernet (#965): sd_eth can stand in for slot 0's card
+    G_NET : boolean := false
   );
   port (
     clock162, cpuclock : in std_logic;
@@ -3809,7 +3811,27 @@ entity sdcard_native_dual is
     sd_dat_i : in std_logic_vector(7 downto 0);
     limit_enable : in std_logic_vector(1 downto 0) := "11";
     cards_last_sector : out unsigned(63 downto 0);
-    cards_capacity_valid : out std_logic_vector(1 downto 0)
+    cards_capacity_valid : out std_logic_vector(1 downto 0);
+    -- SD over Ethernet (#965), G_NET only: the control register ($D6F1) and
+    -- the frame buffers in ethernet.vhdl (see sd_eth).  While net_active,
+    -- slot 0 is the network card and the internal socket is idle.
+    net_ctl_write : in std_logic := '0';
+    net_ctl_wdata : in unsigned(7 downto 0) := (others => '0');
+    net_ctl_status : out unsigned(7 downto 0);
+    net_active : out std_logic;
+    net_mac : in unsigned(47 downto 0) := x"024753656565";
+    net_rx_ready : in std_logic := '0';
+    net_rx_len : in unsigned(10 downto 0) := (others => '0');
+    net_rx_raddr : out unsigned(9 downto 0);
+    net_rx_rdata : in unsigned(7 downto 0) := (others => '0');
+    net_rx_release : out std_logic;
+    net_tx_we : out std_logic;
+    net_tx_waddr : out unsigned(10 downto 0);
+    net_tx_wdata : out unsigned(7 downto 0);
+    net_tx_go : out std_logic;
+    net_tx_base : out std_logic;
+    net_tx_len : out unsigned(10 downto 0);
+    net_tx_busy : in std_logic := '0'
   );
 end entity;
 
@@ -3850,6 +3872,27 @@ architecture rtl of sdcard_native_dual is
   signal c_dat_o, c_dat_oe : t_p8;
   signal info : unsigned(63 downto 0);
 
+  -- the sockets' cores (h_) and the network card (e_), which takes slot 0's
+  -- place in c_ while net_on (#965)
+  signal net_on : std_logic := '0';
+  signal h_valid : std_logic_vector(1 downto 0);
+  signal h_ready, h_card, h_busy, h_wait, h_error : std_logic_vector(1 downto 0);
+  signal h_native, h_hs, h_hc, h_rv, h_good, h_bad, h_wfetch : std_logic_vector(1 downto 0);
+  signal h_err, h_pass, h_fail, h_data : t_u8;
+  signal h_setting, h_done, h_rblock, h_wblock : t_u16;
+  signal h_roff, h_woff : t_u9;
+  signal h_diag : t_u128;
+  signal h_idiag : t_u56;
+  signal h_bdiag : t_u192;
+  signal h_last : t_u32;
+  signal h_capacity : std_logic_vector(1 downto 0);
+  signal e_valid, e_ready, e_card, e_busy, e_wait, e_error : std_logic := '0';
+  signal e_rv, e_good, e_bad, e_wfetch, e_capacity : std_logic := '0';
+  signal e_err, e_data : unsigned(7 downto 0) := (others => '0');
+  signal e_done, e_rblock, e_wblock : unsigned(15 downto 0) := (others => '0');
+  signal e_roff, e_woff : unsigned(8 downto 0) := (others => '0');
+  signal e_last : unsigned(31 downto 0) := (others => '0');
+
   function slot_index(s : std_logic) return natural is
   begin
     if s = '1' then return 1; else return 0; end if;
@@ -3864,27 +3907,106 @@ begin
         G_DS_P => G_DS_P, G_DS_D => G_DS_D, G_HS_P => G_HS_P, G_HS_D => G_HS_D)
       port map (
         clock162 => clock162, cpuclock => cpuclock,
-        cmd_valid => c_valid(s), cmd_ready => c_ready(s), cmd_code => c_code,
+        cmd_valid => h_valid(s), cmd_ready => h_ready(s), cmd_code => c_code,
         cmd_addr => c_addr, cmd_count => c_count, cmd_arg => c_arg,
-        card_ready => c_card(s), busy => c_busy(s), waiting => c_wait(s),
-        error => c_error(s), err_code => c_err(s), native_mode => c_native(s),
-        high_speed => c_hs(s), sdhc => c_hc(s), clk_setting => c_setting(s),
-        probe_pass => c_pass(s), probe_fail => c_fail(s), blocks_done => c_done(s),
-        diag_stats => c_diag(s), init_diag => c_idiag(s), blk_diag => c_bdiag(s),
-        rd_valid => c_rv(s), rd_data => c_data(s),
-        rd_offset => c_roff(s), rd_block => c_rblock(s), rd_good => c_good(s), rd_bad => c_bad(s),
-        wr_fetch => c_wfetch(s), wr_offset => c_woff(s), wr_block => c_wblock(s), wr_data => wr_data,
+        card_ready => h_card(s), busy => h_busy(s), waiting => h_wait(s),
+        error => h_error(s), err_code => h_err(s), native_mode => h_native(s),
+        high_speed => h_hs(s), sdhc => h_hc(s), clk_setting => h_setting(s),
+        probe_pass => h_pass(s), probe_fail => h_fail(s), blocks_done => h_done(s),
+        diag_stats => h_diag(s), init_diag => h_idiag(s), blk_diag => h_bdiag(s),
+        rd_valid => h_rv(s), rd_data => h_data(s),
+        rd_offset => h_roff(s), rd_block => h_rblock(s), rd_good => h_good(s), rd_bad => h_bad(s),
+        wr_fetch => h_wfetch(s), wr_offset => h_woff(s), wr_block => h_wblock(s), wr_data => wr_data,
         sd_clk => c_clk(s), sd_cmd_o => c_cmd_o(s), sd_cmd_oe => c_cmd_oe(s), sd_cmd_i => sd_cmd_i,
         sd_dat_o => c_dat_o(s), sd_dat_oe => c_dat_oe(s), sd_dat_i => sd_dat_i,
-        limit_enable => limit_enable(s), last_sector => c_last(s), capacity_valid => c_capacity(s));
+        limit_enable => limit_enable(s), last_sector => h_last(s), capacity_valid => h_capacity(s));
     cards_last_sector(s*32+31 downto s*32) <= c_last(s);
     cards_capacity_valid(s) <= c_capacity(s);
+    -- slot 1 is always its socket; slot 0 is the network card while net_on
+    sock1 : if s = 1 generate
+      h_valid(1) <= c_valid(1);
+      c_ready(1) <= h_ready(1); c_card(1) <= h_card(1); c_busy(1) <= h_busy(1);
+      c_wait(1) <= h_wait(1); c_error(1) <= h_error(1); c_err(1) <= h_err(1);
+      c_native(1) <= h_native(1); c_hs(1) <= h_hs(1); c_hc(1) <= h_hc(1);
+      c_setting(1) <= h_setting(1); c_pass(1) <= h_pass(1); c_fail(1) <= h_fail(1);
+      c_done(1) <= h_done(1); c_diag(1) <= h_diag(1); c_idiag(1) <= h_idiag(1);
+      c_bdiag(1) <= h_bdiag(1); c_rv(1) <= h_rv(1); c_data(1) <= h_data(1);
+      c_roff(1) <= h_roff(1); c_rblock(1) <= h_rblock(1); c_good(1) <= h_good(1);
+      c_bad(1) <= h_bad(1); c_wfetch(1) <= h_wfetch(1); c_woff(1) <= h_woff(1);
+      c_wblock(1) <= h_wblock(1); c_last(1) <= h_last(1); c_capacity(1) <= h_capacity(1);
+    end generate;
+    sock0 : if s = 0 generate
+      h_valid(0) <= c_valid(0) and not net_on;
+      e_valid <= c_valid(0) and net_on;
+      c_ready(0) <= e_ready when net_on = '1' else h_ready(0);
+      c_card(0) <= e_card when net_on = '1' else h_card(0);
+      c_busy(0) <= e_busy when net_on = '1' else h_busy(0);
+      c_wait(0) <= e_wait when net_on = '1' else h_wait(0);
+      c_error(0) <= e_error when net_on = '1' else h_error(0);
+      c_err(0) <= e_err when net_on = '1' else h_err(0);
+      c_native(0) <= '1' when net_on = '1' else h_native(0);
+      c_hs(0) <= '1' when net_on = '1' else h_hs(0);
+      c_hc(0) <= '1' when net_on = '1' else h_hc(0);
+      c_setting(0) <= (others => '0') when net_on = '1' else h_setting(0);
+      c_pass(0) <= (others => '0') when net_on = '1' else h_pass(0);
+      c_fail(0) <= (others => '0') when net_on = '1' else h_fail(0);
+      c_done(0) <= e_done when net_on = '1' else h_done(0);
+      c_diag(0) <= (others => '0') when net_on = '1' else h_diag(0);
+      c_idiag(0) <= (others => '0') when net_on = '1' else h_idiag(0);
+      c_bdiag(0) <= (others => '0') when net_on = '1' else h_bdiag(0);
+      c_rv(0) <= e_rv when net_on = '1' else h_rv(0);
+      c_data(0) <= e_data when net_on = '1' else h_data(0);
+      c_roff(0) <= e_roff when net_on = '1' else h_roff(0);
+      c_rblock(0) <= e_rblock when net_on = '1' else h_rblock(0);
+      c_good(0) <= e_good when net_on = '1' else h_good(0);
+      c_bad(0) <= e_bad when net_on = '1' else h_bad(0);
+      c_wfetch(0) <= e_wfetch when net_on = '1' else h_wfetch(0);
+      c_woff(0) <= e_woff when net_on = '1' else h_woff(0);
+      c_wblock(0) <= e_wblock when net_on = '1' else h_wblock(0);
+      c_last(0) <= e_last when net_on = '1' else h_last(0);
+      c_capacity(0) <= e_capacity when net_on = '1' else h_capacity(0);
+    end generate;
     sd_clk(s) <= c_clk(s)(s);
     sd_cmd_o(s) <= c_cmd_o(s)(s);
     sd_cmd_oe(s) <= c_cmd_oe(s)(s);
     sd_dat_o(s*4+3 downto s*4) <= c_dat_o(s)(s*4+3 downto s*4);
     sd_dat_oe(s*4+3 downto s*4) <= c_dat_oe(s)(s*4+3 downto s*4);
   end generate;
+
+  net : if G_NET generate
+    eth_card : entity work.sd_eth
+      generic map (G_WR_LAT => G_WR_LAT, G_US => 1 + G_MS / 4000)  -- cpuclock = clock162 / 4
+      port map (
+        clock => cpuclock,
+        ctl_write => net_ctl_write, ctl_wdata => net_ctl_wdata,
+        ctl_status => net_ctl_status, active => net_on,
+        cmd_valid => e_valid, cmd_ready => e_ready, cmd_code => c_code,
+        cmd_addr => c_addr, cmd_count => c_count, cmd_arg => c_arg,
+        card_ready => e_card, busy => e_busy, waiting => e_wait, error => e_error,
+        err_code => e_err, blocks_done => e_done,
+        capacity_valid => e_capacity, last_sector => e_last,
+        rd_valid => e_rv, rd_data => e_data, rd_offset => e_roff, rd_block => e_rblock,
+        rd_good => e_good, rd_bad => e_bad,
+        wr_fetch => e_wfetch, wr_offset => e_woff, wr_block => e_wblock, wr_data => wr_data,
+        mac => net_mac, rx_ready => net_rx_ready, rx_len => net_rx_len,
+        rx_raddr => net_rx_raddr, rx_rdata => net_rx_rdata, rx_release => net_rx_release,
+        tx_we => net_tx_we, tx_waddr => net_tx_waddr, tx_wdata => net_tx_wdata,
+        tx_go => net_tx_go, tx_base => net_tx_base, tx_len => net_tx_len,
+        tx_busy => net_tx_busy);
+  end generate;
+  no_net : if not G_NET generate
+    net_on <= '0';
+    net_ctl_status <= (others => '0');
+    net_rx_raddr <= (others => '0');
+    net_rx_release <= '0';
+    net_tx_we <= '0';
+    net_tx_waddr <= (others => '0');
+    net_tx_wdata <= (others => '0');
+    net_tx_go <= '0';
+    net_tx_base <= '0';
+    net_tx_len <= (others => '0');
+  end generate;
+  net_active <= net_on;
 
   status : process(c_card, c_busy, c_wait, c_error, c_err, c_native, c_hs, c_hc,
                    c_ready, c_setting, st, p_mask, p_code)

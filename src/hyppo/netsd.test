@@ -1,0 +1,167 @@
+# SD over Ethernet (#965), src/hyppo/netsd.asm; assemble Hyppo before running:
+#   src/tools/hyppotest src/hyppo/netsd.test
+# The config sector is in the sector buffer at $DE00 (physical $FFD3E00).
+
+test "Config: host number, hex key in mixed case, encrypt"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+# $030 encrypt; $031 "65"; $040 "000102030405060708090a0B0c0D0e0F"
+poke $FFD3E30 $01 $36 $35 $00
+poke $FFD3E40 $30 $30 $30 $31 $30 $32 $30 $33 $30 $34 $30 $35 $30 $36 $30 $37
+poke $FFD3E50 $30 $38 $30 $39 $30 $61 $30 $42 $30 $63 $30 $44 $30 $65 $30 $46
+jsr netsd_keep_config
+assert memory netsd_cfg_octet = $41
+assert memory netsd_cfg_flags = $03
+assert memory netsd_cfg_key = $00
+assert memory netsd_cfg_key+1 = $01
+assert memory netsd_cfg_key+10 = $0A
+assert memory netsd_cfg_key+11 = $0B
+assert memory netsd_cfg_key+15 = $0F
+test end
+
+test "Config: upper case hex, a short key, no encryption"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+# "7"; key "C1F": the rest is zero.  (PETSCII's shifted letters, $C1-$C6,
+# take the same path in netsd_nybble, but hyppotest's CMP sets C from N
+# instead of from the unsigned compare, so a test with them would fail
+# for the interpreter's sake)
+poke $FFD3E30 $00 $37 $00 $00
+poke $FFD3E40 $43 $31 $46 $00
+jsr netsd_keep_config
+assert memory netsd_cfg_octet = $07
+assert memory netsd_cfg_flags = $01
+assert memory netsd_cfg_key = $C1
+assert memory netsd_cfg_key+1 = $F0
+assert memory netsd_cfg_key+2 = $00
+test end
+
+test "Config: no key, so no signing; host number too big"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke $FFD3E30 $01 $32 $30 $30
+poke $FFD3E40 $00
+jsr netsd_keep_config
+assert memory netsd_cfg_octet = $00
+assert memory netsd_cfg_flags = $00
+test end
+
+test "Config: 127 is the largest host number"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke $FFD3E30 $00 $31 $32 $37
+poke $FFD3E40 $00
+jsr netsd_keep_config
+assert memory netsd_cfg_octet = $7F
+test end
+
+test "Boot: not asked for, nothing happens"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke netsd_cfg_octet $41
+poke $FFD369D $00
+poke $FFD3611 $00
+breakpoint printmessage
+jsr netsd_boot
+assert pc = $0001
+assert memory $FFD36F1 = $00
+test end
+
+test "Boot: right shift, connects, scans the network card"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke printmessage $60
+poke sd_map_sectorbuffer $60
+poke dos_clearall $60
+poke dos_read_partitiontable $60
+poke syspart_present $01
+poke netsd_cfg_flags $03
+poke netsd_cfg_octet $41
+poke netsd_cfg_key $00 $01 $02 $03 $04 $05 $06 $07 $08 $09 $0A $0B $0C $0D $0E $0F
+poke $FFD369D $00
+mock read $FFD3611 $02 $00
+mock read $FFD37FE $00
+mock read $FFD37EF $00
+mock read $FFD3012 $00
+poke $FFD36CC $53 $01
+# on reads back; then connected
+mock read $FFD36F1 $80 $C0
+# the bus we booted from (internal), then ready
+mock read $FFD3680 $00 $18
+expect write $FFD36F1 $01 $40 $00 $10 $10 $0C $08 $05 $03 $01 $61 $00 $48 $28 $16 $0C $06 $43 $41 $70 $00 $00 $00 $00 $C1
+expect write $FFD3680 $C0 $00 $01
+jsr netsd_boot
+check writes
+assert memory syspart_present = $00
+assert memory netsd_skip_config = $00
+# the key doesn't stay behind in Hyppo's copy for the shift register
+assert memory netsd_sr+5 = $00
+test end
+
+test "Boot: DIP switch 8, no answer: off, internal card again, no wait"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke printmessage $60
+poke sd_map_sectorbuffer $60
+poke syspart_present $01
+poke netsd_cfg_flags $00
+poke netsd_cfg_octet $05
+poke $FFD369D $80
+mock read $FFD3611 $00
+mock read $FFD37FE $00
+poke $FFD36CC $53 $01
+mock read $FFD36F1 $80 $80
+# booted from internal; the init fails (error, bit 6); the internal one is ready again
+mock read $FFD3680 $00 $5A $5A $18
+expect write $FFD3680 $C0 $00 $01 $C0 $00 $01
+breakpoint netsd_release_loop
+jsr netsd_boot
+check writes
+assert memory syspart_present = $01
+assert memory $FFD36F1 = $80
+test end
+
+test "Boot: right shift held, no answer: back to the external card, wait for release"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke printmessage $60
+poke sd_map_sectorbuffer $60
+poke netsd_cfg_octet $05
+poke $FFD369D $00
+# asked for; still held at the failure, held, then let go
+mock read $FFD3611 $02 $02 $02 $02 $00
+mock read $FFD37FE $00
+poke $FFD36CC $53 $01
+mock read $FFD36F1 $80
+# booted from external (bit 7); the init fails
+mock read $FFD3680 $80 $5A
+expect write $FFD3680 $C0 $00 $01 $C1
+jsr netsd_boot
+check writes
+assert memory $FFD36F1 = $80
+assert reads $FFD3611 = $05
+test end
+
+test "Boot: not in this core (on doesn't read back)"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+let b = $BF
+poke printmessage $60
+poke netsd_cfg_octet $05
+poke $FFD369D $80
+mock read $FFD3611 $00
+mock read $FFD37FE $00
+mock read $FFD36F1 $00
+breakpoint sd_wait_for_boot_card
+jsr netsd_boot
+assert pc = $0001
+assert memory $FFD3680 = $00
+test end

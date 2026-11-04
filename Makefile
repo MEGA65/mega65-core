@@ -386,6 +386,9 @@ PERIPHVHDL=		$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/sdcardio_native.vhdl \
 			$(VHDLSRCDIR)/sdcard_native.vhdl \
+			$(VHDLSRCDIR)/ascon_aead128.vhdl \
+			$(VHDLSRCDIR)/sd_eth.vhdl \
+			$(VHDLSRCDIR)/eth_netsd_buf.vhdl \
 			$(VHDLSRCDIR)/sd_cache.vhdl \
 			$(VHDLSRCDIR)/fat32_rom.vhdl \
 			$(VHDLSRCDIR)/fat32_engine.vhdl \

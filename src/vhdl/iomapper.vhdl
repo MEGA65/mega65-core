@@ -536,6 +536,14 @@ architecture behavioral of iomapper is
   signal cpuregs_cs : std_logic := '0';
   signal thumbnail_cs : std_logic := '0';
   signal ethernet_cs : std_logic := '0';
+  -- SD over Ethernet (#965): ethernet.vhdl's frame buffers <-> sd_eth in the
+  -- native SD controller
+  signal netsd_mac : unsigned(47 downto 0) := x"024753656565";
+  signal netsd_rx_ready, netsd_rx_release, netsd_tx_we, netsd_tx_go : std_logic := '0';
+  signal netsd_tx_base, netsd_tx_busy : std_logic := '0';
+  signal netsd_rx_len, netsd_tx_waddr, netsd_tx_len : unsigned(10 downto 0) := (others => '0');
+  signal netsd_rx_raddr : unsigned(9 downto 0) := (others => '0');
+  signal netsd_rx_rdata, netsd_tx_wdata : unsigned(7 downto 0) := (others => '0');
 
   signal spare_bits : unsigned(4 downto 0);
 
@@ -1211,7 +1219,8 @@ begin
   eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t and target /= wukong generate
     ethernet0 : entity work.ethernet
       generic map (
-        num_buffers => num_eth_rx_buffers
+        num_buffers => num_eth_rx_buffers,
+        netsd => sd_native
         )
       port map (
         clock50mhz => clock50mhz,
@@ -1260,7 +1269,21 @@ begin
         fastio_write => w,
         fastio_read => r,
         std_logic_vector(fastio_rdata) => data_o,
-        fastio_wdata => unsigned(data_i)
+        fastio_wdata => unsigned(data_i),
+
+        netsd_mac => netsd_mac,
+        netsd_rx_ready => netsd_rx_ready,
+        netsd_rx_len => netsd_rx_len,
+        netsd_rx_raddr => netsd_rx_raddr,
+        netsd_rx_rdata => netsd_rx_rdata,
+        netsd_rx_release => netsd_rx_release,
+        netsd_tx_we => netsd_tx_we,
+        netsd_tx_waddr => netsd_tx_waddr,
+        netsd_tx_wdata => netsd_tx_wdata,
+        netsd_tx_go => netsd_tx_go,
+        netsd_tx_base => netsd_tx_base,
+        netsd_tx_len => netsd_tx_len,
+        netsd_tx_busy => netsd_tx_busy
         );
   end generate;
 
@@ -1823,6 +1846,19 @@ begin
       sd_dat_i => sd_dat_i,
       sd_cd => sd_cd,
       sd_wp => sd_wp,
+      netsd_mac => netsd_mac,
+      netsd_rx_ready => netsd_rx_ready,
+      netsd_rx_len => netsd_rx_len,
+      netsd_rx_raddr => netsd_rx_raddr,
+      netsd_rx_rdata => netsd_rx_rdata,
+      netsd_rx_release => netsd_rx_release,
+      netsd_tx_we => netsd_tx_we,
+      netsd_tx_waddr => netsd_tx_waddr,
+      netsd_tx_wdata => netsd_tx_wdata,
+      netsd_tx_go => netsd_tx_go,
+      netsd_tx_base => netsd_tx_base,
+      netsd_tx_len => netsd_tx_len,
+      netsd_tx_busy => netsd_tx_busy,
 
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,

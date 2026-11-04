@@ -380,6 +380,12 @@ begin
     -- still fine afterwards
     cmd(x"2", 0, 1, 0);
     collect(0, 1, false);
+    -- connect again (a new session, after one with a server nonce) and read
+    cmd(x"1", 0, 0, 0);
+    wait_idle;
+    check(card_ready = '1' and err_flag = '0', "connected again (error $" & to_hstring(err_code) & ")");
+    cmd(x"2", 2048, 2, 0);
+    collect(2048, 2, false);
 
     -- switch off
     wait until rising_edge(cpuclock);

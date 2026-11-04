@@ -89,6 +89,7 @@ class Harness:
         self.arp_answered = False
         self.read_frames = 0
         self.frames_in = 0
+        self.served = {}              # LBA -> the sector contents served for it
 
     def fail(self, msg):
         self.errors.append(msg)
@@ -145,6 +146,9 @@ class Harness:
                     self.arp_sent = True
             f = ipv4_frame(dmac, SERVER_MAC, SERVER_IP, addr[0], 6565, addr[1], data)
             if netsd.parse(data)[1] == netsd.OP_READ:
+                lba = netsd.parse(data)[4]
+                card = next(iter(self.server.clients.values())).card
+                self.served.setdefault(lba, set()).add(card.read_sector(lba))
                 self.read_frames += 1
                 if self.read_frames == self.args.drop:
                     print("(dropping read response %d)" % self.read_frames, flush=True)
@@ -218,8 +222,8 @@ def main():
     rc = sim.wait()
     t.join(timeout=5)
 
-    # check the blocks the testbench read against the card
-    card = h.server.clients[next(iter(h.server.clients))].card if h.server.clients else None
+    # check the blocks the testbench read against what was served for them
+    # (a new HELLO rebuilds the card, so the card at the end can differ)
     reads = 0
     done = None
     if os.path.exists("tb_reads.txt"):
@@ -228,11 +232,12 @@ def main():
             if parts and parts[0] == "R":
                 lba, data = int(parts[1]), bytes.fromhex(parts[2])
                 reads += 1
-                want = card.read_sector(lba) if card else b""
-                if data != want:
+                served = h.served.get(lba, set())
+                if data not in served:
+                    want = next(iter(served)) if served else bytes(512)
                     diff = [i for i in range(512) if data[i] != want[i]]
-                    h.fail("sector %d read differs from the card: %d bytes, first at %d (%02x, want %02x)"
-                           % (lba, len(diff), diff[0], data[diff[0]], want[diff[0]]))
+                    h.fail("sector %d read differs from what was served: %d bytes, first at %d"
+                           " (%02x, want %02x)" % (lba, len(diff), diff[0], data[diff[0]], want[diff[0]]))
             elif parts and parts[0] == "DONE":
                 done = int(parts[1])
     if done != 0:

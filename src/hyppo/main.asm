@@ -411,6 +411,7 @@ invalid_subfunction:
 ;;     SD-Card and FAT related functions
 ;;     ---------------------------------------------------------------- */
 !src "sdfat.asm"
+!src "netsd.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     Virtualised F011 access (used for disk over serial monitor)
@@ -934,6 +935,10 @@ gotmbr:
         ;;
         jsr dos_clearall
         jsr dos_read_partitiontable
+
+        ;; SD over Ethernet (#965): DIP switch 8 or right shift, and a host
+        ;; number in the config: the network card's partitions instead
+        jsr netsd_boot
 
         ;; then print out some useful information
         ;;

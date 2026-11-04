@@ -100,7 +100,7 @@ package vcomponents is
 end package;
 """
 
-NATIVE_08 = ["sdcard_native.vhdl", "sdcard_native_model.vhdl", "sd_cache.vhdl"]
+NATIVE_08 = ["ascon_aead128.vhdl", "sd_eth.vhdl", "sdcard_native.vhdl", "sdcard_native_model.vhdl", "sd_cache.vhdl"]
 
 
 def run(cmd, cwd, log=None):

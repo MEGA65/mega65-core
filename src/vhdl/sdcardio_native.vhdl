@@ -142,6 +142,8 @@ entity sdcardio_native is
     -- the hardware FAT32 engine ($70-$7F; no BRAM: it uses $000-$9FF of the
     -- sector buffer)
     sd_fat32 : boolean := true;
+    -- SD over Ethernet (#965): the network card can take slot 0's place
+    sd_net : boolean := true;
     -- 0 derives the real timer from cpu_frequency; simulation may shorten it
     sd_ms_cycles : natural := 0;
     sd_auto_init : boolean := true
@@ -235,6 +237,20 @@ entity sdcardio_native is
     -- cached sectors
     sd_cd : in std_logic_vector(1 downto 0) := "11";
     sd_wp : in std_logic_vector(1 downto 0) := "00";
+    -- SD over Ethernet (#965): ethernet.vhdl's netsd_* ports (cpuclock)
+    netsd_mac      : in  unsigned(47 downto 0) := x"024753656565";
+    netsd_rx_ready : in  std_logic := '0';
+    netsd_rx_len   : in  unsigned(10 downto 0) := (others => '0');
+    netsd_rx_raddr : out unsigned(9 downto 0);
+    netsd_rx_rdata : in  unsigned(7 downto 0) := (others => '0');
+    netsd_rx_release : out std_logic;
+    netsd_tx_we    : out std_logic;
+    netsd_tx_waddr : out unsigned(10 downto 0);
+    netsd_tx_wdata : out unsigned(7 downto 0);
+    netsd_tx_go    : out std_logic;
+    netsd_tx_base  : out std_logic;
+    netsd_tx_len   : out unsigned(10 downto 0);
+    netsd_tx_busy  : in  std_logic := '0';
 
     ----------------------------------------------------------------------
     -- Floppy drive interface
@@ -622,6 +638,12 @@ architecture behavioural of sdcardio_native is
   signal diskimage1_slot : std_logic := '0';
   signal diskimage2_slot : std_logic := '0';
   signal f011_image_slot : std_logic;
+  -- SD over Ethernet (#965): $D6F1
+  signal net_ctl_write : std_logic := '0';
+  signal net_ctl_wdata : unsigned(7 downto 0) := (others => '0');
+  signal net_ctl_status : unsigned(7 downto 0);
+  signal net_ctl_wprev : std_logic := '0';
+  signal net_active : std_logic;
   signal fs_programs_ro : std_logic := '0';   -- (the engine's G_RO, $2E3)
   signal diskimage1_offset : unsigned(16 downto 0);
   signal diskimage2_offset : unsigned(16 downto 0);
@@ -1218,7 +1240,8 @@ begin  -- behavioural
       G_AUTO_INIT => sd_auto_init,
       G_XILINX => sd_xilinx_io,
       G_MS     => native_ms_cycles,      -- clock162 cycles per ms
-      G_WR_LAT => 2
+      G_WR_LAT => 2,
+      G_NET    => sd_net
       )
     port map (
       clock162    => clock162,
@@ -1268,7 +1291,24 @@ begin  -- behavioural
       sd_cmd_i    => sd_cmd_i,
       sd_dat_o    => sd_dat_o,
       sd_dat_oe   => sd_dat_oe,
-      sd_dat_i    => sd_dat_i
+      sd_dat_i    => sd_dat_i,
+      net_ctl_write => net_ctl_write,
+      net_ctl_wdata => net_ctl_wdata,
+      net_ctl_status => net_ctl_status,
+      net_active  => net_active,
+      net_mac     => netsd_mac,
+      net_rx_ready => netsd_rx_ready,
+      net_rx_len  => netsd_rx_len,
+      net_rx_raddr => netsd_rx_raddr,
+      net_rx_rdata => netsd_rx_rdata,
+      net_rx_release => netsd_rx_release,
+      net_tx_we   => netsd_tx_we,
+      net_tx_waddr => netsd_tx_waddr,
+      net_tx_wdata => netsd_tx_wdata,
+      net_tx_go   => netsd_tx_go,
+      net_tx_base => netsd_tx_base,
+      net_tx_len  => netsd_tx_len,
+      net_tx_busy => netsd_tx_busy
       );
 
   nat_quiet <= '1' when nat_quiet_cnt = 0 and nat_cmd_valid = '0' else '0';
@@ -2075,6 +2115,9 @@ begin  -- behavioural
             fastio_rdata(7) <= touch_enabled_internal;
             -- XXX DEBUG temporary
             fastio_rdata(6 downto 0) <= touch_byte(6 downto 0);
+          when x"F1" =>
+            -- @IO:GS $D6F1 SD:NETSD SD over Ethernet (#965).  Read: bit 7 on, bit 6 connected, bit 5 authenticating, bit 4 encrypting, bits 3-0 the status of the last refusal.  Write: bit 7 clear shifts bits 6-0 into the key register (24 writes: flags, key, entropy); bit 7 set with bits 6-0 = host octet switches on (0: off).  While on, slot 0 is the network card.
+            fastio_rdata <= net_ctl_status;
           when x"CC" => fastio_rdata <= x"53"; -- SD retry diagnostics signature
           when x"CD" => fastio_rdata <= x"01"; -- format version
           when x"CE" => fastio_rdata <= "00" & diag_index;
@@ -2970,6 +3013,15 @@ begin  -- behavioural
 
       qspi_action_strobe <= '0';
 
+      net_ctl_write <= '0';
+      if fastio_write = '1' and sdcardio_cs = '1' and f011_cs = '0' and secure_mode = '0'
+        and fastio_addr(7 downto 0) = x"F1" then
+        net_ctl_write <= not net_ctl_wprev;
+        net_ctl_wdata <= fastio_wdata;
+        net_ctl_wprev <= '1';
+      else
+        net_ctl_wprev <= '0';
+      end if;
       if fastio_write='1' then
         if f011_cs='1' then
           -- ================================================================== START
