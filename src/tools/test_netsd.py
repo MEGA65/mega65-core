@@ -295,9 +295,9 @@ class TestWrites(Base):
 
 
 class TestServer(Base):
-    def run_session(self, fn, write=False):
+    def run_session(self, fn, write=False, key=None):
         args = types.SimpleNamespace(
-            subnet="127.0.0.0/8", server_ip="127.0.0.1", client=[], default=self.root,
+            subnet="127.0.0.0/8", server_ip="127.0.0.1", client=[], default=self.root, key=key,
             write=write, delete=False, size=SIZE_MB, spc=SPC, sys_slots=4, quiet=0.1,
             state_dir=os.path.join(self.tmp, "state"))
 
@@ -312,6 +312,8 @@ class TestServer(Base):
 
             async def xfer(frame, n=1):
                 await loop.sock_sendto(sock, frame, ("127.0.0.1", port))
+                if n == 0:
+                    await asyncio.sleep(0.05)      # let the server see it
                 out = []
                 for _ in range(n):
                     out.append(await asyncio.wait_for(loop.sock_recv(sock, 2048), 2))
@@ -365,8 +367,8 @@ class TestServer(Base):
             self.assertEqual(netsd.parse(r)[5][0], netsd.ST_RANGE)
             (r,) = await xfer(netsd.header(0, netsd.OP_READ, sess, 7, 0) + bytes([9]) + bytes(15))
             self.assertEqual(netsd.parse(r)[5][0], netsd.ST_BAD)
-            (r,) = await xfer(netsd.header(netsd.F_AUTH, netsd.OP_READ, sess, 8, 0) + bytes(32))
-            self.assertEqual(netsd.parse(r)[5][0], netsd.ST_AUTH)
+            # Authenticated frames from a MEGA65 without a key are dropped
+            await xfer(netsd.header(netsd.F_AUTH, netsd.OP_READ, sess, 8, 0) + bytes(32), 0)
             # Junk is ignored, and the server keeps going
             await xfer(b"not a frame", 0)
             (r,) = await xfer(netsd.header(0, netsd.OP_READ, sess, 9, 0) + bytes([1]) + bytes(15))
@@ -398,6 +400,81 @@ class TestServer(Base):
             finally:
                 task.cancel()
         self.run_session(with_housekeeping, write=True)
+
+
+class TestCrypto(Base):
+    KEY = bytes(range(0x40, 0x50))
+
+    def test_against_pyascon_vectors(self):
+        """The C and Python Ascon against the published Ascon-AEAD128 KAT 1
+        and a few properties (pyascon itself is checked in a separate run)"""
+        import netsd_crypto as nc
+        k, n = bytes(range(16)), bytes(range(16, 32))
+        self.assertEqual(nc.encrypt(k, n, b"", b"").hex().upper(), "4F9C278211BEC9316BF68F46EE8B2EC6")
+        self.assertEqual(nc.py_encrypt(k, n, b"", b"").hex().upper(), "4F9C278211BEC9316BF68F46EE8B2EC6")
+        for adl, ptl in ((0, 0), (16, 512), (17, 33), (16, 16)):
+            ad, pt = os.urandom(adl), os.urandom(ptl)
+            ct = nc.encrypt(k, n, ad, pt)
+            self.assertEqual(ct, nc.py_encrypt(k, n, ad, pt))
+            self.assertEqual(nc.decrypt(k, n, ad, ct), pt)
+            self.assertIsNone(nc.decrypt(k, n, ad + b"x", ct))
+
+    def secure_session(self, encrypt):
+        mac = bytes.fromhex("024753656568")
+        key = self.KEY
+        F = netsd.F_AUTH | (netsd.F_ENCRYPT if encrypt else 0)
+
+        async def fn(xfer, server):
+            sess = 0xCAFE0001
+            hdr = netsd.header(netsd.F_AUTH, netsd.OP_HELLO, sess, 1, 0)
+            hello = mac + bytes([65, 1]) + os.urandom(8)
+            # Without the key nothing comes back
+            await xfer(hdr + netsd.seal(bytes(16), hdr, hello, b"", False), 0)
+            (r,) = await xfer(hdr + netsd.seal(key, hdr, hello, b"", False))
+            p = netsd.unseal(key, r, b"")
+            self.assertIsNotNone(p)
+            rs = p[16:24]
+            card = server.clients[mac].card
+
+            def req(op, seq, lba, payload):
+                h = netsd.header(F, op, sess, seq, lba)
+                return h + netsd.seal(key, h, payload, rs, encrypt)
+
+            frames = await xfer(req(netsd.OP_READ, 2, vfat.FAT_START, bytes([3]) + bytes(15)), 3)
+            for i, f in enumerate(frames):
+                flags = netsd.parse(f)[0]
+                self.assertEqual(flags, netsd.F_RESPONSE | F)
+                data = netsd.unseal(key, f, rs)
+                self.assertEqual(data, card.read_sector(vfat.FAT_START + i))
+                if encrypt:
+                    self.assertNotEqual(netsd.parse(f)[5][:512], data)
+                else:
+                    self.assertEqual(netsd.parse(f)[5][:512], data)
+            # A write into the system partition, then a replay of it later
+            w = req(netsd.OP_WRITE, 3, card.sys_start + 10, b"\x77" * 512)
+            (r,) = await xfer(w)
+            self.assertEqual(netsd.unseal(key, r, rs)[0], netsd.ST_OK)
+            await xfer(req(netsd.OP_READ, 4, 0, bytes([1]) + bytes(15)), 1)
+            card.write_sector(card.sys_start + 10, bytes(512))
+            await xfer(w, 0)                               # stale: dropped
+            self.assertEqual(card.read_sector(card.sys_start + 10), bytes(512))
+            # A tampered frame is dropped
+            bad = bytearray(req(netsd.OP_READ, 5, 0, bytes([1]) + bytes(15)))
+            bad[20] ^= 1
+            await xfer(bytes(bad), 0)
+            # Unauthenticated frames are dropped for a keyed client
+            await xfer(netsd.header(0, netsd.OP_READ, sess, 6, 0) + bytes([1]) + bytes(15), 0)
+            self.assertGreaterEqual(server.stats["refused"], 1)
+        self.run_session_with(fn, key)
+
+    def run_session_with(self, fn, key):
+        TestServer.run_session(self, fn, key=key)
+
+    def test_authenticated(self):
+        self.secure_session(False)
+
+    def test_encrypted(self):
+        self.secure_session(True)
 
 
 if __name__ == "__main__":
