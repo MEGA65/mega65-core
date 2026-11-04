@@ -8,6 +8,8 @@
   * tb_ethernet_netsd (ethernet.vhdl's RMII side of it)
   * tb_sd_eth with sim_netsd.py playing the PC: plain, signed, encrypted, and
     encrypted with a lost and a corrupted frame
+  * tb_sd_eth_cache: the sector cache and sdcard_native_dual (G_NET) in front
+    of it, encrypted (slow: about 10 minutes)
   * src/hyppo/netsd.test with hyppotest (after assembling Hyppo with acme),
     if both are found (skipped otherwise)
 
@@ -94,6 +96,19 @@ def main():
             continue
         r, o = run([sys.executable, os.path.join(TOOLS, "sim_netsd.py"), d] + args, d)
         note(name, r == 0, o)
+
+    # the sector cache and the dual controller in front of it, as in the core
+    d = os.path.join(work, "sdeth_cache")
+    os.makedirs(d)
+    rc, out = run(["ghdl", "-a", "--std=08", "-fsynopsys"] + [os.path.join(VHDL, f) for f in
+                  ("ascon_aead128.vhdl", "sd_eth.vhdl", "sdcard_native.vhdl", "sd_cache.vhdl",
+                   "eth_netsd_buf.vhdl", "tb_sd_eth_cache.vhdl")], d)
+    if rc == 0:
+        rc, out = run(["ghdl", "-e", "--std=08", "-fsynopsys", "tb_sd_eth_cache"], d)
+    if rc == 0:
+        rc, out = run([sys.executable, os.path.join(TOOLS, "sim_netsd.py"), d, "--tb", "tb_sd_eth_cache",
+                       "--flags", "3"], d, timeout=3600)
+    note("tb_sd_eth_cache --flags 3", rc == 0, out)
 
     # Hyppo
     if os.path.exists(a.acme) and os.path.exists(a.hyppotest):

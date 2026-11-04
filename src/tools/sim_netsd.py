@@ -169,6 +169,7 @@ def main():
     ap.add_argument("--drop", type=int, default=0)
     ap.add_argument("--corrupt", type=int, default=0)
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--tb", default="tb_sd_eth", help="tb_sd_eth or tb_sd_eth_cache")
     args = ap.parse_args()
 
     os.chdir(args.workdir)
@@ -192,7 +193,7 @@ def main():
     sys_lba = probe.sys_start + 3000
     probe.close()
 
-    sim = subprocess.Popen(["ghdl", "-r", "--std=08", "tb_sd_eth", "-gG_FLAGS=%d" % args.flags,
+    sim = subprocess.Popen(["ghdl", "-r", "--std=08", args.tb, "-gG_FLAGS=%d" % args.flags,
                             "-gG_SYS_LBA=%d" % sys_lba, "--ieee-asserts=disable"],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     out_lines = []
@@ -200,7 +201,8 @@ def main():
     def pump():
         for line in sim.stdout:
             out_lines.append(line)
-            if args.verbose or "FAIL" in line or "PASS" in line or "tb_sd_eth:" in line \
+            if args.verbose or "FAIL" in line or "PASS" in line or "tb_sd_eth" in line \
+                    or "cache:" in line \
                     or "error" in line.lower():
                 print("sim:", line.rstrip(), flush=True)
     t = threading.Thread(target=pump, daemon=True)
