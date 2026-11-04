@@ -4,14 +4,15 @@ C and Python Ascon-AEAD128 test_netsd.py checks against pyascon).
 
     gen_ascon_vectors.py OUT [CASES]
 
-Each case encrypts and then decrypts one message, block by block, as the
+Each case encrypts and then decrypts one message, byte by byte, as the
 hardware will (header-sized AD, sector-sized and odd-sized payloads, empty
-AD, empty payload).  Lines:
+AD, empty payload).  Lines (bytes as hex strings, "-" for none):
 
-    I key nonce     A len blk     S     E len blk expect     D len blk expect
-    F tag
-
-Blocks are 16 bytes as a little-endian 128-bit number in hex.
+    I key nonce        (16 bytes each)
+    A ad               then ad_end
+    E plaintext ciphertext
+    D ciphertext plaintext
+    T tag              final, then check every tag byte
 """
 import os
 import random
@@ -22,14 +23,7 @@ import netsd_crypto as nc  # noqa: E402
 
 
 def h(b):
-    return "%032x" % int.from_bytes(b.ljust(16, b"\0"), "little")
-
-
-def blocks(data):
-    """16-byte blocks, ending with a short (maybe empty) one, as Ascon pads"""
-    out = [data[i:i + 16] for i in range(0, len(data) - len(data) % 16, 16)]
-    out.append(data[len(data) - len(data) % 16:])
-    return out
+    return b.hex() if b else "-"
 
 
 def case(rnd, adlen, ptlen, lines):
@@ -39,19 +33,12 @@ def case(rnd, adlen, ptlen, lines):
     body, tag = ct[:-16], ct[-16:]
     for direction in "ED":
         lines.append("I %s %s" % (h(k), h(n)))
-        if ad:
-            for b in blocks(ad):
-                lines.append("A %d %s" % (len(b), h(b)))
-        lines.append("S")
-        off = 0
-        for b in blocks(pt):
-            c = body[off:off + len(b)]
-            if direction == "E":
-                lines.append("E %d %s %s" % (len(b), h(b), h(c)))
-            else:
-                lines.append("D %d %s %s" % (len(c), h(c), h(b)))
-            off += len(b)
-        lines.append("F %s" % h(tag))
+        lines.append("A %s" % h(ad))
+        if direction == "E":
+            lines.append("E %s %s" % (h(pt), h(body)))
+        else:
+            lines.append("D %s %s" % (h(body), h(pt)))
+        lines.append("T %s" % h(tag))
 
 
 def main():

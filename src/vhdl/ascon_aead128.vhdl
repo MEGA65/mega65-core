@@ -1,30 +1,36 @@
--- Ascon-AEAD128 (NIST SP 800-232), one permutation round per clock.
+-- Ascon-AEAD128 (NIST SP 800-232), byte-serial, one permutation round per
+-- clock.  For SD over Ethernet (MEGA65/mega65-core#965).
 --
--- For SD over Ethernet (MEGA65/mega65-core#965).  Block interface: the
--- user packs 16 bytes at a time, little-endian (byte i of the block in bits
--- 8i+7..8i, as Ascon loads its 64-bit words), and issues operations:
+-- Bytes go straight into the rate (S0/S1) as they arrive, so the user
+-- needs no block buffer.  The rate is a byte-rotating shift register: each
+-- byte is taken at the low byte and the result goes in at the top, so after
+-- 16 bytes the block is aligned again for the permutation, and no byte
+-- position multiplexers are needed.  A short last block (ad_end or final
+-- after a number of bytes that isn't a multiple of 16) is padded at the low
+-- byte and then rotated into alignment, one cycle per missing byte.  The
+-- output byte is the low byte XOR the input byte, and the tag bytes are read
+-- from S3/S4 through a 16:1 multiplexer (the last round of final adds the
+-- key there, as the last round of init does): no output registers.
 --
---   OP_INIT  key, nonce -> state; 12 rounds; key into S3/S4         13 cycles
---   OP_AD    absorb an associated-data block; then 8 rounds            9 cycles
---            len = 16: a full block; len < 16: the last, padded block
---            (len = 0 is the padding-only block after a whole number
---            of blocks).  Skip OP_AD altogether when there is no AD.
---   OP_SEP   domain separation after the AD (S4 ^= 1 << 63)            1 cycle
---   OP_ENC   encrypt a plaintext block: blk_out = ciphertext (only the
---            first len bytes mean anything).  len = 16 permutes 8 rounds
---            after; len < 16 is the last block (always give one, len = 0
---            if the plaintext is a whole number of blocks)
---   OP_DEC   decrypt a ciphertext block: blk_out = plaintext, as OP_ENC
---   OP_FINAL 12 rounds with the key; tag_out = the tag                 13 cycles
+-- Size (Yosys synth_xilinx, xc7): about 1200 LUTs and 339 flops, of which
+-- the round function with the state register is about 650; the rest is the
+-- byte, load and key multiplexing.  Vivado's figure is still to be had.
 --
--- op_valid is taken only while busy = '0'.  blk_out is registered and
--- valid from the cycle after op_valid until the next op.  tag_out is valid
--- once busy falls after OP_FINAL.  The caller compares received tags (in
--- constant time is not needed in hardware: there is no timing side channel
--- worth the name in a fixed-length compare).
+-- Use, after init:
+--   1. the associated data, any number of bytes with mode AD, then ad_end
+--      (ad_end with no AD bytes is just the domain separation);
+--   2. the message, any number of bytes with mode ENC or DEC; byte_out is
+--      the ciphertext (ENC) or plaintext (DEC) byte for byte_in, in the same
+--      cycle (combinational);
+--   3. final; when busy falls, tag_byte is byte tag_idx of the tag.
+-- Every 16th byte starts 8 rounds; init, ad_end (with AD) and final start
+-- 12, 8 and 12.  Inputs are taken only while busy = '0'.  A 512-byte
+-- sector with a 16-byte header: 13 + 9 + 512 + 32*8 + 12 = ~800 cycles if
+-- the bytes come every cycle, so the rounds hide behind any byte rate below
+-- about 2 bytes per 3 cycles.
 --
--- Cost: 320 state flops; the round is a 5-input S-box per bit column plus a
--- three-input XOR per bit, about 640 LUTs, plus the input multiplexing.
+-- The tag and output bytes are left unregistered on purpose; register them
+-- in the user if timing needs it.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -32,27 +38,23 @@ use ieee.numeric_std.all;
 
 entity ascon_aead128 is
   port (
-    clk      : in  std_logic;
-    op_valid : in  std_logic;
-    op       : in  unsigned(2 downto 0);
-    key      : in  unsigned(127 downto 0);
-    nonce    : in  unsigned(127 downto 0);
-    blk_in   : in  unsigned(127 downto 0);
-    blk_len  : in  unsigned(4 downto 0);    -- 0..16
-    busy     : out std_logic;
-    blk_out  : out unsigned(127 downto 0);
-    tag_out  : out unsigned(127 downto 0)
+    clk       : in  std_logic;
+    init      : in  std_logic;
+    key       : in  unsigned(127 downto 0);   -- byte i in bits 8i+7..8i
+    nonce     : in  unsigned(127 downto 0);
+    byte_valid : in std_logic;
+    mode      : in  unsigned(1 downto 0);     -- 00 AD, 01 ENC, 10 DEC
+    byte_in   : in  unsigned(7 downto 0);
+    byte_out  : out unsigned(7 downto 0);
+    ad_end    : in  std_logic;
+    final     : in  std_logic;
+    tag_idx   : in  unsigned(3 downto 0);
+    tag_byte  : out unsigned(7 downto 0);
+    busy      : out std_logic
     );
 end entity;
 
 architecture rtl of ascon_aead128 is
-
-  constant OP_INIT  : unsigned(2 downto 0) := "000";
-  constant OP_AD    : unsigned(2 downto 0) := "001";
-  constant OP_SEP   : unsigned(2 downto 0) := "010";
-  constant OP_ENC   : unsigned(2 downto 0) := "011";
-  constant OP_DEC   : unsigned(2 downto 0) := "100";
-  constant OP_FINAL : unsigned(2 downto 0) := "101";
 
   -- version 1, a = 12, b = 8, 128-bit tag, rate 16 bytes
   constant IV : unsigned(63 downto 0) := x"00001000808c0001";
@@ -60,11 +62,17 @@ architecture rtl of ascon_aead128 is
   subtype word is unsigned(63 downto 0);
   type state_t is array (0 to 4) of word;
 
+  type phase_t is (P_Idle, P_Rounds, P_Align);
+
   signal s       : state_t := (others => (others => '0'));
+  signal phase   : phase_t := P_Idle;
   signal rounds  : unsigned(3 downto 0) := (others => '0');  -- rounds left
-  signal rc_idx  : unsigned(3 downto 0) := (others => '0');  -- round number r
-  signal final_k : std_logic := '0';     -- after these rounds: S3/S4 ^= key
-  signal tag_k   : std_logic := '0';     -- after these rounds: make the tag
+  signal rc_idx  : unsigned(3 downto 0) := (others => '0');  -- round number
+  signal key_in  : std_logic := '0';     -- after these rounds: S3/S4 ^= key
+  signal sep     : std_logic := '0';     -- after these rounds: S4 ^= 1 << 63
+  signal pos     : unsigned(3 downto 0) := (others => '0');  -- bytes in block
+  signal ad_any  : std_logic := '0';     -- AD bytes since init
+  signal then_final : std_logic := '0';  -- what follows the alignment
   signal busy_i  : std_logic := '0';
 
   function round(x : state_t; r : unsigned(3 downto 0)) return state_t is
@@ -95,106 +103,116 @@ architecture rtl of ascon_aead128 is
     return y;
   end function;
 
-  -- The 0x01 padding byte at byte len (nothing for a full block)
-  function pad(len : unsigned(4 downto 0)) return unsigned is
-    variable p : unsigned(127 downto 0) := (others => '0');
-  begin
-    if len < 16 then
-      p(to_integer(len(3 downto 0)) * 8) := '1';
-    end if;
-    return p;
-  end function;
-
-  -- Ones in the bytes below len
-  function low_mask(len : unsigned(4 downto 0)) return unsigned is
-    variable m : unsigned(127 downto 0) := (others => '0');
-  begin
-    for i in 0 to 15 loop
-      if i < to_integer(len) then
-        m(i * 8 + 7 downto i * 8) := (others => '1');
-      end if;
-    end loop;
-    return m;
-  end function;
+  signal rate     : unsigned(127 downto 0);
+  signal tag_word : unsigned(127 downto 0);
 
 begin
 
   busy <= busy_i;
+  rate <= s(1) & s(0);
+  byte_out <= rate(7 downto 0) xor byte_in;
+  tag_word <= s(4) & s(3);
+  -- The tag is S3/S4 xor the key: the last round of final adds the key
+  -- there, as the last round of init does.
+  tag_byte <= tag_word(to_integer(tag_idx) * 8 + 7 downto to_integer(tag_idx) * 8);
 
   process(clk)
-    variable rate : unsigned(127 downto 0);
-    variable x    : state_t;
-    variable m    : unsigned(127 downto 0);
+    variable x : state_t;
+    variable r : unsigned(127 downto 0);
+    variable b : unsigned(7 downto 0);
+
+    -- start the rounds that end a short block (after alignment)
+    procedure finish_block(fin : std_logic) is
+    begin
+      if fin = '1' then
+        s(2) <= s(2) xor key(63 downto 0);
+        s(3) <= s(3) xor key(127 downto 64);
+        rounds <= to_unsigned(12, 4);
+        rc_idx <= to_unsigned(0, 4);
+        key_in <= '1';
+      else
+        rounds <= to_unsigned(8, 4);
+        rc_idx <= to_unsigned(4, 4);
+        sep <= '1';
+      end if;
+      phase <= P_Rounds;
+    end procedure;
   begin
     if rising_edge(clk) then
-      if busy_i = '1' then
-        x := round(s, rc_idx);
-        rc_idx <= rc_idx + 1;
-        if rounds = 1 then
-          busy_i <= '0';
-          if final_k = '1' then
-            x(3) := x(3) xor key(63 downto 0);
-            x(4) := x(4) xor key(127 downto 64);
+      r := rate;
+      case phase is
+        when P_Rounds =>
+          x := round(s, rc_idx);
+          rc_idx <= rc_idx + 1;
+          rounds <= rounds - 1;
+          if rounds = 1 then
+            phase <= P_Idle;
+            busy_i <= '0';
+            if key_in = '1' then
+              x(3) := x(3) xor key(63 downto 0);
+              x(4) := x(4) xor key(127 downto 64);
+            end if;
+            if sep = '1' then
+              x(4)(63) := not x(4)(63);
+            end if;
+            key_in <= '0';
+            sep <= '0';
           end if;
-          if tag_k = '1' then
-            tag_out <= (x(4) xor key(127 downto 64)) & (x(3) xor key(63 downto 0));
+          s <= x;
+        when P_Align =>
+          -- rotate a short block into place, one byte a cycle
+          r := r(7 downto 0) & r(127 downto 8);
+          s(0) <= r(63 downto 0);
+          s(1) <= r(127 downto 64);
+          pos <= pos + 1;
+          if pos = 15 then
+            finish_block(then_final);
           end if;
-          final_k <= '0';
-          tag_k <= '0';
-        end if;
-        rounds <= rounds - 1;
-        s <= x;
-      elsif op_valid = '1' then
-        rate := s(1) & s(0);
-        case op is
-          when OP_INIT =>
+        when P_Idle =>
+          if init = '1' then
             s <= (IV, key(63 downto 0), key(127 downto 64),
                   nonce(63 downto 0), nonce(127 downto 64));
             rounds <= to_unsigned(12, 4);
             rc_idx <= to_unsigned(0, 4);
-            final_k <= '1';
+            key_in <= '1';
+            pos <= (others => '0');
+            ad_any <= '0';
+            phase <= P_Rounds;
             busy_i <= '1';
-          when OP_AD =>
-            rate := rate xor (blk_in and low_mask(blk_len)) xor pad(blk_len);
-            s(0) <= rate(63 downto 0);
-            s(1) <= rate(127 downto 64);
-            rounds <= to_unsigned(8, 4);
-            rc_idx <= to_unsigned(4, 4);
-            busy_i <= '1';
-          when OP_SEP =>
-            s(4)(63) <= not s(4)(63);
-          when OP_ENC =>
-            rate := rate xor (blk_in and low_mask(blk_len)) xor pad(blk_len);
-            blk_out <= rate;
-            s(0) <= rate(63 downto 0);
-            s(1) <= rate(127 downto 64);
-            if blk_len = 16 then
+          elsif byte_valid = '1' then
+            if mode = "10" then
+              b := byte_in;                              -- DEC: S takes C
+            else
+              b := r(7 downto 0) xor byte_in;            -- AD, ENC: S ^= byte
+            end if;
+            r := b & r(127 downto 8);
+            s(0) <= r(63 downto 0);
+            s(1) <= r(127 downto 64);
+            if mode = "00" then
+              ad_any <= '1';
+            end if;
+            pos <= pos + 1;
+            if pos = 15 then
               rounds <= to_unsigned(8, 4);
               rc_idx <= to_unsigned(4, 4);
+              phase <= P_Rounds;
               busy_i <= '1';
             end if;
-          when OP_DEC =>
-            m := low_mask(blk_len);
-            blk_out <= rate xor blk_in;
-            rate := ((blk_in and m) or (rate and not m)) xor pad(blk_len);
-            s(0) <= rate(63 downto 0);
-            s(1) <= rate(127 downto 64);
-            if blk_len = 16 then
-              rounds <= to_unsigned(8, 4);
-              rc_idx <= to_unsigned(4, 4);
-              busy_i <= '1';
-            end if;
-          when OP_FINAL =>
-            s(2) <= s(2) xor key(63 downto 0);
-            s(3) <= s(3) xor key(127 downto 64);
-            rounds <= to_unsigned(12, 4);
-            rc_idx <= to_unsigned(0, 4);
-            tag_k <= '1';
+          elsif (ad_end = '1' and ad_any = '1') or final = '1' then
+            -- pad at the low byte (byte pos of the block), then align
+            r(0) := not r(0);
+            s(0)(0) <= r(0);
+            then_final <= final;
             busy_i <= '1';
-          when others =>
-            null;
-        end case;
-      end if;
+            if pos = 0 then
+              finish_block(final);
+            else
+              phase <= P_Align;
+            end if;
+          elsif ad_end = '1' then
+            s(4)(63) <= not s(4)(63);                    -- no AD: separation only
+          end if;
+      end case;
     end if;
   end process;
 
