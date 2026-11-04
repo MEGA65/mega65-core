@@ -241,7 +241,7 @@ field starts at column 7, hence the short "key:" label and the line above it.
 | `sim_netsd.py WORKDIR --flags 0\|1\|3 [--drop N] [--corrupt N]` with `tb_sd_eth` | `sd_eth` + `eth_netsd_buf` against `netsd.py`'s own `Server`, over named pipes.  Init; reads of 1, 3 and 8 sectors; an open-ended read of 12 granted block by block; writes read back; an open-ended write; a refused write; a range error; ARP; a second connect.  Every block checked against what was served, and every frame's IPv4 framing and checksum.  Lost and corrupted frames recover |
 | `sim_netsd.py WORKDIR --tb tb_sd_eth_cache --flags 3` | The stack as in the core: `sd_cache` in front of `sdcard_native_dual` with `G_NET`.  Init through the cache; misses filling 8-sector lines from the network card (open-ended reads, grants, the last grant), read-ahead, hits, scattered reads, an explicit 3-sector read, a write through the cache read back, a refused write, and back to the internal socket.  36 blocks checked; 20 hits, 3 misses |
 | `src/tools/hyppotest src/hyppo/netsd.test` (9 tests) | Config parsing.  The boot paths: not asked for; connects; DIP switch with no answer; right shift with no answer and the release wait; not in this core.  The 24 `$D6F1` writes checked against an independent computation |
-| `run_sdcard_tests.py dual` / `io` | The existing controller tests, with `sdcard_native_dual` restructured and `sd_eth` built in.  `dual`: 7/7 pass.  `io`: not finished when this was written (io-f011 was still running after an hour); check its result |
+| `run_sdcard_tests.py dual` / `io` | The existing controller tests, with `sdcard_native_dual` restructured and `sd_eth` built in.  `dual`: 7/7 pass.  `io`: 23/23 pass |
 
 ## Known gaps
 
