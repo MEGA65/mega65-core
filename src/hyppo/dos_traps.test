@@ -1,0 +1,340 @@
+# Hypervisor DOS trap test script
+#
+# Run with:  src/tools/hyppotest src/hyppo/dos_traps.test
+#
+# Addressing notes for anyone extending this file:
+#
+# - Ordinary hyppo ROM/RAM labels (anything assembled within $8000-$BFFF,
+#   e.g. dos_disk_table, hypervisor_userspace_copy_vector, zptempv32) can
+#   be poked/expected by symbol name directly - loadhypposymbols adds
+#   $FFF0000 to these automatically.
+#
+# - "!addr X = $dNNN" hardware register aliases (hypervisor_x/y/z/a,
+#   sd_sectorbuffer, etc.) aren't in hyppo ROM space, so poking them by
+#   symbol name lands on an unmapped address. The CPU maps $D000-$DFFF
+#   to physical $FFD3000-$FFD3FFF by default, so to poke a value an
+#   instruction like "LDA hypervisor_y" ($D642) will see, poke the
+#   translated address directly: $FFD3642.
+#
+# - hypervisor_setup_copy_region (used by several traps below) reads
+#   hypervisor_y ($D642 -> $FFD3642) to pick the destination page.
+#
+# - Reads to $A000-$BFFF can get redirected to an emulated BASIC ROM
+#   depending on the CPU port at $0/$1. Every test here pokes the port
+#   ($0=$FF, $1=$05) to avoid that while keeping the $D000 IO mapping
+#   above.
+
+####################################################################
+#
+# trap_dos_getdisksize copies three fields straight out of
+# dos_disk_table for the current disk: total sector count (4 bytes),
+# total cluster count (4 bytes) and sectors per cluster (1 byte,
+# immediately following the cluster count in the table). No SD access
+# at all - it only touches the copy region setup and dos_disk_table.
+#
+####################################################################
+test "getdisksize copies sector count, cluster count and sectors-per-cluster"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+# Destination page: must be $00-$7E (hypervisor_setup_copy_region rejects
+# bit 7 or $7F). $40 also stays clear of hyppo's own $80-$BF range.
+poke $ffd3642 $40
+# First disk in the table
+poke dos_disk_table_offset $00
+# fs_sector_count (offset $04, 4 bytes)
+poke dos_disk_table+$04 $11 $22 $33 $44
+# fs_fat32_cluster_count (offset $12, 4 bytes) + fs_fat32_sectors_per_cluster
+# (offset $16, 1 byte) - contiguous, copied by the same loop
+poke dos_disk_table+$12 $C8 $00 $00 $00 $08
+breakpoint return_from_trap_with_carry_flag
+jmp trap_dos_getdisksize
+ignore all regs
+expect pc = return_from_trap_with_carry_flag
+expect flag c is set
+# Incidental: the internal jsr/rts to hypervisor_setup_copy_region leaves
+# its return address sitting on the stack (rts moves SP back but doesn't
+# erase the bytes).
+ignore from HyppoStack_Start to HyppoStack_Start+255
+# hypervisor_setup_copy_region's own effect: destination page latched in.
+expect $00 at hypervisor_userspace_copy_vector
+expect $40 at hypervisor_userspace_copy_vector+1
+expect $11 at $4000
+expect $22 at $4001
+expect $33 at $4002
+expect $44 at $4003
+expect $C8 at $4004
+expect $00 at $4005
+expect $00 at $4006
+expect $00 at $4007
+expect $08 at $4008
+check registers
+check ram
+test end
+
+####################################################################
+#
+# Same trap, invalid destination page: hypervisor_setup_copy_region
+# rejects Y=$80 (bit 7 set) before dos_disk_table is ever touched.
+#
+####################################################################
+test "getdisksize rejects an invalid destination page"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+poke $ffd3642 $80
+poke dos_disk_table_offset $00
+poke dos_disk_table+$04 $11 $22 $33 $44
+breakpoint return_from_trap_with_carry_flag
+jmp trap_dos_getdisksize
+ignore all regs
+expect pc = return_from_trap_with_carry_flag
+expect flag c is clear
+expect $10 at dos_error_code
+ignore from HyppoStack_Start to HyppoStack_Start+255
+check registers
+check ram
+test end
+
+####################################################################
+#
+# trap_dos_fstat copies the raw 32-byte dirent of the currently-located
+# file to a caller-chosen destination page, plus its own byte-offset
+# within the sector at output+32/+33. Split into two tests because
+# dos_goto_direntstart ends in a real sd_readsector, which never
+# completes in this harness (nothing clears the busy bits it sets on
+# itself).
+#
+# 1. Copy-region setup: fstat must call hypervisor_setup_copy_region
+#    itself, not write through whatever destination a previous trap
+#    left behind. Set the vector to a different page first, then check
+#    it's overwritten with the real one.
+#
+####################################################################
+test "fstat sets up the copy region for its own destination, not a stale one"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+# Set the copy vector to a different page first, as if a previous trap
+# had left it there.
+poke hypervisor_userspace_copy_vector $00 $60
+# Real destination page for this call
+poke $ffd3642 $40
+breakpoint dos_goto_direntstart
+jmp trap_dos_fstat
+ignore all regs
+expect pc = dos_goto_direntstart
+ignore from HyppoStack_Start to HyppoStack_Start+255
+expect $00 at hypervisor_userspace_copy_vector
+expect $40 at hypervisor_userspace_copy_vector+1
+check registers
+check ram
+test end
+
+####################################################################
+#
+# 2. Byte copy: enters at dos_fstat_have_dirent (the test seam added
+#    right after dos_goto_direntstart), with the sector buffer and FD
+#    offsetinsector pre-poked directly instead of going through the
+#    untestable SD read.
+#
+####################################################################
+test "fstat copies the dirent and its own sector offset to the destination"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+# dos_fstat_have_dirent starts after hypervisor_setup_copy_region has
+# already run (that's covered by the previous test) - set the copy
+# vector directly here instead.
+poke hypervisor_userspace_copy_vector $00 $40
+# dos_fstat_have_dirent indexes dos_file_descriptors via
+# dos_current_file_descriptor_offset directly (byte offset into the
+# table, not the FD number) - $00 is FD 0's own offset, stride 16.
+poke dos_current_file_descriptor_offset $00
+# FD 0's offsetinsector: the dirent sits at the very base of the sector
+# buffer, keeping the $DE/$DF page arithmetic trivial.
+poke dos_file_descriptors+11 $00 $00
+# A recognizable fake 32-byte dirent straight in the sector buffer.
+poke $ffd3e00 $54 $45 $53 $54 $46 $49 $4C $45 $54 $58 $54 $20 $00 $00 $00 $00 $00 $00 $00 $00 $00 $00 $02 $00 $00 $00 $00 $00 $EF $BE $AD $DE
+breakpoint dos_fstat_done
+jmp dos_fstat_have_dirent
+ignore all regs
+expect pc = dos_fstat_done
+expect flag c is set
+ignore from HyppoStack_Start to HyppoStack_Start+255
+# check ram's "expected" baseline carries over from the previous test in
+# this file, so $4000-$4021 still carries getdisksize's expectations -
+# clear the whole destination range first, then assert only what this
+# test actually cares about.
+ignore from $4000 to $4021
+# Incidental: dos_scratch_vector is fstat's own internal read pointer
+# into the sector buffer ($DE00 + offsetinsector), not part of its
+# output contract.
+ignore from dos_scratch_vector to dos_scratch_vector+1
+# The dirent bytes landed at the destination...
+expect $54 at $4000
+expect $45 at $4001
+expect $EF at $401C
+expect $BE at $401D
+expect $AD at $401E
+expect $DE at $401F
+# ...and the dirent's own sector offset is appended right after it.
+expect $00 at $4020
+expect $00 at $4021
+check registers
+check ram
+test end
+
+####################################################################
+#
+# trap_dos_getcwd, cwd already at the root: dos_cluster_is_root matches
+# on the first pass, so the walk-up-the-tree machinery (real SD reads)
+# never runs. Enters at gcwd_after_cwd_copy, right after
+# gcwd_cwd_to_zptempv32 - that routine's indexed base-page store
+# (STA <zptempv32,x) doesn't work in this harness, since it ignores the
+# B register for indexed zero-page addressing. zptempv32 is pre-poked
+# directly instead.
+#
+####################################################################
+test "getcwd at the root returns just \"/\""
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+# gcwd_after_cwd_copy starts after hypervisor_setup_copy_region has
+# already run (untested here - getdisksize/fstat both already cover
+# it) - set the copy vector directly instead.
+poke hypervisor_userspace_copy_vector $00 $40
+poke dos_disk_table_offset $00
+poke dos_disk_current_disk $00
+# Root cluster for disk 0, and cwd set to the same value.
+poke dos_disk_table+$10 $02 $00 $00 $00
+poke zptempv32 $02 $00 $00 $00
+breakpoint return_from_trap_with_carry_flag
+jmp gcwd_after_cwd_copy
+ignore all regs
+expect pc = return_from_trap_with_carry_flag
+expect flag c is set
+ignore from HyppoStack_Start to HyppoStack_Start+255
+# check ram's "expected" baseline carries over from every earlier test in
+# this file (e.g. the CPU port bytes at $0/$1, and fstat's destination
+# page) - reset the ranges this test touches before asserting on them.
+ignore from $0 to $1
+ignore from $4000 to $40FF
+# $YY00 = disk number, $YY01 = offset of the nul-terminated path
+expect $00 at $4000
+expect $FE at $4001
+# The path itself: "/" then the nul terminator gcwd_havearea seeded at $YY:FF
+expect $2F at $40FE
+expect $00 at $40FF
+# zptempp2 (the path cursor) ends at 254: started at 255, decremented once
+# to make room for the synthesized "/" at the root.
+expect $FE at zptempp2
+check registers
+check ram
+test end
+
+####################################################################
+#
+# dos_find_parent_of_cluster: shared helper used by getcwd, mkdir,
+# rmdir and rename to read a directory's ".." entry and translate it
+# into the real parent cluster. Enters at dos_ffpoc_have_sector, right
+# after its own sd_readsector, with the ".." entry's cluster fields
+# pre-poked into the sector buffer. Uses a non-zero parent cluster so
+# the "0 = root" sentinel translation isn't in play.
+#
+####################################################################
+test "dos_find_parent_of_cluster reads the .. entry's cluster"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+# ".." entry (the second 32-byte entry in the sector) cluster fields:
+# low word at +26, high word at +20, parent cluster = 5.
+poke $ffd3e3a $05 $00
+poke $ffd3e34 $00 $00
+jsr dos_ffpoc_have_sector
+ignore all regs
+expect flag c is set
+ignore from $0 to $1
+expect $05 at dos_disk_cwd_cluster
+expect $00 at dos_disk_cwd_cluster+1
+expect $00 at dos_disk_cwd_cluster+2
+expect $00 at dos_disk_cwd_cluster+3
+check registers
+check ram
+test end
+
+####################################################################
+#
+# dos_dirent_compare_name_to_requested: the name-matching core of
+# dos_findfile, which mkdir/rmdir/rename all use for their
+# existence/collision checks. Self-contained, no SD access, so this is
+# as close to the trap-level existence check as this harness can reach
+# - dos_findfile itself always runs dos_readdir.
+#
+# Case-insensitive by construction: the requested name is uppercased
+# before comparing, so a lowercase request still matches an
+# uppercase-stored entry.
+#
+####################################################################
+test "dos_dirent_compare_name_to_requested matches a name, case-insensitively"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+poke dos_requested_filename_len $4
+poke dos_requested_filename $74 $65 $73 $74
+poke dos_dirent_longfilename_length $4
+poke dos_dirent_longfilename $54 $45 $53 $54
+jsr dos_dirent_compare_name_to_requested
+ignore all regs
+expect flag c is set
+check registers
+test end
+
+####################################################################
+#
+# Same routine, a name that doesn't match: falls back to comparing
+# against the short-name-derived dotted form (dos_derive_dotted_shortname),
+# which also won't match here, so the whole thing correctly reports no
+# match rather than a false positive.
+#
+####################################################################
+test "dos_dirent_compare_name_to_requested rejects a non-matching name"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+let b = $bf
+poke $0 $FF
+poke $1 $05
+poke dos_requested_filename_len $4
+poke dos_requested_filename $74 $65 $73 $74
+poke dos_dirent_longfilename_length $5
+poke dos_dirent_longfilename $6F $74 $68 $65 $72
+# Short-name fallback: an empty short name so the derived dotted form
+# ("") also can't accidentally match "test".
+poke dos_dirent_shortfilename $20 $20 $20 $20 $20 $20 $20 $20 $20 $20 $20
+jsr dos_dirent_compare_name_to_requested
+ignore all regs
+expect flag c is clear
+check registers
+test end
