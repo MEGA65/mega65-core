@@ -37,7 +37,7 @@ use work.victypes.all;
 
 entity gs4510 is
   generic(
-    math_unit_enable : boolean := false;
+    math_unit_enable : boolean := true;
     chipram_1mb : std_logic := '0';
 
     cpufrequency : integer := 40;
@@ -1464,30 +1464,60 @@ architecture Behavioural of gs4510 is
   constant math_unit_count : integer := 16;
   type math_reg_array is array(0 to 15) of unsigned(31 downto 0);
   type math_config_array is array(0 to math_unit_count - 1) of math_unit_config;
+  type math_output_array is array(0 to math_unit_count - 1) of unsigned(63 downto 0);
+  type math_latch_array is array(0 to math_unit_count - 1) of integer range 0 to 15;
   signal reg_math_regs : math_reg_array := (others => to_unsigned(0,32));
   signal reg_math_config : math_config_array := (others => math_unit_config_v);
   signal reg_math_config_drive : math_config_array := (others => math_unit_config_v);
-  signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
-  signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
+  -- signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
+  -- signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
+  signal math_latch_value : integer range 0 to 15;  -- Latch value to write
+  signal math_latch_address : integer range 0 to 15;  -- Which unit to write latch value to
+  signal math_latch_write_toggle : std_logic := '0';
+  signal last_math_latch_write_toggle : std_logic := '0';
+  signal math_latch_reset_toggle : std_logic := '0';
+  signal last_math_latch_reset_toggle : std_logic := '0';
+  signal reg_math_latch_counters : math_latch_array := (others => 0);
+  signal reg_math_latch_fired : std_logic_vector(15 downto 0) := (others => '0');
+  signal reg_math_latch_intervals : math_latch_array := (others => 0);
+  -- Unit 15 needs to write to the last cycle status instead of current cycle, since
+  -- the register is copied over at the same time.
+  signal math_was_latched_current_cycle : std_logic_vector(14 downto 0) := (others => '0');
+  signal math_was_latched_last_cycle : std_logic_vector(15 downto 0) := (others => '0');
 
   -- We have the output counter out of phase with the input counter, so that we
   -- have time to catch an output, and store it, ready for presenting as an input
   -- very soon after.
-  signal math_input_counter : integer range 0 to 15 := 0;
-  signal math_output_counter : integer range 0 to 15 := 3;
-  signal prev_math_output_counter : integer range 0 to 15 := 2;
+  -- note: for whatever reason the way this was phased meant that the math cycle would
+  -- count up by 1 before math unit 1 had actually output anything
+  constant math_input_counter_init : integer range 0 to 15 := 0;
+  signal math_input_counter : integer range 0 to 15 := math_input_counter_init;
+  constant math_output_counter_init : integer range 0 to 15 := 0;
+  signal math_output_counter : integer range 0 to 15 := math_output_counter_init;  -- originally 3
 
   signal math_input_number : integer range 0 to 15 := 0;
   signal math_input_value : unsigned(31 downto 0) := (others => '0');
-  signal math_output_value_low : unsigned(31 downto 0) := (others => '0');
-  signal math_output_value_high : unsigned(31 downto 0) := (others => '0');
+  signal math_output_values : math_output_array := (others => (others => '0'));
+  -- signal math_output_values_alt : math_alt_output_array := (others => (others => '0'));
+  -- signal math_output_value_low : unsigned(31 downto 0) := (others => 'Z');
+  -- signal math_output_value_high : unsigned(31 downto 0) := (others => 'Z');
 
   -- Start with input and outputting enabled
-  signal math_unit_flags : unsigned(7 downto 0) := x"03";
+  signal math_unit_flags : unsigned(7 downto 0) := x"01";
+  signal math_unit_mult_out_shift : unsigned(2 downto 0) := "000";
+  signal math_unit_less_than : std_logic := '0';
+  signal math_unit_greater_than : std_logic := '0';
+  signal math_unit_equal_to : std_logic := '0';
+  signal math_unit_invert_b : std_logic_vector(15 downto 0) := (others => '0');
+  -- halt math unit when math_unit_halted /= last_math_unit_halted
+  signal math_unit_halted : std_logic := '0';
+  signal last_math_unit_halted : std_logic := '0';
   -- Each write to the math registers is passed to the math unit to handle
   -- (this is to avoid ISE doing really weird things in synthesis, thinking
   -- that each bit of each register was a clock or something similarly odd.)
-  signal reg_math_write : std_logic := '0';
+  -- The reset and write systems need to directly read the toggle state, since
+  -- any intermediate adds enough latency to cause writes on every cycle to fail.
+  -- This is particularly bad with math register writing, since it breaks STQ.
   signal reg_math_write_toggle : std_logic := '0';
   signal last_reg_math_write_toggle : std_logic := '0';
   signal reg_math_regnum : integer range 0 to 15 := 0;
@@ -1496,6 +1526,9 @@ architecture Behavioural of gs4510 is
   -- Count # of math cycles since cycle latch last written to
   signal reg_math_cycle_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal reg_math_cycle_counter_plus_one : unsigned(31 downto 0) := to_unsigned(0,32);
+  -- Reset math cycle counters
+  signal reg_math_cycle_counter_reset_toggle : std_logic := '0';
+  signal last_reg_math_cycle_counter_reset_toggle : std_logic := '0';
   -- # of math cycles to trigger end of job / math interrupt
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
 
@@ -1603,47 +1636,59 @@ begin
 
 
   multipliers: for unit in 0 to 7 generate
-    mult_unit : entity work.multiply32 port map (
+    mult_unit : entity work.multiply32 generic map (
+      unit => unit
+      ) port map (
       clock => mathclock,
-      unit => unit,
       do_add => reg_math_config_drive(unit).do_add,
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
-      output_select => math_output_counter,
-      output_value(31 downto 0) => math_output_value_low,
-      output_value(63 downto 32) => math_output_value_high
+      output_shift => math_unit_mult_out_shift,
+      output_value => math_output_values(unit)
+      -- output_select => math_output_counter,
+      -- output_value(31 downto 0) => math_output_value_low,
+      -- output_value(63 downto 32) => math_output_value_high
       );
   end generate;
 
   shifters: for unit in 8 to 11 generate
-    mult_unit : entity work.shifter32 port map (
+    shift_unit : entity work.shifter32 generic map (
+      unit => unit
+      ) port map (
       clock => mathclock,
-      unit => unit,
       do_add => reg_math_config_drive(unit).do_add,
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
-      output_select => math_output_counter,
-      output_value(31 downto 0) => math_output_value_low,
-      output_value(63 downto 32) => math_output_value_high
+      output_value => math_output_values(unit)
+      -- output_select => math_output_counter,
+      -- output_value(31 downto 0) => math_output_value_low,
+      -- output_value(63 downto 32) => math_output_value_high
       );
   end generate;
 
   dividerrs: for unit in 12 to 15 generate
-    mult_unit : entity work.divider32 port map (
+    div_unit : entity work.divider32 generic map (
+      unit => unit
+      ) port map (
       clock => mathclock,
-      unit => unit,
       do_add => reg_math_config_drive(unit).do_add,
+      do_mult => math_unit_flags(2),
+      invert_b => math_unit_invert_b(unit),
       input_a => reg_math_config_drive(unit).source_a,
       input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
-      output_select => math_output_counter,
-      output_value(31 downto 0) => math_output_value_low,
-      output_value(63 downto 32) => math_output_value_high
+      mult_shift => math_unit_mult_out_shift,
+      output_value => math_output_values(unit)
+      -- output_select => math_output_counter,
+      -- output_value(31 downto 0) => math_output_value_low,
+      -- output_value(63 downto 32) => math_output_value_high
       );
   end generate;
 
@@ -1671,6 +1716,7 @@ begin
     );
 
   process (mathclock)
+    variable math_current_unit_has_latched : std_logic := '0';
   begin
     if rising_edge(mathclock) and math_unit_enable then
       -- For the plumbed math units, we want to avoid having two huge 16x32x32
@@ -1689,62 +1735,126 @@ begin
       -- counters at the CPU speed.
 
       -- Present input value to all math units
-      if math_input_counter /= 15 then
-        math_input_counter <= math_input_counter + 1;
+      -- reset the counter if bit 0 is set (write enabled)
+      if math_unit_flags(0) = '0' and math_unit_halted = last_math_unit_halted then
+        if math_input_counter /= 15 then
+          math_input_counter <= math_input_counter + 1;
+        else
+          math_input_counter <= 0;
+        end if;
+        -- only update the input value and reg when the counter is running
+        -- to prevent register updates while the inputs are offline from messing with
+        -- the math unit's internal registers
+        math_input_number <= math_input_counter;
+        math_input_value <= reg_math_regs(math_input_counter);
+        report "MATH: Presenting math reg #" & integer'image(math_input_counter)
+          &" = $" & to_hstring(reg_math_regs(math_input_counter));
       else
-        math_input_counter <= 0;
+        math_input_counter <= math_input_counter_init;
       end if;
-      math_input_number <= math_input_counter;
-      math_input_value <= reg_math_regs(math_input_counter);
-      report "MATH: Presenting math reg #" & integer'image(math_input_counter)
-        &" = $" & to_hstring(reg_math_regs(math_input_counter));
 
       -- Update output counter being shown to math units
-      if math_output_counter /= 15 then
-        math_output_counter <= math_output_counter + 1;
+      -- reset counters when bit 0 is set (write enabled)
+      if math_unit_flags(0) = '0' and math_unit_halted = last_math_unit_halted then
+        if math_output_counter /= 15 then
+          math_output_counter <= math_output_counter + 1;
+        else
+          math_output_counter <= 0;
+        end if;
       else
-        math_output_counter <= 0;
+        math_output_counter <= math_output_counter_init;
       end if;
-      prev_math_output_counter <= math_output_counter;
+
       -- Based on the configuration for the previously selected unit,
       -- stash the results in the appropriate place
       if true then
-        report "MATH: output flags for unit #" & integer'image(prev_math_output_counter)
+        report "MATH: output flags for unit #" & integer'image(math_output_counter)
           & " = "
-          & std_logic'image(reg_math_config(prev_math_output_counter).output_low) & ", "
-          & std_logic'image(reg_math_config(prev_math_output_counter).output_high) & ", "
-          & integer'image(reg_math_config(prev_math_output_counter).output) & ", "
-          & std_logic'image(reg_math_config(prev_math_output_counter).latched) & ".";
+          & std_logic'image(reg_math_config(math_output_counter).output_low) & ", "
+          & std_logic'image(reg_math_config(math_output_counter).output_high) & ", "
+          & integer'image(reg_math_config(math_output_counter).output) & ", "
+          & std_logic'image(reg_math_config(math_output_counter).latched) & ".";
       end if;
 
-      if math_unit_flags(1) = '1' then
-        if (reg_math_config_drive(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
-          if reg_math_config_drive(prev_math_output_counter).output_high = '0' then
-            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
+      -- Make sure output counter is running before starting to stash outputs, to avoid constantly writing a register
+      -- Math config latch bit indicates whether to treat its latch interval as a counter (unset) or as a unit index (set).
+      if math_unit_flags(1) = '1' and math_unit_flags(0) = '0' and math_unit_halted = last_math_unit_halted then
+        math_current_unit_has_latched := '0';
+        if reg_math_config_drive(math_output_counter).latched = '0' then
+          -- Latched bit unset, use latch interval and counter to determine when to latch.
+          if math_latch_reset_toggle = last_math_latch_reset_toggle then
+            -- Math latches are not resetting, proceed with checks.
+            if reg_math_latch_counters(math_output_counter) = 0 then
+              math_current_unit_has_latched := '1';
+              reg_math_latch_counters(math_output_counter) <= reg_math_latch_intervals(math_output_counter);
+            elsif reg_math_latch_counters(math_output_counter) = 8 then
+              reg_math_latch_fired(math_output_counter) <= '1';
+              if reg_math_latch_fired(math_output_counter) = '0' then
+                math_current_unit_has_latched := '1';
+              end if;
+            else
+              reg_math_latch_counters(math_output_counter) <= reg_math_latch_counters(math_output_counter) - 1;
+            end if;
+          else
+            -- Math latches are resetting, so only latch if the interval to latch on is zero cycles.
+            if reg_math_latch_intervals(math_output_counter) = 0 then
+              math_current_unit_has_latched := '1';
+              reg_math_latch_fired(math_output_counter) <= '0';
+              reg_math_latch_counters(math_output_counter) <= reg_math_latch_intervals(math_output_counter);
+            elsif reg_math_latch_intervals(math_output_counter) = 8 then
+              math_current_unit_has_latched := '1';
+              reg_math_latch_fired(math_output_counter) <= '1';
+              reg_math_latch_counters(math_output_counter) <= reg_math_latch_intervals(math_output_counter);
+            else
+              reg_math_latch_fired(math_output_counter) <= '0';
+              reg_math_latch_counters(math_output_counter) <= reg_math_latch_intervals(math_output_counter) - 1;
+            end if;
+          end if;
+        else
+          -- Latched bit set, use a math unit's previous latch state to determine when to latch.
+          -- When resetting, assume no units were latched last cycle.
+          if math_latch_reset_toggle = last_math_latch_reset_toggle then
+            if math_was_latched_last_cycle(reg_math_latch_intervals(math_output_counter)) = '1' then
+              math_current_unit_has_latched := '1';
+            end if;
+          end if;
+        end if;
+
+        if math_output_counter = 15 then
+          -- Since this is the last unit, no intermediate is required.
+          math_was_latched_last_cycle(15) <= math_current_unit_has_latched;
+        else
+          math_was_latched_current_cycle(math_output_counter) <= math_current_unit_has_latched;
+        end if;
+
+        -- Process output if current unit has latched
+        if math_current_unit_has_latched = '1' then
+          if reg_math_config_drive(math_output_counter).output_high = '0' then
+            if reg_math_config_drive(math_output_counter).output_low = '0' then
               -- No output being kept, so nothing to do.
               null;
             else
               -- Only low output being kept
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") from output of math unit #" & integer'image(prev_math_output_counter)
-                & " ( = $" & to_hstring(math_output_value_low) & ")";
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
+                & ") from output of math unit #" & integer'image(math_output_counter)
+                & " ( = $" & to_hstring(math_output_values(math_output_counter)(31 downto 0)) & ")";
+              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
             end if;
           else
-            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
+            if reg_math_config_drive(math_output_counter).output_low = '0' then
               -- Only high half of output is being kept, so stash it
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") from output of math unit #" & integer'image(prev_math_output_counter);
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_high;
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
+                & ") from output of math unit #" & integer'image(math_output_counter);
+              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(63 downto 32);
             else
               -- Both are being stashed, so store in consecutive slots
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") (and next) from output of math unit #" & integer'image(prev_math_output_counter);
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-              if reg_math_config_drive(prev_math_output_counter).output /= 15 then
-                reg_math_regs(reg_math_config_drive(prev_math_output_counter).output + 1) <= math_output_value_high;
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(math_output_counter).output)
+                & ") (and next) from output of math unit #" & integer'image(math_output_counter);
+              reg_math_regs(reg_math_config(math_output_counter).output) <= math_output_values(math_output_counter)(31 downto 0);
+              if reg_math_config_drive(math_output_counter).output /= 15 then
+                reg_math_regs(reg_math_config(math_output_counter).output + 1) <= math_output_values(math_output_counter)(63 downto 32);
               else
-                reg_math_regs(0) <= math_output_value_high;
+                reg_math_regs(0) <= math_output_values(math_output_counter)(63 downto 32);
               end if;
             end if;
           end if;
@@ -1756,11 +1866,19 @@ begin
       -- Implement writing to math registers
       if reg_math_write_toggle /= last_reg_math_write_toggle then
         last_reg_math_write_toggle <= reg_math_write_toggle;
-        reg_math_write <= '1';
       end if;
-      reg_math_write <= '0';
-      if math_unit_flags(0) = '1' then
-        if reg_math_write = '1' then
+
+      if math_latch_write_toggle /= last_math_latch_write_toggle then
+        last_math_latch_write_toggle <= math_latch_write_toggle;
+      end if;
+
+      if reg_math_cycle_counter_reset_toggle /= last_reg_math_cycle_counter_reset_toggle then
+        last_reg_math_cycle_counter_reset_toggle <= reg_math_cycle_counter_reset_toggle;
+      end if;
+
+      -- when math unit has been halted by the comparator, behave as if math_unit_flags(1 downto 0) = "01"
+      if math_unit_flags(0) = '1' or math_unit_halted /= last_math_unit_halted then
+        if reg_math_write_toggle /= last_reg_math_write_toggle then
           case reg_math_regbyte is
             when 0 => reg_math_regs(reg_math_regnum)(7 downto 0) <= reg_math_write_value;
             when 1 => reg_math_regs(reg_math_regnum)(15 downto 8) <= reg_math_write_value;
@@ -1769,25 +1887,66 @@ begin
             when others =>
           end case;
         end if;
+        if math_latch_write_toggle /= last_math_latch_write_toggle then
+          reg_math_latch_intervals(math_latch_address) <= math_latch_value;
+          reg_math_latch_counters(math_latch_address) <= math_latch_value;
+        end if;
       end if;
 
       -- Latch counter counts "math cycles", which is the time it takes for an
       -- output to appear on the inputs again, i.e., once per lap of the input
       -- and output propagation.
       -- TODO: implement reg_math_cycle_counter_reset signal, see D7E1
-      reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
-      if math_output_counter = 1 then
-        -- Decrement latch counter
-        if reg_math_latch_counter = x"00" then
-          reg_math_latch_counter <= reg_math_latch_interval;
-          -- And update math cycle counter, if math unit is active
-          if math_unit_flags(1) = '1' then
-            reg_math_cycle_counter <= reg_math_cycle_counter_plus_one;
+      if math_output_counter = (15 + math_output_counter_init) mod 16 then
+        -- If a bit is set in math_was_latched_current_cycle, then that unit reset its latch counter and wrote an output.
+        -- For sequential latching, a unit needs to know the latch status from the previous cycle,
+        -- so the FPU needs to store which units latched on this cycle.
+        -- Unit 15 is an exception, since when this code runs, it still hasn't finished processing.
+        -- In order to avoid weird glitchiness with 15, it will write to the last cycle reg directly.
+        math_was_latched_last_cycle(14 downto 0) <= math_was_latched_current_cycle;
+        -- All units have been cycled through, so no more resetting to do.
+        if math_latch_reset_toggle /= last_math_latch_reset_toggle then
+          last_math_latch_reset_toggle <= math_latch_reset_toggle;
+        end if;
+        -- Update math cycle counter, if math unit is active
+        -- include a case for the reset, to avoid a possible edge case resulting in a double-drive
+        if math_unit_flags(1) = '1' and reg_math_cycle_counter_reset_toggle = last_reg_math_cycle_counter_reset_toggle and math_unit_halted = last_math_unit_halted then
+          if reg_math_cycle_counter_plus_one = reg_math_cycle_compare then
+            math_unit_halted <= not last_math_unit_halted;  -- disable calculation, enable writing to regs from CPU (disables counters)
           end if;
-        else
-          reg_math_latch_counter <= reg_math_latch_counter - 1;
+          reg_math_cycle_counter <= reg_math_cycle_counter_plus_one;
         end if;
       end if;
+
+      -- handle resetting the cycle counter, as well as updating reg_math_cycle_counter_plus_one, to avoid a multiple drive situation
+      if reg_math_cycle_counter_reset_toggle /= last_reg_math_cycle_counter_reset_toggle then
+        reg_math_cycle_counter <= (others => '0');
+        -- reg_math_cycle_counter_plus_one <= x"00000001";
+      end if;
+      reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
+
+      -- We also provide some flags (which will later trigger interrupts) based
+      -- on the equality of math registers 14 and 15
+      math_unit_flags(6) <= math_unit_equal_to;
+      math_unit_flags(5) <= math_unit_less_than;
+      math_unit_flags(4) <= math_unit_greater_than;
+      if reg_math_regs(14) = reg_math_regs(15) then
+        math_unit_equal_to <= '1';
+      else
+        math_unit_equal_to <= '0';
+      end if;
+      if reg_math_regs(14) < reg_math_regs(15) then
+        math_unit_less_than <= '1';
+      else
+        math_unit_less_than <= '0';
+      end if;
+      if reg_math_regs(14) > reg_math_regs(15) then
+        math_unit_greater_than <= '1';
+      else
+        math_unit_greater_than <= '0';
+      end if;
+      -- temp, maybe use $D7E1.7 as an interrupt indicate later?
+      math_unit_flags(7) <= '0';
     end if;
   end process;
 
@@ -2990,10 +3149,21 @@ begin
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);
               -- @IO:GS $D7E0 MATH:LATCHINT Latch interval for latched outputs (in CPU cycles)
               -- $D7E1 is documented higher up
-            when x"E0" => return reg_math_latch_interval;
-            when x"E1" => return math_unit_flags;
+            when x"E0" => return to_unsigned(math_latch_address,4) & to_unsigned(reg_math_latch_intervals(math_latch_address),4);
+            when x"E1" =>
+              if math_unit_flags(3) = '0' then
+                if math_unit_halted = last_math_unit_halted then
+                  return math_unit_flags;
+                else
+                  return math_unit_flags(7 downto 2) & "01";
+                end if;
+              else
+                return math_unit_flags(7 downto 3) & math_unit_mult_out_shift(2 downto 0);
+              end if;
             -- @IO:GS $D7E2 MATH:RESERVED Reserved
             -- @IO:GS $D7E3 MATH:RESERVED Reserved
+            when x"E2" => return unsigned(math_unit_invert_b(7 downto 0));
+            when x"E3" => return unsigned(math_unit_invert_b(15 downto 8));
             --@IO:GS $D7E4 MATH:ITERCNT Iteration Counter (32 bit)
             --@IO:GS $D7E5 MATH:ITERCNT Iteration Counter (32 bit)
             --@IO:GS $D7E6 MATH:ITERCNT Iteration Counter (32 bit)
@@ -3577,13 +3747,32 @@ begin
           reg_math_config(to_integer(long_address(3 downto 0))).output <= to_integer(value(3 downto 0));
         elsif long_address(7 downto 0) = x"E0" then
           -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
-          reg_math_latch_interval <= value;
+          math_latch_address <= to_integer(value(7 downto 4));
+          math_latch_value <= to_integer(value(3 downto 0));
+          math_latch_write_toggle <= not math_latch_write_toggle;
         elsif long_address(7 downto 0) = x"E1" then
           -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
           -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
           -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
-          math_unit_flags <= value;
+          math_unit_flags(3) <= value(3);
+          if value(3) = '1' then
+            if math_unit_flags(0) = '1' then
+              math_unit_mult_out_shift <= value(2 downto 0);
+            elsif math_unit_halted /= last_math_unit_halted then
+              math_unit_mult_out_shift <= value(2 downto 0);
+              math_unit_flags(1 downto 0) <= "01";  -- reset flags to halted state, since halted state is cleared.
+            end if;
+          else
+            math_unit_flags(2 downto 0) <= value(2 downto 0);
+          end if;
           -- reg_math_cycle_counter <= to_unsigned(0,32); -- TODO: Should generate a reg_math_cycle_counter_reset signal
+          reg_math_cycle_counter_reset_toggle <= not reg_math_cycle_counter_reset_toggle;
+          math_latch_reset_toggle <= not last_math_latch_reset_toggle;
+          last_math_unit_halted <= math_unit_halted;
+        elsif long_address(7 downto 0) = x"E2" then
+          math_unit_invert_b(7 downto 0) <= std_logic_vector(value);
+        elsif long_address(7 downto 0) = x"E3" then
+          math_unit_invert_b(15 downto 8) <= std_logic_vector(value);
         elsif long_address(7 downto 0) = x"E8" then
           reg_math_cycle_compare(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"E9" then
@@ -4257,39 +4446,6 @@ begin
       else
         chipselect_enables <= x"EF";
       end if;
-
-      if math_unit_enable then
-        -- We also provide some flags (which will later trigger interrupts) based
-        -- on the equality of math registers 14 and 15
-        if reg_math_regs(14) = reg_math_regs(15) then
-          math_unit_flags(6) <= '1';
-          if math_unit_flags(3 downto 2) = "00" then
-            math_unit_flags(7) <= '1' ;
-          end if;
-        else
-          math_unit_flags(6) <= '0';
-          if math_unit_flags(3 downto 2) = "11" then
-            math_unit_flags(7) <= '1' ;
-          end if;
-        end if;
-        if reg_math_regs(14) < reg_math_regs(15) then
-          math_unit_flags(5) <= '1';
-          if math_unit_flags(3 downto 2) = "10" then
-            math_unit_flags(7) <= '1' ;
-          end if;
-        else
-          math_unit_flags(5) <= '0';
-        end if;
-        if reg_math_regs(14) > reg_math_regs(15) then
-          math_unit_flags(4) <= '1';
-          if math_unit_flags(3 downto 2) = "01" then
-            math_unit_flags(7) <= '1' ;
-          end if;
-        else
-          math_unit_flags(4) <= '0';
-        end if;
-      end if;
-
     end if;
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
