@@ -761,14 +761,17 @@ ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)
 
 
 
-ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
-		$(VHDLSRCDIR)/test_ascii.vhdl
+DEBOUNCEFILES=	$(VHDLSRCDIR)/debugtools.vhdl \
+		$(VHDLSRCDIR)/kb_matrix_ram.vhdl \
+		$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
+		$(VHDLSRCDIR)/test_debounce.vhdl
 
-asciisimulate:	$(GHDL_DEPEND) $(ASCIIFILES)
+debouncesimulate:	$(GHDL_DEPEND) $(DEBOUNCEFILES)
 	$(call mbuild_header,$@)
-	$(GHDL) -i $(ASCIIFILES)
-	$(GHDL) -m test_ascii
-	( ./test_ascii || $(GHDL) -r test_ascii )
+	$(GHDL) -i $(DEBOUNCEFILES)
+	$(GHDL) -m test_debounce
+	$(GHDL) -r test_debounce -gintervening_keys=false --assert-level=error --stop-time=1ms
+	$(GHDL) -r test_debounce -gintervening_keys=true --assert-level=error --stop-time=1ms
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
