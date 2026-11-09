@@ -673,6 +673,20 @@ architecture gothic of hyperram is
   -- a CPU request needs the bus, and resumes after it: at the boot data rate
   -- a 256-byte burst takes over 3 us, and slow_devices gives up after 1.6.
   signal lump_yield   : std_logic := '0';    -- a CPU request waits (registered)
+  -- (Tiwaz) LUMP's turn: LUMP was the lowest priority with nothing to bound
+  -- its wait, so steady CPU traffic starved it - a v2 line fill always went
+  -- first, and a running burst paused after every 8 bytes for the next one
+  -- (a renderer uploading by DMA from attic RAM lost data, a 256-byte write
+  -- under random CPU reads never finished). A LUMP command that has waited
+  -- LUMP_AGE_MAX clocks is urgent: no new CPU line fill starts (the VIC-IV's
+  -- still do, and the posted-write flushes LUMP itself waits for), and a
+  -- burst that starts urgent is not paused for the CPU. The age restarts at
+  -- every new LUMP command (a paused one keeps aging), so LUMP cannot starve
+  -- the CPU either.
+  constant LUMP_AGE_MAX : integer := 128;
+  signal lump_age     : integer range 0 to LUMP_AGE_MAX := 0;
+  signal lump_urgent  : std_logic := '0';
+  signal lump_noyield : std_logic := '0';    -- this burst started urgent
   signal lump_res     : std_logic := '0';    -- a paused LUMP command
   signal lump_res_addr : unsigned(26 downto 3) := (others => '0');
   signal lump_res_cnt : signed(8 downto 0) := (others => '1');
@@ -1714,6 +1728,15 @@ begin
       else
         lump_yield <= '0';
       end if;
+      if lump_q_valid = '0' and lump_res = '0' and (is_lump = '0' or lump_owner_cpu = '1') then
+        -- (nothing of LUMP's queued, paused or running)
+        lump_age <= 0;
+        lump_urgent <= '0';
+      elsif lump_age = LUMP_AGE_MAX then
+        lump_urgent <= '1';
+      else
+        lump_age <= lump_age + 1;
+      end if;
       if cj_req = '1' then
         lump_pre_cpu <= '1';
         lump_pre_res <= '0';
@@ -2207,6 +2230,15 @@ begin
               lump_go <= '0';
               is_lump <= '1';
               lump_owner_cpu <= lump_pre_cpu;
+              if lump_pre_cpu = '0' then
+                -- (Tiwaz) a LUMP burst: urgent, it runs through; a new command
+                -- (not the rest of a paused one) restarts the age
+                lump_noyield <= lump_urgent;
+                if lump_pre_res = '0' then
+                  lump_age <= 0;
+                  lump_urgent <= '0';
+                end if;
+              end if;
               -- Nothing else is waiting (lump_bus_free), so the old path is
               -- free for requests during the burst, as Idle would have left
               -- it: a busy_internal left over from its last read held
@@ -3729,7 +3761,7 @@ begin
                   hr_clk_phaseshift <= write_phase_shift;
                   state <= Idle;
                 elsif lump_wg = "11" and lump_owner_cpu = '0'
-                  and ((lump_seg = '1' and lump_yield = '1') or lump_ng = "11111") then
+                  and ((lump_seg = '1' and lump_yield = '1' and lump_noyield = '0') or lump_ng = "11111") then
                   -- pause here (an 8-byte boundary): the CPU needs the bus
                   report "LUMP: Read burst paused";
                   hr_cs0 <= '1';
@@ -3804,7 +3836,7 @@ begin
                 lump_wbuf_hi <= le_wdata(15 downto 8);
                 lump_wbe_hi <= le_wdata_be(1);
                 if lump_cnt(8) = '0' and lump_wg = "11" and lump_owner_cpu = '0'
-                  and ((lump_seg = '1' and lump_yield = '1') or lump_ng = "11111") then
+                  and ((lump_seg = '1' and lump_yield = '1' and lump_noyield = '0') or lump_ng = "11111") then
                   -- pause after this word (an 8-byte boundary): the CPU
                   -- needs the bus.  (No request for the next word.)
                   lump_ending <= '1';
@@ -4851,6 +4883,11 @@ begin
         end loop;
         if vic_want = '1' and fill_active = '0' then
           v2_start_fill(vic_tag, '0');
+        elsif lump_urgent = '1' then
+          -- (Tiwaz) LUMP's turn: only the flushes it waits for
+          if v2_wh /= -1 then
+            v2_start_flush(v2_wh);
+          end if;
         elsif want_fill = '1' and fill_active = '0' then
           want_fill <= '0';
           v2_start_fill(l_addr(26 downto 3), '0');
