@@ -388,11 +388,12 @@ architecture tacoma_narrows of sdram_controller is
   signal exp_data  : unsigned(63 downto 0) := (others => '0');
   signal x_look, x_use : std_logic := '0';
   signal x_addr : unsigned(26 downto 3) := (others => '1');
-  -- The valid cached copy of x_addr found by the look-up (x_any), in slot
-  -- x_sel.  The use step re-checks c_val there: a copy invalidated (or its
-  -- slot reused) in between is fetched again instead
-  signal x_sel  : integer range 0 to NL - 1 := 0;
-  signal x_any  : boolean := false;
+  -- The slots whose tag matched x_addr in the look-up (x_m, one bit per
+  -- slot: the compare alone, registered - the slot number is chosen in the
+  -- use step, which kept build P's x_addr -> x_sel path 22 ps too long).
+  -- The use step checks c_val there: a copy invalidated (or its slot reused)
+  -- in between is fetched again instead
+  signal x_m    : std_logic_vector(0 to NL - 1) := (others => '0');
   signal x_want : std_logic := '0';             -- fill x_addr, then export it
   signal x_down : std_logic := '0';
 
@@ -2267,17 +2268,18 @@ begin
         elsif x_look = '1' then
           x_look <= '0';
           x_use <= '1';
-          v_hit := -1;
           for i in 0 to NL - 1 loop
-            if c_tag(i) = x_addr and c_val(i) = '1' then v_hit := i; end if;
+            if c_tag(i) = x_addr then x_m(i) <= '1'; else x_m(i) <= '0'; end if;
           end loop;
-          x_any <= v_hit /= -1;
-          if v_hit /= -1 then x_sel <= v_hit; end if;
         elsif x_use = '1' and wt_go = '0' then     -- (c_data complete)
           x_use <= '0';
-          if x_any and c_val(x_sel) = '1' and write_latched = '0' and write_guard_q = '0' then
-            assert c_tag(x_sel) = x_addr report "SDRAM: x_sel slot reused" severity failure;
-            set_export(x_addr, c_data(x_sel));
+          v_hit := -1;
+          for i in 0 to NL - 1 loop
+            if x_m(i) = '1' and c_val(i) = '1' then v_hit := i; end if;
+          end loop;
+          if v_hit /= -1 and write_latched = '0' and write_guard_q = '0' then
+            assert c_tag(v_hit) = x_addr report "SDRAM: x_m slot reused" severity failure;
+            set_export(x_addr, c_data(v_hit));
             if cflags(1) = '1' then prefetch_from(x_addr); end if;
           else
             x_want <= '1';              -- (fetched, then exported)
