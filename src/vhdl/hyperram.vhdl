@@ -418,6 +418,16 @@ architecture gothic of hyperram is
   signal hr_clk : std_logic := '0';
 
   signal hr_clock_phase165 : unsigned(1 downto 0) := "00";
+  -- (Tiwaz) clock325 comes from the MMCM's fractional divider, clock163 and
+  -- pixelclock from integer ones: the latter two keep their phase, clock325's
+  -- start is not tied to them. So the clock325 counter follows clock163's: on
+  -- the first clock325 edge after each clock163 edge it is set to twice the
+  -- clock163 count (what it reaches by itself when both clocks start
+  -- together). Before, the two counters only agreed if the clocks' first edges
+  -- coincided, else commands started on the wrong HyperRAM clock phase
+  -- (writes lost; tb_hyperram_lump with skew = 1, 2, 3)
+  signal t163 : std_logic := '0';                    -- toggles every clock163 edge
+  signal t163_325 : std_logic := '0';                -- its sample in clock325
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
   signal hr_clock_phase_drive : unsigned(2 downto 0) := "111";
 
@@ -1624,7 +1634,12 @@ begin
 
 
       hr_clock_phase_drive <= hr_clock_phase;
-      hr_clock_phase <= hr_clock_phase + 1;
+      t163_325 <= t163;
+      if t163_325 /= t163 then
+        hr_clock_phase <= hr_clock_phase165 & '0';
+      else
+        hr_clock_phase <= hr_clock_phase + 1;
+      end if;
       -- Changing at the end of a phase cycle prevents us having any
       -- problematically short clock pulses when it matters.
       if hr_clock_phase_drive="110" then
@@ -1721,6 +1736,7 @@ begin
     end if;
 
     if rising_edge(clock163) then
+      t163 <= not t163;
       v_hd_we := false; v_ht_we := false; v_rw_we := false; v_rwt_we := false;
       hr_clock_phase165 <= hr_clock_phase165 + 1;
 
