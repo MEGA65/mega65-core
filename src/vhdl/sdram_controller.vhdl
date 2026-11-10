@@ -7,8 +7,10 @@ use work.cputypes.all;
 use work.lumptypes.all;
 
 entity sdram_controller is
-  generic (in_simulation : in boolean := false);
-  port (pixelclock : in std_logic;      -- For slow devices bus interface is
+  generic (in_simulation : in boolean := false;
+           CPU_LINE_STAGE : in boolean := false);  -- (Tiwaz) see g_cpu_line
+  port (pixelclock : in std_logic;
+        cpuclock   : in std_logic := '0';  -- (Tiwaz) with CPU_LINE_STAGE      -- For slow devices bus interface is
         -- actually on pixelclock to reduce latencies
         -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
         clock162   : in std_logic;      -- Used for fast clock for SDRAM
@@ -111,6 +113,12 @@ entity sdram_controller is
 end sdram_controller;
 
 architecture tacoma_narrows of sdram_controller is
+  -- (Tiwaz) the exported line inside; the ports carry it to slow_devices and
+  -- the CPU (CPU_LINE_STAGE: a copy that changes only at the CPU's clock edges,
+  -- see below)
+  signal cl_line_i  : cache_row_t := (others => (others => '0'));
+  signal cl_addr_i  : unsigned(26 downto 3) := (others => '0');
+  signal cl_valid_i : std_logic := '0';
 
   signal last_data_ready_toggle : std_logic := '0';
 
@@ -382,7 +390,7 @@ architecture tacoma_narrows of sdram_controller is
   signal pq_v : std_logic := '0';
   signal pq_t : unsigned(26 downto 3) := (others => '0');
 
-  -- The exported line (current_cache_line*), and the next/prev requests
+  -- The exported line (cl_line_i*), and the next/prev requests
   signal exp_addr  : unsigned(26 downto 3) := (others => '1');
   signal exp_valid : std_logic := '0';
   signal exp_data  : unsigned(63 downto 0) := (others => '0');
@@ -763,11 +771,11 @@ begin
       exp_moved <= '1';
       exp_data <= d;
       exp_valid <= '1';
-      current_cache_line_address <= t;
+      cl_addr_i <= t;
       for k in 0 to 7 loop
-        current_cache_line(k) <= d(8 * k + 7 downto 8 * k);
+        cl_line_i(k) <= d(8 * k + 7 downto 8 * k);
       end loop;
-      current_cache_line_valid <= '1';
+      cl_valid_i <= '1';
     end procedure;
     -- Prefetch from line t on, if enabled, going the way the reads go
     procedure prefetch_from(t : unsigned(26 downto 3)) is
@@ -1155,7 +1163,7 @@ begin
         -- been applied, if it is to that line): the CPU may read it
         -- directly within a few cycles.  (No address compare here: address
         -- comes from the pixel clock domain.)
-        current_cache_line_valid <= '0';
+        cl_valid_i <= '0';
         if rdata_16en = '1' then
           wdata_hi_latched <= wdata_hi;
           latched_wen_lo   <= wen_lo;
@@ -1351,8 +1359,8 @@ begin
                 exp_valid <= '0';
                 exp_addr <= (others => '1');
                 exp_moved <= '1';
-                current_cache_line_valid <= '0';
-                current_cache_line_address <= (others => '1');
+                cl_valid_i <= '0';
+                cl_addr_i <= (others => '1');
                 pf_k <= PF + 1;
                 pf_chk <= '0';
                 pf_chk2 <= '0';
@@ -2017,7 +2025,7 @@ begin
                 bk_pre <= (others => tRP_C);
                 c_val <= (others => '0');
                 exp_valid <= '0';
-                current_cache_line_valid <= '0';
+                cl_valid_i <= '0';
                 tr_active <= '0';
                 if tr_mode = "00" then
                   tr_count <= tr_count + 1;
@@ -2228,7 +2236,7 @@ begin
                     wt_be(k) <= '0';
                   end if;
                 end loop;
-                current_cache_line_valid <= exp_valid;
+                cl_valid_i <= exp_valid;
                 assert (xe_q = '1') = (exp_addr = latched_addr(26 downto 3))
                   report "SDRAM: stale xe_q" severity failure;
                 if xe_q = '1' then
@@ -2358,7 +2366,7 @@ begin
       -- first receiving edge.  Keep this priority AFTER any set_export call
       -- above so the registered data path never makes a stale line valid.
       if write_request = '1' and read_request = '0' then
-        current_cache_line_valid <= '0';
+        cl_valid_i <= '0';
       end if;
 
       -- slow_devices must wait while we cannot take a request.  A write is
@@ -2395,5 +2403,59 @@ begin
       end if;
     end if;
   end process;
+
+  -- (Tiwaz) The CPU reads the exported line (gs4510's slowram_cache_line,
+  -- through the top's mux) on its 40.5 MHz clock, and the constraints give
+  -- every path from here to it four clock162 cycles (set_multicycle_path 4,
+  -- "relax timing of cache lines"). That holds only for a line that changes at
+  -- most at the CPU's edges; this controller changed it at any clock162 edge, so a
+  -- change in the last cycle before a CPU edge reached the CPU half done (new
+  -- address, old bytes): next to LUMP traffic, which invalidates and refills
+  -- the line all the time, CPU and DMA reads of HyperRAM returned bytes of
+  -- other lines (core Z8b: a texture upload by DMA from attic HyperRAM, 67
+  -- bytes, the same ones every run, the controller's own reads right).
+  -- With CPU_LINE_STAGE the ports are a copy taken at the clock162 edge that
+  -- coincides with a CPU edge (clock162 and cpuclock come from one MMCM, 4:1,
+  -- edges aligned), so it is stable for the four cycles the constraint
+  -- assumes. Its valid too: an invalidation reaches the CPU up to three
+  -- cycles late (less than one CPU cycle), the old line still consistent.
+  g_cpu_line: if CPU_LINE_STAGE generate
+    signal t41, t41_s, t41_p : std_logic := '0';
+    signal ph : unsigned(1 downto 0) := "00";   -- the last clock162 edge's index in the CPU cycle
+    signal vq : std_logic := '0';
+  begin
+    process (cpuclock)
+    begin
+      if rising_edge(cpuclock) then
+        t41 <= not t41;
+      end if;
+    end process;
+    process (clock162)
+    begin
+      if rising_edge(clock162) then
+        t41_s <= t41;                          -- (sees a CPU edge's toggle at the next edge, E1)
+        t41_p <= t41_s;
+        if t41_s /= t41_p then
+          ph <= "10";                          -- this is E2
+        else
+          ph <= ph + 1;
+        end if;
+        if ph = "11" then                      -- this edge is E4 = the CPU's next edge
+          current_cache_line <= cl_line_i;
+          current_cache_line_address <= cl_addr_i;
+          vq <= cl_valid_i;
+        end if;
+      end if;
+    end process;
+    current_cache_line_valid <= vq;           -- (the copy's own: an and with the live
+                                              -- valid, which changes at any edge, reached the CPU's
+                                              -- flops at different times - some saw a hit, some a
+                                              -- miss: core Z8d hung its demo)
+  end generate;
+  g_direct: if not CPU_LINE_STAGE generate
+    current_cache_line <= cl_line_i;
+    current_cache_line_address <= cl_addr_i;
+    current_cache_line_valid <= cl_valid_i;
+  end generate;
 
 end tacoma_narrows;

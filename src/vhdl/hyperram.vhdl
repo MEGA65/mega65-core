@@ -18,8 +18,10 @@ use work.lumptypes.all;
 
 entity hyperram is
   generic ( in_simulation : in boolean := false;
-            no_start_delay : in boolean := false);
-  Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
+            no_start_delay : in boolean := false;
+            CPU_LINE_STAGE : in boolean := false);   -- (Tiwaz) see g_cpu_line
+  Port ( pixelclock : in STD_LOGIC;
+         cpuclock : in std_logic := '0';    -- (Tiwaz) with CPU_LINE_STAGE -- For slow devices bus interface is
          -- actually on pixelclock to reduce latencies
          -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
          clock163 : in std_logic; -- Used for fast clock for HyperRAM
@@ -104,6 +106,12 @@ entity hyperram is
 end hyperram;
 
 architecture gothic of hyperram is
+  -- (Tiwaz) the exported line inside; the ports carry it to slow_devices and
+  -- the CPU (CPU_LINE_STAGE: a copy that changes only at the CPU's clock edges,
+  -- see below)
+  signal cl_line_i  : cache_row_t := (others => (others => '0'));
+  signal cl_addr_i  : unsigned(26 downto 3) := (others => '0');
+  signal cl_valid_i : std_logic := '0';
 
   type state_t is (
     StartupDelay,
@@ -778,11 +786,11 @@ begin
       exp_data <= d;
       exp_valid <= '1';
       if v2_en = '1' then
-        current_cache_line_address <= t;
+        cl_addr_i <= t;
         for k in 0 to 7 loop
-          current_cache_line(k) <= d(8 * k + 7 downto 8 * k);
+          cl_line_i(k) <= d(8 * k + 7 downto 8 * k);
         end loop;
-        current_cache_line_valid <= enable_current_cache_line;
+        cl_valid_i <= enable_current_cache_line;
       end if;
     end procedure;
     -- Prefetch from line t on, if enabled, going the way the reads go
@@ -918,20 +926,20 @@ begin
       -- valid or not).
       -- This has to happen IMMEDIATELY so that slow_devices doesn't
       -- accidentally read old data, while we are still scheduling the write.
-      if address(26 downto 3) = current_cache_line_address(26 downto 3) then
-        report "Requesting update of current_cache_line due to write. Value = $"
+      if address(26 downto 3) = cl_addr_i(26 downto 3) then
+        report "Requesting update of cl_line_i due to write. Value = $"
           & to_hstring(wdata) & ", byte offset = " & integer'image(to_integer(address(2 downto 0)));
         if wen_lo = '1' then
           current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
           current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0)));
-          current_cache_line_update_address <= current_cache_line_address;
+          current_cache_line_update_address <= cl_addr_i;
           end if;
         if wen_hi = '1' then
           current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
           current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
-          current_cache_line_update_address <= current_cache_line_address;
+          current_cache_line_update_address <= cl_addr_i;
         end if;
       end if;
 
@@ -1488,7 +1496,7 @@ begin
               -- At least one other cache update is pending.  This means that
               -- we will not be able to keep the cache consistent.  The only
               -- option is to invalidate the read cache rows, data block,
-              -- and current_cache_line.
+              -- and cl_line_i.
               invalidate_read_cache <= '1';
             else
               cache_row_update_toggle <= not last_cache_row_update_toggle;
@@ -1794,7 +1802,7 @@ begin
       ram_reading_drive <= ram_reading;
       ram_wdata_enlo_drive <= ram_wdata_enlo;
       ram_wdata_enhi_drive <= ram_wdata_enhi;
-      if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+      if ram_address(26 downto 3) = cl_addr_i(26 downto 3) then
         ram_address_matches_current_cache_line_address <= '1';
       else
         ram_address_matches_current_cache_line_address <= '0';
@@ -1883,14 +1891,14 @@ begin
         end if;
       end if;
 
-      if current_cache_line_address(26 downto 5) = block_address(26 downto 5)
-          and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1') then
+      if cl_addr_i(26 downto 5) = block_address(26 downto 5)
+          and (cl_addr_i(4 downto 3) /= "11") and (block_valid='1') then
         current_cache_line_matches_block <= '1';
       else
         current_cache_line_matches_block <= '0';
       end if;
-      if (current_cache_line_address(26 downto 5) + 1) = block_address(26 downto 5)
-        and (current_cache_line_address(4 downto 3) = "11") and (block_valid='1') then
+      if (cl_addr_i(26 downto 5) + 1) = block_address(26 downto 5)
+        and (cl_addr_i(4 downto 3) = "11") and (block_valid='1') then
           current_cache_line_plus_1_matches_block <= '1';
       else
         current_cache_line_plus_1_matches_block <= '0';
@@ -1924,13 +1932,13 @@ begin
 
 
       if enable_current_cache_line='1' and v2_en = '0' then
---        if current_cache_line /= current_cache_line_drive then
---          report "CACHE: Updating current_cache_line from drive. Now "
+--        if cl_line_i /= current_cache_line_drive then
+--          report "CACHE: Updating cl_line_i from drive. Now "
 --            & to_hstring(current_cache_line_drive(0)) & " ...";
 --        end if;
-        current_cache_line <= current_cache_line_drive;
-        current_cache_line_address <= current_cache_line_address_drive;
-        current_cache_line_valid <= current_cache_line_valid_drive;
+        cl_line_i <= current_cache_line_drive;
+        cl_addr_i <= current_cache_line_address_drive;
+        cl_valid_i <= current_cache_line_valid_drive;
       end if;
 
       if mark_cache_for_prefetch /= last_mark_cache_for_prefetch
@@ -2007,7 +2015,7 @@ begin
         if current_cache_line_update_address = current_cache_line_address_drive then
           for i in 0 to 7 loop
             if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-              report "CACHE: Driving update to current_cache_line byte " & integer'image(i)
+              report "CACHE: Driving update to cl_line_i byte " & integer'image(i)
                 & ", value $" & to_hstring(current_cache_line_update(i));
               last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
               current_cache_line_drive(i) <= current_cache_line_update(i);
@@ -2324,7 +2332,7 @@ begin
             elsif prefetch_when_idle then
               prefetch_when_idle <= false;
               report "DISPATCHER: Dispatching chained pre-fetch";
-              tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
+              tempaddr(26 downto 5) := cl_addr_i(26 downto 5) + 1;
               tempaddr(4 downto 0) := "00000";
               hyperram_access_address <= tempaddr;
 
@@ -2358,7 +2366,7 @@ begin
               countdown_is_zero <= '0';
 
               report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr)
-                & " in response to giving last row to current_cache_line";
+                & " in response to giving last row to cl_line_i";
               -- Mark a cache line to receive the pre-fetched data, so that we don't
               -- have to wait for it all to turn up, before being able to return
               -- the first 8 bytes
@@ -3938,7 +3946,7 @@ begin
                     report "DISPATCH: byte_phase = " & integer'image(to_integer(byte_phase))
                       & ", address=$" & to_hstring(address);
                     if byte_phase_greater_than_address_end_of_row = '1' then
-                      report "DISPATCH: Pushing block line to current_cache_line";
+                      report "DISPATCH: Pushing block line to cl_line_i";
                       current_cache_line_drive <= block_data(to_integer(address(4 downto 3)));
                       current_cache_line_address_drive(26 downto 5) <= block_address(26 downto 5);
                       current_cache_line_address_drive(4 downto 3) <= address(4 downto 3);
@@ -4461,7 +4469,7 @@ begin
         -- The exported line stops being valid at once, until the write has
         -- been applied (the CPU may read it directly within a few cycles)
         if v2_en = '1' then
-          current_cache_line_valid <= '0';
+          cl_valid_i <= '0';
         end if;
       end if;
 
@@ -4689,7 +4697,7 @@ begin
               end loop;
               -- and into the exported line
               if v2_en = '1' then
-                current_cache_line_valid <= exp_valid and enable_current_cache_line;
+                cl_valid_i <= exp_valid and enable_current_cache_line;
               end if;
               if exp_addr = l_addr(26 downto 3) then
                 v2_line2 := exp_data;
@@ -4817,8 +4825,8 @@ begin
         exp_valid <= '0';
         exp_addr <= (others => '1');
         if v2_en = '1' then
-          current_cache_line_valid <= '0';
-          current_cache_line_address <= (others => '1');
+          cl_valid_i <= '0';
+          cl_addr_i <= (others => '1');
         end if;
         pf_k <= H_PF + 1;
         pf_chk <= '0';
@@ -4888,5 +4896,59 @@ begin
     end if;
 
   end process;
+  -- (Tiwaz) The CPU reads the exported line (gs4510's slowram_cache_line,
+  -- through the top's mux) on its 40.5 MHz clock, and the constraints give
+  -- every path from here to it four clock163 cycles (set_multicycle_path 4,
+  -- "relax timing of cache lines"). That holds only for a line that changes at
+  -- most at the CPU's edges; this controller changed it at any clock163 edge, so a
+  -- change in the last cycle before a CPU edge reached the CPU half done (new
+  -- address, old bytes): next to LUMP traffic, which invalidates and refills
+  -- the line all the time, CPU and DMA reads of HyperRAM returned bytes of
+  -- other lines (core Z8b: a texture upload by DMA from attic HyperRAM, 67
+  -- bytes, the same ones every run, the controller's own reads right).
+  -- With CPU_LINE_STAGE the ports are a copy taken at the clock163 edge that
+  -- coincides with a CPU edge (clock163 and cpuclock come from one MMCM, 4:1,
+  -- edges aligned), so it is stable for the four cycles the constraint
+  -- assumes. Its valid too: an invalidation reaches the CPU up to three
+  -- cycles late (less than one CPU cycle), the old line still consistent.
+  g_cpu_line: if CPU_LINE_STAGE generate
+    signal t41, t41_s, t41_p : std_logic := '0';
+    signal ph : unsigned(1 downto 0) := "00";   -- the last clock163 edge's index in the CPU cycle
+    signal vq : std_logic := '0';
+  begin
+    process (cpuclock)
+    begin
+      if rising_edge(cpuclock) then
+        t41 <= not t41;
+      end if;
+    end process;
+    process (clock163)
+    begin
+      if rising_edge(clock163) then
+        t41_s <= t41;                          -- (sees a CPU edge's toggle at the next edge, E1)
+        t41_p <= t41_s;
+        if t41_s /= t41_p then
+          ph <= "10";                          -- this is E2
+        else
+          ph <= ph + 1;
+        end if;
+        if ph = "11" then                      -- this edge is E4 = the CPU's next edge
+          current_cache_line <= cl_line_i;
+          current_cache_line_address <= cl_addr_i;
+          vq <= cl_valid_i;
+        end if;
+      end if;
+    end process;
+    current_cache_line_valid <= vq;           -- (the copy's own: an and with the live
+                                              -- valid, which changes at any edge, reached the CPU's
+                                              -- flops at different times - some saw a hit, some a
+                                              -- miss: core Z8d hung its demo)
+  end generate;
+  g_direct: if not CPU_LINE_STAGE generate
+    current_cache_line <= cl_line_i;
+    current_cache_line_address <= cl_addr_i;
+    current_cache_line_valid <= cl_valid_i;
+  end generate;
+
 end gothic;
 
