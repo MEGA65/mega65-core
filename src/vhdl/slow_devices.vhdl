@@ -275,7 +275,14 @@ begin
     end function;
 
     -- TODO: better determine timeout at runtime, depending if hyperram is activated (mega65r4: switchable sdram/hyperram?)
-    constant expansionram_read_timeout_default : unsigned := cond_uint((target = mega65r4) or (target = mega65r5) or (target = mega65r6), to_unsigned(128,24), to_unsigned(128, 24));
+    -- (Tiwaz) 1024 cycles (12.6 us) on the boards with LUMP's HyperRAM, was
+    -- 128 (1.58 us): a read that has to wait behind a LUMP burst (a 256-byte
+    -- write takes ~3.3 us in slow mode) timed out and returned the debug byte
+    -- below as data - the low 6 bits of a stale byte, bit 6 busy, bit 7 the
+    -- ready toggle (core Z: a renderer's texture upload by DMA from attic RAM
+    -- lost 100s of bytes, all with bits 6/7 wrong; the controller had read
+    -- them right). The worst wait now is ~5 us.
+    constant expansionram_read_timeout_default : unsigned := cond_uint((target = mega65r4) or (target = mega65r5) or (target = mega65r6), to_unsigned(1024,24), to_unsigned(128, 24));
 
   begin
 

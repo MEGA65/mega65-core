@@ -18,8 +18,10 @@ use work.lumptypes.all;
 
 entity hyperram is
   generic ( in_simulation : in boolean := false;
-            no_start_delay : in boolean := false);
-  Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
+            no_start_delay : in boolean := false;
+            CPU_LINE_STAGE : in boolean := false);   -- (Tiwaz) see g_cpu_line
+  Port ( pixelclock : in STD_LOGIC;
+         cpuclock : in std_logic := '0';    -- (Tiwaz) with CPU_LINE_STAGE -- For slow devices bus interface is
          -- actually on pixelclock to reduce latencies
          -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
          clock163 : in std_logic; -- Used for fast clock for HyperRAM
@@ -104,6 +106,12 @@ entity hyperram is
 end hyperram;
 
 architecture gothic of hyperram is
+  -- (Tiwaz) the exported line inside; the ports carry it to slow_devices and
+  -- the CPU (CPU_LINE_STAGE: a copy that changes only at the CPU's clock edges,
+  -- see below)
+  signal cl_line_i  : cache_row_t := (others => (others => '0'));
+  signal cl_addr_i  : unsigned(26 downto 3) := (others => '0');
+  signal cl_valid_i : std_logic := '0';
 
   type state_t is (
     StartupDelay,
@@ -682,6 +690,23 @@ architecture gothic of hyperram is
   -- A LUMP burst pauses at an 8-byte boundary (after at least 16 bytes) when
   -- a CPU request needs the bus, and resumes after it: at the boot data rate
   -- a 256-byte burst takes over 3 us, and slow_devices gives up after 1.6.
+  -- (Tiwaz) the HyperRAM's data and RWDS pins are driven from registers of
+  -- their own, one output and one tristate flop per pin, packed into the I/O
+  -- blocks (IOB): the pins' timing is then the silicon's, the same in every
+  -- build. Before, the process drove the inout ports itself; synthesis merged
+  -- the flops with hr2's and placed them anywhere in the fabric (core Z4: data
+  -- bits from two slices 12 columns apart, one tristate flop for all eight),
+  -- so the write data's skew against hr_clk_p changed with every placement -
+  -- LUMP writes next to CPU reads lost bits on the board (137 to 11732 bytes of
+  -- 32 KB, by build).
+  signal hr_d_o    : unsigned(7 downto 0) := x"00";
+  signal hr_d_t    : std_logic_vector(7 downto 0) := (others => '1');   -- '1': tristate
+  signal hr_rwds_o : std_logic := '0';
+  signal hr_rwds_t : std_logic := '1';
+  attribute IOB : string;
+  attribute KEEP : string;
+  attribute IOB of hr_d_o, hr_d_t, hr_rwds_o, hr_rwds_t : signal is "TRUE";
+  attribute KEEP of hr_d_o, hr_d_t, hr_rwds_o, hr_rwds_t : signal is "true";
   signal lump_yield   : std_logic := '0';    -- a CPU request waits (registered)
   signal lump_res     : std_logic := '0';    -- a paused LUMP command
   signal lump_res_addr : unsigned(26 downto 3) := (others => '0');
@@ -726,6 +751,12 @@ begin
   le_wdata    <= cj_wdata when lump_owner_cpu = '1' else lump_wdata;
   le_wdata_be <= cj_wdata_be when lump_owner_cpu = '1' else lump_wdata_be;
 
+  -- (Tiwaz) the pins, straight from their IOB flops
+  g_hr_d: for i in 0 to 7 generate
+    hr_d(i) <= 'Z' when hr_d_t(i) = '1' else hr_d_o(i);
+  end generate;
+  hr_rwds <= 'Z' when hr_rwds_t = '1' else hr_rwds_o;
+
   lump_queue0 : entity work.lump_queue
     port map (
       clock      => clock163,
@@ -741,6 +772,13 @@ begin
       pop        => lump_q_pop
       );
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
+    -- (Tiwaz) the pins' next values: committed once at the end of the clock163
+    -- part under an enable, so the IOB flops get a clock enable instead of a
+    -- feedback mux (a flop whose output feeds its own logic cannot sit in an IOB)
+    variable v_hd : unsigned(7 downto 0);
+    variable v_ht : std_logic_vector(7 downto 0);
+    variable v_rw, v_rwt : std_logic;
+    variable v_hd_we, v_ht_we, v_rw_we, v_rwt_we : boolean;
     variable clock_status_vector : unsigned(4 downto 0);
     variable tempaddr : unsigned(26 downto 0);
     variable show_cache0 : boolean := false;
@@ -788,11 +826,11 @@ begin
       exp_data <= d;
       exp_valid <= '1';
       if v2_en = '1' then
-        current_cache_line_address <= t;
+        cl_addr_i <= t;
         for k in 0 to 7 loop
-          current_cache_line(k) <= d(8 * k + 7 downto 8 * k);
+          cl_line_i(k) <= d(8 * k + 7 downto 8 * k);
         end loop;
-        current_cache_line_valid <= enable_current_cache_line;
+        cl_valid_i <= enable_current_cache_line;
       end if;
     end procedure;
     -- Prefetch from line t on, if enabled, going the way the reads go
@@ -928,20 +966,20 @@ begin
       -- valid or not).
       -- This has to happen IMMEDIATELY so that slow_devices doesn't
       -- accidentally read old data, while we are still scheduling the write.
-      if address(26 downto 3) = current_cache_line_address(26 downto 3) then
-        report "Requesting update of current_cache_line due to write. Value = $"
+      if address(26 downto 3) = cl_addr_i(26 downto 3) then
+        report "Requesting update of cl_line_i due to write. Value = $"
           & to_hstring(wdata) & ", byte offset = " & integer'image(to_integer(address(2 downto 0)));
         if wen_lo = '1' then
           current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
           current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0)));
-          current_cache_line_update_address <= current_cache_line_address;
+          current_cache_line_update_address <= cl_addr_i;
           end if;
         if wen_hi = '1' then
           current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
           current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
-          current_cache_line_update_address <= current_cache_line_address;
+          current_cache_line_update_address <= cl_addr_i;
         end if;
       end if;
 
@@ -1498,7 +1536,7 @@ begin
               -- At least one other cache update is pending.  This means that
               -- we will not be able to keep the cache consistent.  The only
               -- option is to invalidate the read cache rows, data block,
-              -- and current_cache_line.
+              -- and cl_line_i.
               invalidate_read_cache <= '1';
             else
               cache_row_update_toggle <= not last_cache_row_update_toggle;
@@ -1699,6 +1737,7 @@ begin
 
     if rising_edge(clock163) then
       t163 <= not t163;
+      v_hd_we := false; v_ht_we := false; v_rw_we := false; v_rwt_we := false;
       hr_clock_phase165 <= hr_clock_phase165 + 1;
 
       -- LUMP: single-cycle strobes default low
@@ -1810,7 +1849,7 @@ begin
       ram_reading_drive <= ram_reading;
       ram_wdata_enlo_drive <= ram_wdata_enlo;
       ram_wdata_enhi_drive <= ram_wdata_enhi;
-      if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+      if ram_address(26 downto 3) = cl_addr_i(26 downto 3) then
         ram_address_matches_current_cache_line_address <= '1';
       else
         ram_address_matches_current_cache_line_address <= '0';
@@ -1899,14 +1938,14 @@ begin
         end if;
       end if;
 
-      if current_cache_line_address(26 downto 5) = block_address(26 downto 5)
-          and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1') then
+      if cl_addr_i(26 downto 5) = block_address(26 downto 5)
+          and (cl_addr_i(4 downto 3) /= "11") and (block_valid='1') then
         current_cache_line_matches_block <= '1';
       else
         current_cache_line_matches_block <= '0';
       end if;
-      if (current_cache_line_address(26 downto 5) + 1) = block_address(26 downto 5)
-        and (current_cache_line_address(4 downto 3) = "11") and (block_valid='1') then
+      if (cl_addr_i(26 downto 5) + 1) = block_address(26 downto 5)
+        and (cl_addr_i(4 downto 3) = "11") and (block_valid='1') then
           current_cache_line_plus_1_matches_block <= '1';
       else
         current_cache_line_plus_1_matches_block <= '0';
@@ -1940,13 +1979,13 @@ begin
 
 
       if enable_current_cache_line='1' and v2_en = '0' then
---        if current_cache_line /= current_cache_line_drive then
---          report "CACHE: Updating current_cache_line from drive. Now "
+--        if cl_line_i /= current_cache_line_drive then
+--          report "CACHE: Updating cl_line_i from drive. Now "
 --            & to_hstring(current_cache_line_drive(0)) & " ...";
 --        end if;
-        current_cache_line <= current_cache_line_drive;
-        current_cache_line_address <= current_cache_line_address_drive;
-        current_cache_line_valid <= current_cache_line_valid_drive;
+        cl_line_i <= current_cache_line_drive;
+        cl_addr_i <= current_cache_line_address_drive;
+        cl_valid_i <= current_cache_line_valid_drive;
       end if;
 
       if mark_cache_for_prefetch /= last_mark_cache_for_prefetch
@@ -2023,7 +2062,7 @@ begin
         if current_cache_line_update_address = current_cache_line_address_drive then
           for i in 0 to 7 loop
             if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-              report "CACHE: Driving update to current_cache_line byte " & integer'image(i)
+              report "CACHE: Driving update to cl_line_i byte " & integer'image(i)
                 & ", value $" & to_hstring(current_cache_line_update(i));
               last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
               current_cache_line_drive(i) <= current_cache_line_update(i);
@@ -2146,7 +2185,7 @@ begin
           state <= Idle;
         when Idle =>
           report "Tristating hr_d";
-          hr_d <= (others => 'Z');
+          v_ht := (others => '1'); v_ht_we := true;
           hr2_d <= (others => 'Z');
 
           read_request_held <= '0';
@@ -2202,7 +2241,7 @@ begin
 
           if rwr_counter /= to_unsigned(0,8) then
             rwr_counter <= rwr_counter - 1;
-            hr_d <= x"bb";
+            v_hd := x"bb"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
             hr2_d <= x"bb";
           end if;
           if rwr_counter = to_unsigned(1,8) then
@@ -2340,7 +2379,7 @@ begin
             elsif prefetch_when_idle then
               prefetch_when_idle <= false;
               report "DISPATCHER: Dispatching chained pre-fetch";
-              tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
+              tempaddr(26 downto 5) := cl_addr_i(26 downto 5) + 1;
               tempaddr(4 downto 0) := "00000";
               hyperram_access_address <= tempaddr;
 
@@ -2374,7 +2413,7 @@ begin
               countdown_is_zero <= '0';
 
               report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr)
-                & " in response to giving last row to current_cache_line";
+                & " in response to giving last row to cl_line_i";
               -- Mark a cache line to receive the pre-fetched data, so that we don't
               -- have to wait for it all to turn up, before being able to return
               -- the first 8 bytes
@@ -2679,7 +2718,7 @@ begin
           hr_cs0 <= not hyperram0_select;
           hr_cs1 <= not (hyperram1_select or first_transaction);
 
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
 
           -- The deprecated v1 block-read path is retired.
@@ -2799,7 +2838,7 @@ begin
               & ", clock = " & std_logic'image(hr_clk)
               & ", countdown = " & integer'image(countdown);
 
-            hr_d <= hr_command(47 downto 40);
+            v_hd := hr_command(47 downto 40); v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
             hr2_d <= hr_command(47 downto 40);
             hr_command(47 downto 8) <= hr_command(39 downto 0);
 
@@ -2851,7 +2890,7 @@ begin
           hr_cs0 <= not hyperram0_select;
           hr_cs1 <= not (hyperram1_select or first_transaction);
 
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
 
           hr_clk_phaseshift <= write_byte_phase;
@@ -2976,7 +3015,7 @@ begin
             & ", clock = " & std_logic'image(hr_clk)
             & ", countdown = " & integer'image(countdown);
 
-          hr_d <= hr_command(47 downto 40);
+          v_hd := hr_command(47 downto 40); v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
           hr2_d <= hr_command(47 downto 40);
           hr_command(47 downto 8) <= hr_command(39 downto 0);
 
@@ -3185,9 +3224,9 @@ begin
 
           -- Begin write mask pre-amble
           if ram_reading_held = '0' and countdown = 2 then
-            hr_rwds <= '0';
+            v_rw := '0'; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
             hr2_rwds <= '0';
-            hr_d <= x"BE"; -- "before" data byte
+            v_hd := x"BE"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- "before" data byte
             hr2_d <= x"BE"; -- "before" data byte
           end if;
 
@@ -3226,7 +3265,7 @@ begin
                 report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
                   & ", valids= " & to_string(background_write_valids)
                   & ", background words left = " & integer'image(background_write_count);
-                hr_d <= background_write_data(0);
+                v_hd := background_write_data(0); v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                 hr2_d <= background_write_data(0);
 
                 -- Shift, unless the next line is being fetched in this same
@@ -3242,7 +3281,7 @@ begin
                   background_write_data(7) <= x"00";
                 end if;
 
-                hr_rwds <= not background_write_valids(0);
+                v_rw := not background_write_valids(0); v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                 hr2_rwds <= not background_write_valids(0);
                 if background_write_fetch = '0' then
                   background_write_valids(0 to 6) <= background_write_valids(1 to 7);
@@ -3252,9 +3291,9 @@ begin
                 -- XXX Doesn't handle 16-bit writes properly. But that's
                 -- okay, as they are only supported with the cache and
                 -- write-collecting, anyway.
-                hr_d <= ram_wdata;
+                v_hd := ram_wdata; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                 hr2_d <= ram_wdata;
-                hr_rwds <= hyperram_access_address(0) xor write_byte_phase;
+                v_rw := hyperram_access_address(0) xor write_byte_phase; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                 hr2_rwds <= hyperram_access_address(0) xor write_byte_phase;
               end if;
 
@@ -3276,10 +3315,10 @@ begin
               write_byte_phase <= '1';
               if background_write='0' then
                 if write_byte_phase = '0' and hyperram_access_address(0)='1' then
-                  hr_d <= x"ee"; -- even "masked" data byte
+                  v_hd := x"ee"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- even "masked" data byte
                   hr2_d <= x"ee"; -- even "masked" data byte
                 elsif write_byte_phase = '1' and hyperram_access_address(0)='0' then
-                  hr_d <= x"0d"; -- odd "masked" data byte
+                  v_hd := x"0d"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- odd "masked" data byte
                   hr2_d <= x"0d"; -- odd "masked" data byte
                 end if;
                 if background_write_count /= 0 then
@@ -3477,9 +3516,9 @@ begin
 
             -- Begin write mask pre-amble
             if ram_reading_held = '0' and countdown = 2 then
-              hr_rwds <= '0';
+              v_rw := '0'; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
               hr2_rwds <= '0';
-              hr_d <= x"BE"; -- "before" data byte
+              v_hd := x"BE"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- "before" data byte
               hr2_d <= x"BE"; -- "before" data byte
             end if;
 
@@ -3518,7 +3557,7 @@ begin
                   report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
                     & ", valids= " & to_string(background_write_valids)
                     & ", background words left = " & integer'image(background_write_count);
-                  hr_d <= background_write_data(0);
+                  v_hd := background_write_data(0); v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                   hr2_d <= background_write_data(0);
 
                   background_write_data(0) <= background_write_data(1);
@@ -3530,7 +3569,7 @@ begin
                   background_write_data(6) <= background_write_data(7);
                   background_write_data(7) <= x"00";
 
-                  hr_rwds <= not background_write_valids(0);
+                  v_rw := not background_write_valids(0); v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                   hr2_rwds <= not background_write_valids(0);
                   background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                   background_write_valids(7) <= '0';
@@ -3538,9 +3577,9 @@ begin
                   -- XXX Doesn't handle 16-bit writes properly. But that's
                   -- okay, as they are only supported with the cache and
                   -- write-collecting, anyway.
-                  hr_d <= ram_wdata;
+                  v_hd := ram_wdata; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                   hr2_d <= ram_wdata;
-                  hr_rwds <= hyperram_access_address(0) xor write_byte_phase;
+                  v_rw := hyperram_access_address(0) xor write_byte_phase; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                   hr2_rwds <= hyperram_access_address(0) xor write_byte_phase;
                 end if;
 
@@ -3562,10 +3601,10 @@ begin
                 write_byte_phase <= '1';
                 if background_write='0' then
                   if write_byte_phase = '0' and hyperram_access_address(0)='1' then
-                    hr_d <= x"ee"; -- even "masked" data byte
+                    v_hd := x"ee"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- even "masked" data byte
                     hr2_d <= x"ee"; -- even "masked" data byte
                   elsif write_byte_phase = '1' and hyperram_access_address(0)='0' then
-                    hr_d <= x"0d"; -- odd "masked" data byte
+                    v_hd := x"0d"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- odd "masked" data byte
                     hr2_d <= x"0d"; -- odd "masked" data byte
                   end if;
                   if background_write_count /= 0 then
@@ -3619,9 +3658,9 @@ begin
           -- Mask writing from here on.
           hr_cs0 <= '1';
           hr_cs1 <= '1';
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
-          hr_d <= x"FA"; -- "after" data byte
+          v_hd := x"FA"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true; -- "after" data byte
           hr2_d <= x"FA"; -- "after" data byte
           hr_clk_phaseshift <= write_phase_shift;
           report "clk_queue <= '00'";
@@ -3632,9 +3671,9 @@ begin
         when LumpReadWait =>
           -- Linear burst read for LUMP.  Like HyperRAMReadWait, but with no
           -- cache, VIC-IV or abort logic: every byte goes to lump_rdata.
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
-          hr_d <= (others => 'Z');
+          v_ht := (others => '1'); v_ht_we := true;
           hr2_d <= (others => 'Z');
           -- (debug: the bus on each of the first 16 cycles here)
           if lump_dbg_idx < 16 then
@@ -3787,9 +3826,9 @@ begin
           else
           -- Write mask pre-amble
           if countdown = 2 then
-            hr_rwds <= '0';
+            v_rw := '0'; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
             hr2_rwds <= '0';
-            hr_d <= x"BE";
+            v_hd := x"BE"; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
             hr2_d <= x"BE";
           end if;
 
@@ -3813,9 +3852,9 @@ begin
               -- RWDS high masks the byte
               lump_dbg_wb <= lump_dbg_wb + 1; lump_dbg_wgot <= '1';
               if lump_byte_odd = '0' then
-                hr_d <= le_wdata(7 downto 0);
+                v_hd := le_wdata(7 downto 0); v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                 hr2_d <= le_wdata(7 downto 0);
-                hr_rwds <= not le_wdata_be(0);
+                v_rw := not le_wdata_be(0); v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                 hr2_rwds <= not le_wdata_be(0);
                 lump_wbuf_hi <= le_wdata(15 downto 8);
                 lump_wbe_hi <= le_wdata_be(1);
@@ -3831,9 +3870,9 @@ begin
                 end if;
                 lump_byte_odd <= '1';
               else
-                hr_d <= lump_wbuf_hi;
+                v_hd := lump_wbuf_hi; v_hd_we := true; v_ht := (others => '0'); v_ht_we := true;
                 hr2_d <= lump_wbuf_hi;
-                hr_rwds <= not lump_wbe_hi;
+                v_rw := not lump_wbe_hi; v_rw_we := true; v_rwt := '0'; v_rwt_we := true;
                 hr2_rwds <= not lump_wbe_hi;
                 lump_byte_odd <= '0';
                 lump_wg <= lump_wg + 1;
@@ -3864,10 +3903,10 @@ begin
           end if;                     -- (slow-mode gating)
 
         when HyperRAMReadWait =>
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
           report "Presenting tri-state on hr_d";
-          hr_d <= (others => 'Z');
+          v_ht := (others => '1'); v_ht_we := true;
           hr2_d <= (others => 'Z');
           if countdown_is_zero = '0' then
             countdown <= countdown - 1;
@@ -3954,7 +3993,7 @@ begin
                     report "DISPATCH: byte_phase = " & integer'image(to_integer(byte_phase))
                       & ", address=$" & to_hstring(address);
                     if byte_phase_greater_than_address_end_of_row = '1' then
-                      report "DISPATCH: Pushing block line to current_cache_line";
+                      report "DISPATCH: Pushing block line to cl_line_i";
                       current_cache_line_drive <= block_data(to_integer(address(4 downto 3)));
                       current_cache_line_address_drive(26 downto 5) <= block_address(26 downto 5);
                       current_cache_line_address_drive(4 downto 3) <= address(4 downto 3);
@@ -4165,10 +4204,10 @@ begin
             end if;
           end if;
         when HyperRAMReadWaitSlow =>
-          hr_rwds <= 'Z';
+          v_rwt := '1'; v_rwt_we := true;
           hr2_rwds <= 'Z';
           report "Presenting tri-state on hr_d";
-          hr_d <= (others => 'Z');
+          v_ht := (others => '1'); v_ht_we := true;
           hr2_d <= (others => 'Z');
 
           if hyperram0_select='1' then
@@ -4477,7 +4516,7 @@ begin
         -- The exported line stops being valid at once, until the write has
         -- been applied (the CPU may read it directly within a few cycles)
         if v2_en = '1' then
-          current_cache_line_valid <= '0';
+          cl_valid_i <= '0';
         end if;
       end if;
 
@@ -4705,7 +4744,7 @@ begin
               end loop;
               -- and into the exported line
               if v2_en = '1' then
-                current_cache_line_valid <= exp_valid and enable_current_cache_line;
+                cl_valid_i <= exp_valid and enable_current_cache_line;
               end if;
               if exp_addr = l_addr(26 downto 3) then
                 v2_line2 := exp_data;
@@ -4833,8 +4872,8 @@ begin
         exp_valid <= '0';
         exp_addr <= (others => '1');
         if v2_en = '1' then
-          current_cache_line_valid <= '0';
-          current_cache_line_address <= (others => '1');
+          cl_valid_i <= '0';
+          cl_addr_i <= (others => '1');
         end if;
         pf_k <= H_PF + 1;
         pf_chk <= '0';
@@ -4901,8 +4940,67 @@ begin
       else
         busy_v2 <= '0';
       end if;
+      -- (Tiwaz) the pins' flops, with enables
+      if v_hd_we then hr_d_o <= v_hd; end if;
+      if v_ht_we then hr_d_t <= v_ht; end if;
+      if v_rw_we then hr_rwds_o <= v_rw; end if;
+      if v_rwt_we then hr_rwds_t <= v_rwt; end if;
     end if;
 
   end process;
+  -- (Tiwaz) The CPU reads the exported line (gs4510's slowram_cache_line,
+  -- through the top's mux) on its 40.5 MHz clock, and the constraints give
+  -- every path from here to it four clock163 cycles (set_multicycle_path 4,
+  -- "relax timing of cache lines"). That holds only for a line that changes at
+  -- most at the CPU's edges; this controller changed it at any clock163 edge, so a
+  -- change in the last cycle before a CPU edge reached the CPU half done (new
+  -- address, old bytes): next to LUMP traffic, which invalidates and refills
+  -- the line all the time, CPU and DMA reads of HyperRAM returned bytes of
+  -- other lines (core Z8b: a texture upload by DMA from attic HyperRAM, 67
+  -- bytes, the same ones every run, the controller's own reads right).
+  -- With CPU_LINE_STAGE the ports are a copy taken at the clock163 edge that
+  -- coincides with a CPU edge (clock163 and cpuclock come from one MMCM, 4:1,
+  -- edges aligned), so it is stable for the four cycles the constraint
+  -- assumes. Its valid too: an invalidation reaches the CPU up to three
+  -- cycles late (less than one CPU cycle), the old line still consistent.
+  g_cpu_line: if CPU_LINE_STAGE generate
+    signal t41, t41_s, t41_p : std_logic := '0';
+    signal ph : unsigned(1 downto 0) := "00";   -- the last clock163 edge's index in the CPU cycle
+    signal vq : std_logic := '0';
+  begin
+    process (cpuclock)
+    begin
+      if rising_edge(cpuclock) then
+        t41 <= not t41;
+      end if;
+    end process;
+    process (clock163)
+    begin
+      if rising_edge(clock163) then
+        t41_s <= t41;                          -- (sees a CPU edge's toggle at the next edge, E1)
+        t41_p <= t41_s;
+        if t41_s /= t41_p then
+          ph <= "10";                          -- this is E2
+        else
+          ph <= ph + 1;
+        end if;
+        if ph = "11" then                      -- this edge is E4 = the CPU's next edge
+          current_cache_line <= cl_line_i;
+          current_cache_line_address <= cl_addr_i;
+          vq <= cl_valid_i;
+        end if;
+      end if;
+    end process;
+    current_cache_line_valid <= vq;           -- (the copy's own: an and with the live
+                                              -- valid, which changes at any edge, reached the CPU's
+                                              -- flops at different times - some saw a hit, some a
+                                              -- miss: core Z8d hung its demo)
+  end generate;
+  g_direct: if not CPU_LINE_STAGE generate
+    current_cache_line <= cl_line_i;
+    current_cache_line_address <= cl_addr_i;
+    current_cache_line_valid <= cl_valid_i;
+  end generate;
+
 end gothic;
 

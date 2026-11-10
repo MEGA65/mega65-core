@@ -884,8 +884,10 @@ begin
   hyperram0:
   if true generate
   hram0: entity work.hyperram
+    generic map (CPU_LINE_STAGE => true)   -- (Tiwaz) the CPU's copy of the exported line
     port map (
       pixelclock => pixelclock,
+      cpuclock => cpuclock,
       clock163 => clock162,
       clock325 => clock325,
       -- LUMP port for SSNAIL
@@ -956,8 +958,10 @@ begin
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
+    generic map (CPU_LINE_STAGE => true)   -- (Tiwaz) the CPU's copy of the exported line
     port map (
       pixelclock => pixelclock,
+      cpuclock => cpuclock,
       identical_clocks => sdram_slow_clock,
       clock162 => clock162,
       clock162r => clock162m,
