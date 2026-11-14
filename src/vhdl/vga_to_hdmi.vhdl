@@ -188,6 +188,7 @@ architecture synth of vga_to_hdmi is
                                                             -- HDMI encoding pipeline stage 2...
     signal s2_data      : std_logic;                        -- data period active
     signal s2_pcount    : unsigned(s1_pcount'range);        -- data island character #=
+    signal s2_first     : std_logic;                        -- the island's first packet
     signal s2_bch4      : std_logic;                        -- BCH block 4 bit
     signal s2_bch_e     : std_logic_vector(3 downto 0);     -- BCH blocks 0-3 even bit
     signal s2_bch_o     : std_logic_vector(3 downto 0);     -- BCH blocks 0-3 odd bit
@@ -201,6 +202,7 @@ architecture synth of vga_to_hdmi is
                                                             -- HDMI encoding pipeline stage 3...
     signal s3_data      : std_logic;                        -- data period active
     signal s3_pcount    : unsigned(s1_pcount'range);        -- data island character #
+    signal s3_first     : std_logic;                        -- the island's first packet
     signal s3_bch4      : std_logic;                        -- BCH block 4 bit
     signal s3_bch_e     : std_logic_vector(s2_bch_e'range); -- BCH blocks 0-3 even bit
     signal s3_bch_o     : std_logic_vector(s2_bch_o'range); -- BCH blocks 0-3 odd bit
@@ -621,6 +623,7 @@ begin
             s1_ctl      <= CTL_NULL;
             s2_data     <= '0';
             s2_pcount   <= (others => '0');
+            s2_first    <= '0';
             s2_bch4     <= '0';
             s2_bch_e    <= (others => '0');
             s2_bch_o    <= (others => '0');
@@ -632,6 +635,7 @@ begin
             s2_ctl      <= CTL_NULL;
             s3_data     <= '0';
             s3_pcount   <= (others => '0');
+            s3_first    <= '0';
             s3_bch4     <= '0';
             s3_bch_e    <= (others => '0');
             s3_bch_o    <= (others => '0');
@@ -911,6 +915,10 @@ begin
                 s2_data <= '1';
             end if;
             s2_pcount <= s1_pcount;
+            s2_first <= '0';
+            if s1_dcount = 0 then
+                s2_first <= '1';
+            end if;
             s2_bch4 <= '0';
             if s1_hb_byte < s1_hb'length then
                 s2_bch4 <= s1_hb(s1_hb_byte)(s1_hb_bit);
@@ -935,6 +943,7 @@ begin
 
             s3_data <= s2_data;
             s3_pcount <= s2_pcount;
+            s3_first <= s2_first;
             s3_bch4 <= s2_bch4;
             s3_bch_e <= s2_bch_e;
             s3_bch_o <= s2_bch_o;
@@ -969,7 +978,11 @@ begin
                 else
                     s4_d(0)(2) <= s3_bch_ecc(4)(to_integer(unsigned(s3_pcount(2 downto 0))));
                 end if;
-                if unsigned(s3_pcount) = 0 then
+                -- Low for the first character of a data island and for no
+                -- other: not for the first of each packet in it. (It was: and
+                -- the AVI InfoFrame and the source product descriptor, the
+                -- name a display may show, always follow another packet.)
+                if unsigned(s3_pcount) = 0 and s3_first = '1' then
                     s4_d(0)(3) <= '0';
                 else
                     s4_d(0)(3) <= '1';
