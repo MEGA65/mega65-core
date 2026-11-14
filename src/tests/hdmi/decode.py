@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# decode.py <file from tb_hdmi> - find the data islands in a stream of TMDS
+# decode.py <file from tb_hdmi> [silent] - find the data islands in a stream of TMDS
 # characters, take their packets apart and check them: both error codes, and
 # an InfoFrame's checksum. The error code is computed as hdl-util/hdmi does it.
 import sys
@@ -91,7 +91,8 @@ for il in islands:
             for k in range(4):
                 if (H[1] >> k) & 1:
                     b = PB[7 * k:7 * k + 7]
-                    sound.append((b[1] | b[2] << 8, b[4] | b[5] << 8, b[0] | b[3], il['fr'], il['y'], il['seg']))
+                    par = sum(bin(v).count('1') for v in b) & 1   # 24 + 24 sample bits, V U C P twice: even
+                    sound.append((b[1] | b[2] << 8, b[4] | b[5] << 8, b[0] | b[3], il['fr'], il['y'], il['seg'], par, any(b[:6])))
         if t == 0x01:
             for k in range(4):
                 b = PB[7 * k:7 * k + 7]
@@ -106,12 +107,18 @@ for t in sorted(stat):
 # (The first packets after reset hold what was there before the first sample.
 # Across a gap in the file there is nothing to compare.)
 breaks = 0; low = 0
+SILENT = len(sys.argv) > 2 and sys.argv[2] == 'silent'
 for a, b in zip(sound[8:], sound[9:]):
-    if a[5] != b[5]: continue
+    if a[5] != b[5] or SILENT: continue
     if (b[0] - a[0]) & 0xFFFF != 257 or (b[1] - a[1]) & 0xFFFF != 513: breaks += 1
     if b[2]: low += 1
 span = (rows[-1][0] - rows[0][0]) if len(sound) else 0
 print('sound: %d samples in %d packets; samples out of sequence: %d; with the low byte not 0: %d' % (len(sound), stat[0x02]['n'], breaks, low))
+badpar = sum(x[6] for x in sound[8:]); loud = sum(1 for x in sound[8:] if x[7])
+print('       parity wrong: %d; samples that are not zero: %d%s' % (badpar, loud, ' (silence asked for)' if SILENT else ''))
+if badpar: problems.append('%d sound samples with the parity wrong' % badpar)
+if SILENT and loud: problems.append('%d sound samples not zero where silence was asked for' % loud)
+if not SILENT and not loud and sound: problems.append('every sound sample is zero')
 print('clock regeneration (CTS, N):', dict(acr))
 if breaks: problems.append('%d sound samples out of sequence' % breaks)
 print('bit 3 of channel 0 (which packet, at its first character, least over the rest):', dict(d3))

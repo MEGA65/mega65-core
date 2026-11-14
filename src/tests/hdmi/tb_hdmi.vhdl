@@ -10,7 +10,7 @@ use work.types_pkg.all;
 
 entity tb_hdmi is
   generic (FRAMES : integer := 3; FULL_FRAMES : integer := 2; VRR : boolean := false;
-           HD : boolean := false;
+           HD : boolean := false; SILENT : boolean := false;
            DVI : boolean := false; OUTFILE : string := "hdmi.out");
 end entity;
 
@@ -38,10 +38,11 @@ architecture sim of tb_hdmi is
   signal l, rr : std_logic_vector(15 downto 0) := (others => '0');
   signal tmds : slv_9_0_t(0 to 2);
   signal done : boolean := false;
-  signal vrr_sl, dvi_sl : std_logic;
+  signal vrr_sl, dvi_sl, silent_sl : std_logic;
 begin
   vrr_sl <= '1' when VRR else '0';
   dvi_sl <= '1' when DVI else '0';
+  silent_sl <= '1' when SILENT else '0';
   clk <= not clk after HALF when not done else '0';
   pclk <= not pclk after 40690 ps when not done else '0';
   rst <= '0' after 3 us;
@@ -84,7 +85,7 @@ begin
     port map (
       select_44100 => '0',
       dvi => dvi_sl, vic => x"03", aspect => "01", pix_rep => '0',
-      vrr => vrr_sl,
+      vrr => vrr_sl, silent => silent_sl,
       vs_pol => '1', hs_pol => '1',
       vga_rst => rst, vga_clk => clk, vga_vs => vs, vga_hs => hs, vga_de => de,
       vga_r => r, vga_g => g, vga_b => b,

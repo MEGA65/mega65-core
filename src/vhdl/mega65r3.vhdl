@@ -486,6 +486,9 @@ architecture Behavioral of container is
   -- The 720p picture narrower, for a 21:9 display that stretches it ($D61A bit 0)
   signal hdmi_narrow : std_logic := '0';
   signal hdmi_vrr : std_logic := '0';
+  -- What the encoder is told of $D61A bit 1, "DVI only": see where they are set
+  signal hdmi_dvi : std_logic := '0';
+  signal hdmi_silent : std_logic := '0';
   signal hd_active : std_logic;       -- the upscaler's 720p picture is there (clock74p25)
   signal hd_active_sync : std_logic_vector(1 downto 0) := "00";
   signal hd_red : unsigned(7 downto 0);
@@ -678,6 +681,11 @@ begin
           hdmi_whole_lines <= '0';
         end if;
         hdmi_vrr <= hdmi_720p and hdmi_whole_lines;
+        -- "DVI only" is no packets at all, and so nowhere to say that the
+        -- rate varies. While that has to be said it is taken as "no sound":
+        -- the packets go out, with silence for the sound.
+        hdmi_dvi <= portp_drive(1) and not (hdmi_720p and hdmi_whole_lines);
+        hdmi_silent <= portp_drive(1);
         hd_active_sync <= hd_active_sync(0) & hd_active;
         if hdmi_switch_count /= 0 then
           -- Reset, the other clocks 1.2 ms before its end, out of reset
@@ -754,11 +762,12 @@ begin
       port map (
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
-        dvi => dvi_select,
+        dvi => hdmi_dvi,
         vic => hdmi_vic,
         aspect => hdmi_aspect,
         pix_rep => '0', -- no pixel repetition
         vrr => hdmi_vrr,
+        silent => hdmi_silent,
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 

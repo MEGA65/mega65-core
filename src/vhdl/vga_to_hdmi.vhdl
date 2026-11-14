@@ -40,6 +40,9 @@ entity vga_to_hdmi is
         -- vertical front porch: says so, as an AMD FreeSync source does (in place
         -- of the source product descriptor, whose packet type that uses)
         vrr         : in    std_logic := '0';
+        -- the sound samples sent are zero: for "no sound" where the packets
+        -- have to go out all the same
+        silent      : in    std_logic := '0';
         vs_pol      : in    std_logic;                     -- vertical sync output polarity   } 1 = active high
         hs_pol      : in    std_logic;                     -- horizontal sync output polarity } 
 
@@ -118,6 +121,7 @@ architecture synth of vga_to_hdmi is
 
     signal dvi_s            : std_logic;                     -- dvi     } synchronised
     signal vrr_s            : std_logic;                     -- vrr     }
+    signal silent_s         : std_logic;                     -- silent  }
     signal vic_s            : std_logic_vector(7 downto 0);  -- vic     }
     signal aspect_s         : std_logic_vector(1 downto 0);  -- aspect  }
     signal pix_rep_s        : std_logic;                     -- pix_rep }
@@ -517,10 +521,11 @@ begin
             INIT_SYNC_FF    => 1,
             SIM_ASSERT_CHK  => 1,
             SRC_INPUT_REG   => 0,
-            WIDTH           => 55
+            WIDTH           => 56
         )
         port map (
             src_clk                => '0',
+            src_in(55)             => silent,
             src_in(54)             => vrr,
             src_in(53 downto 34)   => pcm_n,
             src_in(33 downto 14)   => pcm_cts,
@@ -531,6 +536,7 @@ begin
             src_in(1)              => vs_pol,
             src_in(0)              => hs_pol,
             dest_clk               => vga_clk,
+            dest_out(55)           => silent_s,
             dest_out(54)           => vrr_s,
             dest_out(53 downto 34) => pcm_n_s,
             dest_out(33 downto 14) => pcm_cts_s,
@@ -710,6 +716,15 @@ begin
                 pb_a((pcm_count*7)+6) <=
                     vga_iec_rp & vga_iec_rc & vga_iec_ru & vga_iec_rv &
                     vga_iec_lp & vga_iec_lc & vga_iec_lu & vga_iec_lv;
+                if silent_s = '1' then
+                    -- silence, and the parity that goes with it
+                    for i in 0 to 5 loop
+                        pb_a((pcm_count*7)+i) <= x"00";
+                    end loop;
+                    pb_a((pcm_count*7)+6) <=
+                        (vga_iec_rc xor vga_iec_ru xor vga_iec_rv) & vga_iec_rc & vga_iec_ru & vga_iec_rv &
+                        (vga_iec_lc xor vga_iec_lu xor vga_iec_lv) & vga_iec_lc & vga_iec_lu & vga_iec_lv;
+                end if;
                 pcm_count <= (pcm_count + 1) mod 4;
                 if pcm_count = 0 then
                     data_req(0) <= '1';
