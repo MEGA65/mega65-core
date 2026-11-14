@@ -18,6 +18,15 @@ create_generated_clock -name clock41  [get_pins clocks1/mmcm_adv0/CLKOUT3]
 create_generated_clock -name clock27  [get_pins clocks1/mmcm_adv0/CLKOUT4]
 create_generated_clock -name clock163 [get_pins clocks1/mmcm_adv0/CLKOUT5]
 create_generated_clock -name clock270 [get_pins clocks1/mmcm_adv0/CLKOUT6]
+# HDMI at 720p (a design without it has none of these pins, and Vivado says so):
+# five times 27 MHz for the serialisers, and 74.25 MHz and five times that
+create_generated_clock -name clock135 [get_pins clocks1/mmcm_adv0/CLKOUT1]
+create_generated_clock -name clock371 [get_pins clocks1/mmcm_hdmi/CLKOUT0]
+create_generated_clock -name clock74p25 [get_pins clocks1/mmcm_hdmi/CLKOUT1]
+# The 100 MHz input feeds four MMCMs with that one, and a clock pin reaches three
+# by itself (its own clock region's and its neighbours'): the fourth is reached
+# along the same column's backbone. No output is timed against the input pin.
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets CLK_IN_IBUF]
 
 create_generated_clock -name clock50  [get_pins clocks1/mmcm_adv1_eth/CLKOUT1]
 create_generated_clock -name clock200 [get_pins clocks1/mmcm_adv1_eth/CLKOUT2]
@@ -647,4 +656,10 @@ set_max_delay 2.0 -datapath_only -from [get_clocks clock41] -to [get_clocks audi
 set_clock_groups -asynchronous \
      -group { clock41 clock81p clock27 clock163 clock325 } \
      -group { clock50 clock200}
+
+## 720p's clocks are from an MMCM of their own. What goes between them and the
+## rest is the upscaler's raster buffers and synchronisers, and the HDMI
+## encoder's inputs, which are from the one side or the other and never both
+## (its clocks are switched with them, in reset).
+set_clock_groups -asynchronous -group { clock74p25 clock371 }
 

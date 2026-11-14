@@ -21,7 +21,21 @@ entity clocking is
       clock163m  : out std_logic;
       clock200   : out std_logic;
       clock270   : out std_logic;
-      clock325   : out std_logic
+      clock325   : out std_logic;
+
+      -- For HDMI at 720p as well as at 576p and 480p (a design that connects
+      -- none of these gets none of what makes them):
+      -- 74.25 MHz, 720p's pixel clock, for whatever makes the 720p picture
+      clock74p25 : out std_logic;
+      -- The HDMI encoder's pixel clock and five times it for the serialisers:
+      -- 27 and 135 MHz, or with hdmi_720p high 74.25 and 371.25 MHz. Hold
+      -- what they clock in reset while hdmi_720p changes: the two change one
+      -- after the other, neither with a short pulse.
+      hdmi_720p     : in  std_logic := '0';
+      clock_hdmi    : out std_logic;
+      clock_hdmi_x5 : out std_logic;
+      -- The 74.25 MHz clock's MMCM is locked
+      hdmi_locked   : out std_logic
    );
 end entity;
 
@@ -43,6 +57,10 @@ architecture RTL of clocking is
   signal u_clock9969mhz : std_logic := '0'; 
 
   signal u_clock27 : std_logic := '0';
+  signal u_clock135 : std_logic := '0';
+  signal u_clock74p25 : std_logic := '0';
+  signal u_clock371 : std_logic := '0';
+  signal clk_fb_hdmi : std_logic := '0';
   signal u_clock41 : std_logic := '0';
   signal u_clock50 : std_logic := '0';
   signal u_clock81p : std_logic := '0';
@@ -259,6 +277,75 @@ begin
   bufg325:
   bufg port map ( I => u_clock325,
                   O => clock325);  
+
+  -- 720p's clocks, from the 100 MHz input itself: x 37.125 / 5 = 742.5 MHz,
+  -- / 10 = 74.25 MHz exactly and / 2 = 371.25 MHz. (27 MHz above is exact
+  -- too, so the two are 11 to 4 and a 720p frame can be locked to a 576p or
+  -- 480p one without ever slipping.)
+  mmcm_hdmi : MMCM_ADV
+  generic map
+   (BANDWIDTH            => "OPTIMIZED",
+    CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
+    COMPENSATION         => "ZHOLD",
+    STARTUP_WAIT         => FALSE,
+
+    DIVCLK_DIVIDE        => 5,
+    CLKFBOUT_MULT_F      => 37.125,
+    CLKFBOUT_PHASE       => 0.000,
+    CLKFBOUT_USE_FINE_PS => FALSE,
+
+    -- CLKOUT0 = 742.5MHz/2 = 371.25MHz
+    CLKOUT0_DIVIDE_F     => 2.000,
+    CLKOUT0_PHASE        => 0.000,
+    CLKOUT0_DUTY_CYCLE   => 0.500,
+    CLKOUT0_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT1 = 742.5MHz/10 = 74.25MHz
+    CLKOUT1_DIVIDE       => 10,
+    CLKOUT1_PHASE        => 0.000,
+    CLKOUT1_DUTY_CYCLE   => 0.500,
+    CLKOUT1_USE_FINE_PS  => FALSE,
+
+    CLKIN1_PERIOD        => 10.000,
+    REF_JITTER1          => 0.010)
+  port map
+   (CLKFBOUT            => clk_fb_hdmi,
+    CLKOUT0             => u_clock371,
+    CLKOUT1             => u_clock74p25,
+    CLKFBIN             => clk_fb_hdmi,
+    CLKIN1              => clk_in,
+    CLKIN2              => '0',
+    CLKINSEL            => '1',
+    DADDR               => (others => '0'),
+    DCLK                => '0',
+    DEN                 => '0',
+    DI                  => (others => '0'),
+    DWE                 => '0',
+    PSCLK               => '0',
+    PSEN                => '0',
+    PSINCDEC            => '0',
+    LOCKED              => hdmi_locked,
+    PWRDWN              => '0',
+    RST                 => '0');
+
+  bufg74p25:
+  bufg port map ( I => u_clock74p25,
+                  O => clock74p25);
+
+  -- (BUFGMUX_CTRL: its select may change at any time, and it goes from one
+  -- clock to the other between their pulses)
+  bufgmux_hdmi:
+  bufgmux_ctrl port map ( I0 => u_clock27,
+                          I1 => u_clock74p25,
+                          S => hdmi_720p,
+                          O => clock_hdmi);
+
+  bufgmux_hdmi_x5:
+  bufgmux_ctrl port map ( I0 => u_clock135,
+                          I1 => u_clock371,
+                          S => hdmi_720p,
+                          O => clock_hdmi_x5);
   
   mmcm_adv0 : MMCM_ADV
   generic map
@@ -322,6 +409,7 @@ begin
     -- Output clocks
    (CLKFBOUT            => clk_fb,
     CLKOUT0             => u_clock325,
+    CLKOUT1             => u_clock135,
     CLKOUT2             => u_clock81p,
     CLKOUT3             => u_clock41,
     CLKOUT4             => u_clock27,

@@ -36,6 +36,10 @@ entity vga_to_hdmi is
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
         pix_rep     : in    std_logic;                     -- signals pixel repetition (SD interlaced modes)
+        -- the frame rate is not the format's, by a few more or fewer lines in the
+        -- vertical front porch: says so, as an AMD FreeSync source does (in place
+        -- of the source product descriptor, whose packet type that uses)
+        vrr         : in    std_logic := '0';
         vs_pol      : in    std_logic;                     -- vertical sync output polarity   } 1 = active high
         hs_pol      : in    std_logic;                     -- horizontal sync output polarity } 
 
@@ -113,6 +117,7 @@ architecture synth of vga_to_hdmi is
     -- video input related
 
     signal dvi_s            : std_logic;                     -- dvi     } synchronised
+    signal vrr_s            : std_logic;                     -- vrr     }
     signal vic_s            : std_logic_vector(7 downto 0);  -- vic     }
     signal aspect_s         : std_logic_vector(1 downto 0);  -- aspect  }
     signal pix_rep_s        : std_logic;                     -- pix_rep }
@@ -314,6 +319,21 @@ architecture synth of vga_to_hdmi is
       others => x"00" -- zero
         );
 
+    -- FreeSync over HDMI, as AMD's sources announce it: a packet of the SPD's
+    -- type with AMD's OUI in it, sent every frame while the frame rate is
+    -- being varied by the length of the vertical front porch.
+    constant hb_vrr : u8(0 to 2) := ( x"83", x"01", x"08" );
+    constant pb_vrr : u8(0 to 27) := (
+      0 => x"E7",     -- checksum: 83+01+08+1A+07+30+3C+CKS = 00
+      1 => x"1A",     -- AMD's IEEE OUI, 00-00-1A, low byte first
+      2 => x"00",
+      3 => x"00",
+      6 => x"07",     -- FreeSync supported, enabled, active
+      7 => x"30",     -- lowest refresh rate, Hz: 48
+      8 => x"3C",     -- highest, the format's: 60
+      others => x"00"
+        );
+
     function sum( data : u8 ) return unsigned is
         variable r : unsigned(7 downto 0);
     begin
@@ -495,10 +515,11 @@ begin
             INIT_SYNC_FF    => 1,
             SIM_ASSERT_CHK  => 1,
             SRC_INPUT_REG   => 0,
-            WIDTH           => 54
+            WIDTH           => 55
         )
         port map (
             src_clk                => '0',
+            src_in(54)             => vrr,
             src_in(53 downto 34)   => pcm_n,
             src_in(33 downto 14)   => pcm_cts,
             src_in(13)             => dvi,
@@ -508,6 +529,7 @@ begin
             src_in(1)              => vs_pol,
             src_in(0)              => hs_pol,
             dest_clk               => vga_clk,
+            dest_out(54)           => vrr_s,
             dest_out(53 downto 34) => pcm_n_s,
             dest_out(33 downto 14) => pcm_cts_s,
             dest_out(13)           => dvi_s,
@@ -719,11 +741,16 @@ begin
               -- Send approximately once per second.
               -- XXX Try sending two different versions to see if we can do
               -- animated SPD :)
-              if spd_toggle="000000" then
+              if vrr_s = '1' then
+                -- (every frame, and no source product descriptor meanwhile)
                 data_req(4) <= '1';
-              end if;
-              if spd_toggle="100000" then
-                data_req(5) <= '1';
+              else
+                if spd_toggle="000000" then
+                  data_req(4) <= '1';
+                end if;
+                if spd_toggle="100000" then
+                  data_req(5) <= '1';
+                end if;
               end if;
               spd_toggle <= spd_toggle + 1;
             end if;
@@ -743,8 +770,13 @@ begin
             pb(3)(5)(0) <= pix_rep_s;
             pb(3)(6 to 27) <= pb_3(6 to 27);
 
-            hb(4) <= hb_4;
-            pb(4) <= pb_4;
+            if vrr_s = '1' then
+              hb(4) <= hb_vrr;
+              pb(4) <= pb_vrr;
+            else
+              hb(4) <= hb_4;
+              pb(4) <= pb_4;
+            end if;
 
             hb(5) <= hb_5;
             pb(5) <= pb_5;
