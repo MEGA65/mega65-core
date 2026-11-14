@@ -330,7 +330,6 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock74p22 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock162 : std_logic;
   signal clock162m : std_logic;
@@ -574,6 +573,46 @@ architecture Behavioral of container is
   signal pal50 : std_logic;
   signal vdac_clk_i : std_logic;
 
+  -- HDMI at 720p when $D61A bit 5 asks for it, at 576p or 480p as ever when
+  -- it does not: the upscaler's 720p picture, whatever VGA is showing
+  signal clock74p25 : std_logic;      -- 720p's pixel clock
+  signal clock_hdmi : std_logic;      -- the encoder's: 27 or 74.25 MHz
+  signal clock_hdmi_x5 : std_logic;   -- the serialisers': five times that
+  signal hdmi_locked : std_logic;
+  signal hdmi_720p_wanted : std_logic := '0';
+  -- In NTSC the 720p picture is 59.83 Hz, which not every display takes as
+  -- 720p60: it is sent as frames of whole lines whose number varies, and
+  -- announced as of variable refresh rate (unless $D61A bit 6 says not to)
+  signal hdmi_whole_lines : std_logic := '0';
+  -- The 720p picture narrower, for a 21:9 display that stretches it ($D61A bit 0)
+  signal hdmi_narrow : std_logic := '0';
+  signal hdmi_vrr : std_logic := '0';
+  -- What the encoder is told of $D61A bit 1, "DVI only": see where they are set
+  signal hdmi_dvi : std_logic := '0';
+  signal hdmi_silent : std_logic := '0';
+  signal hd_active : std_logic;       -- the upscaler's 720p picture is there (clock74p25)
+  signal hd_active_sync : std_logic_vector(1 downto 0) := "00";
+  signal hd_red : unsigned(7 downto 0);
+  signal hd_green : unsigned(7 downto 0);
+  signal hd_blue : unsigned(7 downto 0);
+  signal hd_hsync : std_logic;
+  signal hd_vsync : std_logic;
+  signal hd_pixelvalid : std_logic;
+  signal hdmi_720p : std_logic := '0';       -- what clock_hdmi is, and so what is encoded
+  -- (all ones from the start: 0.6 s of reset before the first picture)
+  signal hdmi_switch_count : unsigned(23 downto 0) := (others => '1');
+  signal hdmi_rst_27 : std_logic := '1';
+  signal hdmi_rst_sync : std_logic_vector(2 downto 0) := "111";
+  signal hdmi_rst : std_logic;
+  signal hdmi_red : unsigned(7 downto 0) := x"00";
+  signal hdmi_green : unsigned(7 downto 0) := x"00";
+  signal hdmi_blue : unsigned(7 downto 0) := x"00";
+  signal hdmi_hs : std_logic := '0';
+  signal hdmi_vs : std_logic := '0';
+  signal hdmi_de : std_logic := '0';
+  signal hdmi_vic : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(17,8));
+  signal hdmi_aspect : std_logic_vector(1 downto 0) := "01";
+
   signal sdram_slow_clock : std_logic;
 
 begin
@@ -627,7 +666,11 @@ begin
                clock27   => clock27,    --   27     MHz
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
-               clock74p22 => clock74p22,
+               clock74p25 => clock74p25, --  74.25  MHz
+               hdmi_720p => hdmi_720p,
+               clock_hdmi => clock_hdmi,       -- 27 or  74.25 MHz
+               clock_hdmi_x5 => clock_hdmi_x5, -- 135 or 371.25 MHz
+               hdmi_locked => hdmi_locked,
                clock81p  => pixelclock, --   81     MHz
                clock163  => clock162,   --  162     MHz
                clock163m => clock162m,  --  162     MHz, phase shifted by -207 degrees for SDRAM read timing
@@ -639,7 +682,7 @@ begin
   upscaler0: entity work.upscaler
     port map (
       clock27 => clock27,
-      clock74p22 => clock74p22,
+      clock74p22 => clock74p25,
 
       hold_image => '0',
 
@@ -669,7 +712,18 @@ begin
       blue_out => up_blue,
       hsync_out => up_vga_hsync,
       vsync_out => up_vsync,
-      pixelvalid_out => up_datavalid
+      pixelvalid_out => up_datavalid,
+
+      hd_en => hdmi_720p_wanted,
+      whole_lines => hdmi_whole_lines,
+      narrow => hdmi_narrow,
+      hd_active => hd_active,
+      hd_pixelvalid => hd_pixelvalid,
+      hd_red => hd_red,
+      hd_green => hd_green,
+      hd_blue => hd_blue,
+      hd_hsync => hd_hsync,
+      hd_vsync => hd_vsync
 
       );
 
@@ -699,28 +753,127 @@ begin
             pcm_r     => pcm_r
         );
 
-    pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
-    pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
+    -- HDMI is the VIC-IV's 576p or 480p picture, or the upscaler's 720p one.
+    -- The encoder's and the serialisers' clocks go with the picture, and both
+    -- are in reset while they change over.
+    --
+    -- That, and the start of the design, is all that resets them. The
+    -- serialisers are OSERDESE2s, whose reset has to come to all of them at
+    -- once, be let go in step with their clocks, and only once those are
+    -- steady; and anything that resets them or the encoder while a picture
+    -- is going out is seen at once (in 2022 it was the reset line itself,
+    -- with glitches on it from the MAX10: see serialiser_10to1_oserdes.vhdl).
+    -- So: no reset line here but dvi_reset, which goes off once and stays
+    -- off, and hdmi_rst below, let go on clock_hdmi.
+    process (clock27) is
+    begin
+      if rising_edge(clock27) then
+        hdmi_720p_wanted <= portp_drive(5);
+        hdmi_narrow <= portp_drive(0);
+        if pal50 = '0' and portp_drive(6) = '0' then
+          hdmi_whole_lines <= '1';
+        else
+          hdmi_whole_lines <= '0';
+        end if;
+        hdmi_vrr <= hdmi_720p and hdmi_whole_lines;
+        -- "DVI only" is no packets at all, and so nowhere to say that the
+        -- rate varies. While that has to be said it is taken as "no sound":
+        -- the packets go out, with silence for the sound.
+        hdmi_dvi <= portp_drive(1) and not (hdmi_720p and hdmi_whole_lines);
+        hdmi_silent <= portp_drive(1);
+        hd_active_sync <= hd_active_sync(0) & hd_active;
+        if hdmi_switch_count /= 0 then
+          -- Reset, the other clocks 1.2 ms before its end, out of reset
+          hdmi_switch_count <= hdmi_switch_count - 1;
+          if hdmi_switch_count = 32768 then
+            hdmi_720p <= hd_active_sync(1);
+          end if;
+        elsif hd_active_sync(1) /= hdmi_720p then
+          -- Half a second with nothing on the TMDS lines, their clock
+          -- included: a display that is to take the other mode has to see
+          -- that the signal went away first, and some need to see it for a
+          -- while.
+          hdmi_switch_count <= to_unsigned(13500000,24);
+        end if;
+        if hdmi_switch_count /= 0 or dvi_reset = '1'
+          or (hdmi_720p = '1' and hdmi_locked = '0') then
+          hdmi_rst_27 <= '1';
+        else
+          hdmi_rst_27 <= '0';
+        end if;
+
+        -- What is said about the picture, and the audio clock's CTS: the
+        -- pixel clock in kHz with N = 6144
+        pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
+        if hdmi_720p = '0' then
+          hdmi_vic <= std_logic_vector(to_unsigned(17,8)); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+          hdmi_aspect <= "01"; -- 01=4:3, 10=16:9
+          pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
+        else
+          if pal50 = '1' then
+            hdmi_vic <= std_logic_vector(to_unsigned(19,8)); -- 720p50
+          else
+            hdmi_vic <= std_logic_vector(to_unsigned(4,8));  -- 720p60
+          end if;
+          hdmi_aspect <= "10";
+          pcm_cts <= std_logic_vector(to_unsigned(74250,pcm_cts'length));
+        end if;
+      end if;
+    end process;
+
+    -- (into reset at once, out of it on clock_hdmi)
+    process (clock_hdmi, hdmi_rst_27) is
+    begin
+      if hdmi_rst_27 = '1' then
+        hdmi_rst_sync <= (others => '1');
+      elsif rising_edge(clock_hdmi) then
+        hdmi_rst_sync <= hdmi_rst_sync(1 downto 0) & '0';
+      end if;
+    end process;
+    hdmi_rst <= hdmi_rst_sync(2);
+
+    process (clock_hdmi) is
+    begin
+      if rising_edge(clock_hdmi) then
+        if hdmi_720p = '1' then
+          hdmi_red <= hd_red;
+          hdmi_green <= hd_green;
+          hdmi_blue <= hd_blue;
+          hdmi_hs <= hd_hsync;
+          hdmi_vs <= hd_vsync;
+          hdmi_de <= hd_pixelvalid;
+        else
+          hdmi_red <= v_red;
+          hdmi_green <= v_green;
+          hdmi_blue <= v_blue;
+          hdmi_hs <= v_hdmi_hsync;
+          hdmi_vs <= v_vsync;
+          hdmi_de <= hdmi_dataenable;
+        end if;
+      end if;
+    end process;
 
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
-        dvi => dvi_select,
-        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
-        aspect => "01", -- 01=4:3, 10=16:9
+        dvi => hdmi_dvi,
+        vic => hdmi_vic,
+        aspect => hdmi_aspect,
         pix_rep => '0', -- no pixel repetition
+        vrr => hdmi_vrr,
+        silent => hdmi_silent,
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 
-        vga_rst => dvi_reset, -- active high reset
-        vga_clk => clock27, -- VGA pixel clock
-        vga_vs => v_vsync, -- active high vsync
-        vga_hs => v_hdmi_hsync, -- active high hsync
-        vga_de => hdmi_dataenable,   -- pixel enable
-        vga_r => std_logic_vector(v_red),
-        vga_g => std_logic_vector(v_green),
-        vga_b => std_logic_vector(v_blue),
+        vga_rst => hdmi_rst, -- active high reset
+        vga_clk => clock_hdmi, -- VGA pixel clock
+        vga_vs => hdmi_vs, -- active high vsync
+        vga_hs => hdmi_hs, -- active high hsync
+        vga_de => hdmi_de,   -- pixel enable
+        vga_r => std_logic_vector(hdmi_red),
+        vga_g => std_logic_vector(hdmi_green),
+        vga_b => std_logic_vector(hdmi_blue),
 
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
@@ -767,20 +920,25 @@ begin
       S => '0'     -- 1-bit set input
       );
 
-     -- serialiser: in this design we use TMDS SelectIO outputs
+     -- serialiser: in this design we use TMDS SelectIO outputs, and OSERDESE2
+     -- for them, which 720p's 742.5 Mbit/s needs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
-        HDMI_DATA: entity work.serialiser_10to1_selectio
+        HDMI_DATA: entity work.serialiser_10to1_oserdes
             port map (
-                clk_x10  => clock270,
+                rst     => hdmi_rst,
+                clk     => clock_hdmi,
+                clk_x5  => clock_hdmi_x5,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
             );
     end generate GEN_HDMI_DATA;
-    HDMI_CLK: entity work.serialiser_10to1_selectio
+    HDMI_CLK: entity work.serialiser_10to1_oserdes
         port map (
-            clk_x10  => clock270,
+            rst     => hdmi_rst,
+            clk     => clock_hdmi,
+            clk_x5  => clock_hdmi_x5,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
@@ -1370,7 +1528,7 @@ begin
     elsif upscale_enable = '0' then
       vdac_clk_i <= pixelclock;
     else
-      vdac_clk_i <= clock74p22;
+      vdac_clk_i <= clock74p25;
     end if;
 
     -- Use both real and cartridge IRQ and NMI signals
@@ -1555,11 +1713,13 @@ begin
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
+    -- @IO:GS $D61A.6 SYSCTL:HDMIFIXED Digital video at 720p in NTSC with the same number of lines in every frame, and not announced as of variable refresh rate
+    -- @IO:GS $D61A.5 SYSCTL:HDMI720 Digital video at 720p (the picture upscaled, 4:3 within 16:9) instead of 576p or 480p
     -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
     -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
     -- @IO:GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
     -- @IO:GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
-    -- @IO:GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
+    -- @IO:GS $D61A.0 SYSCTL:HDMI219 The 720p picture narrower, for a display of 21:9 that stretches 16:9 over all its width (it is 4:3 there)
 
 
 
