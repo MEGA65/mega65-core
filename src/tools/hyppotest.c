@@ -4182,7 +4182,8 @@ bool cpu_step(FILE *f)
     return false;
   }
 
-  struct instruction_log *log = malloc(sizeof(instruction_log));
+  // zeroed: pops (and the zp fields) are only set by some instructions
+  struct instruction_log *log = calloc(1, sizeof(instruction_log));
   log->regs = cpu.regs;
   log->pc = cpu.regs.pc;
   log->len = 0; // byte count of instruction
