@@ -1376,6 +1376,8 @@ void cpu_log_reset(void)
     free(cpulog[i]);
   cpulog_len = 1;
   cpulog[0] = NULL;
+  // The log entries are freed, so forget the per-address pointers into them
+  bzero(lastataddr, sizeof(lastataddr));
 }
 
 void cpu_stash_ram(void)
