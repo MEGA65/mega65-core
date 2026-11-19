@@ -391,6 +391,7 @@ invalid_subfunction:
 ;;     ---------------------------------------------------------------- */
 !src "dos.asm"
 ;!src "dos_write.asm"   ; LV - commented out because doesn't seem to be used
+!src "dos_defrag.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     Virtual memory and memory management
@@ -3589,6 +3590,18 @@ d81_clustercount:
         !16 0
 dos_attach_offset:
         !8 0
+
+        ;; Variables for dos_defrag_current (dos_defrag.asm)
+dfg_auto:       !8 0
+dfg_prev:       !32 0
+dfg_val:        !32 0
+dfg_left:       !32 0
+dfg_need:       !32 0
+dfg_limit:      !32 0
+dfg_scan:       !32 0
+dfg_cand:       !32 0
+dfg_run:        !32 0
+dfg_dest:       !32 0
 
         ;; Make sure we pad to full size
         * = Hyppo_End

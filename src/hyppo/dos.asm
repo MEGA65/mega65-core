@@ -82,7 +82,7 @@ dos_and_process_trap_table:
         !16 trap_dos_d81attach1               ;; DOS 1.2 compatibility - DEPRECATED in favor of trap_dos_attach
         !16 trap_dos_get_proc_desc
         !16 trap_dos_attach
-        !16 invalid_subfunction
+        !16 trap_dos_defragfile               ;; $4C - defragment file (e.g. disk image)
         !16 invalid_subfunction
 
         ;; $50 - $5E
@@ -4271,6 +4271,7 @@ dos_attach:
         ;;
         ;; X.0 - DRVNUM  select drive 0 or 1
         ;; X.1 - BOTHDRV (MODE=detach) selects both drives
+        ;; X.5 - DEFRAG  (MODE=attach) defragment the image if it is fragmented
         ;; X.6 - NOREAL  (MODE=detach) don't attach real drive if set
         ;; X.7 - MODE    select mode 0 - attach, 1 - detach
 
@@ -4326,6 +4327,11 @@ dos_diskattach:
         ;;
         sty <dos_attach_offset  ;; save Y offset into dos_attach_*_bits
 
+        ;; X.5 - DEFRAG  defragment a fragmented image instead of failing
+        txa
+        and #$20
+        sta dfg_auto
+
         ;; Check if the filename of the disk image is too long
         ldx dos_requested_filename_len
         cpx #d81_image_max_namelen
@@ -4349,6 +4355,18 @@ dos_diskattach:
 
         jsr dos_checkimage
         bcs @d81a1a
+
+        ;; Fragmented image and caller asked for defragmentation?
+        lda dfg_auto
+        beq @d81fail
+        lda dos_error_code
+        cmp #dos_errorcode_image_fragmented
+        bne @d81fail
+        jsr dos_defrag_current
+        bcc @d81fail
+        jsr dos_checkimage
+        bcs @d81a1a
+@d81fail:
         jmp dos_return_error_already_set
 
 @d81a1a:
