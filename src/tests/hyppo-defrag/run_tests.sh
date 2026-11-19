@@ -1,6 +1,6 @@
 #!/bin/bash
-# Tests for HYPPO's dos_defrag_current and attach with defragmentation
-# (X bit 5), in hyppotest with its SD card emulation, on FAT32 images of
+# Tests for HYPPO's dos_defrag_current, attach with defragmentation
+# (X bit 5) and dos_rmfile, in hyppotest with its SD card emulation, on FAT32 images of
 # 512-byte, 4KB and 32KB clusters.  Needs bin/HICKUP.M65, src/hyppo/HICKUP.sym,
 # src/tools/hyppotest and mkfs.vfat/fsck.vfat.  Exits non-zero on a failure.
 T=$(cd "$(dirname "$0")" && pwd)
@@ -58,5 +58,29 @@ cp t.img base.img
 expect "chain shorter than length: error \$20" "$(python3 "$T/runtest.py" t.img GAME.D81 defrag)" 'sim=ok err=\$20'
 expect "chain shorter than length: FATs and directory unchanged" "$(python3 -c "
 import fatimg; a=fatimg.Img('t.img'); b=fatimg.Img('base.img'); print(a.fats==b.fats and a.rd(2)==b.rd(2))")" True
+for spc in 1 8 64; do
+  python3 "$T/addfiles.py" t.img $spc; CC=$(clusters t.img); n=$(nclusters t.img "$G")
+  python3 "$T/frag.py" t.img "$G" $((n/4)) $((n/8)) $((CC*6/10))
+  expect "spc=$spc: rm fragmented GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 rm)" 'sim=ok err=\$00'
+  expect "spc=$spc: rm long name file" "$(python3 "$T/runtest.py" t.img 'Mein langes Spiel.d81' rm)" 'sim=ok err=\$00'
+  out=$(python3 "$T/check.py" t.img data)
+  expect "spc=$spc: both gone, the others intact" "$(grep -c 'content=ok' <<<"$out")/$(grep -c 'start=' <<<"$out")" '^2/2$'
+  expect "spc=$spc: no long name entries left" "$out" 'LFN entries: 0'
+  expect "spc=$spc: FAT1 == FAT2 after rm" "$out" 'FAT1==FAT2: True'
+  expect "spc=$spc: fsck clean after rm (no lost clusters)" "$out" 'fsck: clean'
+done
+# A partition whose FAT crosses sector $10000: GAME.D81's FAT entries are
+# past it (dos_cluster_to_fat_sector's carry into bits 16-31)
+python3 "$T/addfiles.py" t.img 1 65502; n=$(nclusters t.img "$G")
+python3 "$T/frag.py" t.img "$G" $((n/4)) $((n/8)) 30000
+expect "FAT across \$10000: attach without bit 5 says fragmented" "$(python3 "$T/runtest.py" t.img GAME.D81 attach '$00')" 'sim=ok err=\$8B'
+expect "FAT across \$10000: defrag GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 defrag)" 'sim=ok err=\$00'
+out=$(python3 "$T/check.py" t.img data)
+expect "FAT across \$10000: GAME.D81 contiguous, content intact" "$out" "^$G .*fragments=1 content=ok"
+expect "FAT across \$10000: fsck clean" "$out" 'fsck: clean'
+expect "FAT across \$10000: rm GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 rm)" 'sim=ok err=\$00'
+out=$(python3 "$T/check.py" t.img data)
+expect "FAT across \$10000: fsck clean after rm" "$out" 'fsck: clean'
+expect "FAT across \$10000: FAT1 == FAT2 after rm" "$out" 'FAT1==FAT2: True'
 echo "$fails failed"
 exit $((fails>0))

@@ -1,5 +1,5 @@
 # runtest.py img name action [x]
-# Runs dos_defrag_current (action "defrag") or dos_attach with X=x (action
+# Runs dos_defrag_current (action "defrag"), dos_rmfile ("rm") or dos_attach with X=x (action
 # "attach") on the file name in the SD card image img, in hyppotest.
 # Prints the error code, the sectors read and written and, for attach, the
 # drive's start sector (DxSTARTSEC).
@@ -21,6 +21,8 @@ poke dos_requested_filename_len ${len(name):02x}
 '''
 if action=='defrag':
   t+='jsr dos_findfile\njsr dos_closefile\njsr dos_defrag_current\npeek dos_error_code\n'
+elif action=='rm':
+  t+='jsr dos_findfile\njsr dos_closefile\njsr dos_rmfile\npeek dos_error_code\n'
 else:
   s=0xd690 if x&1 else 0xd68c
   t+=f'let x = ${x:02x}\njsr dos_attach\npeek dos_error_code\n'+''.join(f'peek ${s+i:04x}\n' for i in range(4))

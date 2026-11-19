@@ -700,6 +700,16 @@ available_dirent_slot:
 
 ;;         ========================
 
+write_fat_sector_both:
+        ;; Write the FAT sector in the buffer ($D681 = its sector in FAT1)
+        ;; to FAT1 and FAT2.  $D681 is left at its FAT2 sector.
+        jsr sd_writesector
+        lda #fs_fat32_length_of_fat
+        jsr sdsector_add_uint32_from_disktable
+        jmp sd_writesector
+
+;;         ========================
+
 read_fat_sector_for_cluster:
         jsr dos_cluster_to_fat_sector
 
@@ -3480,24 +3490,11 @@ dfanc1:
         ;; copy from current cluster to SD sector address register
         ;;
         ldx #$03
-        php
 dfanc41:
         lda dos_current_cluster,x
         sta $d681,x
         dex
         bpl dfanc41
-
-dfanc44:
-        plp
-        lda dos_current_cluster,x
-        adc #$00
-        sta dos_current_cluster,x
-        php
-        inx
-        cpx #$04
-        bne dfanc44
-
-        plp
 
         ;; read FAT sector
         ;;
@@ -3684,8 +3681,13 @@ dfanc4: plp
         cpx #$02
         bne dfanc4
 
+        ;; and its carry into the upper 16 bits
         plp
-
+        bcc +
+        inc dos_current_cluster+2
+        bne +
+        inc dos_current_cluster+3
++
         rts
 
 ;;         ========================
@@ -3987,22 +3989,33 @@ dos_rmfile:
         lda #$e5
         sta (<dos_scratch_vector),y
 
-        jsr write_non_mbr_sector
-        jsr sd_wait_for_ready
-
-        ;; Work out where it will be in the 2nd FAT
-        lda dos_disk_table_offset
-        ora #fs_fat32_length_of_fat
-        tay
-        ldx #0
--       lda $d681,x
-        adc dos_disk_table,y
-        iny
-        inx
-        cpx #4
-        bne -
-
-        ;; Write FAT sector to FAT2
+        ;; and its long name entries before it in this sector, back to the
+        ;; first (bit 6 set).  Ones in the previous sector are left (orphans,
+        ;; that readdir and fsck ignore or clean up).
+@lfn:   sec
+        lda <dos_scratch_vector
+        sbc #32
+        sta <dos_scratch_vector
+        lda <(dos_scratch_vector+1)
+        sbc #0
+        sta <(dos_scratch_vector+1)
+        cmp #$de
+        bcc @lfndone            ;; start of the sector
+        ldy #fs_fat32_dirent_offset_attributes
+        lda (<dos_scratch_vector),y
+        cmp #$0f
+        bne @lfndone
+        ldy #0
+        lda (<dos_scratch_vector),y
+        cmp #$e5
+        beq @lfndone
+        tax
+        lda #$e5
+        sta (<dos_scratch_vector),y
+        txa
+        and #$40
+        beq @lfn
+@lfndone:
         jsr write_non_mbr_sector
         jsr sd_wait_for_ready
 
@@ -4031,22 +4044,10 @@ dos_rmfile_rmchainentry:
 
         ;; copy from current cluster to SD sector address register
         ldx #$03
-        php
 drf2:   lda dos_current_cluster,x
         sta $d681,x
         dex
         bpl drf2
-
-drf3:   plp
-        lda dos_current_cluster,x
-        adc #$00                                ; carry (set/cleared at end of dos_cluster_to_fat_sector)
-        sta dos_current_cluster,x
-        php
-        inx
-        cpx #$04
-        bne drf3
-
-        plp
 
         ;; read FAT sector
         jsr sd_readsector
@@ -4085,7 +4086,6 @@ drf3:   plp
 drf_low:
         lda sd_sectorbuffer,x
         sta dos_file_descriptors,y
-        sta $1800,y
         inx
         iny
         inz
@@ -4178,7 +4178,8 @@ drf_ok_clearinhighsector:
         bne -
 
 drf_ok_cleardone:
-        jsr sd_writesector
+        jsr write_fat_sector_both
+        ldy dos_scratch_byte_2
         lda dos_file_descriptors+0,y
         sta dos_current_cluster+0
         lda dos_file_descriptors+1,y

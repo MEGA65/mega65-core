@@ -1,11 +1,14 @@
-# addfiles.py img spc : builds fresh FAT32 image with test files (replaces mtools)
+# addfiles.py img spc [start] : builds a 64MB SD card image, one FAT32
+# partition from sector start (default 2048), with test files (as mtools would)
 import sys,struct,subprocess,os,random
-from fatimg import Img,BASE
+import fatimg
+from fatimg import Img
 img,spc=sys.argv[1],int(sys.argv[2])
+start=int(sys.argv[3]) if len(sys.argv)>3 else 2048
 f=open(img,'wb'); f.truncate(64<<20)
-mbr=bytearray(512); mbr[446:462]=bytes([0,0,0,0,0x0c,0,0,0])+struct.pack('<II',2048,64*2048-2048); mbr[510:]=b'\x55\xaa'
+mbr=bytearray(512); mbr[446:462]=bytes([0,0,0,0,0x0c,0,0,0])+struct.pack('<II',start,64*2048-start); mbr[510:]=b'\x55\xaa'
 f.write(mbr); f.close()
-subprocess.run(['mkfs.vfat','-F','32','-s',str(spc),'-n','MEGA65','--offset','2048',img,str((64*2048-2048)//2)],check=True,capture_output=True)
+subprocess.run(['mkfs.vfat','-F','32','-s',str(spc),'-n','MEGA65','--offset',str(start),img,str((64*2048-start)//2)],check=True,capture_output=True)
 im=Img(img)
 def lfn_entries(long,short11):
   ck=0
@@ -42,6 +45,6 @@ add(b'C       BIN',files['C.BIN'])
 root=bytearray(im.rd(2)); vol=root[:32]; root=vol+b''.join(ents); im.wr(2,bytes(root).ljust(im.cs,b'\0'))
 im.flush()
 # FSInfo free count = unknown, so fsck's baseline is clean
-fsi=struct.unpack_from('<H',open(img,'rb').read(BASE+512)[BASE:],48)[0]
+fsi=struct.unpack_from('<H',open(img,'rb').read(fatimg.BASE+512)[fatimg.BASE:],48)[0]
 with open(img,'r+b') as g:
-  g.seek(BASE+fsi*512+488); g.write(b'\xff\xff\xff\xff\xff\xff\xff\xff')
+  g.seek(fatimg.BASE+fsi*512+488); g.write(b'\xff\xff\xff\xff\xff\xff\xff\xff')

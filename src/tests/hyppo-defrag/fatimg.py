@@ -1,7 +1,11 @@
 import struct,sys
 BASE=2048*512
+def part_base(p):
+  with open(p,'rb') as f: f.seek(454); return struct.unpack('<I',f.read(4))[0]*512
 class Img:
   def __init__(s,p):
+    global BASE
+    BASE=part_base(p)
     s.f=open(p,'r+b'); s.f.seek(BASE); bs=s.f.read(512)
     s.bps,s.spc,s.res,s.nf=struct.unpack_from('<HBHB',bs,11)
     s.fatsz=struct.unpack_from('<I',bs,36)[0]; s.root=struct.unpack_from('<I',bs,44)[0]

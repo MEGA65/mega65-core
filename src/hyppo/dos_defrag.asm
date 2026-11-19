@@ -263,11 +263,11 @@ dos_defrag_current:
         lda dfg_scan
         and #$7f
         bne @fatentry
-        jsr dfg_write_fat_both          ;; FAT sector full, write it out
+        jsr write_fat_sector_both          ;; FAT sector full, write it out
         bra @fatsector
 @fatlast:
         ldz #$00
-        jsr dfg_write_fat_both
+        jsr write_fat_sector_both
 
         ;; ---- 7. Point the directory entry at the new chain ----
         jsr dfg_read_dirent
@@ -305,7 +305,7 @@ dos_defrag_current:
         lda dfg_val+3
         and #$0f
         sta dfg_val+3
-        jsr dfg_write_fat_both
+        jsr write_fat_sector_both
 
         ;; Continue with the next cluster, if it is a valid one.
         ;; End-of-chain markers are >= dfg_limit, and so is anything bogus.
@@ -423,16 +423,6 @@ dfg_entry_ptr:
         adc #$de
         sta <(dos_scratch_vector+1)
         rts
-
-;;         ========================
-
-dfg_write_fat_both:
-        ;; Write the FAT sector in the buffer ($D681 = its FAT1 position)
-        ;; to FAT1 and FAT2.
-        jsr sd_writesector
-        lda #fs_fat32_length_of_fat
-        jsr sdsector_add_uint32_from_disktable
-        jmp sd_writesector
 
 ;;         ========================
 
