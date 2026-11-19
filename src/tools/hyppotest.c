@@ -2194,6 +2194,45 @@ int do_dma(struct cpu *cpu, int eDMA, unsigned int addr)
   return 0;
 }
 
+// Minimal SD card emulation: $D680 commands $02 (read) and $03 (write),
+// sector number in $D681-$D684, sector buffer visible at $DE00-$DFFF
+// (i.e. $FFD3E00-$FFD3FFF). The image is given in env HYPPOTEST_SDIMG.
+FILE *sdimg = NULL;
+int sd_write_gate = 0;
+unsigned long sd_reads = 0, sd_writes = 0;
+void sdcard_command(struct cpu *cpu, unsigned char value)
+{
+  unsigned int sector = ffdram[0x3681] | (ffdram[0x3682] << 8) | (ffdram[0x3683] << 16) | ((unsigned)ffdram[0x3684] << 24);
+  if (!sdimg && getenv("HYPPOTEST_SDIMG"))
+    sdimg = fopen(getenv("HYPPOTEST_SDIMG"), "r+b");
+  if (getenv("HYPPOTEST_SDLOG") && (value == 2 || value == 3))
+    fprintf(stderr, "SD: %s sector $%08x (PC $%04X)\n", value == 2 ? "read " : "WRITE", sector, cpu->regs.pc);
+  if (value == 0x57 || value == 0x4d) {
+    sd_write_gate = value;
+  }
+  else if (value == 0x02 && sdimg) {
+    fseek(sdimg, (long)sector * 512, SEEK_SET);
+    if (fread(&ffdram[0x3e00], 512, 1, sdimg) != 1)
+      memset(&ffdram[0x3e00], 0, 512);
+    sd_reads++;
+  }
+  else if (value == 0x03 && sdimg) {
+    if (!sd_write_gate || (sector == 0 && sd_write_gate != 0x4d) || (sector != 0 && sd_write_gate != 0x57)) {
+      fprintf(logfile, "ERROR: SD write to sector $%08x without matching write gate\n", sector);
+      cpu->term.error = true;
+    }
+    else {
+      fseek(sdimg, (long)sector * 512, SEEK_SET);
+      fwrite(&ffdram[0x3e00], 512, 1, sdimg);
+      fflush(sdimg);
+      sd_writes++;
+    }
+    sd_write_gate = 0;
+  }
+  // Controller is never busy
+  ffdram[0x3680] = 0;
+}
+
 int write_mem28(struct cpu *cpu, unsigned int addr, unsigned char value)
 {
   unsigned int dma_addr;
@@ -2226,6 +2265,8 @@ int write_mem28(struct cpu *cpu, unsigned int addr, unsigned char value)
     ffdram_blame[addr - 0xffd0000] = cpu->instruction_count;
 
     // Now check for special address actions
+    if (addr == 0xffd3680)
+      sdcard_command(cpu, value);
     switch (addr) {
     case 0xffd3700: // Trigger DMA
       if (cpu->term.log_dma)
@@ -2398,10 +2439,11 @@ void update_bit_flags(unsigned char v)
     cpu.regs.flags |= FLAG_Z;
 }
 
-void update_cmp_flags(unsigned char v)
+void update_cmp_flags(int v)
 {
-  update_nz(v);
-  cpu.regs.flag_c = !cpu.regs.flag_n;
+  // v = register - operand, computed as int on 8-bit values
+  update_nz((unsigned char)v);
+  cpu.regs.flag_c = v >= 0;
 }
 
 void adc(struct cpu *cpu, unsigned char v)
@@ -2478,6 +2520,130 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     cpu->term.error = true;
     cpu->term.brk = true;
     cpu->term.done = true;
+    break;
+  case 0x02: // CLE
+    cpu->regs.flags &= ~FLAG_E;
+    cpu->regs.pc++;
+    log->len = 1;
+    break;
+  case 0xAB: // LDZ $nnnn
+    cpu->regs.z = read_memory(cpu, addr_abs(log));
+    update_nz(cpu->regs.z);
+    log->len = 3;
+    cpu->regs.pc += 3;
+    break;
+  case 0xBB: // LDZ $nnnn,X
+    cpu->regs.z = read_memory(cpu, addr_absx(cpu, log));
+    update_nz(cpu->regs.z);
+    log->len = 3;
+    cpu->regs.pc += 3;
+    break;
+  case 0x8B: // STY $nnnn,X
+    write_mem16(cpu, addr_absx(cpu, log), cpu->regs.y);
+    log->len = 3;
+    cpu->regs.pc += 3;
+    break;
+  case 0x9B: // STX $nnnn,Y
+    write_mem16(cpu, addr_absy(cpu, log), cpu->regs.x);
+    log->len = 3;
+    cpu->regs.pc += 3;
+    break;
+  case 0xC2: // CPZ #$nn
+    v = cpu->regs.z - log->bytes[1];
+    update_cmp_flags(v);
+    log->len = 2;
+    cpu->regs.pc += 2;
+    break;
+  case 0xD4: // CPZ $nn
+    v = cpu->regs.z - read_memory(cpu, addr_zp(cpu, log));
+    update_cmp_flags(v);
+    log->len = 2;
+    cpu->regs.pc += 2;
+    break;
+  case 0xDC: // CPZ $nnnn
+    v = cpu->regs.z - read_memory(cpu, addr_abs(log));
+    update_cmp_flags(v);
+    log->len = 3;
+    cpu->regs.pc += 3;
+    break;
+  case 0x82: // STA ($nn,SP),Y
+  case 0xE2: // LDA ($nn,SP),Y
+  {
+    unsigned int pa;
+    if (cpu->regs.flags & FLAG_E)
+      pa = (cpu->regs.sph << 8) | ((cpu->regs.spl + log->bytes[1]) & 0xff);
+    else
+      pa = (cpu->regs.sp + log->bytes[1]) & 0xffff;
+    unsigned int ea = (read_memory(cpu, pa) | (read_memory(cpu, (pa + 1) & 0xffff) << 8)) + cpu->regs.y;
+    ea &= 0xffff;
+    if (log->bytes[0] == 0x82)
+      write_mem16(cpu, ea, cpu->regs.a);
+    else {
+      cpu->regs.a = read_memory(cpu, ea);
+      update_nz(cpu->regs.a);
+    }
+    log->len = 2;
+    cpu->regs.pc += 2;
+    break;
+  }
+  case 0x3B: // DEZ
+    cpu->regs.z--;
+    update_nz(cpu->regs.z);
+    cpu->regs.pc++;
+    log->len = 1;
+    break;
+  case 0x42: // NEG, or NEG NEG prefix for 32-bit Q register instructions
+    if (log->bytes[1] == 0x42) {
+      unsigned int q = cpu->regs.a | (cpu->regs.x << 8) | (cpu->regs.y << 16) | ((unsigned)cpu->regs.z << 24);
+      unsigned int a16 = log->bytes[3] | (log->bytes[4] << 8);
+      unsigned int m = 0;
+      unsigned long long r;
+      for (int i = 3; i >= 0; i--)
+        m = (m << 8) | read_memory(cpu, a16 + i);
+      switch (log->bytes[2]) {
+      case 0xAD: q = m; break; // LDQ $nnnn
+      case 0x8D: // STQ $nnnn
+        for (int i = 0; i < 4; i++)
+          write_mem16(cpu, a16 + i, (q >> (8 * i)) & 0xff);
+        break;
+      case 0x6D: // ADCQ $nnnn
+        r = (unsigned long long)q + m + cpu->regs.flag_c;
+        cpu->regs.flag_c = r > 0xffffffffULL;
+        q = (unsigned int)r;
+        break;
+      case 0xED: // SBCQ $nnnn
+        r = (unsigned long long)q + (unsigned int)(~m) + cpu->regs.flag_c;
+        cpu->regs.flag_c = r > 0xffffffffULL;
+        q = (unsigned int)r;
+        break;
+      case 0xCD: // CPQ $nnnn
+        cpu->regs.flag_c = q >= m;
+        cpu->regs.flag_z = q == m;
+        cpu->regs.flag_n = ((q - m) >> 31) & 1;
+        break;
+      default:
+        fprintf(logfile, "ERROR: Unimplemented Q instruction $42 $42 $%02X\n", log->bytes[2]);
+        cpu->term.error = true;
+        return false;
+      }
+      if (log->bytes[2] != 0xCD && log->bytes[2] != 0x8D) {
+        cpu->regs.flag_z = q == 0;
+        cpu->regs.flag_n = (q >> 31) & 1;
+      }
+      cpu->regs.a = q;
+      cpu->regs.x = q >> 8;
+      cpu->regs.y = q >> 16;
+      cpu->regs.z = q >> 24;
+      log->len = 5;
+      cpu->regs.pc += 5;
+    }
+    else {
+      v = (-cpu->regs.a) & 0xff;
+      update_nz(v);
+      cpu->regs.a = v;
+      log->len = 1;
+      cpu->regs.pc++;
+    }
     break;
   case 0x01: // ORA ($xx,X)
     log->len = 2;
@@ -3998,7 +4164,8 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     log->len = 3;
     break;
   default:
-    fprintf(stderr, "ERROR: Unimplemented opcode $%02X\n", log->bytes[0]);
+    fprintf(stderr, "ERROR: Unimplemented opcode $%02X at $%04X\n", log->bytes[0], cpu->regs.pc);
+    show_recent_instructions(stderr, "Instructions leading up to it", cpu, cpulog_len - 20, 20, cpu->regs.pc);
     log->len = 6;
     return false;
   }
@@ -5046,6 +5213,12 @@ int main(int argc, char **argv)
         sym_by_addr[addr] = &symbols[symbol_count];
       }
       symbol_count++;
+    }
+    else if (sscanf(line_ptr, "peek %s", location) == 1) {
+      int a = resolve_value32(location);
+      if (a < 0x10000)
+        a = addr_to_28bit(&cpu, a, 0);
+      fprintf(stderr, "PEEK %s = $%02X (C=%d)\n", location, read_memory28(&cpu, a), cpu.regs.flag_c);
     }
     else if (sscanf(line_ptr, "poke%s%n", location, &last) == 1) {
       line_ptr += last;
