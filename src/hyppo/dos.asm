@@ -3974,6 +3974,33 @@ drwf_readwritesuccess:
 ;;         ========================
 
 dos_rmfile:
+        ;; Refuse a directory: everything in it would be lost
+        lda dos_dirent_type_and_attribs
+        and #fs_fat32_attribute_isdirectory
+        beq +
+        lda #dos_errorcode_is_a_directory
+        jmp dos_return_error
++
+        ;; Refuse a disk image attached to drive 0 or 1: the drive would go
+        ;; on reading and writing its clusters after they were freed
+        ldx #$03
+-       lda dos_dirent_cluster,x
+        sta dos_current_cluster,x
+        dex
+        bpl -
+        jsr dos_cluster_to_sector       ;; its first sector, as attach sets
+        lda #%00000001                  ;; drive 0 image enabled, $D68C
+        ldy #$03
+        jsr drm_attached
+        bcc +
+        lda #%00001000                  ;; drive 1 image enabled, $D690
+        ldy #$07
+        jsr drm_attached
+        bcs @notattached
++       lda #dos_errorcode_double_attach
+        jmp dos_return_error
+
+@notattached:
         jsr dos_readdir_retreivelastentry
         jsr sd_map_sectorbuffer
         jsr dos_file_read_current_sector
@@ -4032,6 +4059,25 @@ dos_rmfile:
 
 +       sec
         rts
+
+drm_attached:
+        ;; C=0 if the drive whose image-enabled bit in $D68B is A has an
+        ;; image attached whose start sector ($D68C+Y-3..Y) is $D681
+        and $d68b
+        beq @no
+        ldx #$03
+-       lda $d681,x
+        cmp $d68c,y
+        bne @no
+        dey
+        dex
+        bpl -
+        clc
+        rts
+@no:    sec
+        rts
+
+;;         ========================
 
 dos_rmfile_rmchainentry:
 
@@ -4272,7 +4318,8 @@ dos_attach:
         ;;
         ;; X.0 - DRVNUM  select drive 0 or 1
         ;; X.1 - BOTHDRV (MODE=detach) selects both drives
-        ;; X.5 - DEFRAG  (MODE=attach) defragment the image if it is fragmented
+        ;; X.5 - NODEFRAG (MODE=attach) fail with $8B on a fragmented image,
+        ;;                instead of defragmenting it and attaching it
         ;; X.6 - NOREAL  (MODE=detach) don't attach real drive if set
         ;; X.7 - MODE    select mode 0 - attach, 1 - detach
 
@@ -4328,10 +4375,10 @@ dos_diskattach:
         ;;
         sty <dos_attach_offset  ;; save Y offset into dos_attach_*_bits
 
-        ;; X.5 - DEFRAG  defragment a fragmented image instead of failing
+        ;; X.5 - NODEFRAG  fail on a fragmented image, rather than defragment it
         txa
         and #$20
-        sta dfg_auto
+        sta dfg_nodefrag
 
         ;; Check if the filename of the disk image is too long
         ldx dos_requested_filename_len
@@ -4357,9 +4404,9 @@ dos_diskattach:
         jsr dos_checkimage
         bcs @d81a1a
 
-        ;; Fragmented image and caller asked for defragmentation?
-        lda dfg_auto
-        beq @d81fail
+        ;; Fragmented image, and the caller didn't ask for no defragmentation?
+        lda dfg_nodefrag
+        bne @d81fail
         lda dos_error_code
         cmp #dos_errorcode_image_fragmented
         bne @d81fail

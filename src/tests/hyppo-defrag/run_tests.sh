@@ -1,6 +1,6 @@
 #!/bin/bash
-# Tests for HYPPO's dos_defrag_current, attach with defragmentation
-# (X bit 5) and dos_rmfile, in hyppotest with its SD card emulation, on FAT32 images of
+# Tests for HYPPO's dos_defrag_current, attach (defragmenting unless X
+# bit 5) and dos_rmfile, in hyppotest with its SD card emulation, on FAT32 images of
 # 512-byte, 4KB and 32KB clusters.  Needs bin/HICKUP.M65, src/hyppo/HICKUP.sym,
 # src/tools/hyppotest and mkfs.vfat/fsck.vfat.  Exits non-zero on a failure.
 T=$(cd "$(dirname "$0")" && pwd)
@@ -21,7 +21,7 @@ for spc in 1 8 64; do
   python3 "$T/frag.py" t.img "$L" $((n/3)) $((n/8)) $((CC*8/10))
   cp t.img base.img
   expect "spc=$spc: GAME.D81 fragmented" "$(fragments t.img "$G")" '^5$'
-  expect "spc=$spc: attach without bit 5 fails, no writes" "$(python3 "$T/runtest.py" t.img GAME.D81 attach '$00')" 'sim=ok err=\$8B .*writes=0 '
+  expect "spc=$spc: attach with bit 5 (no defrag) fails, no writes" "$(python3 "$T/runtest.py" t.img GAME.D81 attach '$20')" 'sim=ok err=\$8B .*writes=0 '
   expect "spc=$spc: image unchanged" "$(cmp t.img base.img && echo same)" same
   expect "spc=$spc: defrag GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 defrag)" 'sim=ok err=\$00'
   out=$(python3 "$T/check.py" t.img data)
@@ -30,8 +30,8 @@ for spc in 1 8 64; do
   expect "spc=$spc: FAT1 == FAT2" "$out" 'FAT1==FAT2: True'
   expect "spc=$spc: fsck clean" "$out" 'fsck: clean'
   expect "spc=$spc: second defrag writes nothing" "$(python3 "$T/runtest.py" t.img GAME.D81 defrag)" 'err=\$00 .*writes=0$'
-  r=$(python3 "$T/runtest.py" t.img 'Mein langes Spiel.d81' attach '$21')
-  expect "spc=$spc: attach long name, drive 1, bit 5" "$r" 'sim=ok err=\$00'
+  r=$(python3 "$T/runtest.py" t.img 'Mein langes Spiel.d81' attach '$01')
+  expect "spc=$spc: attach long name, drive 1, defragmented by default" "$r" 'sim=ok err=\$00'
   out=$(python3 "$T/check.py" t.img data)
   sec=$(grep "^$L" <<<"$out" | sed "s/.*sector=.\([0-9a-f]*\).*/\1/")
   expect "spc=$spc: D690 = start sector $sec" "$r" "startsec=.$sec"
@@ -64,6 +64,7 @@ for spc in 1 8 64; do
   expect "spc=$spc: rm fragmented GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 rm)" 'sim=ok err=\$00'
   expect "spc=$spc: rm long name file" "$(python3 "$T/runtest.py" t.img 'Mein langes Spiel.d81' rm)" 'sim=ok err=\$00'
   out=$(python3 "$T/check.py" t.img data)
+  expect "spc=$spc: rm of a directory refused" "$(python3 "$T/runtest.py" t.img SUBDIR rm)" 'sim=ok err=\$86 .*writes=0$'
   expect "spc=$spc: both gone, the others intact" "$(grep -c 'content=ok' <<<"$out")/$(grep -c 'start=' <<<"$out")" '^2/2$'
   expect "spc=$spc: no long name entries left" "$out" 'LFN entries: 0'
   expect "spc=$spc: FAT1 == FAT2 after rm" "$out" 'FAT1==FAT2: True'
@@ -73,7 +74,7 @@ done
 # past it (dos_cluster_to_fat_sector's carry into bits 16-31)
 python3 "$T/addfiles.py" t.img 1 65502; n=$(nclusters t.img "$G")
 python3 "$T/frag.py" t.img "$G" $((n/4)) $((n/8)) 30000
-expect "FAT across \$10000: attach without bit 5 says fragmented" "$(python3 "$T/runtest.py" t.img GAME.D81 attach '$00')" 'sim=ok err=\$8B'
+expect "FAT across \$10000: attach with bit 5 says fragmented" "$(python3 "$T/runtest.py" t.img GAME.D81 attach '$20')" 'sim=ok err=\$8B'
 expect "FAT across \$10000: defrag GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D81 defrag)" 'sim=ok err=\$00'
 out=$(python3 "$T/check.py" t.img data)
 expect "FAT across \$10000: GAME.D81 contiguous, content intact" "$out" "^$G .*fragments=1 content=ok"
@@ -82,5 +83,15 @@ expect "FAT across \$10000: rm GAME.D81" "$(python3 "$T/runtest.py" t.img GAME.D
 out=$(python3 "$T/check.py" t.img data)
 expect "FAT across \$10000: fsck clean after rm" "$out" 'fsck: clean'
 expect "FAT across \$10000: FAT1 == FAT2 after rm" "$out" 'FAT1==FAT2: True'
+# rm of attached images
+python3 "$T/addfiles.py" t.img 8; cp t.img base.img
+expect "rm of the image attached to drive 0 refused, no writes" "$(python3 "$T/runtest.py" t.img GAME.D81 attach+rm '$00')" 'sim=ok err=\$8F .*writes=0$'
+expect "rm of the image attached to drive 1 refused, no writes" "$(python3 "$T/runtest.py" t.img GAME.D81 attach+rm '$01')" 'sim=ok err=\$8F .*writes=0$'
+expect "image unchanged" "$(cmp t.img base.img && echo same)" same
+expect "rm of another file while one is attached" "$(python3 "$T/runtest.py" t.img GAME.D81 attach+rm '$01' 'Mein langes Spiel.d81')" 'sim=ok err=\$00 .*writes=[1-9]'
+out=$(python3 "$T/check.py" t.img data)
+expect "  the attached image still there, the other gone" "$out" "^$G .*content=ok"
+expect "  fsck clean" "$out" 'fsck: clean'
+expect "  $L gone" "$(grep -c "^$L" <<<"$out")" '^0$'
 echo "$fails failed"
 exit $((fails>0))

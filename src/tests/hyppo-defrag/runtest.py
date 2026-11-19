@@ -1,13 +1,16 @@
-# runtest.py img name action [x]
-# Runs dos_defrag_current (action "defrag"), dos_rmfile ("rm") or dos_attach with X=x (action
-# "attach") on the file name in the SD card image img, in hyppotest.
-# Prints the error code, the sectors read and written and, for attach, the
-# drive's start sector (DxSTARTSEC).
+# runtest.py img name action [x [name2]]
+# Runs, in hyppotest on the SD card image img, on the file name:
+# dos_defrag_current (action "defrag"), dos_rmfile ("rm"), dos_attach with
+# X=x ("attach"), or dos_attach with X=x then dos_rmfile on name2 ("attach+rm").
+# Prints the (last) error code, the sectors read and written and, for attach,
+# the drive's start sector (DxSTARTSEC).
 import sys,subprocess,os
 root=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','..'))
 img,name,action=sys.argv[1],sys.argv[2],sys.argv[3]
+name2=sys.argv[5] if len(sys.argv)>5 else name
 x=int((sys.argv[4] if len(sys.argv)>4 else '$00').replace('$','0x'),0)
-pk=' '.join('$%02x'%b for b in name.encode()+b'\0')
+def setname(n):
+  return 'poke dos_requested_filename '+' '.join('$%02x'%b for b in n.encode()+b'\0')+f'\npoke dos_requested_filename_len ${len(n):02x}\n'
 t=f'''test "{action} {name}"
 loadhyppo {root}/bin/HICKUP.M65
 loadhypposymbols {root}/src/hyppo/HICKUP.sym
@@ -16,13 +19,13 @@ jsr dos_read_partitiontable
 let x = $00
 jsr dos_cdroot
 poke disable_lfn_byte $2c
-poke dos_requested_filename {pk}
-poke dos_requested_filename_len ${len(name):02x}
-'''
+'''+setname(name)
 if action=='defrag':
   t+='jsr dos_findfile\njsr dos_closefile\njsr dos_defrag_current\npeek dos_error_code\n'
 elif action=='rm':
   t+='jsr dos_findfile\njsr dos_closefile\njsr dos_rmfile\npeek dos_error_code\n'
+elif action=='attach+rm':
+  t+=f'let x = ${x:02x}\njsr dos_attach\n'+setname(name2)+'jsr dos_findfile\njsr dos_closefile\njsr dos_rmfile\npeek dos_error_code\n'
 else:
   s=0xd690 if x&1 else 0xd68c
   t+=f'let x = ${x:02x}\njsr dos_attach\npeek dos_error_code\n'+''.join(f'peek ${s+i:04x}\n' for i in range(4))

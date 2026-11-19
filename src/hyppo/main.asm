@@ -3592,7 +3592,7 @@ dos_attach_offset:
         !8 0
 
         ;; Variables for dos_defrag_current (dos_defrag.asm)
-dfg_auto:       !8 0
+dfg_nodefrag:   !8 0
 dfg_prev:       !32 0
 dfg_val:        !32 0
 dfg_left:       !32 0

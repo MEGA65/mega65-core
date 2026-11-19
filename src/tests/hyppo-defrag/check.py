@@ -7,6 +7,7 @@ from fatimg import Img,runs
 img,dd=sys.argv[1],sys.argv[2]; im=Img(img)
 ref={'GAME    D81':'GAME.D81','MEINLA~1D81':'LONG.D81','B       BIN':'B.BIN','C       BIN':'C.BIN'}
 for n,cl,ln in im.entries():
+  if n not in ref: print(n,'(directory)'); continue
   ch=im.chain(cl); data=b''.join(im.rd(c) for c in ch)[:ln]
   good=data==open(os.path.join(dd,ref[n]),'rb').read()
   print(f'{n} start={cl} sector=${im.data//512+(cl-2)*im.spc:08x} fragments={len(runs(ch))} content={"ok" if good else "BAD"}')

@@ -42,6 +42,12 @@ add(b'B       BIN',files['B.BIN'])
 add(b'GAME    D81',files['GAME.D81'])
 add(b'MEINLA~1D81',files['LONG.D81'],'Mein langes Spiel.d81')
 add(b'C       BIN',files['C.BIN'])
+# an empty subdirectory
+d=bytearray(im.cs)
+d[0:11]=b'.          '; d[11]=0x10; struct.pack_into('<H',d,26,nxt&0xffff)
+d[32:43]=b'..         '; d[43]=0x10
+e=bytearray(32); e[0:11]=b'SUBDIR     '; e[11]=0x10; struct.pack_into('<H',e,26,nxt&0xffff); struct.pack_into('<H',e,20,nxt>>16)
+im.wr(nxt,bytes(d)); im.set(nxt,0x0fffffff); nxt+=1; ents.append(bytes(e))
 root=bytearray(im.rd(2)); vol=root[:32]; root=vol+b''.join(ents); im.wr(2,bytes(root).ljust(im.cs,b'\0'))
 im.flush()
 # FSInfo free count = unknown, so fsck's baseline is clean
