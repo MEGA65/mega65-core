@@ -1667,7 +1667,7 @@ begin
       --   $D800 - $DBFF in the usual IO pages.
       --   $DC00 - $DFFF in the enhanced IO pages when the correct VIC-III
       --   register is set.
-      --   $FF80000-$FF8FFFF - All 64KB of colour RAM
+      --   $FF80000-$FF8FFFF - All 32KB of colour RAM, mirrored in the upper 32KB
       -- The colour RAM has to be dual-port since the video controller needs to
       -- access it as well, so all these have to be mapped on a single port.
       colour_ram_fastio_address <= (others => '1');
@@ -1683,7 +1683,7 @@ begin
           colour_ram_fastio_address <= (others => '0');
         end if;
       elsif register_bank(7 downto 4)=x"8" then
-                                        -- colour RAM all 64KB
+                                        -- colour RAM (32KB, address bit 15 ignored)
         colour_ram_fastio_address <= unsigned(fastio_addr(15 downto 0));
       end if;
 

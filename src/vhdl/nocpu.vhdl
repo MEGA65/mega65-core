@@ -756,7 +756,7 @@ begin
         -- registers from all other IO registers, partly to work around some bugs,
         -- and partly because the banking of the VIC registers is the fiddliest part.
 
-        -- @IO:GS $FF8xxxx - Colour RAM (32KB or 64KB)
+        -- @IO:GS $FF8xxxx - Colour RAM (32KB, mirrored in the upper 32KB)
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
