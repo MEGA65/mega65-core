@@ -2,8 +2,8 @@
 """check.py <tb_upscaler's output> [pal|ntsc] [first frame to check] [narrow]
 
 Checks what tb_upscaler wrote: that the upscaler's output is 720p as
-CTA-861 has it (but for the line's length, which follows the input), that it
-stays locked to the input, and that the picture is the input's, whole and in
+CTA-861 has it, to the clock (750 lines of 1980 or 1650), that it stays
+locked to the input, and that the picture is the input's, whole and in
 order. Exits 0 if so.
 """
 import sys, collections
@@ -42,14 +42,13 @@ lens = collections.Counter()
 for k in frames:
     rows = L[k]
     n = len(rows)
-    check(F[k][1] == n and 749 <= n <= 753, 'a frame is %d lines' % n)
+    check(F[k][1] == n and n == 750, 'a frame is %d lines' % n)
     for r in rows: lens[r[1] + 1] += 1
-    # every line the standard's, but the four before vsync, which are a
-    # little longer or shorter
+    # every line the standard's
     line = collections.Counter(r[1] + 1 for r in rows).most_common(1)[0][0]
     check(line == NOMINAL, 'the line is %d clocks, not the standard\'s %d' % (line, NOMINAL))
     odd = [(r[0], r[1] + 1 - line) for r in rows if r[1] + 1 != line]
-    check(all(y >= n - 4 and d != 0 and abs(d) < 300 for y, d in odd), 'lines of another length where there should be none: %s' % odd[:8])
+    check(not odd, 'lines of another length: %s' % odd[:8])
     check(sum(r[1] + 1 for r in rows) == F[k][0], 'the lines do not add up to the frame')
     check(all(r[3] == 40 for r in rows), 'hsync is not 40 clocks')
     de = [r for r in rows if r[4]]
@@ -62,17 +61,12 @@ for k in frames:
     check(V[k][1] == 5, 'vsync is not 5 lines')
 k = frames[-1]
 line = collections.Counter(r[1] + 1 for r in L[k]).most_common(1)[0][0]
-print('output: frames of', sorted(set(F[k][0] for k in frames)), 'clocks:', len(L[k]), 'lines of %d clocks (the standard: 750 of %d),' % (line, NOMINAL),
-      'the four before vsync', [r[1] + 1 for r in L[k] if r[0] >= len(L[k]) - 4])
+print('output: frames of', sorted(set(F[k][0] for k in frames)), 'clocks:', len(L[k]), 'lines of %d clocks (the standard: 750 of %d)' % (line, NOMINAL))
 de = [r for r in L[k] if r[4]]
 print('        hsync 40 clocks, then %s clocks to data enable (nominal 220); data enable 1280 x 720' %
       sorted(set(r[5] - 40 for r in de)))
-# the frames all as long as each other; or, of whole lines only, a line apart
-whole = all(r[1] + 1 == NOMINAL for k in frames for r in L[k])
-spread = max(F[k][0] for k in frames) - min(F[k][0] for k in frames)
-check(spread <= 4 or (whole and spread == NOMINAL), 'the frame\'s length wanders: %s' % [F[k][0] for k in frames])
-if whole and spread:
-    print('        frames of whole lines:', ' '.join(str(F[k][1]) for k in frames), 'lines')
+# the frames all exactly the standard's
+check(all(F[k][0] == 750 * NOMINAL for k in frames), 'a frame is not 750 x %d clocks: %s' % (NOMINAL, [F[k][0] for k in frames]))
 # every frame shows the same line of the input on each of its lines
 ref = {r[0]: (r[8], r[9]) for r in L[frames[-1]] if r[6] >= 0}
 for kk in frames:

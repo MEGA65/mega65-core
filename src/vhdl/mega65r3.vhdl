@@ -475,20 +475,16 @@ architecture Behavioral of container is
   -- HDMI at 720p when $D61A bit 5 asks for it, at 576p or 480p as ever when
   -- it does not: the upscaler's 720p picture, whatever VGA is showing
   signal clock74p25 : std_logic;      -- 720p's pixel clock
-  signal clock_hdmi : std_logic;      -- the encoder's: 27 or 74.25 MHz
+  signal clock_hdmi : std_logic;      -- the encoder's: 27 MHz or clock74p25
   signal clock_hdmi_x5 : std_logic;   -- the serialisers': five times that
   signal hdmi_locked : std_logic;
   signal hdmi_720p_wanted : std_logic := '0';
-  -- In NTSC the 720p picture is 59.83 Hz, which not every display takes as
-  -- 720p60: it is sent as frames of whole lines whose number varies, and
-  -- announced as of variable refresh rate (unless $D61A bit 6 says not to)
-  signal hdmi_whole_lines : std_logic := '0';
   -- The 720p picture narrower, for a 21:9 display that stretches it ($D61A bit 0)
   signal hdmi_narrow : std_logic := '0';
-  signal hdmi_vrr : std_logic := '0';
-  -- What the encoder is told of $D61A bit 1, "DVI only": see where they are set
-  signal hdmi_dvi : std_logic := '0';
-  signal hdmi_silent : std_logic := '0';
+  -- The upscaler's trim of clock74p25 (its domain), for clocking
+  signal hdmi_ps_rate : signed(21 downto 0);
+  signal hdmi_ps_tg : std_logic;
+  signal hdmi_clk_mode : std_logic_vector(1 downto 0);
   signal hd_active : std_logic;       -- the upscaler's 720p picture is there (clock74p25)
   signal hd_active_sync : std_logic_vector(1 downto 0) := "00";
   signal hd_red : unsigned(7 downto 0);
@@ -585,11 +581,14 @@ begin
                clock27   => clock27,    --   27     MHz
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
-               clock74p25 => clock74p25, --  74.25  MHz
+               clock74p25 => clock74p25, --  74.375 or 74.0625 MHz, trimmed
                hdmi_720p => hdmi_720p,
-               clock_hdmi => clock_hdmi,       -- 27 or  74.25 MHz
-               clock_hdmi_x5 => clock_hdmi_x5, -- 135 or 371.25 MHz
+               clock_hdmi => clock_hdmi,       -- 27 MHz or clock74p25
+               clock_hdmi_x5 => clock_hdmi_x5, -- five times that
                hdmi_locked => hdmi_locked,
+               hdmi_mode => hdmi_clk_mode,
+               hdmi_ps_rate => hdmi_ps_rate,
+               hdmi_ps_tg => hdmi_ps_tg,
                clock81p  => pixelclock, --   81     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
@@ -624,7 +623,6 @@ begin
       pixelvalid_out => open,
 
       hd_en => hdmi_720p_wanted,
-      whole_lines => hdmi_whole_lines,
       narrow => hdmi_narrow,
       hd_active => hd_active,
       hd_pixelvalid => hd_pixelvalid,
@@ -632,7 +630,10 @@ begin
       hd_green => hd_green,
       hd_blue => hd_blue,
       hd_hsync => hd_hsync,
-      hd_vsync => hd_vsync
+      hd_vsync => hd_vsync,
+      ps_rate => hdmi_ps_rate,
+      ps_tg => hdmi_ps_tg,
+      clk_mode => hdmi_clk_mode
 
       );
 
@@ -675,17 +676,6 @@ begin
       if rising_edge(clock27) then
         hdmi_720p_wanted <= portp_drive(5);
         hdmi_narrow <= portp_drive(0);
-        if pal50 = '0' and portp_drive(6) = '0' then
-          hdmi_whole_lines <= '1';
-        else
-          hdmi_whole_lines <= '0';
-        end if;
-        hdmi_vrr <= hdmi_720p and hdmi_whole_lines;
-        -- "DVI only" is no packets at all, and so nowhere to say that the
-        -- rate varies. While that has to be said it is taken as "no sound":
-        -- the packets go out, with silence for the sound.
-        hdmi_dvi <= portp_drive(1) and not (hdmi_720p and hdmi_whole_lines);
-        hdmi_silent <= portp_drive(1);
         hd_active_sync <= hd_active_sync(0) & hd_active;
         if hdmi_switch_count /= 0 then
           -- Reset, the other clocks 1.2 ms before its end, out of reset
@@ -708,7 +698,8 @@ begin
         end if;
 
         -- What is said about the picture, and the audio clock's CTS: the
-        -- pixel clock in kHz with N = 6144
+        -- pixel clock in kHz with N = 6144 (at 720p the clock the VIC-IV's
+        -- frame makes it, 1980 x 750 x 50.08 Hz or 1650 x 750 x 59.83 Hz)
         pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
         if hdmi_720p = '0' then
           hdmi_vic <= std_logic_vector(to_unsigned(17,8)); -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
@@ -721,7 +712,11 @@ begin
             hdmi_vic <= std_logic_vector(to_unsigned(4,8));  -- 720p60
           end if;
           hdmi_aspect <= "10";
-          pcm_cts <= std_logic_vector(to_unsigned(74250,pcm_cts'length));
+          if pal50 = '1' then
+            pcm_cts <= std_logic_vector(to_unsigned(74369,pcm_cts'length));
+          else
+            pcm_cts <= std_logic_vector(to_unsigned(74035,pcm_cts'length));
+          end if;
         end if;
       end if;
     end process;
@@ -762,12 +757,10 @@ begin
       port map (
         select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one (from portp bit 1)
-        dvi => hdmi_dvi,
+        dvi => dvi_select,
         vic => hdmi_vic,
         aspect => hdmi_aspect,
         pix_rep => '0', -- no pixel repetition
-        vrr => hdmi_vrr,
-        silent => hdmi_silent,
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 
@@ -1442,7 +1435,6 @@ begin
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
-    -- @IO:GS $D61A.6 SYSCTL:HDMIFIXED Digital video at 720p in NTSC with the same number of lines in every frame, and not announced as of variable refresh rate
     -- @IO:GS $D61A.5 SYSCTL:HDMI720 Digital video at 720p (the picture upscaled, 4:3 within 16:9) instead of 576p or 480p
     -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
     -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate

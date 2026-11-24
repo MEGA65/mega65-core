@@ -34,16 +34,14 @@ entity tb_upscaler is
   generic (
     PAL        : boolean := true;
     INTERLACE  : boolean := false;
-    -- half periods: 81 MHz is 22 units and the 720p clock 24 units when the
-    -- two are 27 MHz x 3 and 27 MHz x 11/4 (74.25 MHz) exactly
+    -- half period of 81 MHz (27 MHz x 3)
     HALF81     : time := 6172848 fs;
-    HALF74     : time := 6734016 fs;
+    PS_GAIN    : real := 1.0;     -- how much the trim really does (the loop has to cope)
     FRAMES     : integer := 6;
     ENABLE_AT  : integer := 1;      -- the input frame in which upscale_en rises
     DISABLE_AT : integer := 0;      -- and the one in which it falls again (0: never)
     SWITCH_AT  : integer := 0;      -- the input frame in which PAL becomes NTSC or back (0: never)
     HD_ONLY    : boolean := false;  -- ask with hd_en and look at the hd_ outputs: upscale_en stays off
-    WHOLE_LINES : boolean := false; -- the upscaler's whole_lines input
     NARROW     : boolean := false;  -- and its narrow input
     DUMP_FRAME : integer := 4;
     DUMP_Y     : integer := 360;
@@ -56,6 +54,8 @@ architecture sim of tb_upscaler is
   signal clock81 : std_logic := '0';
   signal clock27 : std_logic := '0';
   signal clock74 : std_logic := '0';
+  signal ps_rate : signed(21 downto 0);
+  signal clk_mode : std_logic_vector(1 downto 0);
 
   function to_sl(b : boolean) return std_logic is
   begin
@@ -92,7 +92,22 @@ begin
   interlace_sel <= '1' when INTERLACE else '0';
 
   clock81 <= not clock81 after HALF81;
-  clock74 <= not clock74 after HALF74;
+  -- The 720p clock, as clocking makes it: one of four settings by clk_mode,
+  -- slowed as the MMCM's fine phase shift would: a rate of R is R steps of
+  -- 1/560 of the clock's period every 2^24 clocks of 270 MHz, a fraction
+  -- R x 270e6 / 2^24 / (560 x f) longer (3.864e-10 x R in PAL)
+  process
+    variable f : real;
+  begin
+    case clk_mode is
+      when "00" => f := 74.375e6;
+      when "01" => f := 74.25e6;
+      when "10" => f := 74.0625e6;
+      when others => f := 100.0e6 * 44.5 / 6.0 / 10.0;
+    end case;
+    wait for (0.5 sec / f) * (1.0 + real(to_integer(ps_rate)) * 270.0e6 / 16777216.0 / (560.0 * f) * PS_GAIN);
+    clock74 <= not clock74;
+  end process;
 
   -- 27 MHz, its edges on every third of the 81 MHz clock's
   process (clock81) is
@@ -237,11 +252,12 @@ begin
       red_out => m_red, green_out => m_green, blue_out => m_blue,
       hsync_out => m_hsync, vsync_out => m_vsync,
       hd_en => en_hd,
-      whole_lines => to_sl(WHOLE_LINES),
       narrow => to_sl(NARROW),
       hd_pixelvalid => h_de,
       hd_red => h_red, hd_green => h_green, hd_blue => h_blue,
-      hd_hsync => h_hsync, hd_vsync => h_vsync
+      hd_hsync => h_hsync, hd_vsync => h_vsync,
+      ps_rate => ps_rate,
+      clk_mode => clk_mode
       );
 
   en_main <= upscale_en when not HD_ONLY else '0';

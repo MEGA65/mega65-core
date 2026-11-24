@@ -7,9 +7,8 @@ use xpm.vcomponents.ALL;
 
 entity upscaler is
   port (
-    -- Input and output pixel clocks. The output clock is 720p's, 74.25 MHz
-    -- or near it: its frequency is not assumed, the output is locked to the
-    -- input by measurement.
+    -- Input and output pixel clocks. The output clock is 720p's, near 74.25
+    -- MHz, and the output is locked to the input by trimming it (ps_rate).
     clock27 : in std_logic;
     clock74p22 : in std_logic;
 
@@ -52,14 +51,16 @@ entity upscaler is
     hsync_out : out std_logic;
     vsync_out : out std_logic;
 
-    -- Frames of whole lines only (clock27's domain): what a frame differs by
-    -- from a whole number of lines is not put into the lines before vsync,
-    -- but saved up until it is a line, and a frame then has one line more
-    -- (NTSC: 752 lines, 753 every fifth or sixth frame). For a display that
-    -- has been told the frame rate varies, as an Adaptive-Sync one can be
-    -- (vga_to_hdmi's vrr): an ASUS PA348CGV takes 720p at the MEGA65's NTSC
-    -- rate of 59.83 Hz so and in no other way.
-    whole_lines : in std_logic := '0';
+    -- How fast to trim the 720p pixel clock (clock74p22's domain), for
+    -- clocking's hdmi_ps_rate and hdmi_ps_tg: the MMCM's fine phase shift
+    -- steps per 2^24 clocks of the phase shifter's clock, positive = later
+    -- (the clock slower). ps_tg toggles after each new value (once a frame
+    -- of the input).
+    ps_rate : out signed(21 downto 0);
+    ps_tg : out std_logic;
+    -- And which of clocking's four settings to trim (hdmi_mode): bit 1 NTSC,
+    -- bit 0 a frame of an odd number of lines (625 or 525: interlace on)
+    clk_mode : out std_logic_vector(1 downto 0);
 
     -- The picture narrower (clock27's domain), for a display of 21:9 that
     -- stretches a 16:9 picture over all its width: see NARROW_WIDTH below.
@@ -89,25 +90,13 @@ architecture hundertwasser of upscaler is
   --   60 Hz: 1280 1390 1430 1650, 720 725 730 750
   -- A frame out has to last as long as a frame in, and the MEGA65's frames
   -- are not 20 ms and 16.68 ms long: 624 lines and not 625 in PAL (without
-  -- interlace), 526 and not 525 in NTSC. As in the MEGA65's own 576p and
-  -- 480p, the line is the standard's all the same, 1980 or 1650 clocks, to
-  -- the clock (37.5 and 45 kHz at 74.25 MHz), and it is the number of lines
-  -- that gives: 749 in PAL and 752 in NTSC for the standard's 750, the
-  -- difference in the front porch (vsync and the back porch are the
-  -- standard's 5 and 20 lines). What a frame then still differs by, 396
-  -- clocks fewer in PAL and 297 more in NTSC, is in the four lines before
-  -- vsync, a quarter in each. So every line from vsync to the last one with
-  -- pixels is the same: a display that checks the line frequency finds the
-  -- standard's, and something that takes a line's length once and counts
-  -- from there (an HDMI capture device does) finds every pixel where it
-  -- expects it. With interlace on, the PAL frame is 625 lines and the output
-  -- 1980 x 750 exactly.
-  -- (Tried on an ASUS PA348CGV, November 2026: it shows PAL so. NTSC it
-  -- shows for a second and then goes black, in this and every other
-  -- arrangement of lines and syncs tried, VESA's CVT among them: the frame
-  -- rate is 59.83 Hz, and it wants 60.00, which it shows. It does take 59.83
-  -- Hz as frames of whole lines, their number varying, when told the rate
-  -- varies: see whole_lines.)
+  -- interlace), 526 and not 525 in NTSC, 50.08 and 59.83 Hz. The raster is
+  -- the standard's all the same, to the clock: 750 lines of 1980 or 1650
+  -- clocks, and it is the pixel clock that is made to fit, a little faster
+  -- than 74.25 MHz in PAL and a little slower in NTSC (clocking's mmcm_hdmi,
+  -- trimmed by ps_rate). A strict display (a Dell P1917S, November 2026)
+  -- shows 720p only so: one line or a few clocks a line more or fewer, and
+  -- it reports a timing error; the rate itself it does not mind.
   constant OUT_WIDTH : integer := 1280;
   constant OUT_HEIGHT : integer := 720;
   constant LINE_PAL : integer := 1980;
@@ -116,35 +105,15 @@ architecture hundertwasser of upscaler is
   constant LINE_NTSC : integer := 1650;
   constant HSYNC_ON_NTSC : integer := 1390;
   constant HSYNC_OFF_NTSC : integer := 1430;
-  -- From the end of a frame of `rows` lines. Vsync changes with hsync's
-  -- leading edge, as the standard has it (the line that begins there is the
-  -- one whose pixels are y_count + 1): on in line rows - 26, off in line
-  -- rows - 21, which for 750 are 724 and 729. The four lines before that
-  -- take up the frame's odd clocks.
+  constant ROWS : integer := 750;
+  -- From the end of the frame. Vsync changes with hsync's leading edge, as
+  -- the standard has it (the line that begins there is the one whose pixels
+  -- are y_count + 1): on in line 724, off in line 729.
   constant VSYNC_ON_BEFORE : integer := 26;
   constant VSYNC_OFF_BEFORE : integer := 21;
-  constant FILL_FIRST_BEFORE : integer := 30;
-  constant FILL_LAST_BEFORE : integer := 27;
-  -- A line with fewer clocks still has to hold its hsync (220 clocks from
-  -- its end to the line's): at most this many fewer in one
-  constant FILL_MOST_FEWER : integer := 216;
-  -- Frames of fewer lines than this have no front porch; more than that
-  -- many is no 720p. (With 749 lines the first of the four before vsync is
-  -- the last line of pixels, whose end it is that moves, after its pixels;
-  -- with fewer there are fewer than four: none of them is a line that
-  -- another line of pixels follows.)
-  constant ROWS_MIN : integer := 746;
-  constant ROWS_MAX : integer := 800;
-
-  -- Until the input's frame has been measured: 624 x 864 and 526 x 858
-  -- pixels of 27 MHz, in clocks of 74.25 MHz (x 11/4)
-  constant ROWS_PAL : integer := 749;
-  constant REM_PAL : integer := -396;
-  constant ROWS_NTSC : integer := 752;
-  constant REM_NTSC : integer := 297;
 
   -- The picture is as wide as a 4:3 screen would show it at the height it
-  -- has here (576 lines of 624 over 749, 480 of 526 over 752): 720 pixels over 924 in
+  -- has here (576 lines of 624 over 750, 480 of 526): 720 pixels over 924 in
   -- PAL and 912 in NTSC, between black shoulders. H_STEP is 720 over that
   -- width, in 65536ths: what one pixel out is of the pixels in.
   constant SRC_LAST : integer := 719;
@@ -155,8 +124,7 @@ architecture hundertwasser of upscaler is
   constant PIC_LEFT_NTSC : integer := (OUT_WIDTH - PIC_WIDTH_NTSC) / 2;
   constant H_STEP_NTSC : integer := 51739;
   -- For a display of 21:9 that stretches 16:9 over all its width, as some do
-  -- whenever the rate varies (an ASUS PA348CGV with Adaptive-Sync on has no
-  -- other way, and takes NTSC only so: see whole_lines): the picture
+  -- (an ASUS PA348CGV with Adaptive-Sync on has no other way): the picture
   -- narrower by what the display will widen it, 32/43 for 3440 x 1440, which
   -- is 688 pixels in PAL and 680 in NTSC. That is fewer pixels than the 720
   -- that come in, and the reading side reads one cell of the buffers a clock
@@ -184,19 +152,19 @@ architecture hundertwasser of upscaler is
   -- be LOCK_X clocks into its line 0 at that moment (two thirds of a line
   -- of the input): then it reads a line and the one after it 2.3 lines
   -- behind the writing (a sixth of a line more or less by the bottom of the
-  -- picture, the frame being a whole number of the output's lines only
-  -- nearly). That is the middle of what works, which in simulation is from
+  -- picture: 750 lines are not quite a whole number of the input's). That is the middle of what works, which in simulation is from
   -- 1.5 lines behind (nearer, and it reads cells of the second line before
   -- they are written) to 3 (further, and the first line is being written
   -- again): more than half a line to spare either way, 1,300 clocks, where
-  -- the lock holds to 2. (LOCK_X has to be less than the shorter line.)
+  -- the lock holds to 10. (LOCK_X has to be less than the shorter line.)
   constant LOCK_X : integer := 1580;
-  -- Out by more than this many clocks at a lock_toggle, the output starts
-  -- again from LOCK_X. Out by less, the frame that has just begun is made
-  -- that much longer or shorter, a clock here and there over its lines; by
-  -- this little, nothing is done.
-  constant LOCK_RESTART : integer := 4095;
-  constant LOCK_DEAD : integer := 2;
+  -- Out by more than this many clocks at a lock_toggle (switched on, the
+  -- standard changed and with it where the input's lock_toggle comes, the
+  -- clock stopped while mmcm_hdmi changed it), the output starts again from
+  -- LOCK_X: one jump instead of a pull of seconds (the trim moves it some
+  -- 1,000 clocks a frame at most). Out by less, the clock is trimmed; once
+  -- locked it is out by less than 40.
+  constant LOCK_JUMP : integer := 2000;
 
   ---------------------------------------------------------------------------
   -- writing side (clock27)
@@ -231,7 +199,6 @@ architecture hundertwasser of upscaler is
 
   signal upscale_en_74 : std_logic;
   signal hd_en_74 : std_logic;
-  signal whole_lines_74 : std_logic;
   signal narrow_74 : std_logic;
   signal pal50_select_74 : std_logic;
   signal lock_toggle_74 : std_logic;
@@ -250,45 +217,35 @@ architecture hundertwasser of upscaler is
 
   signal x_count : integer range 0 to 4095 := 0;
   signal y_count : integer range 0 to 1023 := 0;
-  -- The frame: `rows` lines of the standard's clocks, and line_rem clocks
-  -- more (or, negative, fewer) in the four lines before vsync. frame_len is
-  -- the sum. They change a few clocks after a lock_toggle, which comes early
-  -- in line 0: so the frame that has just begun is the one that makes up for
-  -- what the lock found.
-  signal rows : integer range 0 to 2047 := ROWS_PAL;
-  -- The lines the picture is laid out over: `rows`, but where that goes up
-  -- by one now and then (frames of whole lines only), the lesser of the two,
-  -- or the picture would be a line taller at the bottom in the longer ones
-  signal rows_v : integer range 0 to 2047 := ROWS_PAL;
-  signal line_rem : integer range -1024 to 2047 := REM_PAL;
-  signal frame_len : unsigned(21 downto 0) := to_unsigned(ROWS_PAL * LINE_PAL + REM_PAL,22);
-  signal extra : integer range -1024 to 2047 := 0;  -- clocks more in the line running
-
   signal pos_count : unsigned(21 downto 0) := to_unsigned(0,22);      -- clocks since x_count and y_count were 0
-  signal period_count : unsigned(21 downto 0) := to_unsigned(0,22);   -- clocks since the last lock_toggle
-  signal period_prev : unsigned(21 downto 0) := to_unsigned(0,22);    -- between the two before it
-  -- The input's frame in clocks: what two measurements in a row agreed on
-  signal frame_base : unsigned(21 downto 0) := to_unsigned(ROWS_PAL * LINE_PAL + REM_PAL,22);
 
-  -- a lock_toggle being dealt with: where the output was, how long since
-  -- the one before, how far out that is
+  -- a lock_toggle being dealt with: where the output was, how far out that is
   signal lock_step : unsigned(1 downto 0) := "00";
   signal lock_pos : unsigned(21 downto 0) := to_unsigned(0,22);
-  signal lock_period : unsigned(21 downto 0) := to_unsigned(0,22);
   signal lock_was_on : std_logic := '0';
   signal lock_err : integer range -4194304 to 4194303 := 0;
 
-  -- frame length over the line's, a bit a clock
-  signal div_busy : std_logic := '0';
-  signal div_apply : std_logic := '0';     -- its result is still to be taken
-  signal div_frame : unsigned(21 downto 0) := to_unsigned(0,22);
-  signal div_rem : unsigned(22 downto 0) := to_unsigned(0,23);
-  signal div_by : unsigned(22 downto 0) := to_unsigned(0,23);
-  signal div_q : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal div_bit : integer range 0 to 11 := 0;
+  -- The pixel clock's trim, a PI loop on lock_err. One step of the MMCM's
+  -- fine phase shift is 1/56 of its VCO's period, 1/560 of a pixel clock's;
+  -- at a rate of 2^24 a 270 MHz clock that comes to 5.74e-4 clocks a PAL
+  -- frame per unit of the rate. PAL at 74.375 MHz is 120 clocks a frame
+  -- fast (1,485,120 for 1,485,000): 209,118 to start from. NTSC at 74.0625
+  -- MHz is 464 fast (1,237,964 for 1,237,500), 4.80e-4 a unit: 964,051.
+  -- With interlace, PAL at exactly 74.25 MHz needs none, and NTSC (525
+  -- lines, 59.94 Hz) at 74.1667 MHz is 123 ppm slow: -318,616.
+  constant PS_RATE_MAX : integer := 1200000;   -- a step every 14 clocks (PSDONE takes 12)
+  type seeds_t is array(0 to 3) of integer range -PS_RATE_MAX to PS_RATE_MAX;
+  constant PS_SEED : seeds_t := (209135, 0, 964051, -318616);
+  constant PS_KP : integer := 512;
+  constant PS_KI : integer := 64;
+  signal ps_i : integer range -PS_RATE_MAX to PS_RATE_MAX := 0;
+  signal ps_r : signed(21 downto 0) := to_signed(0,22);
+  signal ps_t : std_logic := '0';
+  signal clk_mode_i : std_logic_vector(1 downto 0) := "00";
+
 
   -- down the frame: the input's line (from geo_start) that the output's line
-  -- begins in, and how far into it, in `rows`ths
+  -- begins in, and how far into it, in ROWSths
   signal src_line : integer range 0 to 2047 := 0;
   signal v_acc : integer range 0 to 1499 := 0;
   signal target_raster : unsigned(1 downto 0) := "00";
@@ -343,6 +300,10 @@ architecture hundertwasser of upscaler is
 
 begin
 
+  ps_rate <= ps_r;
+  ps_tg <= ps_t;
+  clk_mode <= clk_mode_i;
+
   cdc_pal : xpm_cdc_single
     port map (
       src_in => pal50_select,
@@ -367,13 +328,6 @@ begin
       dest_out => hd_en_74
       );
 
-  cdc_whole : xpm_cdc_single
-    port map (
-      src_in => whole_lines,
-      src_clk => clock27,
-      dest_clk => clock74p22,
-      dest_out => whole_lines_74
-      );
 
   cdc_narrow : xpm_cdc_single
     port map (
@@ -499,10 +453,10 @@ begin
         -- The frame that ends here says where the next one's picture is: its
         -- middle goes to the middle of the output, which is 0.48 of the
         -- input's frame after the output's line 0 (360 lines of some 750).
-        -- (A frame of that many lines or more is not one to upscale, and one
+        -- (A frame of 750 lines or more is not one to upscale, and one
         -- that is no frame at all comes by when the machine starts: the
         -- figures stay as they were.)
-        if in_line >= 400 and in_line < ROWS_MIN and in_active <= in_line then
+        if in_line >= 400 and in_line < ROWS and in_active <= in_line then
           geo_lines <= in_line;
           geo_active <= in_active;
           start := to_integer(in_first) + to_integer(in_active) / 2
@@ -525,8 +479,10 @@ begin
   end process;
 
   process (clock74p22) is
-    variable wanted : unsigned(21 downto 0);
     variable restart : boolean;
+    variable mode : std_logic_vector(1 downto 0);
+    variable m : integer range -4095 to 4095;
+    variable pi : integer range -8388608 to 8388607;
     variable hsum : unsigned(16 downto 0);
     variable pa : unsigned(23 downto 0);
     variable hs_on : integer range 0 to 2047;
@@ -536,27 +492,17 @@ begin
     variable h_step : integer range 0 to 65536;
     variable last_cell : integer range 0 to 1023;
     variable line_std : integer range 0 to 2047;
-    variable rows_nom : integer range 0 to 2047;
-    variable rem_nom : integer range -1024 to 2047;
-    variable q : integer range 0 to 2047;
-    variable r : integer range 0 to 2047;
-    variable up : boolean;
-    variable no_fill : boolean;
-    variable fill_first : integer range -64 to 2047;
-    variable fill_n : integer range 1 to 4;
-    variable fill_each : integer range 0 to 2047;
-    variable fill_odd : integer range 0 to 3;
   begin
     if rising_edge(clock74p22) then
 
       if pal50_int = '1' then
         hs_on := HSYNC_ON_PAL; hs_off := HSYNC_OFF_PAL;
         pic_left := PIC_LEFT_PAL; pic_width := PIC_WIDTH_PAL; h_step := H_STEP_PAL;
-        line_std := LINE_PAL; rows_nom := ROWS_PAL; rem_nom := REM_PAL;
+        line_std := LINE_PAL;
       else
         hs_on := HSYNC_ON_NTSC; hs_off := HSYNC_OFF_NTSC;
         pic_left := PIC_LEFT_NTSC; pic_width := PIC_WIDTH_NTSC; h_step := H_STEP_NTSC;
-        line_std := LINE_NTSC; rows_nom := ROWS_NTSC; rem_nom := REM_NTSC;
+        line_std := LINE_NTSC;
       end if;
       last_cell := SRC_LAST;
       if narrow_74 = '1' then
@@ -570,65 +516,20 @@ begin
         last_cell := pic_width - 1;
       end if;
 
-      -- The (up to) four lines before vsync that take up the frame's odd
-      -- clocks: none of them a line that another line of pixels follows
-      no_fill := whole_lines_74 = '1';
-      fill_first := rows - FILL_FIRST_BEFORE;
-      fill_n := 4;
-      if fill_first < OUT_HEIGHT - 1 then
-        fill_first := OUT_HEIGHT - 1;
-        if rows - FILL_LAST_BEFORE - (OUT_HEIGHT - 1) + 1 >= 1 then
-          fill_n := rows - FILL_LAST_BEFORE - (OUT_HEIGHT - 1) + 1;
-        else
-          fill_n := 1;
-        end if;
-      end if;
-
       -------------------------------------------------------------------------
-      -- The frame
+      -- The frame: the standard's raster, ROWS lines of line_std clocks
 
       pos_count <= pos_count + 1;
-      if period_count /= 4194303 then
-        period_count <= period_count + 1;
-      end if;
-
-      if x_count < line_std + extra - 1 then
+      if x_count < line_std - 1 then
         x_count <= x_count + 1;
       else
         x_count <= 0;
-        if y_count < rows - 1 then
+        if y_count < ROWS - 1 then
           y_count <= y_count + 1;
-          -- (line_rem clocks over four lines: a quarter each, and what does
-          -- not divide by four a clock each to the first of them)
-          if no_fill then
-            extra <= 0;
-          elsif y_count + 1 >= fill_first and y_count + 1 < fill_first + fill_n then
-            if line_rem >= 0 then
-              fill_each := line_rem;
-            else
-              fill_each := -line_rem;
-            end if;
-            case fill_n is
-              when 4 => fill_odd := fill_each mod 4; fill_each := fill_each / 4;
-              when 3 => fill_odd := fill_each mod 3; fill_each := fill_each / 3;
-              when 2 => fill_odd := fill_each mod 2; fill_each := fill_each / 2;
-              when others => fill_odd := 0;
-            end case;
-            if fill_odd > y_count + 1 - fill_first then
-              fill_each := fill_each + 1;
-            end if;
-            if line_rem >= 0 then
-              extra <= fill_each;
-            else
-              extra <= -fill_each;
-            end if;
-          else
-            extra <= 0;
-          end if;
-          -- The next line of the output is v_lines / rows of a line of the
+          -- The next line of the output is v_lines / ROWS of a line of the
           -- input further down
-          if v_acc + v_lines >= rows_v then
-            v_acc <= v_acc + v_lines - rows_v;
+          if v_acc + v_lines >= ROWS then
+            v_acc <= v_acc + v_lines - ROWS;
             src_line <= src_line + 1;
             target_raster <= target_raster + 1;
           else
@@ -637,7 +538,6 @@ begin
         else
           y_count <= 0;
           pos_count <= to_unsigned(0,22);
-          extra <= 0;
           v_acc <= 0;
           src_line <= 0;
           target_raster <= "00";
@@ -646,10 +546,10 @@ begin
 
       if x_count = hs_on then
         hsync_up <= '1';
-        if y_count + VSYNC_ON_BEFORE = rows then
+        if y_count + VSYNC_ON_BEFORE = ROWS then
           vsync_up <= '1';
         end if;
-        if y_count + VSYNC_OFF_BEFORE = rows then
+        if y_count + VSYNC_OFF_BEFORE = ROWS then
           vsync_up <= '0';
         end if;
       end if;
@@ -665,52 +565,6 @@ begin
       -------------------------------------------------------------------------
       -- The lock
 
-      -- frame length / the line's: how many lines, and how many clocks over
-      if div_busy = '1' then
-        if div_rem >= div_by then
-          div_rem <= div_rem - div_by;
-          div_q(div_bit) <= '1';
-        else
-          div_q(div_bit) <= '0';
-        end if;
-        div_by <= '0' & div_by(22 downto 1);
-        if div_bit /= 0 then
-          div_bit <= div_bit - 1;
-        else
-          div_busy <= '0';
-        end if;
-      end if;
-      if div_busy = '0' and div_apply = '1' then
-        div_apply <= '0';
-        -- To the nearest line, if the lines before vsync can be that many
-        -- clocks shorter; else a line fewer, and they are longer
-        q := to_integer(div_q(10 downto 0));
-        r := to_integer(div_rem(10 downto 0));
-        up := r > line_std / 2 and (no_fill or line_std - r <= FILL_MOST_FEWER * fill_n);
-        if up then
-          q := q + 1;
-        end if;
-        if q >= ROWS_MIN and q <= ROWS_MAX then
-          rows <= q;
-          if not no_fill or q < rows_v or q > rows_v + 1 then
-            rows_v <= q;
-          end if;
-          if no_fill then
-            line_rem <= 0;
-          elsif up then
-            line_rem <= r - line_std;
-          else
-            line_rem <= r;
-          end if;
-          frame_len <= div_frame;
-        else
-          rows <= rows_nom;
-          rows_v <= rows_nom;
-          line_rem <= rem_nom;
-          frame_len <= to_unsigned(rows_nom * line_std + rem_nom,22);
-        end if;
-      end if;
-
       -- A lock_toggle, taken over three clocks. In the first, what the
       -- counters say:
       lock_step <= "00";
@@ -722,81 +576,70 @@ begin
         v_skip <= to_integer(unsigned(geo_74(21 downto 11)));
         v_active <= to_integer(unsigned(geo_74(10 downto 0)));
         lock_pos <= pos_count;
-        lock_period <= period_count + 1;
-        period_count <= to_unsigned(0,22);
         lock_was_on <= running;
         lock_step <= "01";
       end if;
 
-      -- In the second, what they mean
+      -- In the second, how far the output is past where it should be (or
+      -- short of it)
       if lock_step = "01" then
-        -- The input's frame, in this clock: two measurements that agree
-        period_prev <= lock_period;
-        if lock_period = period_prev then
-          frame_base <= lock_period;
-        end if;
-        -- How far the output is past where it should be (or short of it)
-        if lock_pos <= ('0' & frame_len(21 downto 1)) then
+        if lock_pos <= to_unsigned(ROWS * line_std / 2,22) then
           lock_err <= to_integer(lock_pos) - LOCK_X;
         else
-          lock_err <= to_integer(lock_pos) - to_integer(frame_len) - LOCK_X;
+          lock_err <= to_integer(lock_pos) - ROWS * line_std - LOCK_X;
         end if;
         lock_step <= "10";
       end if;
 
-      -- In the third, what is done about it
+      -- In the third, what is done about it: the clock trimmed, and when the
+      -- output is far out (it has just been switched on, the standard or
+      -- the clock has changed) a jump to where it should be
       if lock_step = "10" then
         restart := false;
-        wanted := frame_base;
+        mode(1) := not pal50_select_74;
+        if v_lines mod 2 = 1 then mode(0) := '1'; else mode(0) := '0'; end if;
+        if mode /= clk_mode_i then
+          -- (the clock stops while it changes, and the output is far out
+          -- when it is back: the jump then)
+          clk_mode_i <= mode;
+          restart := true;
+        end if;
         if pal50_int /= pal50_select_74 then
-          -- The other standard: from its own figures
           pal50_int <= pal50_select_74;
           restart := true;
-          period_prev <= to_unsigned(0,22);
-          if pal50_select_74 = '1' then
-            wanted := to_unsigned(ROWS_PAL * LINE_PAL + REM_PAL,22);
-            rows <= ROWS_PAL;
-            rows_v <= ROWS_PAL;
-            line_rem <= REM_PAL;
-          else
-            wanted := to_unsigned(ROWS_NTSC * LINE_NTSC + REM_NTSC,22);
-            rows <= ROWS_NTSC;
-            rows_v <= ROWS_NTSC;
-            line_rem <= REM_NTSC;
-          end if;
-          frame_len <= wanted;
-          frame_base <= wanted;
-        elsif lock_was_on = '0' or lock_err > LOCK_RESTART or lock_err < -LOCK_RESTART then
+        elsif lock_was_on = '0' then
           restart := true;
-        elsif lock_err > LOCK_DEAD or lock_err < -LOCK_DEAD then
-          wanted := to_unsigned(to_integer(frame_base) + lock_err,22);
+        elsif lock_err > LOCK_JUMP or lock_err < -LOCK_JUMP then
+          restart := true;
         end if;
+
+        -- PI on where the output is, from the standard's seed after a jump
+        if restart then
+          ps_i <= PS_SEED(to_integer(unsigned(mode)));
+          ps_r <= to_signed(PS_SEED(to_integer(unsigned(mode))),22);
+        else
+          if lock_err > 4095 then m := 4095; elsif lock_err < -4095 then m := -4095; else m := lock_err; end if;
+          pi := ps_i + PS_KI * m;
+          if pi > PS_RATE_MAX then pi := PS_RATE_MAX; elsif pi < -PS_RATE_MAX then pi := -PS_RATE_MAX; end if;
+          ps_i <= pi;
+          pi := pi + PS_KP * m;
+          if pi > PS_RATE_MAX then pi := PS_RATE_MAX; elsif pi < -PS_RATE_MAX then pi := -PS_RATE_MAX; end if;
+          ps_r <= to_signed(pi,22);
+        end if;
+        ps_t <= not ps_t;
+        -- pragma translate_off
+        report "lock: err " & integer'image(lock_err) & " rate " & integer'image(to_integer(ps_r)) & " i " & integer'image(ps_i);
+        -- pragma translate_on
 
         if restart then
           -- (two clocks after the lock_toggle)
           x_count <= LOCK_X + 2;
           y_count <= 0;
           pos_count <= to_unsigned(LOCK_X + 2,22);
-          extra <= 0;
           v_acc <= 0;
           src_line <= 0;
           target_raster <= "00";
         end if;
-
-        div_frame <= wanted;
-        div_rem <= '0' & wanted;
-        -- (by the line that is in force, or, with the other standard just
-        -- chosen above, by its own)
-        if pal50_int = pal50_select_74 then
-          div_by <= to_unsigned(line_std * 1024,23);
-        elsif pal50_select_74 = '1' then
-          div_by <= to_unsigned(LINE_PAL * 1024,23);
-        else
-          div_by <= to_unsigned(LINE_NTSC * 1024,23);
-        end if;
-        div_bit <= 10;
-        div_busy <= '1';
-        div_apply <= '1';
       end if;
 
       -------------------------------------------------------------------------
