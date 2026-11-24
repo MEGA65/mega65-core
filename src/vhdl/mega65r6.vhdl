@@ -588,6 +588,10 @@ architecture Behavioral of container is
   signal hdmi_clk_mode : std_logic_vector(1 downto 0);
   signal hd_active : std_logic;       -- the upscaler's 720p picture is there (clock74p25)
   signal hd_active_sync : std_logic_vector(1 downto 0) := "00";
+  -- the 720p clock's setting (clock74p25), brought over: a change stops the clock
+  signal clk_mode_sync0 : std_logic_vector(1 downto 0) := "00";
+  signal clk_mode_sync1 : std_logic_vector(1 downto 0) := "00";
+  signal clk_mode_last : std_logic_vector(1 downto 0) := "00";
   signal hd_red : unsigned(7 downto 0);
   signal hd_green : unsigned(7 downto 0);
   signal hd_blue : unsigned(7 downto 0);
@@ -784,6 +788,20 @@ begin
           -- that the signal went away first, and some need to see it for a
           -- while.
           hdmi_switch_count <= to_unsigned(13500000,24);
+        end if;
+        -- The same when the 720p clock's setting changes (the standard, or
+        -- interlace): the clock stops and comes back at another rate, and a
+        -- display as strict as a Dell P1917S that sees that gives up on the
+        -- signal, where it takes half a second of nothing and then the new
+        -- one. (Bits seen the same in two clocks running: they may cross
+        -- a clock apart.)
+        clk_mode_sync0 <= hdmi_clk_mode;
+        clk_mode_sync1 <= clk_mode_sync0;
+        if clk_mode_sync1 = clk_mode_sync0 and clk_mode_sync1 /= clk_mode_last then
+          clk_mode_last <= clk_mode_sync1;
+          if hdmi_720p = '1' then
+            hdmi_switch_count <= to_unsigned(13500000,24);
+          end if;
         end if;
         if hdmi_switch_count /= 0 or dvi_reset = '1'
           or (hdmi_720p = '1' and hdmi_locked = '0') then

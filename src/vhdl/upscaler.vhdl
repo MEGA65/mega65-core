@@ -242,6 +242,7 @@ architecture hundertwasser of upscaler is
   signal ps_r : signed(21 downto 0) := to_signed(0,22);
   signal ps_t : std_logic := '0';
   signal clk_mode_i : std_logic_vector(1 downto 0) := "00";
+  signal clk_mode_seen : std_logic_vector(1 downto 0) := "00";   -- the setting the last frame asked for
 
 
   -- down the frame: the input's line (from geo_start) that the output's line
@@ -481,6 +482,7 @@ begin
   process (clock74p22) is
     variable restart : boolean;
     variable mode : std_logic_vector(1 downto 0);
+    variable cur : std_logic_vector(1 downto 0);
     variable m : integer range -4095 to 4095;
     variable pi : integer range -8388608 to 8388607;
     variable hsum : unsigned(16 downto 0);
@@ -598,7 +600,14 @@ begin
         restart := false;
         mode(1) := not pal50_select_74;
         if v_lines mod 2 = 1 then mode(0) := '1'; else mode(0) := '0'; end if;
-        if mode /= clk_mode_i then
+        -- (a setting asked for by two frames running: the frame in which
+        -- the standard changes has a line count of neither, an odd one
+        -- included, and every change stops the clock - a display has to
+        -- see that once, not twice)
+        clk_mode_seen <= mode;
+        cur := clk_mode_i;
+        if mode /= clk_mode_i and mode = clk_mode_seen then
+          cur := mode;
           -- (the clock stops while it changes, and the output is far out
           -- when it is back: the jump then)
           clk_mode_i <= mode;
@@ -613,10 +622,10 @@ begin
           restart := true;
         end if;
 
-        -- PI on where the output is, from the standard's seed after a jump
+        -- PI on where the output is, from the clock's seed after a jump
         if restart then
-          ps_i <= PS_SEED(to_integer(unsigned(mode)));
-          ps_r <= to_signed(PS_SEED(to_integer(unsigned(mode))),22);
+          ps_i <= PS_SEED(to_integer(unsigned(cur)));
+          ps_r <= to_signed(PS_SEED(to_integer(unsigned(cur))),22);
         else
           if lock_err > 4095 then m := 4095; elsif lock_err < -4095 then m := -4095; else m := lock_err; end if;
           pi := ps_i + PS_KI * m;

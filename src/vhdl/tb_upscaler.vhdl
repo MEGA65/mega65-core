@@ -37,6 +37,7 @@ entity tb_upscaler is
     -- half period of 81 MHz (27 MHz x 3)
     HALF81     : time := 6172848 fs;
     PS_GAIN    : real := 1.0;     -- how much the trim really does (the loop has to cope)
+    DRP_GAP    : time := 0 ns;    -- how long the clock stops when clk_mode changes (the MMCM in reset, relocking)
     FRAMES     : integer := 6;
     ENABLE_AT  : integer := 1;      -- the input frame in which upscale_en rises
     DISABLE_AT : integer := 0;      -- and the one in which it falls again (0: never)
@@ -98,7 +99,16 @@ begin
   -- R x 270e6 / 2^24 / (560 x f) longer (3.864e-10 x R in PAL)
   process
     variable f : real;
+    variable last : std_logic_vector(1 downto 0) := "UU";
   begin
+    if last /= "UU" and clk_mode /= last then
+      report "clock setting " & to_string(last) & " -> " & to_string(clk_mode);
+    end if;
+    if DRP_GAP > 0 ns and last /= "UU" and clk_mode /= last then
+      clock74 <= '0';
+      wait for DRP_GAP;
+    end if;
+    last := clk_mode;
     case clk_mode is
       when "00" => f := 74.375e6;
       when "01" => f := 74.25e6;

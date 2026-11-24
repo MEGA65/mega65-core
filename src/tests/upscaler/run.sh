@@ -12,6 +12,9 @@
 #           1980 x 750
 #   ntsci   NTSC with interlace on: 525 lines
 #   switch  PAL, then NTSC, the upscaler on all the while
+#   switchg the same with the clock stopped for 100 us at each change of its
+#           setting (mmcm_hdmi in reset for the DRP, then relocking)
+#   switchn NTSC, then PAL, the same way
 #   hd      NTSC, the 720p picture asked for by hd_en and taken from the
 #           hd_ outputs, upscale_en off (HDMI at 720p, VGA as it is)
 #   narrow  NTSC with the picture narrower, 680 pixels for 912 (for a 21:9
@@ -44,18 +47,21 @@ one() {
     nvc -L . --std=2008 --work=work:work -e $g -gOUTFILE="$name.out" tb_upscaler >/dev/null
     nvc -L . --std=2008 --work=work:work -r tb_upscaler >"$name.log" 2>&1 || { cat "$name.log"; exit 1; }
     grep -o "lock: .*" "$name.log" | tail -30 || true
+    grep -o "clock setting .*" "$name.log" || true
     echo "== $name"
     python3 "$here/check.py" "$name.out" $std $first $how
 }
 
 fail=0
-for c in ${@:-pal ntsc pali ntsci switch hd narrow palnarrow gain9}; do
+for c in ${@:-pal ntsc pali ntsci switch switchg switchn hd narrow palnarrow gain9}; do
     case $c in
     pal)    one pal pal 2 ENABLE_AT=3 FRAMES=5 || fail=1 ;;
     ntsc)   one ntsc ntsc 2 PAL=false ENABLE_AT=4 FRAMES=5 || fail=1 ;;
     pali)   one pali pal 2 INTERLACE=true ENABLE_AT=4 FRAMES=5 || fail=1 ;;
     ntsci)  one ntsci ntsc 2 PAL=false INTERLACE=true ENABLE_AT=4 FRAMES=8 DUMP_FRAME=6 || fail=1 ;;
     switch) one switch ntsc 8 ENABLE_AT=2 SWITCH_AT=5 FRAMES=11 DUMP_FRAME=10 || fail=1 ;;
+    switchg) one switchg ntsc 8 ENABLE_AT=2 SWITCH_AT=5 FRAMES=11 DUMP_FRAME=10 DRP_GAP=100us || fail=1 ;;
+    switchn) one switchn pal 8 PAL=false ENABLE_AT=2 SWITCH_AT=5 FRAMES=11 DUMP_FRAME=10 DRP_GAP=100us || fail=1 ;;
     hd)     one hd ntsc 2 PAL=false HD_ONLY=true ENABLE_AT=4 FRAMES=5 || fail=1 ;;
     narrow) one narrow ntsc 2 PAL=false NARROW=true ENABLE_AT=4 FRAMES=8 DUMP_FRAME=6 || fail=1 ;;
     palnarrow) one palnarrow pal 2 NARROW=true ENABLE_AT=3 FRAMES=5 || fail=1 ;;
