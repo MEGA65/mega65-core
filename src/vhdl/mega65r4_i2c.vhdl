@@ -138,7 +138,12 @@
 -- @IO:GS $FFD713C.0-4 RTC-R4:TSEVIMonth Time Stamp THigh Register: TS TLow Month
 -- @IO:GS $FFD713D RTC-R4:TSEVIYear Time Stamp THigh Register: TS TLow Year
 --
--- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+-- @IO:GS $FFD7140-$FFD714C RTC-R4:RSVD RV-3032 registers $30-$3C. Not storage.
+-- @IO:GS $FFD714D RTC-R4:EEADDR RV-3032 EEPROM address register ($3D)
+-- @IO:GS $FFD714E RTC-R4:EEDATA RV-3032 EEPROM data register ($3E)
+-- @IO:GS $FFD714F RTC-R4:EECMD RV-3032 EEPROM command register ($3F). Writing here can start EEPROM operations.
+-- @IO:GS $FFD7150-$FFD715F RTC-R4:NVRAM 16 bytes of battery-backed user RAM (RV-3032 registers $40-$4F). A write is sent to the RTC once per I2C polling pass (several ms), and only the most recent pending write is kept, so allow time between writes and before reading back.
+-- @IO:GS $FFD7160-$FFD717F RTC-R4:RSVD RV-3032 registers $50-$6F. Not storage.
 
 use WORK.ALL;
 
@@ -409,9 +414,14 @@ begin
             if busy_count = 11 then
               rtc_prev2 <= rtc_prev1;
             end if;
-            if busy_count >= 13 and busy_count < (13+8) then
+            -- Data for RTC register n arrives at busy_count = 12 + n (the
+            -- same latency as the generic store below), so capture the
+            -- first 8 registers at 12 .. 19. Starting at 13 lost register
+            -- $00 (100ths of seconds) and pushed register $08 (alarm
+            -- minutes) into rtc_prev1(8), outside the array.
+            if busy_count >= 12 and busy_count < (12+8) then
               rtc_prev1(busy_count-12) <= i2c1_rdata;
-            elsif busy_count >= (13 + 8) then
+            elsif busy_count >= (12 + 8) then
               bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
             end if;
             -- Remap RTC registers to match those on the R3
