@@ -183,3 +183,102 @@ check registers
 dump instructions 1587000 to 1588000
 test end
 
+
+####################################################################
+#
+# Working directory: trap_dos_getcwd, trap_dos_restorecwd and the
+# directory that the Ethernet remote trap saves before it changes to
+# the root directory
+#
+####################################################################
+test "dos_save_cwd remembers the current disk and working directory"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+poke dos_disk_current_disk $01
+poke dos_disk_cwd_cluster $78 $56 $34 $12
+jsr dos_save_cwd
+expect $01 at dos_saved_cwd_disk
+expect $78 at dos_saved_cwd_cluster
+expect $56 at dos_saved_cwd_cluster+1
+expect $34 at dos_saved_cwd_cluster+2
+expect $12 at dos_saved_cwd_cluster+3
+check ram
+test end
+
+test "trap_dos_getcwd returns the working directory cluster in Q"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+poke dos_disk_cwd_cluster $78 $56 $34 $12
+breakpoint return_from_trap_with_success
+jmp trap_dos_getcwd
+expect $78 at $ffd3640
+expect $56 at $ffd3641
+expect $34 at $ffd3642
+expect $12 at $ffd3643
+ignore all regs
+check ram
+test end
+
+test "trap_dos_restorecwd returns to the saved disk and directory"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+poke dos_disk_count $02
+poke dos_disk_current_disk $00
+poke dos_disk_cwd_cluster $02 $00 $00 $00
+poke dos_saved_cwd_disk $01
+poke dos_saved_cwd_cluster $78 $56 $34 $12
+breakpoint return_from_trap_with_success_and_zero_accumulator
+jmp trap_dos_restorecwd
+ignore from HyppoStack_Start to HyppoStack_Start+$ff
+ignore from $ffd3640 to $ffd3643
+expect $01 at dos_disk_current_disk
+expect $20 at dos_disk_table_offset
+expect $78 at dos_disk_cwd_cluster
+expect $56 at dos_disk_cwd_cluster+1
+expect $34 at dos_disk_cwd_cluster+2
+expect $12 at dos_disk_cwd_cluster+3
+ignore all regs
+check ram
+test end
+
+test "trap_dos_restorecwd treats cluster 0 as the root directory"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+poke dos_disk_count $02
+poke $fffbb30 $0b $00
+poke dos_disk_cwd_cluster $78 $56 $34 $12
+poke dos_saved_cwd_disk $01
+breakpoint return_from_trap_with_success_and_zero_accumulator
+jmp trap_dos_restorecwd
+ignore from HyppoStack_Start to HyppoStack_Start+$ff
+ignore from $ffd3640 to $ffd3643
+expect $01 at dos_disk_current_disk
+expect $20 at dos_disk_table_offset
+expect $0b at dos_disk_cwd_cluster
+expect $00 at dos_disk_cwd_cluster+1
+expect $00 at dos_disk_cwd_cluster+2
+expect $00 at dos_disk_cwd_cluster+3
+ignore all regs
+check ram
+test end
+
+test "trap_dos_restorecwd fails for a disk that does not exist"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+log on failure
+poke dos_disk_count $01
+poke dos_disk_cwd_cluster $02 $00 $00 $00
+poke dos_saved_cwd_disk $03
+poke dos_saved_cwd_cluster $78 $56 $34 $12
+breakpoint return_from_trap_with_failure
+jmp trap_dos_restorecwd
+ignore from HyppoStack_Start to HyppoStack_Start+$ff
+ignore from $ffd3640 to $ffd3643
+expect $80 at dos_error_code
+ignore all regs
+check ram
+test end

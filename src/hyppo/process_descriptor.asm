@@ -54,6 +54,15 @@ currenttask_d81_image1_name:
 dos_stashed_sd_sector_number:
         !8 0,0,0,0
 
+        ;; Disk and working directory (cluster number) that were current
+        ;; when the Ethernet remote trap changed to the root directory to
+        ;; load ETHLOAD.M65. trap_dos_restorecwd returns to them.
+        ;; Cluster 0 means the root directory.
+dos_saved_cwd_disk:
+        !8 0
+dos_saved_cwd_cluster:
+        !8 0,0,0,0
+
 
         ;; Make sure we don't over-flow the available space
         * = start + $80
