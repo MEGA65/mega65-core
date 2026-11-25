@@ -2205,6 +2205,15 @@ dos_clearall:
 dca1:   sta dos_disk_table,x
         inx
         bne dca1
+
+        ;; Forget the saved working directory: after an SD card reset or a
+        ;; card change its cluster could point anywhere on the new card, and
+        ;; trap_dos_restorecwd then returns to the root directory (cluster 0)
+        sta dos_saved_cwd_disk
+        sta dos_saved_cwd_cluster+0
+        sta dos_saved_cwd_cluster+1
+        sta dos_saved_cwd_cluster+2
+        sta dos_saved_cwd_cluster+3
         sec
         rts
 
