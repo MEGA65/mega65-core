@@ -1405,7 +1405,9 @@ begin
       if audio_counter < to_integer(audio_counter_interval) then
         audio_counter <= audio_counter + 4;
       else
-        audio_counter <= audio_counter - to_integer(audio_counter_interval);
+        -- This clock counts as well. Without the + 4 every period is one clock too
+        -- long, 844.75 and not 843.75: 47 943 samples a second, not 48 000.
+        audio_counter <= audio_counter + 4 - to_integer(audio_counter_interval);
         sample_ready_toggle <= not sample_ready_toggle;
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
