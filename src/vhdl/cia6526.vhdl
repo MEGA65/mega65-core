@@ -77,13 +77,20 @@ architecture behavioural of cia6526 is
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
-  signal reg_timera : unsigned(15 downto 0) := x"0001";
-  signal reg_timera_visible : unsigned(15 downto 0) := x"0001";
-  signal reg_timera_latch : unsigned(15 downto 0) := x"0001";
+  -- A 6526's timers and their latches are all ones after reset, and software
+  -- counts on it: BASIC 65 up to V920413 reads TI in its cold start before it
+  -- has set CIA 2's timers up, and waits there for timer A's low byte to be
+  -- $40 or more. From $0001 and $0000 (what these were) it never is, now that
+  -- a read no longer shows the $FFFF the counter passes through on its way
+  -- round (the _visible registers, #899): the machine stayed on a blue
+  -- screen.
+  signal reg_timera : unsigned(15 downto 0) := x"FFFF";
+  signal reg_timera_visible : unsigned(15 downto 0) := x"FFFF";
+  signal reg_timera_latch : unsigned(15 downto 0) := x"FFFF";
 
-  signal reg_timerb : unsigned(15 downto 0) := x"0000";
-  signal reg_timerb_visible : unsigned(15 downto 0) := x"0000";
-  signal reg_timerb_latch : unsigned(15 downto 0) := x"0000";
+  signal reg_timerb : unsigned(15 downto 0) := x"FFFF";
+  signal reg_timerb_visible : unsigned(15 downto 0) := x"FFFF";
+  signal reg_timerb_latch : unsigned(15 downto 0) := x"FFFF";
 
   signal reg_timera_tick_source : std_logic := '0'; 
   signal reg_timera_oneshot : std_logic := '0';

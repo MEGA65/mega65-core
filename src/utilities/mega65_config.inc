@@ -204,6 +204,25 @@ videoOptions0:
 	.defPStr	"off"
 	.defPStr	"on"
 
+;	$D61A bit 5, on the boards whose design has it: the digital
+;	video at 720p, for the displays that will not show 576p or 480p
+;	as 4:3
+	.byte		$20
+	.word		$000D
+	.byte		$20
+	.defPStr	"digital video size:"
+	.defPStr	"576p or 480p"
+	.defPStr	"720p (4:3 within 16:9)"
+
+;	$D61A bit 0: the 720p picture narrower, to be 4:3 on a 21:9 display
+;	that stretches 16:9 over all its width
+	.byte		$20
+	.word		$000D
+	.byte		$01
+	.defPStr	"720p made for:"
+	.defPStr	"a 16:9 display"
+	.defPStr	"a 21:9 display"
+
 	.byte		$00
 videoOptions0_end:
 	.assert		(videoOptions0_end - videoOptions0) < 256, error, "Video Options 0 too large!"

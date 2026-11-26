@@ -1,27 +1,26 @@
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
 use IEEE.numeric_std.ALL;
 
 library xpm;
 use xpm.vcomponents.ALL;
 
-library unisim;
-use unisim.vcomponents.all;
-
 entity upscaler is
   port (
-    -- Input and output pixel clocks
+    -- Input and output pixel clocks. The output clock is 720p's, near 74.25
+    -- MHz, and the output is locked to the input by trimming it (ps_rate).
     clock27 : in std_logic;
     clock74p22 : in std_logic;
 
     -- Change behaviour
     hold_image : in std_logic;
 
-    ntsc_inc_coarse : in std_logic;
-    ntsc_dec_coarse : in std_logic;
-    ntsc_inc_fine : in std_logic;
-    ntsc_dec_fine : in std_logic;
+    -- (The lock is measured now: these eight and vlock_en do nothing, and
+    -- are here for the designs that connect them.)
+    ntsc_inc_coarse : in std_logic := '0';
+    ntsc_dec_coarse : in std_logic := '0';
+    ntsc_inc_fine : in std_logic := '0';
+    ntsc_dec_fine : in std_logic := '0';
 
     pal_inc_coarse : in std_logic := '0';
     pal_dec_coarse : in std_logic := '0';
@@ -32,7 +31,8 @@ entity upscaler is
     -- PAL or NTSC mode
     pal50_select : in std_logic;
 
-    -- Upscale enable/disable
+    -- Upscale enable/disable: the outputs below are the 720p picture, or the
+    -- input as it is
     upscale_en : in std_logic;
     -- XXX DEBUG: Allow disabling VBLANK locking of output to input
     vlock_en : in std_logic := '1';
@@ -49,216 +49,318 @@ entity upscaler is
     green_out : out unsigned(7 downto 0);
     blue_out : out unsigned(7 downto 0);
     hsync_out : out std_logic;
-    vsync_out : out std_logic
+    vsync_out : out std_logic;
+
+    -- How fast to trim the 720p pixel clock (clock74p22's domain), for
+    -- clocking's hdmi_ps_rate and hdmi_ps_tg: the MMCM's fine phase shift
+    -- steps per 2^24 clocks of the phase shifter's clock, positive = later
+    -- (the clock slower). ps_tg toggles after each new value (once a frame
+    -- of the input).
+    ps_rate : out signed(21 downto 0);
+    ps_tg : out std_logic;
+    -- And which of clocking's four settings to trim (hdmi_mode): bit 1 NTSC,
+    -- bit 0 a frame of an odd number of lines (625 or 525: interlace on)
+    clk_mode : out std_logic_vector(1 downto 0);
+
+    -- The picture narrower (clock27's domain), for a display of 21:9 that
+    -- stretches a 16:9 picture over all its width: see NARROW_WIDTH below.
+    narrow : in std_logic := '0';
+
+    -- The 720p picture by itself, for something that wants it whether or not
+    -- the outputs above are it (HDMI at 720p beside VGA as it is): hd_en asks
+    -- for it, and hd_active is '1' while it is there, from the start of a
+    -- frame on. All in clock74p22's domain, but hd_en, which is clock27's.
+    hd_en : in std_logic := '0';
+    hd_active : out std_logic;
+    hd_pixelvalid : out std_logic;
+    hd_red : out unsigned(7 downto 0);
+    hd_green : out unsigned(7 downto 0);
+    hd_blue : out unsigned(7 downto 0);
+    hd_hsync : out std_logic;
+    hd_vsync : out std_logic
 
     );
 end entity;
 
 architecture hundertwasser of upscaler is
 
-  signal write_en : std_logic_vector(3 downto 0) := "0000";
-  signal write_addr : unsigned(9 downto 0);
-  type u10_array_t is array(0 to 3) of unsigned(9 downto 0);
-  signal read_addr : u10_array_t;
-  type u32_array_t is array(0 to 3) of unsigned(31 downto 0);
-  signal rdata : u32_array_t;
-  signal rdata_buf0 : unsigned(31 downto 0);
-  signal rdata_buf1 : unsigned(31 downto 0);
-  signal rdata_buf2 : unsigned(31 downto 0);
-  signal rdata_buf3 : unsigned(31 downto 0);
+  -- 720p as it goes out (CTA-861 formats 19 and 4). x_count is 0 at a line's
+  -- first pixel and y_count 0 on the first line of pixels.
+  --   50 Hz: 1280 1720 1760 1980, 720 725 730 750, both syncs positive
+  --   60 Hz: 1280 1390 1430 1650, 720 725 730 750
+  -- A frame out has to last as long as a frame in, and the MEGA65's frames
+  -- are not 20 ms and 16.68 ms long: 624 lines and not 625 in PAL (without
+  -- interlace), 526 and not 525 in NTSC, 50.08 and 59.83 Hz. The raster is
+  -- the standard's all the same, to the clock: 750 lines of 1980 or 1650
+  -- clocks, and it is the pixel clock that is made to fit, a little faster
+  -- than 74.25 MHz in PAL and a little slower in NTSC (clocking's mmcm_hdmi,
+  -- trimmed by ps_rate). A strict display (a Dell P1917S, November 2026)
+  -- shows 720p only so: one line or a few clocks a line more or fewer, and
+  -- it reports a timing error; the rate itself it does not mind.
+  constant OUT_WIDTH : integer := 1280;
+  constant OUT_HEIGHT : integer := 720;
+  constant LINE_PAL : integer := 1980;
+  constant HSYNC_ON_PAL : integer := 1720;
+  constant HSYNC_OFF_PAL : integer := 1760;
+  constant LINE_NTSC : integer := 1650;
+  constant HSYNC_ON_NTSC : integer := 1390;
+  constant HSYNC_OFF_NTSC : integer := 1430;
+  constant ROWS : integer := 750;
+  -- From the end of the frame. Vsync changes with hsync's leading edge, as
+  -- the standard has it (the line that begins there is the one whose pixels
+  -- are y_count + 1): on in line 724, off in line 729.
+  constant VSYNC_ON_BEFORE : integer := 26;
+  constant VSYNC_OFF_BEFORE : integer := 21;
 
-  signal red_up : unsigned(7 downto 0);
-  signal green_up : unsigned(7 downto 0);
-  signal blue_up : unsigned(7 downto 0);
-  signal hsync_up : std_logic;
-  signal vsync_up : std_logic;
-  signal pixelvalid_up : std_logic;
+  -- The picture is as wide as a 4:3 screen would show it at the height it
+  -- has here (576 lines of 624 over 750, 480 of 526): 720 pixels over 924 in
+  -- PAL and 912 in NTSC, between black shoulders. H_STEP is 720 over that
+  -- width, in 65536ths: what one pixel out is of the pixels in.
+  constant SRC_LAST : integer := 719;
+  constant PIC_WIDTH_PAL : integer := 924;
+  constant PIC_LEFT_PAL : integer := (OUT_WIDTH - PIC_WIDTH_PAL) / 2;
+  constant H_STEP_PAL : integer := 51067;
+  constant PIC_WIDTH_NTSC : integer := 912;
+  constant PIC_LEFT_NTSC : integer := (OUT_WIDTH - PIC_WIDTH_NTSC) / 2;
+  constant H_STEP_NTSC : integer := 51739;
+  -- For a display of 21:9 that stretches 16:9 over all its width, as some do
+  -- (an ASUS PA348CGV with Adaptive-Sync on has no other way): the picture
+  -- narrower by what the display will widen it, 32/43 for 3440 x 1440, which
+  -- is 688 pixels in PAL and 680 in NTSC. That is fewer pixels than the 720
+  -- that come in, and the reading side reads one cell of the buffers a clock
+  -- and cannot skip one. So the writing side does it: it writes 688 or 680
+  -- cells a line, each the mix of the two pixels in that it lies between,
+  -- and the reading side shows a cell a pixel. NARROW_STEP is what a cell is
+  -- of the pixels in, less the one, in 65536ths (720/688 and 720/680).
+  constant NARROW_WIDTH_PAL : integer := 688;
+  constant NARROW_LEFT_PAL : integer := (OUT_WIDTH - NARROW_WIDTH_PAL) / 2;
+  constant NARROW_STEP_PAL : integer := 3048;
+  constant NARROW_WIDTH_NTSC : integer := 680;
+  constant NARROW_LEFT_NTSC : integer := (OUT_WIDTH - NARROW_WIDTH_NTSC) / 2;
+  constant NARROW_STEP_NTSC : integer := 3855;
+  -- Clocks from the address of a pixel's raster buffer cell to the pixel at
+  -- the output: address, RAM, the two lines chosen, their mix, the mix along
+  -- the line
+  constant H_PIPELINE : integer := 5;
 
-  signal write_raster : integer range 0 to 3 := 0;
+  -- THE LOCK. The writing side counts the input's lines from the start of
+  -- its vsync, and each frame finds the line it calls geo_start: the one
+  -- that is to be the output's line 0, so chosen that the input's lines with
+  -- pixels come out in the middle of the 720. From that line on the four
+  -- raster buffers are written in turn, beginning with buffer 0, and as the
+  -- line three after it begins, lock_toggle changes. The reading side is to
+  -- be LOCK_X clocks into its line 0 at that moment (two thirds of a line
+  -- of the input): then it reads a line and the one after it 2.3 lines
+  -- behind the writing (a sixth of a line more or less by the bottom of the
+  -- picture: 750 lines are not quite a whole number of the input's). That is the middle of what works, which in simulation is from
+  -- 1.5 lines behind (nearer, and it reads cells of the second line before
+  -- they are written) to 3 (further, and the first line is being written
+  -- again): more than half a line to spare either way, 1,300 clocks, where
+  -- the lock holds to 10. (LOCK_X has to be less than the shorter line.)
+  constant LOCK_X : integer := 1580;
+  -- Out by more than this many clocks at a lock_toggle (switched on, the
+  -- standard changed and with it where the input's lock_toggle comes, the
+  -- clock stopped while mmcm_hdmi changed it), the output starts again from
+  -- LOCK_X: one jump instead of a pull of seconds (the trim moves it some
+  -- 1,000 clocks a frame at most). Out by less, the clock is trimmed; once
+  -- locked it is out by less than 40.
+  constant LOCK_JUMP : integer := 2000;
+
+  ---------------------------------------------------------------------------
+  -- writing side (clock27)
+
   signal vsync_in_prev : std_logic := '0';
   signal hsync_in_prev : std_logic := '0';
+  signal pixelvalid_in_prev : std_logic := '0';
 
+  signal in_line : unsigned(10 downto 0) := to_unsigned(0,11);   -- lines since vsync began
+  signal in_first : unsigned(10 downto 0) := to_unsigned(0,11);  -- the first with pixels
+  signal in_active : unsigned(10 downto 0) := to_unsigned(0,11); -- how many have pixels
 
-  signal coeff0 : integer range 0 to 256 := 256;
-  signal coeff1 : integer range 0 to 256 := 0;
-  signal coeff2 : integer range 0 to 256 := 0;
-  signal coeff3 : integer range 0 to 256 := 0;
+  -- The frame before, kept for the frame that is running
+  signal geo_lines : unsigned(10 downto 0) := to_unsigned(624,11);
+  signal geo_active : unsigned(10 downto 0) := to_unsigned(576,11);
+  signal geo_start : unsigned(10 downto 0) := to_unsigned(32,11);
+  signal geo_skip : unsigned(10 downto 0) := to_unsigned(11,11);  -- lines from geo_start to the first with pixels
 
-  signal upscale_en_int : std_logic := '0';
+  signal write_raster : unsigned(1 downto 0) := "00";   -- the buffer of the line being counted
+  signal write_buf : unsigned(1 downto 0) := "00";      -- the buffer of the line being written
+  signal write_en : std_logic_vector(3 downto 0) := "0000";
+  signal write_addr : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal write_data : std_logic_vector(31 downto 0) := (others => '0');
+  -- narrow: the pixel before this one, and where the next cell to write is,
+  -- counted from that pixel (65536 and more: not before this one)
+  signal in_prev : unsigned(23 downto 0) := (others => '0');
+  signal narrow_acc : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal lock_toggle : std_logic := '0';
 
-  signal x_count : integer := 0;
-  signal y_count : integer := 0;
-  signal pal50_int : std_logic := '1';
-  signal frame_start_toggle : std_logic := '0';
-  signal last_frame_start_toggle : std_logic := '0';
-
-  signal raster_leap_cycle : integer range 0 to 2 := 0;
-  signal frame_leap_cycle : integer range 0 to 2 := 0;
-
-  -- PAL frame synchronisation counters
-  signal pal_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
-  signal last_pal_raster_counter : std_logic := '0';
-  signal pal_frame_counter : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal pal_frame_counter_8 : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal last_pal_frame_counter : std_logic := '0';
-
-  -- NTSC frame synchronisation counters
-  signal ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
-  signal last_ntsc_raster_counter : std_logic := '0';
-  signal ntsc_frame_counter : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal ntsc_frame_counter_1141 : unsigned(12 downto 0) := to_unsigned(0,13);
-  signal last_ntsc_frame_counter : std_logic := '0';
-
-  signal raster_in_toggle : std_logic := '0';
-  signal last_raster_in_toggle : std_logic := '0';
-  signal raster_0_writing : std_logic := '0';
-
-  signal target_raster : integer range 0 to 3 := 0;
-  signal last_raster_phase : std_logic := '0';
-  signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
-
-  -- Configurable parameters:
-  signal first_read_raster_pal : integer range 0 to 3 := 0;
-  signal first_read_raster_ntsc : integer range 0 to 3 := 0;
-
-  signal ntsc_coarse : unsigned(9 downto 0) := to_unsigned(284,10); -- / 1024ths
-  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(2623,12); --
-
-  -- PAL FUDGE FACTORS PART 1:
-  -- (See PAL FUDGE FACTORS PART 2 to explanation as to what's going on here)
-  -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
-  -- We have 104.48 or so cycles per frame too many
-  -- Well, reducing it by 104 got it to one excess frame 10 minutes, i.e.,
-  -- 1/3000.  That means
-  -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
-  -- signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8);
-
-  -- 200 is too little.
-  -- 250 too much.
-  -- 225 is very slightly too much
-  -- 220 is even more slightly too little
-  signal pal_coarse : unsigned(9 downto 0) := to_unsigned(222       -- This is
-                                                                  -- the fudge
-                                                                  -- factor
-                                                          ,10);
-  signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8); -- And this, too
-
-  -- 2^16 x rasters in / rasters out
-  -- PAL in = 625, NTSC in = 526, rasters out = 750
-  -- 625/750 x 2^16 = 54613.333
-  -- 526/750 x 2^16 = 45962.581
-  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54613,16);
-  signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45962,16);
+  ---------------------------------------------------------------------------
+  -- reading side (clock74p22)
 
   signal upscale_en_74 : std_logic;
+  signal hd_en_74 : std_logic;
+  signal narrow_74 : std_logic;
   signal pal50_select_74 : std_logic;
-  signal vlock_en_74 : std_logic;
-  signal frame_start_toggle_74 : std_logic;
-  signal raster_0_writing_74 : std_logic;
+  signal lock_toggle_74 : std_logic;
+  signal lock_toggle_last : std_logic := '0';
+  signal geo_in : std_logic_vector(32 downto 0);
+  signal geo_74 : std_logic_vector(32 downto 0);
 
-  signal reading_raster_0 : std_logic;
+  signal upscale_en_int : std_logic := '0';     -- the outputs are the 720p picture
+  signal running : std_logic := '0';            -- the 720p picture is wanted, by them or by hd_en
+  signal pal50_int : std_logic := '1';
 
-  signal zero : std_logic := '0';
-  signal zerov : std_logic_vector(0 downto 0) := (others => '0');
+  -- the picture's place in the input's frame, as of the last lock_toggle
+  signal v_lines : integer range 0 to 2047 := 624;
+  signal v_skip : integer range 0 to 2047 := 11;
+  signal v_active : integer range 0 to 2047 := 576;
 
+  signal x_count : integer range 0 to 4095 := 0;
+  signal y_count : integer range 0 to 1023 := 0;
+  signal pos_count : unsigned(21 downto 0) := to_unsigned(0,22);      -- clocks since x_count and y_count were 0
+
+  -- a lock_toggle being dealt with: where the output was, how far out that is
+  signal lock_step : unsigned(1 downto 0) := "00";
+  signal lock_pos : unsigned(21 downto 0) := to_unsigned(0,22);
+  signal lock_was_on : std_logic := '0';
+  signal lock_err : integer range -4194304 to 4194303 := 0;
+
+  -- The pixel clock's trim, a PI loop on lock_err. One step of the MMCM's
+  -- fine phase shift is 1/56 of its VCO's period, 1/560 of a pixel clock's;
+  -- at a rate of 2^24 a 270 MHz clock that comes to 5.74e-4 clocks a PAL
+  -- frame per unit of the rate. PAL at 74.375 MHz is 120 clocks a frame
+  -- fast (1,485,120 for 1,485,000): 209,118 to start from. NTSC at 74.0625
+  -- MHz is 464 fast (1,237,964 for 1,237,500), 4.80e-4 a unit: 964,051.
+  -- With interlace, PAL at exactly 74.25 MHz needs none, and NTSC (525
+  -- lines, 59.94 Hz) at 74.1667 MHz is 123 ppm slow: -318,616.
+  constant PS_RATE_MAX : integer := 1200000;   -- a step every 14 clocks (PSDONE takes 12)
+  type seeds_t is array(0 to 3) of integer range -PS_RATE_MAX to PS_RATE_MAX;
+  constant PS_SEED : seeds_t := (209135, 0, 964051, -318616);
+  constant PS_KP : integer := 512;
+  constant PS_KI : integer := 64;
+  signal ps_i : integer range -PS_RATE_MAX to PS_RATE_MAX := 0;
+  signal ps_r : signed(21 downto 0) := to_signed(0,22);
+  signal ps_t : std_logic := '0';
+  signal clk_mode_i : std_logic_vector(1 downto 0) := "00";
+  signal clk_mode_seen : std_logic_vector(1 downto 0) := "00";   -- the setting the last frame asked for
+
+
+  -- down the frame: the input's line (from geo_start) that the output's line
+  -- begins in, and how far into it, in ROWSths
+  signal src_line : integer range 0 to 2047 := 0;
+  signal v_acc : integer range 0 to 1499 := 0;
+  signal target_raster : unsigned(1 downto 0) := "00";
   signal raster_buf_active : std_logic_vector(3 downto 0) := "0000";
+  signal coeff1 : integer range 0 to 255 := 0;     -- of the line after, in 256ths
+  signal v_show : std_logic := '0';
 
-  signal cursor_start : integer := 0;
-  signal cursor_end : integer := 0;
+  -- along the line
+  signal h_run : std_logic := '0';
+  signal h_left : integer range 0 to 2047 := 0;
+  signal h_pos : unsigned(9 downto 0) := to_unsigned(0,10);    -- the input's pixel
+  signal h_frac : unsigned(15 downto 0) := to_unsigned(0,16);  -- and how far past it
+  signal h_new : std_logic := '0';                             -- it is not the last one's
+  signal read_addr : unsigned(9 downto 0) := to_unsigned(0,10);
+  type frac_array_t is array(0 to 3) of unsigned(5 downto 0);
+  signal p_valid : std_logic_vector(0 to 3) := "0000";
+  signal p_new : std_logic_vector(0 to 3) := "0000";
+  signal p_frac : frac_array_t := (others => to_unsigned(0,6));
 
-  signal ntsc_inc_fine_74 : std_logic := '0';
-  signal ntsc_dec_fine_74 : std_logic := '0';
-  signal ntsc_inc_coarse_74 : std_logic := '0';
-  signal ntsc_dec_coarse_74 : std_logic := '0';
+  type u32_array_t is array(0 to 3) of unsigned(31 downto 0);
+  signal rdata : u32_array_t;
+  signal rdata_a : unsigned(23 downto 0) := to_unsigned(0,24);   -- the line
+  signal rdata_b : unsigned(23 downto 0) := to_unsigned(0,24);   -- the line after
+  signal vmix : unsigned(23 downto 0) := to_unsigned(0,24);      -- the two mixed
+  signal vmix_prev : unsigned(23 downto 0) := to_unsigned(0,24); -- the pixel before
+  signal h_a : unsigned(23 downto 0) := to_unsigned(0,24);       -- the left one of the two being mixed
 
-  signal last_ntsc_inc_fine_74 : std_logic := '0';
-  signal last_ntsc_dec_fine_74 : std_logic := '0';
-  signal last_ntsc_inc_coarse_74 : std_logic := '0';
-  signal last_ntsc_dec_coarse_74 : std_logic := '0';
+  signal red_up : unsigned(7 downto 0) := x"00";
+  signal green_up : unsigned(7 downto 0) := x"00";
+  signal blue_up : unsigned(7 downto 0) := x"00";
+  signal hsync_up : std_logic := '0';
+  signal vsync_up : std_logic := '0';
+  signal pixelvalid_up : std_logic := '0';
 
-  signal pal_inc_fine_74 : std_logic := '0';
-  signal pal_dec_fine_74 : std_logic := '0';
-  signal pal_inc_coarse_74 : std_logic := '0';
-  signal pal_dec_coarse_74 : std_logic := '0';
+  -- a x (256 - c) + b x c, in 256ths, rounded
+  function mix256(a : unsigned(7 downto 0); b : unsigned(7 downto 0); c : integer range 0 to 255)
+    return unsigned is
+    variable s : integer range 0 to 65535;
+  begin
+    s := to_integer(a) * (256 - c) + to_integer(b) * c + 128;
+    return to_unsigned(s / 256, 8);
+  end function;
 
-  signal last_pal_inc_fine_74 : std_logic := '0';
-  signal last_pal_dec_fine_74 : std_logic := '0';
-  signal last_pal_inc_coarse_74 : std_logic := '0';
-  signal last_pal_dec_coarse_74 : std_logic := '0';
-
+  -- a x (64 - c) + b x c, in 64ths, rounded
+  function mix64(a : unsigned(7 downto 0); b : unsigned(7 downto 0); c : unsigned(5 downto 0))
+    return unsigned is
+    variable s : integer range 0 to 16383;
+  begin
+    s := to_integer(a) * (64 - to_integer(c)) + to_integer(b) * to_integer(c) + 32;
+    return to_unsigned(s / 64, 8);
+  end function;
 
 begin
 
-  cdcntsc0 : xpm_cdc_single
-    port map (
-        src_in => ntsc_inc_fine,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => ntsc_inc_fine_74
-    );
-  cdcntsc1 : xpm_cdc_single
-    port map (
-        src_in => ntsc_dec_fine,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => ntsc_dec_fine_74
-    );
+  ps_rate <= ps_r;
+  ps_tg <= ps_t;
+  clk_mode <= clk_mode_i;
 
-  cdcntsc2 : xpm_cdc_single
+  cdc_pal : xpm_cdc_single
     port map (
-        src_in => ntsc_inc_coarse,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => ntsc_inc_coarse_74
-    );
-  cdcntsc3 : xpm_cdc_single
-    port map (
-        src_in => ntsc_dec_coarse,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => ntsc_dec_coarse_74
-    );
+      src_in => pal50_select,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => pal50_select_74
+      );
 
-  xpm_cdc_single_inst0 : xpm_cdc_single
+  cdc_en : xpm_cdc_single
     port map (
-        src_in => pal50_select,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => pal50_select_74
-    );
+      src_in => upscale_en,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => upscale_en_74
+      );
 
-  xpm_cdc_single_inst2 : xpm_cdc_single
+  cdc_hd : xpm_cdc_single
     port map (
-        src_in => upscale_en,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => upscale_en_74
-    );
+      src_in => hd_en,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => hd_en_74
+      );
 
-  xpm_cdc_single_inst1 : xpm_cdc_single
+
+  cdc_narrow : xpm_cdc_single
     port map (
-        src_in => vlock_en,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => vlock_en_74
-    );
+      src_in => narrow,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => narrow_74
+      );
 
-  xpm_cdc_single_inst3 : xpm_cdc_single
+  cdc_lock : xpm_cdc_single
     port map (
-        src_in => frame_start_toggle,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => frame_start_toggle_74
-    );
+      src_in => lock_toggle,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => lock_toggle_74
+      );
 
-  xpm_cdc_single_inst4 : xpm_cdc_single
+  -- These change at the start of the input's vsync and are taken at a
+  -- lock_toggle, some thirty lines later
+  geo_in <= std_logic_vector(geo_lines) & std_logic_vector(geo_skip) & std_logic_vector(geo_active);
+  cdc_geo : xpm_cdc_array_single
+    generic map (
+      DEST_SYNC_FF => 2,
+      SRC_INPUT_REG => 0,
+      WIDTH => 33
+      )
     port map (
-        src_in => raster_0_writing,
-        src_clk => clock27,
-        dest_clk => clock74p22,
-        dest_out => raster_0_writing_74
-    );
-
+      src_in => geo_in,
+      src_clk => clock27,
+      dest_clk => clock74p22,
+      dest_out => geo_74
+      );
 
   rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.upscaler_ram32x1024 port map (
@@ -266,419 +368,370 @@ begin
       ena => write_en(i),
       wea => write_en(i),
       addra => std_logic_vector(write_addr),
-      dina(7 downto 0) => std_logic_vector(red_in),
-      dina(15 downto 8) => std_logic_vector(green_in),
-      dina(23 downto 16) => std_logic_vector(blue_in),
-      dina(31 downto 24) => (others => '0'),
+      dina => write_data,
 
       clkb => clock74p22,
       enb => raster_buf_active(i),
-      addrb => std_logic_vector(read_addr(i)),
+      addrb => std_logic_vector(read_addr),
       unsigned(doutb) => rdata(i)
       );
   end generate;
 
-  process (clock27, clock74p22) is
+  process (clock27) is
+    variable start : integer range -2048 to 4095;
+    variable px : unsigned(23 downto 0);
+    variable nf : unsigned(5 downto 0);
   begin
     if rising_edge(clock27) then
-      -- Tell fast side when a new frame starts
-      write_en <= (others => '0');
+
       vsync_in_prev <= vsync_in;
       hsync_in_prev <= hsync_in;
-      if hsync_in='0' and hsync_in_prev='1' then
-        write_addr <= to_unsigned(0,10);
-        raster_in_toggle <= not raster_in_toggle;
-        if write_raster /= 3 then
-          write_raster <= write_raster + 1;
-        else
-          write_raster <= 0;
-        end if;
-      elsif pixelvalid_in='1' then
-        write_addr <= write_addr + 1;
-        write_en(write_raster) <= not hold_image;
+      pixelvalid_in_prev <= pixelvalid_in;
+
+      -- A line's pixels into the buffer that was the line's when its first
+      -- pixel came, whatever hsync does meanwhile: cell 0 the first pixel
+      -- (narrow: a cell is written when the pixel to its right is here, as
+      -- the mix of the pixel before and that one; cell 0, the first pixel
+      -- itself, with the second. A cell is more than a pixel from the one
+      -- before, so there is never more than one to write, and now and then
+      -- none.)
+      write_en <= (others => '0');
+      px := blue_in & green_in & red_in;
+      in_prev <= px;
+      if narrow = '0' then
+        write_data(23 downto 0) <= std_logic_vector(px);
+      else
+        nf := narrow_acc(15 downto 10);
+        write_data(7 downto 0) <= std_logic_vector(mix64(in_prev(7 downto 0), px(7 downto 0), nf));
+        write_data(15 downto 8) <= std_logic_vector(mix64(in_prev(15 downto 8), px(15 downto 8), nf));
+        write_data(23 downto 16) <= std_logic_vector(mix64(in_prev(23 downto 16), px(23 downto 16), nf));
       end if;
-      if vsync_in='0' and vsync_in_prev='1' then
-        frame_start_toggle <= not frame_start_toggle;
-        write_raster <= 0;
-        write_addr <= to_unsigned(0,10);
+      if pixelvalid_in = '1' then
+        if pixelvalid_in_prev = '0' then
+          write_buf <= write_raster;
+          if narrow = '0' then
+            write_addr <= to_unsigned(0,10);
+            write_en(to_integer(write_raster)) <= not hold_image;
+          else
+            write_addr <= to_unsigned(1023,10);
+            narrow_acc <= to_unsigned(0,17);
+          end if;
+          if in_active = 0 then
+            in_first <= in_line;
+          end if;
+          in_active <= in_active + 1;
+        elsif narrow = '0' then
+          if write_addr /= 1023 then
+            write_addr <= write_addr + 1;
+            write_en(to_integer(write_buf)) <= not hold_image;
+          end if;
+        elsif narrow_acc(16) = '1' then
+          narrow_acc(16) <= '0';
+        elsif write_addr /= 1022 then
+          write_addr <= write_addr + 1;
+          write_en(to_integer(write_buf)) <= not hold_image;
+          if pal50_select = '1' then
+            narrow_acc <= narrow_acc + NARROW_STEP_PAL;
+          else
+            narrow_acc <= narrow_acc + NARROW_STEP_NTSC;
+          end if;
+        end if;
       end if;
 
-      if write_raster = 0 then
-        raster_0_writing <= '1';
-      else
-        raster_0_writing <= '0';
+      if hsync_in = '0' and hsync_in_prev = '1' then
+        in_line <= in_line + 1;
+        if in_line + 1 = geo_start then
+          write_raster <= "00";
+        else
+          write_raster <= write_raster + 1;
+        end if;
+        if in_line + 1 = geo_start + 3 then
+          lock_toggle <= not lock_toggle;
+        end if;
+      end if;
+
+      if vsync_in = '0' and vsync_in_prev = '1' then
+        -- The frame that ends here says where the next one's picture is: its
+        -- middle goes to the middle of the output, which is 0.48 of the
+        -- input's frame after the output's line 0 (360 lines of some 750).
+        -- (A frame of 750 lines or more is not one to upscale, and one
+        -- that is no frame at all comes by when the machine starts: the
+        -- figures stay as they were.)
+        if in_line >= 400 and in_line < ROWS and in_active <= in_line then
+          geo_lines <= in_line;
+          geo_active <= in_active;
+          start := to_integer(in_first) + to_integer(in_active) / 2
+                   - (to_integer(in_line) * 123) / 256;
+          if start < 1 or in_active = 0 then
+            start := 1;
+          end if;
+          geo_start <= to_unsigned(start,11);
+          if to_integer(in_first) > start then
+            geo_skip <= to_unsigned(to_integer(in_first) - start,11);
+          else
+            geo_skip <= to_unsigned(0,11);
+          end if;
+        end if;
+        in_line <= to_unsigned(0,11);
+        in_active <= to_unsigned(0,11);
       end if;
 
     end if;
+  end process;
 
+  process (clock74p22) is
+    variable restart : boolean;
+    variable mode : std_logic_vector(1 downto 0);
+    variable cur : std_logic_vector(1 downto 0);
+    variable m : integer range -4095 to 4095;
+    variable pi : integer range -8388608 to 8388607;
+    variable hsum : unsigned(16 downto 0);
+    variable pa : unsigned(23 downto 0);
+    variable hs_on : integer range 0 to 2047;
+    variable hs_off : integer range 0 to 2047;
+    variable pic_left : integer range 0 to 2047;
+    variable pic_width : integer range 0 to 2047;
+    variable h_step : integer range 0 to 65536;
+    variable last_cell : integer range 0 to 1023;
+    variable line_std : integer range 0 to 2047;
+  begin
     if rising_edge(clock74p22) then
-      -- Generate 720p video frame, and extract data
-      -- PAL:  1280 	720 	50 Hz 	37.5 kHz 	ModeLine "1280x720" 74.25 1280 1720 1760 1980 720 725 730 750 +HSync +VSync
-      --       i.e., 1980 x 750 = 1485000 clocks per frame
-      -- NTSC: 1280 	720 	60 Hz 	45 kHz 	        ModeLine "1280x720" 74.25 1280 1390 1430 1650 720 725 730 750 +HSync +VSync
-      --       i.e., 1650 x 750 = 1237500 clocks per frame
-      -- However, as our clock is 74.2268MHz instead of 74.25MHz, we will be a
-      -- few clocks short per frame.  The difference is about 464 or 387 clocks
-      -- per frame depending on whether we are in PAL or NTSC.  That's about 1
-      -- clock tick per 2 raster lines, but not exactly.
-      -- Another approach is to just use the VSYNC synchronisation to reset the
-      -- vertical counter, but not the horizontal counter. That way every 3
-      -- frames or so we will skip/insert a raster. If the number of rasters from
-      -- the VSYNC pulse in the output to the start of video is constant, it should
-      -- look fine. We'll try that.
 
-      if ntsc_inc_fine_74 /= last_ntsc_inc_fine_74 then
-        last_ntsc_inc_fine_74 <= ntsc_inc_fine_74;
-        if ntsc_fine < (4095-100) then
-          ntsc_fine <= ntsc_fine + 1;
-        else
-          ntsc_fine <= to_unsigned(4095,12);
-        end if;
-      end if;
-      if ntsc_dec_fine_74 /= last_ntsc_dec_fine_74 then
-        last_ntsc_dec_fine_74 <= ntsc_dec_fine_74;
-        if ntsc_fine > 100 then
-          ntsc_fine <= ntsc_fine - 1;
-        else
-          ntsc_fine <= to_unsigned(0,12);
-        end if;
-      end if;
-
-      if ntsc_inc_coarse_74 /= last_ntsc_inc_coarse_74 then
-        last_ntsc_inc_coarse_74 <= ntsc_inc_coarse_74;
-        if ntsc_coarse < 510 then
-          ntsc_coarse <= ntsc_coarse + 1;
-        end if;
-      end if;
-      if ntsc_dec_coarse_74 /= last_ntsc_dec_coarse_74 then
-        last_ntsc_dec_coarse_74 <= ntsc_dec_coarse_74;
-        if ntsc_coarse > 0 then
-          ntsc_coarse <= ntsc_coarse - 1;
-        end if;
-      end if;
-
-      if pal_inc_fine_74 /= last_pal_inc_fine_74 then
-        last_pal_inc_fine_74 <= pal_inc_fine_74;
-        if pal_fine < (255) then
-          pal_fine <= pal_fine + 1;
-        else
-          pal_fine <= to_unsigned(255,8);
-        end if;
-      end if;
-      if pal_dec_fine_74 /= last_pal_dec_fine_74 then
-        last_pal_dec_fine_74 <= pal_dec_fine_74;
-        if pal_fine > 0 then
-          pal_fine <= pal_fine - 1;
-        else
-          pal_fine <= to_unsigned(0,8);
-        end if;
-      end if;
-
-      if pal_inc_coarse_74 /= last_pal_inc_coarse_74 then
-        last_pal_inc_coarse_74 <= pal_inc_coarse_74;
-        if pal_coarse < 510 then
-          pal_coarse <= pal_coarse + 1;
-        end if;
-      end if;
-      if pal_dec_coarse_74 /= pal_dec_coarse_74 then
-        pal_dec_coarse_74 <= pal_dec_coarse_74;
-        if pal_coarse > 0 then
-          pal_coarse <= pal_coarse - 1;
-        end if;
-      end if;
-
-      rdata_buf0 <= rdata(0);
-      rdata_buf1 <= rdata(1);
-      rdata_buf2 <= rdata(2);
-      rdata_buf3 <= rdata(3);
-
-      if (target_raster = 0) or (target_raster = 3) then
-        reading_raster_0 <= '1';
+      if pal50_int = '1' then
+        hs_on := HSYNC_ON_PAL; hs_off := HSYNC_OFF_PAL;
+        pic_left := PIC_LEFT_PAL; pic_width := PIC_WIDTH_PAL; h_step := H_STEP_PAL;
+        line_std := LINE_PAL;
       else
-        reading_raster_0 <= '0';
+        hs_on := HSYNC_ON_NTSC; hs_off := HSYNC_OFF_NTSC;
+        pic_left := PIC_LEFT_NTSC; pic_width := PIC_WIDTH_NTSC; h_step := H_STEP_NTSC;
+        line_std := LINE_NTSC;
       end if;
-
-      -- Work out the mixture of the raster lines required
-      -- Sum of coefficients should always = 256
-      case target_raster is
-        when 0 =>
-          raster_buf_active(0) <= '1';
-          raster_buf_active(1) <= '1';
-          raster_buf_active(2) <= '0';
-          raster_buf_active(3) <= '0';
-          coeff0 <= 256 - to_integer(raster_phase(15 downto 8));
-          coeff1 <= to_integer(raster_phase(15 downto 8));
-          coeff2 <= 0;
-          coeff3 <= 0;
-        when 1 =>
-          raster_buf_active(0) <= '0';
-          raster_buf_active(1) <= '1';
-          raster_buf_active(2) <= '1';
-          raster_buf_active(3) <= '0';
-          coeff0 <= 0;
-          coeff1 <= 256 - to_integer(raster_phase(15 downto 8));
-          coeff2 <= to_integer(raster_phase(15 downto 8));
-          coeff3 <= 0;
-        when 2 =>
-          raster_buf_active(0) <= '0';
-          raster_buf_active(1) <= '0';
-          raster_buf_active(2) <= '1';
-          raster_buf_active(3) <= '1';
-          coeff0 <= 0;
-          coeff1 <= 0;
-          coeff2 <= 256 - to_integer(raster_phase(15 downto 8));
-          coeff3 <= to_integer(raster_phase(15 downto 8));
-        when 3 =>
-          raster_buf_active(0) <= '1';
-          raster_buf_active(1) <= '0';
-          raster_buf_active(2) <= '0';
-          raster_buf_active(3) <= '1';
-          coeff0 <= to_integer(raster_phase(15 downto 8));
-          coeff1 <= 0;
-          coeff2 <= 0;
-          coeff3 <= 256 - to_integer(raster_phase(15 downto 8));
-      end case;
-
-
-      if y_count = 725 then
-        vsync_up <= '1';
-      end if;
-      if y_count = 730 then
-        vsync_up <= '0';
-      end if;
-      if pal50_int='1' then
-        if x_count < (1980-2
-
-                      -- PAL FUDGE FACTORS PART 2:
-                      -- On MEGA65 core PAL 720p frame is almost exactly 1 576p raster line
-                      -- too long (even though in hdmi_test_r4 target that uses the same
-                      -- pixeldriver.vhdl frame generator this doesn't happen).  Why is a mystery.
-                      -- That we need to compensate a certainty. Thus the extra fudge factor
-                      -- here.
-                      -- With no fudge factor, one whole frame was slipped in
-                      -- ~12.5 seconds (~1 raster per frame)
-                      -- With -2, one whole frame is slipped in about 33.5 seconds
-                      -- (~ 0.37 rasters per frame).
-                      -- That is, each -1 here is reducing the rasters per
-                      -- frame by about 0.315.
-                      -- Thus a fudge factor of -3 should get it as close as possible
-                      -- at around (1-.945)x625 = 0.05 rasters per second, or slipping
-                      -- one whole frame every ~250 seconds.
-                      -- That's still not accurate
-                      -- enough. But we need to measure that in practice first,
-                      -- to confirm these measurements. If correct, then we can
-                      -- tweak how often we add leap cycles to rasters to trim
-                      -- it back to perfect alignment.
-                      -- Ok, with -3, it now takes 236 seconds to slip a whole
-                      -- frame.  That's a lot more slip still compared to what
-                      -- we expected, but as doing the timing for the higher
-                      -- speeds of frame slip is a bit tricky, that's okay.
-                      -- Anyway, 236 seconds / frame = 2.65 rasters per second
-                      -- = 0.0529 rasters per frame.
-                      -3 -- This is the extra fudge factor
-
-                      +raster_leap_cycle) then
-          x_count <= x_count + 1;
+      last_cell := SRC_LAST;
+      if narrow_74 = '1' then
+        -- the buffers' cells are the pixels out
+        if pal50_int = '1' then
+          pic_left := NARROW_LEFT_PAL; pic_width := NARROW_WIDTH_PAL;
         else
-          -- Add one cycle to every 286/750 rasters = 391/1024 rasters,
-          -- provided we reset the pal_raster_counter every frame
-          if vlock_en_74='1' then
-            pal_raster_counter <= pal_raster_counter + to_integer(pal_coarse);
-            if pal_raster_counter(10) /= last_pal_raster_counter then
-              raster_leap_cycle <= 1;
-              last_pal_raster_counter <= pal_raster_counter(10);
-            else
-              raster_leap_cycle <= frame_leap_cycle;
-              frame_leap_cycle <= 0;
-            end if;
-          else
-            raster_leap_cycle <= 0;
-            frame_leap_cycle <= 0;
-          end if;
-          x_count <= 0;
-          if y_count < (750-1) then
-            y_count <= y_count + 1;
-
-            raster_phase <= raster_phase + to_integer(raster_phase_add_pal);
-            if raster_phase(16) /= last_raster_phase then
-              last_raster_phase <= raster_phase(16);
-              if target_raster /= 3 then
-                target_raster <= target_raster + 1;
-              else
-                target_raster <= 0;
-              end if;
-            end if;
-          else
-            y_count <= 0;
-
-            -- Reset buffered raster selection at top of frame
-            coeff0 <= 256;
-            coeff1 <= 0;
-            coeff2 <= 0;
-            coeff3 <= 0;
-            raster_phase <= to_unsigned(0,17);
-            last_raster_phase <= '0';
-            target_raster <= first_read_raster_pal;
-
-            pal_raster_counter <= to_unsigned(0,11);
-            if vlock_en_74='1' then
-              -- Add one cycle for every 8/97 frames
-              if pal_frame_counter < 96 then
-                pal_frame_counter <= pal_frame_counter + 1;
-                pal_frame_counter_8 <= pal_frame_counter_8 + to_integer(pal_fine);
-                if pal_frame_counter_8(8) /= last_pal_frame_counter then
-                  frame_leap_cycle <= 1;
-                  last_pal_frame_counter <= pal_frame_counter_8(8);
-                end if;
-              else
-                pal_frame_counter <= to_unsigned(0,8);
-                pal_frame_counter_8 <= to_unsigned(0,9);
-              end if;
-            end if;
-          end if;
+          pic_left := NARROW_LEFT_NTSC; pic_width := NARROW_WIDTH_NTSC;
         end if;
-        if x_count = (1720 + raster_leap_cycle) then
-          hsync_up <= '1';
-        end if;
-        if x_count = (1760 + raster_leap_cycle) then
-          hsync_up <= '0';
-        end if;
+        h_step := 65536;
+        last_cell := pic_width - 1;
+      end if;
+
+      -------------------------------------------------------------------------
+      -- The frame: the standard's raster, ROWS lines of line_std clocks
+
+      pos_count <= pos_count + 1;
+      if x_count < line_std - 1 then
+        x_count <= x_count + 1;
       else
-        -- NTSC
-        if x_count < (1654-1+raster_leap_cycle) then
-          x_count <= x_count + 1;
+        x_count <= 0;
+        if y_count < ROWS - 1 then
+          y_count <= y_count + 1;
+          -- The next line of the output is v_lines / ROWS of a line of the
+          -- input further down
+          if v_acc + v_lines >= ROWS then
+            v_acc <= v_acc + v_lines - ROWS;
+            src_line <= src_line + 1;
+            target_raster <= target_raster + 1;
+          else
+            v_acc <= v_acc + v_lines;
+          end if;
         else
-          -- Add leap cycles to fix NTSC frame VLOCK
-          if vlock_en_74='1' then
-            ntsc_raster_counter <= ntsc_raster_counter + to_integer(ntsc_coarse);
-            if ntsc_raster_counter(10) /= last_ntsc_raster_counter then
-              raster_leap_cycle <= 1;
-              last_ntsc_raster_counter <= ntsc_raster_counter(10);
-            else
-              raster_leap_cycle <= frame_leap_cycle;
-              frame_leap_cycle <= 0;
-            end if;
-          else
-            raster_leap_cycle <= 0;
-            frame_leap_cycle <= 0;
-          end if;
-          x_count <= 0;
-          if y_count < (750-1) then
-            y_count <= y_count + 1;
-            raster_phase <= raster_phase + to_integer(raster_phase_add_ntsc);
-            if raster_phase(16) /= last_raster_phase then
-              last_raster_phase <= raster_phase(16);
-              if target_raster /= 3 then
-                target_raster <= target_raster + 1;
-              else
-                target_raster <= 0;
-              end if;
-            end if;
-          else
-            y_count <= 0;
-
-            -- Reset buffered raster selection at top of frame
-            coeff0 <= 256;
-            coeff1 <= 0;
-            coeff2 <= 0;
-            coeff3 <= 0;
-            raster_phase <= to_unsigned(0,17);
-            last_raster_phase <= '0';
-            target_raster <= first_read_raster_ntsc;
-
-            -- XXX tweak NTSC VLOCK timing to have one more raster with a leap
-            -- cycle, because for somereason we can't get coarse+fine adjustment
-            -- to otherwise get this exactly right.
-            ntsc_raster_counter <= (others => '1');
-            if vlock_en_74='1' then
-              -- Add one cycle for every 1,141 / 2,619 frames
-              if ntsc_frame_counter < 2619 then
-                ntsc_frame_counter <= ntsc_frame_counter + 1;
-                ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
-                if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
-                  frame_leap_cycle <= 2;
-                  last_ntsc_frame_counter <= ntsc_frame_counter_1141(12);
-                end if;
-              else
-                ntsc_frame_counter <= to_unsigned(0,12);
-                ntsc_frame_counter_1141 <= to_unsigned(0,13);
-              end if;
-            end if;
-          end if;
-        end if;
-        if x_count = (1390) then
-          hsync_up <= '1';
-        end if;
-        if x_count = (1430 + raster_leap_cycle) then
-          hsync_up <= '0';
+          y_count <= 0;
+          pos_count <= to_unsigned(0,22);
+          v_acc <= 0;
+          src_line <= 0;
+          target_raster <= "00";
         end if;
       end if;
-      if x_count < 1280 then
+
+      if x_count = hs_on then
+        hsync_up <= '1';
+        if y_count + VSYNC_ON_BEFORE = ROWS then
+          vsync_up <= '1';
+        end if;
+        if y_count + VSYNC_OFF_BEFORE = ROWS then
+          vsync_up <= '0';
+        end if;
+      end if;
+      if x_count = hs_off then
+        hsync_up <= '0';
+      end if;
+      if x_count < OUT_WIDTH and y_count < OUT_HEIGHT then
         pixelvalid_up <= '1';
       else
         pixelvalid_up <= '0';
       end if;
-      if frame_start_toggle_74 /= last_frame_start_toggle then
-        last_frame_start_toggle <= frame_start_toggle_74;
+
+      -------------------------------------------------------------------------
+      -- The lock
+
+      -- A lock_toggle, taken over three clocks. In the first, what the
+      -- counters say:
+      lock_step <= "00";
+      if lock_toggle_74 /= lock_toggle_last then
+        lock_toggle_last <= lock_toggle_74;
         upscale_en_int <= upscale_en_74;
-        if upscale_en_int = '0' or pal50_int /= pal50_select_74 then
-          -- Until upscaler is enabled, we keep resetting the frame start.
-          -- This is so that if PAL and NTSC are switched, we don't have
-          -- big problems with the synchronisation getting out of step with
-          -- the input source.
+        running <= upscale_en_74 or hd_en_74;
+        v_lines <= to_integer(unsigned(geo_74(32 downto 22)));
+        v_skip <= to_integer(unsigned(geo_74(21 downto 11)));
+        v_active <= to_integer(unsigned(geo_74(10 downto 0)));
+        lock_pos <= pos_count;
+        lock_was_on <= running;
+        lock_step <= "01";
+      end if;
+
+      -- In the second, how far the output is past where it should be (or
+      -- short of it)
+      if lock_step = "01" then
+        if lock_pos <= to_unsigned(ROWS * line_std / 2,22) then
+          lock_err <= to_integer(lock_pos) - LOCK_X;
+        else
+          lock_err <= to_integer(lock_pos) - ROWS * line_std - LOCK_X;
+        end if;
+        lock_step <= "10";
+      end if;
+
+      -- In the third, what is done about it: the clock trimmed, and when the
+      -- output is far out (it has just been switched on, the standard or
+      -- the clock has changed) a jump to where it should be
+      if lock_step = "10" then
+        restart := false;
+        mode(1) := not pal50_select_74;
+        if v_lines mod 2 = 1 then mode(0) := '1'; else mode(0) := '0'; end if;
+        -- (a setting asked for by two frames running: the frame in which
+        -- the standard changes has a line count of neither, an odd one
+        -- included, and every change stops the clock - a display has to
+        -- see that once, not twice)
+        clk_mode_seen <= mode;
+        cur := clk_mode_i;
+        if mode /= clk_mode_i and mode = clk_mode_seen then
+          cur := mode;
+          -- (the clock stops while it changes, and the output is far out
+          -- when it is back: the jump then)
+          clk_mode_i <= mode;
+          restart := true;
+        end if;
+        if pal50_int /= pal50_select_74 then
           pal50_int <= pal50_select_74;
-          x_count <= 0;
-          -- so that VBLANK periods align
-          if pal50_select_74='1' then
-            y_count <= 720;
-          else
-            y_count <= 725;
-          end if;
+          restart := true;
+        elsif lock_was_on = '0' then
+          restart := true;
+        elsif lock_err > LOCK_JUMP or lock_err < -LOCK_JUMP then
+          restart := true;
+        end if;
+
+        -- PI on where the output is, from the clock's seed after a jump
+        if restart then
+          ps_i <= PS_SEED(to_integer(unsigned(cur)));
+          ps_r <= to_signed(PS_SEED(to_integer(unsigned(cur))),22);
+        else
+          if lock_err > 4095 then m := 4095; elsif lock_err < -4095 then m := -4095; else m := lock_err; end if;
+          pi := ps_i + PS_KI * m;
+          if pi > PS_RATE_MAX then pi := PS_RATE_MAX; elsif pi < -PS_RATE_MAX then pi := -PS_RATE_MAX; end if;
+          ps_i <= pi;
+          pi := pi + PS_KP * m;
+          if pi > PS_RATE_MAX then pi := PS_RATE_MAX; elsif pi < -PS_RATE_MAX then pi := -PS_RATE_MAX; end if;
+          ps_r <= to_signed(pi,22);
+        end if;
+        ps_t <= not ps_t;
+        -- pragma translate_off
+        report "lock: err " & integer'image(lock_err) & " rate " & integer'image(to_integer(ps_r)) & " i " & integer'image(ps_i);
+        -- pragma translate_on
+
+        if restart then
+          -- (two clocks after the lock_toggle)
+          x_count <= LOCK_X + 2;
+          y_count <= 0;
+          pos_count <= to_unsigned(LOCK_X + 2,22);
+          v_acc <= 0;
+          src_line <= 0;
+          target_raster <= "00";
         end if;
       end if;
-      if x_count < 280 then
-        -- Left shoulder
-        red_up <= (others => '0');
-        green_up <= (others => '0');
-        blue_up <= (others => '0');
-        -- Avoid simultaneous read/write glitches on the raster buffer BRAMs
-        -- by pointing only the ones we are reading from to the correct cell.
-        -- Idle ones point to end of BRAM, which we don't ever write to.
-        read_addr <= (others => (others => '1'));
-        read_addr(target_raster) <= to_unsigned(0,10);
-        read_addr((target_raster + 1) mod 4) <= to_unsigned(0,10);
-      elsif (x_count < 1000) and (y_count < 720) then
-        -- Work out which X position we need to read from the raster buffers
-        read_addr(target_raster) <= to_unsigned(x_count - ((1280 - 720)/2),10);
-        read_addr((target_raster +1) mod 4) <= to_unsigned(x_count - ((1280 - 720)/2),10);
-        -- Active pixel: Do mix of the rasters
-        red_up <= to_unsigned(to_integer(rdata_buf0(7 downto 0)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf1(7 downto 0)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(7 downto 0)) * coeff2,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf3(7 downto 0)) * coeff3,16)(15 downto 8);
-        green_up <= to_unsigned(to_integer(rdata_buf0(15 downto 8)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf1(15 downto 8)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(15 downto 8)) * coeff2,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf3(15 downto 8)) * coeff3,16)(15 downto 8);
-        blue_up <= to_unsigned(to_integer(rdata_buf0(23 downto 16)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf1(23 downto 16)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf3(23 downto 16)) * coeff3,16)(15 downto 8);
+
+      -------------------------------------------------------------------------
+      -- The picture
+
+      -- The two raster buffers that hold the input's line and the one after
+      -- it, and how much of the second
+      for i in 0 to 3 loop
+        if i = to_integer(target_raster) or i = to_integer(target_raster + 1) then
+          raster_buf_active(i) <= '1';
+        else
+          raster_buf_active(i) <= '0';
+        end if;
+      end loop;
+      if src_line >= v_skip and src_line < v_skip + v_active then
+        v_show <= '1';
       else
-        -- Right shoulder / fly back
-        red_up <= (others => '0');
-        green_up <= (others => '0');
-        blue_up <= (others => '0');
-
+        v_show <= '0';
+      end if;
+      if src_line + 1 = v_skip + v_active then
+        -- (the last line with pixels has nothing after it)
+        coeff1 <= 0;
+      elsif (v_acc * 175) / 512 > 255 then
+        coeff1 <= 255;
+      else
+        coeff1 <= (v_acc * 175) / 512;
       end if;
 
-      -- Blank above and below active area of image
-      if pal50_int='1' and ((y_count < 20) or (y_count > (720 - 15))) then
-        red_up <= (others => '0');
-        green_up <= (others => '0');
-        blue_up <= (others => '0');
+      -- Along the line: for each pixel out, the pixel in that is at or left
+      -- of it, and how far past that it is. The cell asked for is the one to
+      -- the right of that; the one at or left of it was asked for before,
+      -- the first one a clock ahead of the line.
+      p_valid(0) <= '0';
+      if x_count = pic_left - H_PIPELINE then
+        read_addr <= to_unsigned(0,10);
+        h_pos <= to_unsigned(0,10);
+        h_frac <= to_unsigned(0,16);
+        h_new <= '1';
+        h_left <= pic_width;
+        h_run <= '1';
+      elsif h_run = '1' then
+        if h_pos >= last_cell then
+          read_addr <= to_unsigned(last_cell,10);
+        else
+          read_addr <= h_pos + 1;
+        end if;
+        p_valid(0) <= '1';
+        p_new(0) <= h_new;
+        p_frac(0) <= h_frac(15 downto 10);
+        hsum := ('0' & h_frac) + h_step;
+        h_frac <= hsum(15 downto 0);
+        h_new <= hsum(16);
+        if hsum(16) = '1' then
+          h_pos <= h_pos + 1;
+        end if;
+        if h_left = 1 then
+          h_run <= '0';
+        end if;
+        h_left <= h_left - 1;
       end if;
-      if pal50_int='0' and ((y_count < 22) or (y_count > (720 - 22))) then
+      p_valid(1 to 3) <= p_valid(0 to 2);
+      p_new(1 to 3) <= p_new(0 to 2);
+      p_frac(1 to 3) <= p_frac(0 to 2);
+
+      rdata_a <= rdata(to_integer(target_raster))(23 downto 0);
+      rdata_b <= rdata(to_integer(target_raster + 1))(23 downto 0);
+
+      vmix(7 downto 0) <= mix256(rdata_a(7 downto 0), rdata_b(7 downto 0), coeff1);
+      vmix(15 downto 8) <= mix256(rdata_a(15 downto 8), rdata_b(15 downto 8), coeff1);
+      vmix(23 downto 16) <= mix256(rdata_a(23 downto 16), rdata_b(23 downto 16), coeff1);
+
+      vmix_prev <= vmix;
+      if p_valid(3) = '1' and v_show = '1' and y_count < OUT_HEIGHT then
+        if p_new(3) = '1' then
+          pa := vmix_prev;
+        else
+          pa := h_a;
+        end if;
+        h_a <= pa;
+        red_up <= mix64(pa(7 downto 0), vmix(7 downto 0), p_frac(3));
+        green_up <= mix64(pa(15 downto 8), vmix(15 downto 8), p_frac(3));
+        blue_up <= mix64(pa(23 downto 16), vmix(23 downto 16), p_frac(3));
+      else
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
@@ -686,6 +739,14 @@ begin
 
     end if;
   end process;
+
+  hd_active <= running;
+  hd_pixelvalid <= pixelvalid_up;
+  hd_red <= red_up;
+  hd_green <= green_up;
+  hd_blue <= blue_up;
+  hd_hsync <= hsync_up;
+  hd_vsync <= vsync_up;
 
   -- Export normal or upscaled image
   process (red_in, green_in, blue_in,
@@ -704,4 +765,3 @@ begin
   end process;
 
 end hundertwasser;
-
