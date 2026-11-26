@@ -554,6 +554,9 @@ void disassemble_instruction(FILE *f, struct instruction_log *log)
     fprintf(f, "EOR  ");
     disassemble_zpx(f, log);
     break;
+  case 0x42:
+    fprintf(f, "NEG");
+    break;
   case 0x45:
     fprintf(f, "EOR  ");
     disassemble_zp(f, log);
@@ -2466,6 +2469,12 @@ bool stack_push(struct cpu *cpu, unsigned char v)
   return true;
 }
 
+// NEG NEG prefix: the instruction operates on Q (A, X, Y, Z as one 32-bit register)
+bool quad_prefix(void)
+{
+  return cpulog_len > 2 && cpulog[cpulog_len - 2]->bytes[0] == 0x42 && cpulog[cpulog_len - 3]->bytes[0] == 0x42;
+}
+
 bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
 {
   int v;
@@ -2928,6 +2937,12 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     log->len = 2;
     cpu->regs.pc += 2;
     break;
+  case 0x42: // NEG
+    log->len = 1;
+    cpu->regs.pc += 1;
+    cpu->regs.a = -cpu->regs.a;
+    update_nz(cpu->regs.a);
+    break;
   case 0x45: // EOR $nn
     v = read_memory(cpu, addr_zp(cpu, log));
     v ^= cpu->regs.a;
@@ -3374,6 +3389,11 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     log->len = 3;
     cpu->regs.pc += 3;
     MEM_WRITE16(cpu, addr_abs(log), cpu->regs.a);
+    if (quad_prefix()) { // STQ $xxxx
+      MEM_WRITE16(cpu, addr_abs(log) + 1, cpu->regs.x);
+      MEM_WRITE16(cpu, addr_abs(log) + 2, cpu->regs.y);
+      MEM_WRITE16(cpu, addr_abs(log) + 3, cpu->regs.z);
+    }
     break;
   case 0x8e: // STX $xxxx
     log->len = 3;
@@ -3561,6 +3581,13 @@ bool execute_instruction(struct cpu *cpu, struct instruction_log *log)
     cpu->regs.pc += 3;
     cpu->regs.a = read_memory(cpu, addr_abs(log));
     update_nz(cpu->regs.a);
+    if (quad_prefix()) { // LDQ $xxxx
+      cpu->regs.x = read_memory(cpu, addr_abs(log) + 1);
+      cpu->regs.y = read_memory(cpu, addr_abs(log) + 2);
+      cpu->regs.z = read_memory(cpu, addr_abs(log) + 3);
+      cpu->regs.flag_n = cpu->regs.z >= 0x80;
+      cpu->regs.flag_z = !(cpu->regs.a | cpu->regs.x | cpu->regs.y | cpu->regs.z);
+    }
     break;
   case 0xae: // LDX $xxxx
     log->len = 3;

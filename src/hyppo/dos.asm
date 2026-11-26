@@ -37,7 +37,7 @@ dos_and_process_trap_table:
         !16 trap_dos_getcurrentdrive          ;; appears out-of-order (is far below)
         !16 trap_dos_selectdrive
         !16 trap_dos_getdisksize              ;; not currently implemented
-        !16 trap_dos_getcwd                   ;; not currently implemented
+        !16 trap_dos_getcwd
         !16 trap_dos_chdir
         !16 trap_dos_mkdir                    ;; not currently implemented
 
@@ -82,7 +82,7 @@ dos_and_process_trap_table:
         !16 trap_dos_d81attach1               ;; DOS 1.2 compatibility - DEPRECATED in favor of trap_dos_attach
         !16 trap_dos_get_proc_desc
         !16 trap_dos_attach
-        !16 invalid_subfunction
+        !16 trap_dos_restorecwd
         !16 invalid_subfunction
 
         ;; $50 - $5E
@@ -839,6 +839,60 @@ tdcd1:
 
 ;;         ========================
 
+trap_dos_getcwd:
+
+        ;; Return the working directory of the current disk as the
+        ;; cluster number where the directory starts.
+        ;; OUTPUT: Q (A = bits 0-7, X = bits 8-15, Y = bits 16-23, Z = bits 24-31)
+        ;; (trap_dos_getcurrentdrive returns the disk)
+
+        ldq dos_disk_cwd_cluster
+        stq hypervisor_a                ;; hypervisor_a, _x, _y, _z
+        jmp return_from_trap_with_success
+
+;;         ========================
+
+trap_dos_restorecwd:
+
+        ;; Return to the disk and working directory that were current when
+        ;; the Ethernet remote trap changed to the root directory. The caller
+        ;; is responsible for checking that the directory still exists.
+
+        ldx dos_saved_cwd_disk
+        jsr dos_set_current_disk
+        bcc @failed
+
+        ldq dos_saved_cwd_cluster
+        stq dos_disk_cwd_cluster
+
+        ;; Cluster 0 means the root directory (as in dos_chdir)
+        lda dos_saved_cwd_cluster+0
+        ora dos_saved_cwd_cluster+1
+        ora dos_saved_cwd_cluster+2
+        ora dos_saved_cwd_cluster+3
+        bne +
+        jsr dos_cdroot_current_disk_already_set
++
+        jmp return_from_trap_with_success_and_zero_accumulator
+
+@failed:
+        lda dos_error_code
+        jmp return_from_trap_with_failure
+
+;;         ========================
+
+dos_save_cwd:
+
+        ;; Remember the current disk and working directory for trap_dos_restorecwd
+
+        lda dos_disk_current_disk
+        sta dos_saved_cwd_disk
+        ldq dos_disk_cwd_cluster
+        stq dos_saved_cwd_cluster
+        rts
+
+;;         ========================
+
 
 trap_dos_openfile:
 
@@ -1021,7 +1075,6 @@ td81we1:
 ;; BG: the following are placeholders for the future development
 
 trap_dos_getdisksize:
-trap_dos_getcwd:
 trap_dos_mkdir:
 trap_dos_rmdir:
 trap_dos_seekfile:
@@ -2152,6 +2205,15 @@ dos_clearall:
 dca1:   sta dos_disk_table,x
         inx
         bne dca1
+
+        ;; Forget the saved working directory: after an SD card reset or a
+        ;; card change its cluster could point anywhere on the new card, and
+        ;; trap_dos_restorecwd then returns to the root directory (cluster 0)
+        sta dos_saved_cwd_disk
+        sta dos_saved_cwd_cluster+0
+        sta dos_saved_cwd_cluster+1
+        sta dos_saved_cwd_cluster+2
+        sta dos_saved_cwd_cluster+3
         sec
         rts
 

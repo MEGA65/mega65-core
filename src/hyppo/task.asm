@@ -194,7 +194,12 @@ ethernet_remote_trap:
         ldy #>txt_ETHLOAD
         jsr dos_setname
 
+        ;; Remember the working directory, so that the remote client can
+        ;; return to it with trap_dos_restorecwd
+        jsr dos_save_cwd
+
         ;; bring directory back to root, just in-case user loaded a .d81 from another directory
+        ;; (etherload's ethlets rely on this when they attach a disk image or load a ROM)
         ldx dos_default_disk
         jsr dos_cdroot
 
